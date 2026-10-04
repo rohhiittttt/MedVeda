@@ -22,6 +22,8 @@ export interface HospitalCandidate {
   readonly verificationNotes: string;
   readonly contactNumber: string | null;
   readonly sources: readonly HospitalSource[];
+  readonly latitude?: number;
+  readonly longitude?: number;
 }
 
 export interface HospitalSearchRequest {
@@ -29,6 +31,8 @@ export interface HospitalSearchRequest {
   readonly requiredSpecialty: string;
   readonly emergencyRequired: boolean;
   readonly searchQueries: readonly string[];
+  readonly latitude?: number;
+  readonly longitude?: number;
 }
 
 export interface HospitalSearchResponse {

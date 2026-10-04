@@ -23,8 +23,8 @@ import {
 } from '../../domain/rules/dashboard-aggregation.rules.ts';
 import type { InMemoryFacilityDashboardStore } from '../../infrastructure/cache/facility-dashboard.store.ts';
 import type { InMemoryTeleconsultStore } from '../../infrastructure/cache/teleconsult.cache.ts';
-import type { InMemoryReferralStore } from '../../infrastructure/cache/referral.store.ts';
 import type { InMemoryFollowUpStore } from '../../infrastructure/cache/followup.store.ts';
+import type { SqliteFollowUpStore } from '../../infrastructure/db/sqlite-followup.store.ts';
 import type { InMemoryRecordsStore } from '../../infrastructure/cache/records.store.ts';
 import type { InMemoryMedicineDiagnosticStore } from '../../infrastructure/cache/medicine-diagnostic.store.ts';
 
@@ -32,7 +32,7 @@ export class ManageFacilityDashboardUseCase {
   public dashboardStore: InMemoryFacilityDashboardStore;
   public teleconsultStore?: InMemoryTeleconsultStore;
   public referralStore?: InMemoryReferralStore;
-  public followUpStore?: InMemoryFollowUpStore;
+  public followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any;
   public recordsStore?: InMemoryRecordsStore;
   public medicineStore?: InMemoryMedicineDiagnosticStore;
 
@@ -40,7 +40,7 @@ export class ManageFacilityDashboardUseCase {
     dashboardStore: InMemoryFacilityDashboardStore,
     teleconsultStore?: InMemoryTeleconsultStore,
     referralStore?: InMemoryReferralStore,
-    followUpStore?: InMemoryFollowUpStore,
+    followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any,
     recordsStore?: InMemoryRecordsStore,
     medicineStore?: InMemoryMedicineDiagnosticStore
   ) {
@@ -146,24 +146,31 @@ export class ManageFacilityDashboardUseCase {
 
     // Feature 04: High Risk Patients List
     const followUpPlans = this.followUpStore ? await this.followUpStore.listPlans() : [];
-    const highRiskPatients = followUpPlans.map((p) => {
-      const riskHistory = (this.followUpStore as any)?.riskHistory?.get(p.patientId) || [];
-      const lastRisk = riskHistory[riskHistory.length - 1];
-      const riskScore = lastRisk ? lastRisk.riskScore : (p.instructions.includes('Cardiac') ? 78 : 65);
-      const riskLevel = riskScore >= 75 ? 'HIGH' : riskScore >= 50 ? 'MEDIUM' : 'LOW';
+    const highRiskPatients = await Promise.all(
+      followUpPlans.map(async (p) => {
+        let riskHistory: any[] = [];
+        if (this.followUpStore?.getPatientRiskHistory) {
+          riskHistory = await this.followUpStore.getPatientRiskHistory(p.patientId);
+        } else if ((this.followUpStore as any)?.riskHistory?.get) {
+          riskHistory = (this.followUpStore as any).riskHistory.get(p.patientId) || [];
+        }
+        const lastRisk = riskHistory[riskHistory.length - 1];
+        const riskScore = lastRisk ? lastRisk.riskScore : (p.instructions.includes('Cardiac') ? 78 : 65);
+        const riskLevel = riskScore >= 75 ? 'HIGH' : riskScore >= 50 ? 'MEDIUM' : 'LOW';
 
-      return {
-        patientId: p.patientId,
-        patientName: p.patientName,
-        phone: p.patientPhone,
-        riskScore,
-        riskLevel,
-        primaryCondition: p.instructions || 'Hypertension & CAD Monitoring',
-        assignedWorkerName: p.frontlineWorkerName,
-        lastFollowUpDate: lastRisk?.assessedAt || p.createdAt || p.startDate || new Date().toISOString(),
-        trend: lastRisk ? lastRisk.trend : 'STABLE'
-      };
-    });
+        return {
+          patientId: p.patientId,
+          patientName: p.patientName,
+          phone: p.patientPhone,
+          riskScore,
+          riskLevel,
+          primaryCondition: p.instructions || 'Hypertension & CAD Monitoring',
+          assignedWorkerName: p.frontlineWorkerName,
+          lastFollowUpDate: lastRisk?.assessedAt || lastRisk?.createdAt || p.createdAt || p.startDate || new Date().toISOString(),
+          trend: lastRisk ? lastRisk.trend : 'STABLE'
+        };
+      })
+    );
 
     // Feature 03: Referrals
     const allReferrals = this.referralStore?.findAll() || [];

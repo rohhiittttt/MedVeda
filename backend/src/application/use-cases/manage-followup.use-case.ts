@@ -7,12 +7,12 @@ import type {
   CreatePlanDto,
   SubmitReportDto
 } from '../../domain/models/followup.model.ts';
-import type { InMemoryFollowUpStore } from '../../infrastructure/cache/followup.store.ts';
+import type { SqliteFollowUpStore } from '../../infrastructure/db/sqlite-followup.store.ts';
 
 export class ManageFollowUpUseCase {
-  private store: InMemoryFollowUpStore;
+  private store: SqliteFollowUpStore;
 
-  constructor(store: InMemoryFollowUpStore) {
+  constructor(store: SqliteFollowUpStore) {
     this.store = store;
   }
 
@@ -37,12 +37,26 @@ export class ManageFollowUpUseCase {
     return this.store.getPlan(planId);
   }
 
-  public async listPlans(): Promise<FollowUpPlan[]> {
-    return this.store.listPlans();
+  public async listPlans(filters?: {
+    facilityId?: string;
+    doctorId?: string;
+    workerId?: string;
+    patientId?: string;
+  }): Promise<FollowUpPlan[]> {
+    return this.store.listPlans(filters);
   }
 
-  public async listWorkerTasks(workerId?: string, status?: string): Promise<FollowUpTask[]> {
-    return this.store.listWorkerTasks(workerId, status);
+  public async listWorkerTasks(workerId?: string, status?: string, patientId?: string): Promise<FollowUpTask[]> {
+    return this.store.listTasks({ workerId, status, patientId });
+  }
+
+  public async listTasks(filters?: {
+    workerId?: string;
+    status?: string;
+    patientId?: string;
+    facilityId?: string;
+  }): Promise<FollowUpTask[]> {
+    return this.store.listTasks(filters);
   }
 
   public async submitReport(dto: SubmitReportDto): Promise<{
@@ -67,19 +81,40 @@ export class ManageFollowUpUseCase {
     return this.store.getPatientReports(patientId);
   }
 
+  public async listReports(filters?: {
+    workerId?: string;
+    patientId?: string;
+    facilityId?: string;
+  }): Promise<FollowUpReport[]> {
+    return this.store.listReports(filters);
+  }
+
   public async getPatientRiskHistory(patientId: string): Promise<RiskHistoryItem[]> {
     return this.store.getPatientRiskHistory(patientId);
   }
 
-  public async getHighRiskPatients() {
-    return this.store.getHighRiskPatients();
+  public async getHighRiskPatients(filters?: {
+    facilityId?: string;
+    doctorId?: string;
+    workerId?: string;
+    patientId?: string;
+  }) {
+    return this.store.getHighRiskPatients(filters);
   }
 
-  public async getFacilityAlerts(facilityId?: string): Promise<FacilityAlert[]> {
-    return this.store.getFacilityAlerts(facilityId);
+  public async getFacilityAlerts(filters?: {
+    facilityId?: string;
+    doctorId?: string;
+    patientId?: string;
+  }): Promise<FacilityAlert[]> {
+    return this.store.getFacilityAlerts(filters);
   }
 
   public async acknowledgeAlert(alertId: string): Promise<FacilityAlert | null> {
     return this.store.acknowledgeAlert(alertId);
+  }
+
+  public async getFilterOptions() {
+    return this.store.getFilterOptions();
   }
 }

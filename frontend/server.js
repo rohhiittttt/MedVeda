@@ -9,16 +9,40 @@ import { RankFacilitiesUseCase } from '../backend/src/application/use-cases/rank
 import { CareNavigationPipelineUseCase } from '../backend/src/application/use-cases/pipeline.use-case.ts';
 import { InMemoryHospitalCacheAdapter } from '../backend/src/infrastructure/cache/in-memory-hospital.cache.ts';
 import { GoogleSearchMcpAdapter } from '../backend/src/infrastructure/mcp/google-search-mcp.adapter.ts';
+import { GeminiHospitalDiscoveryAdapter } from '../backend/src/infrastructure/mcp/gemini-search-grounding.adapter.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from root .env if present
+try {
+  const envPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(envPath)) {
+    const envLines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const k = trimmed.substring(0, eqIdx).trim();
+        const v = trimmed.substring(eqIdx + 1).trim();
+        if (!process.env[k]) process.env[k] = v;
+      }
+    }
+  }
+} catch (e) {
+  console.warn('Could not parse .env file:', e);
+}
 
 import { InMemoryTeleconsultStore } from '../backend/src/infrastructure/cache/teleconsult.cache.ts';
 import { TeleconsultBookingUseCase } from '../backend/src/application/use-cases/teleconsult-booking.use-case.ts';
 import { TeleconsultQueueUseCase } from '../backend/src/application/use-cases/teleconsult-queue.use-case.ts';
 import { TeleconsultSessionUseCase } from '../backend/src/application/use-cases/teleconsult-session.use-case.ts';
 
-import { InMemoryReferralStore } from '../backend/src/infrastructure/cache/referral.store.ts';
+import { SqliteReferralStore } from '../backend/src/infrastructure/db/sqlite-referral.store.ts';
 import { ManageReferralUseCase } from '../backend/src/application/use-cases/manage-referral.use-case.ts';
 
-import { InMemoryFollowUpStore } from '../backend/src/infrastructure/cache/followup.store.ts';
+import { SqliteFollowUpStore } from '../backend/src/infrastructure/db/sqlite-followup.store.ts';
 import { ManageFollowUpUseCase } from '../backend/src/application/use-cases/manage-followup.use-case.ts';
 
 import { InMemoryRecordsStore } from '../backend/src/infrastructure/cache/records.store.ts';
@@ -32,9 +56,6 @@ import { ManageFacilityDashboardUseCase } from '../backend/src/application/use-c
 
 import { InMemorySchemeStore } from '../backend/src/infrastructure/cache/scheme.store.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -42,7 +63,8 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const triageUseCase = new AssessTriageUseCase();
 const cacheAdapter = new InMemoryHospitalCacheAdapter();
 const searchAdapter = new GoogleSearchMcpAdapter();
-const researchUseCase = new ResearchHospitalsUseCase(searchAdapter, cacheAdapter);
+const geminiAdapter = new GeminiHospitalDiscoveryAdapter();
+const researchUseCase = new ResearchHospitalsUseCase(searchAdapter, cacheAdapter, geminiAdapter);
 const rankUseCase = new RankFacilitiesUseCase();
 const pipelineUseCase = new CareNavigationPipelineUseCase(triageUseCase, researchUseCase, rankUseCase);
 
@@ -52,12 +74,12 @@ const bookingUseCase = new TeleconsultBookingUseCase(teleconsultStore);
 const queueUseCase = new TeleconsultQueueUseCase(teleconsultStore);
 const sessionUseCase = new TeleconsultSessionUseCase(teleconsultStore);
 
-// Initialize Referral Store & Use Case (Feature 03)
-const referralStore = new InMemoryReferralStore();
+// Initialize Referral Store & Use Case (Feature 03: Persistent SQLite)
+const referralStore = new SqliteReferralStore();
 const referralUseCase = new ManageReferralUseCase(referralStore);
 
-// Initialize Follow-Up Store & Use Case (Feature 04)
-const followUpStore = new InMemoryFollowUpStore();
+// Initialize Follow-Up Store & Use Case (Feature 04: Persistent SQLite)
+const followUpStore = new SqliteFollowUpStore();
 const followUpUseCase = new ManageFollowUpUseCase(followUpStore);
 
 // Initialize Interoperable Health Records Store & Use Case (Feature 05)
@@ -133,6 +155,16 @@ const server = http.createServer(async (req, res) => {
       const normPath = reqPath.replace(/^\/api\/v1\//, '/api/');
 
       // === FEATURE 01: SMART CARE NAVIGATOR ENDPOINTS ===
+      if ((normPath === '/api/geocode/reverse') && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const lat = typeof body.latitude === 'number' ? body.latitude : parseFloat(body.latitude);
+        const lng = typeof body.longitude === 'number' ? body.longitude : parseFloat(body.longitude);
+        const geoResult = await geminiAdapter.reverseGeocode(lat, lng);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: geoResult }));
+        return;
+      }
+
       if ((normPath === '/api/navigate/pipeline') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const result = await pipelineUseCase.execute(body);
@@ -304,6 +336,28 @@ const server = http.createServer(async (req, res) => {
       }
 
       // === FEATURE 03: SMART REFERRAL MANAGEMENT ENDPOINTS ===
+      // Discover all nearby hospitals across India based on location/GPS
+      if (normPath === '/api/referrals/nearby-hospitals' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const location = body.location || 'India';
+        const latitude = typeof body.latitude === 'number' ? body.latitude : (body.latitude ? parseFloat(body.latitude) : undefined);
+        const longitude = typeof body.longitude === 'number' ? body.longitude : (body.longitude ? parseFloat(body.longitude) : undefined);
+        const specialty = body.specialty || 'General Medicine';
+        const emergencyRequired = Boolean(body.emergencyRequired);
+
+        const facilities = await geminiAdapter.discoverHospitals({
+          location,
+          latitude,
+          longitude,
+          requiredSpecialty: specialty,
+          emergencyRequired,
+          searchQueries: [`hospitals near ${location}`, `${specialty} hospitals ${location}`]
+        });
+
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: facilities }));
+        return;
+      }
 
       // 15. Create Referral: POST /api/referrals
       if (normPath === '/api/referrals' && req.method === 'POST') {
@@ -433,7 +487,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (normPath === '/api/followups/plans' && req.method === 'GET') {
-        const plans = await followUpUseCase.listPlans();
+        const facilityId = urlObj.searchParams.get('facility_id') || undefined;
+        const doctorId = urlObj.searchParams.get('doctor_id') || undefined;
+        const workerId = urlObj.searchParams.get('worker_id') || undefined;
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const plans = await followUpUseCase.listPlans({ facilityId, doctorId, workerId, patientId });
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: plans }));
         return;
@@ -443,9 +501,30 @@ const server = http.createServer(async (req, res) => {
       if (normPath === '/api/followups/tasks' && req.method === 'GET') {
         const workerId = urlObj.searchParams.get('worker_id') || undefined;
         const status = urlObj.searchParams.get('status') || undefined;
-        const tasks = await followUpUseCase.listWorkerTasks(workerId, status);
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const facilityId = urlObj.searchParams.get('facility_id') || undefined;
+        const tasks = await followUpUseCase.listTasks({ workerId, status, patientId, facilityId });
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: tasks }));
+        return;
+      }
+
+      // 25b. Past Follow-Up Assessment Reports Log: GET /api/followups/reports
+      if (normPath === '/api/followups/reports' && req.method === 'GET') {
+        const workerId = urlObj.searchParams.get('worker_id') || undefined;
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const facilityId = urlObj.searchParams.get('facility_id') || undefined;
+        const reports = await followUpUseCase.listReports({ workerId, patientId, facilityId });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: reports }));
+        return;
+      }
+
+      // 25c. Follow-Up Filter Options (Dropdown lists): GET /api/followups/filters
+      if (normPath === '/api/followups/filters' && req.method === 'GET') {
+        const filterOpts = await followUpUseCase.getFilterOptions();
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: filterOpts }));
         return;
       }
 
@@ -482,7 +561,11 @@ const server = http.createServer(async (req, res) => {
 
       // 29. High-Risk Patients Overview: GET /api/high-risk-patients
       if (normPath === '/api/high-risk-patients' && req.method === 'GET') {
-        const highRisk = await followUpUseCase.getHighRiskPatients();
+        const facilityId = urlObj.searchParams.get('facility_id') || undefined;
+        const doctorId = urlObj.searchParams.get('doctor_id') || undefined;
+        const workerId = urlObj.searchParams.get('worker_id') || undefined;
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const highRisk = await followUpUseCase.getHighRiskPatients({ facilityId, doctorId, workerId, patientId });
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: highRisk }));
         return;
@@ -491,7 +574,9 @@ const server = http.createServer(async (req, res) => {
       // 30. Facility Alerts: GET /api/facility/alerts
       if (normPath === '/api/facility/alerts' && req.method === 'GET') {
         const facilityId = urlObj.searchParams.get('facility_id') || undefined;
-        const alerts = await followUpUseCase.getFacilityAlerts(facilityId);
+        const doctorId = urlObj.searchParams.get('doctor_id') || undefined;
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const alerts = await followUpUseCase.getFacilityAlerts({ facilityId, doctorId, patientId });
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: alerts }));
         return;

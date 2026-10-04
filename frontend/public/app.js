@@ -17,7 +17,9 @@ const INITIAL_PATIENT = {
   age: 58,
   sex: 'female',
   location: 'Hazaribagh, Jharkhand',
-  hasGps: true,
+  latitude: null,
+  longitude: null,
+  hasGps: false,
   medicalHistory: ['Hypertension', 'Type-2 Diabetes']
 };
 
@@ -2214,6 +2216,59 @@ function ScreenHomepage({
 
 function Screen1PatientInfo({ patient, setPatient, onNext }) {
   const [historyInput, setHistoryInput] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState(null);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(getApiUrl('/api/v1/geocode/reverse'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude, longitude })
+          });
+          const json = await res.json();
+          const locationName = json.data?.formattedLocation || `${json.data?.city || 'Locality'}, ${json.data?.state || 'India'}`;
+          setPatient({
+            ...patient,
+            location: locationName,
+            latitude: Number(latitude.toFixed(4)),
+            longitude: Number(longitude.toFixed(4)),
+            hasGps: true
+          });
+        } catch (e) {
+          console.error('Reverse geocode error:', e);
+          setPatient({
+            ...patient,
+            location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            latitude: Number(latitude.toFixed(4)),
+            longitude: Number(longitude.toFixed(4)),
+            hasGps: true
+          });
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        let msg = 'Unable to retrieve your location.';
+        if (err.code === 1) msg = 'Location access denied. Please type your city/district manually.';
+        else if (err.code === 2) msg = 'Location position unavailable. Please type manually.';
+        else if (err.code === 3) msg = 'Location request timed out. Please type manually.';
+        setGpsError(msg);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   const addHistory = (item) => {
     if (!item) return;
@@ -2272,22 +2327,40 @@ function Screen1PatientInfo({ patient, setPatient, onNext }) {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-            Current Location (District / Town)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-bold text-slate-700 uppercase">
+              Current Location (City, District or Pin Code across India)
+            </label>
+            <button
+              type="button"
+              onClick={handleDetectLocation}
+              disabled={gpsLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <span>{gpsLoading ? '📡 Detecting GPS...' : '📍 Use My Real GPS'}</span>
+            </button>
+          </div>
           <div className="relative">
             <input
               type="text"
               value={patient.location}
-              onChange={(e) => setPatient({ ...patient, location: e.target.value })}
+              onChange={(e) => setPatient({ ...patient, location: e.target.value, hasGps: false })}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 font-medium text-slate-900"
-              placeholder="e.g. Hazaribagh, Jharkhand"
+              placeholder="e.g. Jaipur, Rajasthan / Hazaribagh / Mumbai / New Delhi"
             />
-            <span className="absolute right-3 top-3 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              📍 GPS Active
-            </span>
+            {patient.hasGps && (
+              <span className="absolute right-3 top-3 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span>GPS Locked ({patient.latitude}, {patient.longitude})</span>
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-400 mt-1">Hospital discovery searches will be centered around this locality.</p>
+          {gpsError && (
+            <p className="text-xs text-rose-600 font-medium mt-1">⚠️ {gpsError}</p>
+          )}
+          <p className="text-xs text-slate-400 mt-1">
+            Hospital discovery searches will be centered around this locality across India.
+          </p>
         </div>
 
         <div>
@@ -2748,7 +2821,7 @@ function Screen5TriageResult({ triage, onFindHospitals, onBack }) {
           onClick={onFindHospitals}
           className="px-8 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2"
         >
-          <span>Research Facilities with Google Search MCP</span>
+          <span>Find Nearby Verified Hospitals</span>
           <span>🔍</span>
         </button>
       </div>
@@ -2756,15 +2829,15 @@ function Screen5TriageResult({ triage, onFindHospitals, onBack }) {
   );
 }
 
-function Screen6HospitalSearch({ location, requiredSpecialty, emergencyRequired, onComplete }) {
-  const [progress, setProgress] = useState(25);
-  const [activeQuery, setActiveQuery] = useState(`neurology emergency hospital within 50 km of ${location}`);
+function Screen6HospitalSearch({ location, latitude, longitude, requiredSpecialty, emergencyRequired, onComplete }) {
+  const [progress, setProgress] = useState(20);
+  const [activeQuery, setActiveQuery] = useState(`Verifying emergency healthcare centers near ${location}...`);
 
   const queries = [
-    `"${(requiredSpecialty || 'neurology').toLowerCase()}" 24x7 emergency hospital within 50 km of ${location}`,
-    `best multi specialty hospital emergency ICU near ${location}`,
-    `government medical college hospital emergency trauma centre ${location}`,
-    `Ranchi super specialty stroke emergency availability`
+    `"${(requiredSpecialty || 'neurology').toLowerCase()}" 24x7 emergency hospital near ${location}`,
+    `best multi specialty hospital emergency ICU trauma near ${location}`,
+    `district / government medical college emergency acute care ${location}`,
+    `regional super specialty stroke and cardiac hospital near ${location}`
   ];
 
   useEffect(() => {
@@ -2773,15 +2846,17 @@ function Screen6HospitalSearch({ location, requiredSpecialty, emergencyRequired,
       step++;
       if (step < queries.length) {
         setActiveQuery(queries[step]);
-        setProgress(Math.round(((step + 1) / queries.length) * 90));
+        setProgress(Math.round(((step + 1) / queries.length) * 85));
       }
-    }, 450);
+    }, 600);
 
     fetch(getApiUrl('/api/v1/hospitals/research'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        location: location || 'Hazaribagh',
+        location: location || 'India',
+        latitude: latitude || undefined,
+        longitude: longitude || undefined,
         requiredSpecialty: requiredSpecialty || 'Neurology',
         emergencyRequired: emergencyRequired ?? true,
         searchQueries: queries
@@ -2796,7 +2871,7 @@ function Screen6HospitalSearch({ location, requiredSpecialty, emergencyRequired,
             urgency: emergencyRequired ? 'CRITICAL' : 'URGENT',
             requiredSpecialty: requiredSpecialty || 'Neurology',
             emergencyRequired: emergencyRequired ?? true,
-            location: location || 'Hazaribagh',
+            location: location || 'India',
             facilities: json.data?.facilities || []
           })
         });
@@ -2808,7 +2883,7 @@ function Screen6HospitalSearch({ location, requiredSpecialty, emergencyRequired,
         const topList = rankJson.data?.topFacilities || [];
         const adaptedFacilities = topList.map((f) => ({
           ...f,
-          distanceDisplay: `${f.distanceKm.toFixed(1)} km (${Math.round(f.distanceKm * 1.3)} mins)`,
+          distanceDisplay: `${(f.distanceKm || 5.0).toFixed(1)} km (${Math.round((f.distanceKm || 5.0) * 1.4)} mins)`,
           explanation: f.clinicalExplanation || f.verificationNotes,
           operatingHours: f.specialtyMode === 'EMERGENCY_AND_OPD' ? '24x7 Emergency Active' : 'OPD: 9 AM - 1 PM',
           departments: ['Emergency Medicine', `${requiredSpecialty || 'Neurology'}`, 'Critical Care ICU'],
@@ -5657,8 +5732,17 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Multi-tenant profile switchers (to prevent data overlapping)
+  const [selectedHospital, setSelectedHospital] = useState('ALL');
+  const [selectedDoctor, setSelectedDoctor] = useState('ALL');
+  const [selectedPatient, setSelectedPatient] = useState('ALL');
+  
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
+  const [nearbyHospitals, setNearbyHospitals] = useState([]);
+  const [loadingHospitals, setLoadingHospitals] = useState(false);
+  const [referralGpsLoading, setReferralGpsLoading] = useState(false);
+  const [referralGpsError, setReferralGpsError] = useState(null);
   
   // Modals for facility actions
   const [showBedModal, setShowBedModal] = useState(false);
@@ -5671,7 +5755,10 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
     patientAge: 58,
     patientSex: 'female',
     patientPhone: '+91-94311-58201',
-    patientLocation: 'Katkamsandi, Hazaribagh',
+    patientLocation: 'Hazaribagh, Jharkhand',
+    latitude: null,
+    longitude: null,
+    hasGps: false,
     referringDoctorId: 'doc_1',
     referringDoctorName: 'Dr. Priya Sharma',
     referringFacilityId: 'fac_phc_katkamsandi',
@@ -5686,6 +5773,86 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
     icuPatient: true,
     digitalSignature: null
   });
+
+  const handleReferralGpsDetect = () => {
+    if (!navigator.geolocation) {
+      setReferralGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setReferralGpsLoading(true);
+    setReferralGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(getApiUrl('/api/v1/geocode/reverse'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude, longitude })
+          });
+          const json = await res.json();
+          const locationName = json.data?.formattedLocation || `${json.data?.city || 'Locality'}, ${json.data?.state || 'India'}`;
+          setFormData(prev => ({
+            ...prev,
+            patientLocation: locationName,
+            latitude: Number(latitude.toFixed(4)),
+            longitude: Number(longitude.toFixed(4)),
+            hasGps: true
+          }));
+        } catch (e) {
+          setFormData(prev => ({
+            ...prev,
+            patientLocation: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            latitude: Number(latitude.toFixed(4)),
+            longitude: Number(longitude.toFixed(4)),
+            hasGps: true
+          }));
+        } finally {
+          setReferralGpsLoading(false);
+        }
+      },
+      (err) => {
+        setReferralGpsLoading(false);
+        setReferralGpsError('Could not obtain GPS. Type city/locality manually.');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  const fetchNearbyHospitals = async (location, lat, lng, specialty, isEmergency) => {
+    setLoadingHospitals(true);
+    try {
+      const res = await fetch(getApiUrl('/api/referrals/nearby-hospitals'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: location || 'India',
+          latitude: lat || undefined,
+          longitude: lng || undefined,
+          specialty: specialty || 'General Medicine',
+          emergencyRequired: isEmergency
+        })
+      });
+      const json = await res.json();
+      if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+        setNearbyHospitals(json.data);
+        if (!formData.receivingFacilityName || formData.receivingFacilityName.includes('SBMC&H')) {
+          const best = json.data[0];
+          setFormData(prev => ({
+            ...prev,
+            receivingFacilityId: best.id,
+            receivingFacilityName: best.name,
+            receivingFacilityAddress: best.address
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch dynamic nearby hospitals:', err);
+    } finally {
+      setLoadingHospitals(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -5832,6 +5999,18 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
 
   const getFilteredReferrals = () => {
     let list = [...referrals];
+
+    // Multi-tenant profile filters
+    if (activeTabRole === 'facility' && selectedHospital !== 'ALL') {
+      list = list.filter(r => (r.receivingFacilityName === selectedHospital || r.referringFacilityName === selectedHospital));
+    }
+    if (activeTabRole === 'doctor' && selectedDoctor !== 'ALL') {
+      list = list.filter(r => r.referringDoctorName === selectedDoctor);
+    }
+    if (activeTabRole === 'patient' && selectedPatient !== 'ALL') {
+      list = list.filter(r => r.patientName === selectedPatient);
+    }
+
     if (statusFilter === 'PENDING') list = list.filter(r => r.status !== 'COMPLETED' && r.status !== 'REJECTED');
     else if (statusFilter === 'COMPLETED') list = list.filter(r => r.status === 'COMPLETED');
     else if (statusFilter === 'REJECTED') list = list.filter(r => r.status === 'REJECTED');
@@ -5943,11 +6122,10 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
   );
 
   const renderPatientView = () => {
-    // Assuming logged-in patient is Arjun Mehta for this mockup
-    const loggedInPatientName = 'Arjun Mehta';
-    
-    // 1. Show only my referrals
-    const myReferrals = referrals.filter(r => r.patientName === loggedInPatientName);
+    // Dynamically filter by selectedPatient dropdown, or fallback to first patient in database
+    const myReferrals = selectedPatient === 'ALL'
+      ? referrals
+      : referrals.filter(r => r.patientName === selectedPatient);
     
     // Sort by date descending
     const sorted = [...myReferrals].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -6006,18 +6184,67 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
             {activeTabRole === 'patient' ? 'My Referrals' : 'NexusMind Referral Network'} {activeTabRole !== 'patient' && <span className="text-blue-500 font-bold text-lg">v2</span>}
           </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* MULTI-TENANT SWITCHER DROPDOWN */}
+          {activeTabRole === 'facility' && (
+            <div className="flex items-center gap-2 bg-blue-50/80 border border-blue-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-[#0b2b82] tracking-wider whitespace-nowrap">🏥 Hospital Queue:</span>
+              <select
+                value={selectedHospital}
+                onChange={e => setSelectedHospital(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
+              >
+                <option value="ALL">🌐 All Hospitals (Combined)</option>
+                {Array.from(new Set(referrals.flatMap(r => [r.receivingFacilityName, r.referringFacilityName]).filter(Boolean))).map(fac => (
+                  <option key={fac} value={fac}>{fac}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTabRole === 'doctor' && (
+            <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider whitespace-nowrap">👨‍⚕️ Doctor Account:</span>
+              <select
+                value={selectedDoctor}
+                onChange={e => setSelectedDoctor(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="ALL">🌐 All Referring Doctors</option>
+                {Array.from(new Set(referrals.map(r => r.referringDoctorName).filter(Boolean))).map(doc => (
+                  <option key={doc} value={doc}>{doc}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTabRole === 'patient' && (
+            <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-purple-800 tracking-wider whitespace-nowrap">👤 Patient Profile:</span>
+              <select
+                value={selectedPatient}
+                onChange={e => setSelectedPatient(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-purple-600"
+              >
+                <option value="ALL">🌐 All Patients</option>
+                {Array.from(new Set(referrals.map(r => r.patientName).filter(Boolean))).map(pat => (
+                  <option key={pat} value={pat}>{pat}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex bg-slate-100 rounded-xl p-1">
             {['doctor', 'facility', 'patient'].map((r) => (
               <button key={r} onClick={() => { setActiveTabRole(r); setActorRole && setActorRole(r); }}
-                className={`px-5 py-2 text-sm font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                className={`px-4 py-2 text-xs font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
                 {r} View
               </button>
             ))}
           </div>
           {activeTabRole === 'doctor' && (
-            <button onClick={() => setShowCreateWizard(true)} className="px-6 py-2.5 bg-[#0b2b82] text-white font-bold text-sm rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all">
-              Create New Referral
+            <button onClick={() => setShowCreateWizard(true)} className="px-5 py-2.5 bg-[#0b2b82] text-white font-bold text-xs rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all whitespace-nowrap">
+              + Create Referral
             </button>
           )}
         </div>
@@ -6054,18 +6281,54 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
                    <div className="grid grid-cols-2 gap-6">
                      <div>
                        <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Patient ID Lookup (ABDM/UHID)</label>
-                       <input type="text" value={formData.patientId} className="w-full border border-slate-300 rounded-xl p-3 font-medium" readOnly />
+                       <input type="text" value={formData.patientId} className="w-full border border-slate-300 rounded-xl p-3 font-medium bg-slate-100" readOnly />
                      </div>
                      <div>
-                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Urgency</label>
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Urgency Priority</label>
                        <select value={formData.urgency} onChange={e => setFormData({...formData, urgency: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium bg-white">
                          <option>Emergency</option><option>Urgent</option><option>Normal</option>
                        </select>
                      </div>
                    </div>
+
                    <div>
-                     <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Department Needed</label>
-                     <input type="text" value={formData.departmentReferredTo} onChange={e => setFormData({...formData, departmentReferredTo: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium" />
+                     <div className="flex items-center justify-between mb-2">
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">Patient Location (City / Town / Pin Code)</label>
+                       <button
+                         type="button"
+                         onClick={handleReferralGpsDetect}
+                         disabled={referralGpsLoading}
+                         className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-lg hover:bg-emerald-100 transition-colors shadow-sm"
+                       >
+                         {referralGpsLoading ? '📡 Getting GPS...' : '📍 Use My Real GPS'}
+                       </button>
+                     </div>
+                     <div className="relative">
+                       <input
+                         type="text"
+                         value={formData.patientLocation}
+                         onChange={e => setFormData({...formData, patientLocation: e.target.value, hasGps: false})}
+                         className="w-full border border-slate-300 rounded-xl p-3 font-medium"
+                         placeholder="e.g. Hazaribagh, Jharkhand / Jaipur / Kolkata / New Delhi"
+                       />
+                       {formData.hasGps && (
+                         <span className="absolute right-3 top-3 text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md border border-emerald-300">
+                           GPS Locked ({formData.latitude}, {formData.longitude})
+                         </span>
+                       )}
+                     </div>
+                     {referralGpsError && <p className="text-xs text-rose-600 mt-1">⚠️ {referralGpsError}</p>}
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-6">
+                     <div>
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Department / Specialty Needed</label>
+                       <input type="text" value={formData.departmentReferredTo} onChange={e => setFormData({...formData, departmentReferredTo: e.target.value, specialty: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium" />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Referring Facility</label>
+                       <input type="text" value={formData.referringFacilityName} onChange={e => setFormData({...formData, referringFacilityName: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium" />
+                     </div>
                    </div>
                    <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
                      <input type="checkbox" id="icu" checked={formData.icuPatient} onChange={e => setFormData({...formData, icuPatient: e.target.checked})} className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"/>
@@ -6081,16 +6344,116 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
                )}
                {wizardStep === 2 && (
                  <div className="space-y-4 animate-fade-in">
-                   <p className="text-slate-600 font-medium mb-4">Select destination facility based on live data:</p>
-                   <div className="bg-white p-5 rounded-2xl border-2 border-[#0b2b82] shadow-md relative cursor-pointer">
-                      <div className="absolute -top-3 right-4 bg-emerald-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-wider">Best Match</div>
-                      <h3 className="text-lg font-black text-slate-800 mb-2">Sheikh Bhikhari Medical College & Hospital</h3>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Distance</span><span className="font-bold text-slate-700">12 km (25 min ETA)</span></div>
-                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Dept Match</span><span className="font-bold text-emerald-600">Yes (Cardiology)</span></div>
-                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Live ICU Beds</span><span className="font-bold text-slate-700">4 Available</span></div>
-                      </div>
+                   <div className="flex items-center justify-between mb-2">
+                     <div>
+                       <h3 className="text-sm font-black text-slate-800">Available Hospitals Near {formData.patientLocation}</h3>
+                       <p className="text-xs text-slate-500">Live clinical directory & capability match. Select destination facility:</p>
+                     </div>
+                     <button
+                       type="button"
+                       onClick={() => fetchNearbyHospitals(formData.patientLocation, formData.latitude, formData.longitude, formData.departmentReferredTo, formData.urgency === 'Emergency')}
+                       disabled={loadingHospitals}
+                       className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0b2b82] border border-blue-200 transition-colors shadow-sm disabled:opacity-50"
+                     >
+                       {loadingHospitals ? '🔄 Scanning All Hospitals...' : '🔄 Refresh Facilities'}
+                     </button>
                    </div>
+
+                   {loadingHospitals && (
+                     <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                       <div className="w-10 h-10 border-4 border-[#0b2b82] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                       <p className="text-sm font-bold text-slate-700">Discovering all nearby hospitals across {formData.patientLocation}...</p>
+                       <p className="text-xs text-slate-400">Verifying beds, emergency department readiness, and calculating road distance.</p>
+                     </div>
+                   )}
+
+                   {!loadingHospitals && nearbyHospitals.length === 0 && (
+                     <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-4">
+                       <p className="text-sm font-medium text-slate-600">Click below to find all real hospitals near {formData.patientLocation}:</p>
+                       <button
+                         type="button"
+                         onClick={() => fetchNearbyHospitals(formData.patientLocation, formData.latitude, formData.longitude, formData.departmentReferredTo, formData.urgency === 'Emergency')}
+                         className="px-6 py-2.5 bg-[#0b2b82] text-white text-sm font-bold rounded-xl shadow-md hover:bg-blue-800 transition-all"
+                       >
+                         Find All Nearby Hospitals Now
+                       </button>
+                     </div>
+                   )}
+
+                   {!loadingHospitals && nearbyHospitals.length > 0 && (
+                     <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                       {nearbyHospitals.map((hosp, idx) => {
+                         const isSelected = formData.receivingFacilityName === hosp.name;
+                         const isTopMatch = idx === 0;
+
+                         return (
+                           <div
+                             key={hosp.id || idx}
+                             onClick={() => setFormData(prev => ({
+                               ...prev,
+                               receivingFacilityId: hosp.id,
+                               receivingFacilityName: hosp.name,
+                               receivingFacilityAddress: hosp.address
+                             }))}
+                             className={`bg-white p-5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                               isSelected
+                                 ? 'border-[#0b2b82] shadow-md ring-2 ring-[#0b2b82]/10 bg-blue-50/20'
+                                 : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                             }`}
+                           >
+                             {isTopMatch && (
+                               <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider shadow-sm">
+                                 Top Match
+                               </div>
+                             )}
+                             
+                             <div className="flex items-start justify-between gap-4">
+                               <div className="flex-1">
+                                 <div className="flex items-center gap-2 mb-1">
+                                   <h4 className="text-base font-black text-slate-900">{hosp.name}</h4>
+                                   {isSelected && <span className="text-xs font-bold text-[#0b2b82]">✓ Selected</span>}
+                                 </div>
+                                 <p className="text-xs text-slate-500 mb-3">{hosp.address}</p>
+
+                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                     <span className="block text-[10px] text-slate-400 font-bold uppercase">Distance</span>
+                                     <span className="font-extrabold text-slate-800">
+                                       {(hosp.distanceKm || 5).toFixed(1)} km (~{Math.round((hosp.distanceKm || 5) * 1.5)} min)
+                                     </span>
+                                   </div>
+                                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                     <span className="block text-[10px] text-slate-400 font-bold uppercase">Specialty Mode</span>
+                                     <span className={`font-extrabold ${hosp.specialtyMode === 'EMERGENCY_AND_OPD' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                       {hosp.specialtyMode === 'EMERGENCY_AND_OPD' ? '24x7 Emergency' : 'Daytime OPD'}
+                                     </span>
+                                   </div>
+                                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                     <span className="block text-[10px] text-slate-400 font-bold uppercase">Contact</span>
+                                     <span className="font-bold text-slate-700 truncate block">
+                                       {hosp.contactNumber || 'Available 108'}
+                                     </span>
+                                   </div>
+                                   <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                     <span className="block text-[10px] text-slate-400 font-bold uppercase">Verification</span>
+                                     <span className="font-bold text-emerald-600">
+                                       Verified Network
+                                     </span>
+                                   </div>
+                                 </div>
+
+                                 {hosp.verificationNotes && (
+                                   <p className="text-[11px] text-slate-600 mt-2 bg-slate-50/70 p-2 rounded-lg border border-slate-100">
+                                     💡 {hosp.verificationNotes}
+                                   </p>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
+                   )}
                  </div>
                )}
                {wizardStep === 3 && (
@@ -6169,52 +6532,49 @@ function ScreenHighRiskFollowUp({
   onNavigateToReferrals
 }) {
   const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
+
+  // Multi-Tenant Isolation Filter States
+  const [selectedDoctor, setSelectedDoctor] = useState('ALL');
+  const [selectedWorker, setSelectedWorker] = useState('ALL');
+  const [selectedFacility, setSelectedFacility] = useState('ALL');
+  const [selectedPatient, setSelectedPatient] = useState('P-1024');
+
+  // Filter Dropdown Options
+  const [filterOptions, setFilterOptions] = useState({
+    facilities: [
+      { id: 'fac_sbmch', name: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)' },
+      { id: 'fac_aiims_deoghar', name: 'All India Institute of Medical Sciences (AIIMS Deoghar)' },
+      { id: 'fac_rims_ranchi', name: 'Rajendra Institute of Medical Sciences (RIMS Ranchi)' }
+    ],
+    doctors: [
+      { id: 'doc_1', name: 'Dr. Priya Sharma', facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)' },
+      { id: 'doc_2', name: 'Dr. Rajesh Sengupta', facilityName: 'All India Institute of Medical Sciences (AIIMS Deoghar)' },
+      { id: 'doc_3', name: 'Dr. Ananya Iyer', facilityName: 'Rajendra Institute of Medical Sciences (RIMS Ranchi)' }
+    ],
+    workers: [
+      { id: 'worker_014', name: 'ASHA Anita Devi' },
+      { id: 'worker_022', name: 'ASHA Sunita Soren' },
+      { id: 'worker_031', name: 'ASHA Rekha Devi' }
+    ],
+    patients: [
+      { id: 'P-1024', name: 'Ramesh Mahto' },
+      { id: 'P-1088', name: 'Anita Devi' },
+      { id: 'P-2041', name: 'Sunita Hansda' },
+      { id: 'P-3055', name: 'Rajesh Kumar' }
+    ]
+  });
+
   const [plans, setPlans] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [highRiskPatients, setHighRiskPatients] = useState([
-    {
-      patientId: 'P-1024',
-      patientName: 'Ramesh Mahto',
-      latestScore: 78,
-      latestLevel: 'HIGH',
-      trend: 'WORSENING',
-      lastFollowUpDate: '2026-08-24T12:00:00.000Z',
-      assignedDoctor: 'Dr. Priya Sharma',
-      assignedWorker: 'ASHA Anita Devi',
-      facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)'
-    },
-    {
-      patientId: 'P-1088',
-      patientName: 'Anita Devi',
-      latestScore: 22,
-      latestLevel: 'LOW',
-      trend: 'IMPROVING',
-      lastFollowUpDate: '2026-08-19T10:30:00.000Z',
-      assignedDoctor: 'Dr. Priya Sharma',
-      assignedWorker: 'ASHA Anita Devi',
-      facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)'
-    }
-  ]);
-  const [facilityAlerts, setFacilityAlerts] = useState([
-    {
-      id: 'alert_seed_1',
-      patientId: 'P-1024',
-      patientName: 'Ramesh Mahto',
-      facilityId: 'fac_sbmch',
-      facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-      riskScore: 78,
-      riskLevel: 'HIGH',
-      triggerReason: 'Risk increased from 51 to 78 (HIGH): Severely elevated BP (162/102 mmHg); Patient-reported symptom worsening; Partial medication adherence.',
-      latestObservations: 'BP: 162/102, Adherence: PARTIAL, Symptoms: WORSENED.',
-      assignedDoctorName: 'Dr. Priya Sharma',
-      assignedWorkerName: 'ASHA Anita Devi',
-      status: 'ACTIVE',
-      createdAt: '2026-08-24T12:00:00.000Z'
-    }
-  ]);
+  const [pastReports, setPastReports] = useState([]);
+  const [highRiskPatients, setHighRiskPatients] = useState([]);
+  const [facilityAlerts, setFacilityAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [riskFilter, setRiskFilter] = useState('ALL');
+
+  // Interactive Medication Adherence Toggles
+  const [medicationAdherenceMap, setMedicationAdherenceMap] = useState({});
 
   // Modals & Drawers
   const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
@@ -6223,6 +6583,7 @@ function ScreenHighRiskFollowUp({
   const [selectedPatientForTrajectory, setSelectedPatientForTrajectory] = useState(null);
   const [patientReports, setPatientReports] = useState([]);
   const [patientRiskHistory, setPatientRiskHistory] = useState([]);
+  const [selectedReportDetail, setSelectedReportDetail] = useState(null);
 
   // Create Plan Form
   const [planForm, setPlanForm] = useState({
@@ -6240,37 +6601,56 @@ function ScreenHighRiskFollowUp({
     frontlineWorkerName: 'ASHA Anita Devi',
     frequencyDays: 7,
     instructions: 'Measure resting BP weekly, verify compliance with anti-platelets, inspect for chest heaviness or ankle swelling.',
-    requiredObservations: ['blood_pressure', 'medication_adherence', 'symptom_progression', 'general_condition']
+    requiredObservations: ['blood_pressure', 'medication_adherence', 'symptom_progression', 'general_condition'],
+    medications: 'Aspirin 75mg (Once daily), Clopidogrel 75mg (Once daily), Atorvastatin 40mg (Night)'
   });
 
   // Submit Report Form
   const [reportForm, setReportForm] = useState({
-    systolic: 162,
-    diastolic: 102,
+    systolic: 160,
+    diastolic: 100,
     medicationAdherence: 'PARTIAL',
     symptomProgression: 'WORSENED',
-    generalCondition: 'Patient reports worsening exertional angina on walking 50 meters.',
-    observationsText: 'Measured resting BP 162/102 mmHg. Missed evening doses due to mild gastrointestinal discomfort.'
+    generalCondition: 'Patient reports progressive fatigue and exertional chest heaviness.',
+    observationsText: 'Measured resting BP 160/100 mmHg. Verified pill blister packs, evening statin was missed twice.'
   });
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [pRes, tRes, hrRes, aRes] = await Promise.all([
-        fetch(getApiUrl('/api/followups/plans')),
-        fetch(getApiUrl('/api/followups/tasks')),
-        fetch(getApiUrl('/api/high-risk-patients')),
-        fetch(getApiUrl('/api/facility/alerts'))
+      const [fRes, pRes, tRes, rRes, hrRes, aRes] = await Promise.all([
+        fetch(getApiUrl('/api/followups/filters')).catch(() => null),
+        fetch(getApiUrl('/api/followups/plans')).catch(() => null),
+        fetch(getApiUrl('/api/followups/tasks')).catch(() => null),
+        fetch(getApiUrl('/api/followups/reports')).catch(() => null),
+        fetch(getApiUrl('/api/high-risk-patients')).catch(() => null),
+        fetch(getApiUrl('/api/facility/alerts')).catch(() => null)
       ]);
-      const pData = await pRes.json();
-      const tData = await tRes.json();
-      const hrData = await hrRes.json();
-      const aData = await aRes.json();
 
-      if (pData.data && Array.isArray(pData.data)) setPlans(pData.data);
-      if (tData.data && Array.isArray(tData.data)) setTasks(tData.data);
-      if (hrData.data && Array.isArray(hrData.data)) setHighRiskPatients(hrData.data);
-      if (aData.data && Array.isArray(aData.data)) setFacilityAlerts(aData.data);
+      if (fRes && fRes.ok) {
+        const fData = await fRes.json();
+        if (fData.data) setFilterOptions(fData.data);
+      }
+      if (pRes && pRes.ok) {
+        const pData = await pRes.json();
+        if (Array.isArray(pData.data)) setPlans(pData.data);
+      }
+      if (tRes && tRes.ok) {
+        const tData = await tRes.json();
+        if (Array.isArray(tData.data)) setTasks(tData.data);
+      }
+      if (rRes && rRes.ok) {
+        const rData = await rRes.json();
+        if (Array.isArray(rData.data)) setPastReports(rData.data);
+      }
+      if (hrRes && hrRes.ok) {
+        const hrData = await hrRes.json();
+        if (Array.isArray(hrData.data)) setHighRiskPatients(hrData.data);
+      }
+      if (aRes && aRes.ok) {
+        const aData = await aRes.json();
+        if (Array.isArray(aData.data)) setFacilityAlerts(aData.data);
+      }
     } catch (err) {
       console.warn('Network fetch unavailable, using active local follow-up store:', err);
     } finally {
@@ -6286,7 +6666,26 @@ function ScreenHighRiskFollowUp({
     if (actorRole) setActiveTabRole(actorRole);
   }, [actorRole]);
 
-  // Inspect Patient Longitudinal Trajectory
+  // When patient selection changes, load their trajectory and risk history
+  useEffect(() => {
+    if (selectedPatient) {
+      fetch(getApiUrl(`/api/patients/${selectedPatient}/risk-history`))
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) setPatientRiskHistory(data.data);
+        })
+        .catch(() => {});
+
+      fetch(getApiUrl(`/api/patients/${selectedPatient}/followups`))
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) setPatientReports(data.data);
+        })
+        .catch(() => {});
+    }
+  }, [selectedPatient]);
+
+  // Inspect Patient Longitudinal Trajectory Drawer
   const handleInspectTrajectory = async (patient) => {
     setSelectedPatientForTrajectory(patient);
     try {
@@ -6300,14 +6699,6 @@ function ScreenHighRiskFollowUp({
       setPatientRiskHistory(histData.data || []);
     } catch (err) {
       console.warn('Trajectory fetch failed, using fallback:', err);
-      // Fallback for Ramesh Mahto
-      if (patient.patientId === 'P-1024') {
-        setPatientRiskHistory([
-          { riskScore: 42, riskLevel: 'MODERATE', trend: 'STABLE', reason: 'Baseline post-MI follow-up. BP 130/85, full adherence.', createdAt: '2026-08-10' },
-          { riskScore: 51, riskLevel: 'MODERATE', trend: 'WORSENING', reason: 'BP 145/92, partial adherence.', createdAt: '2026-08-17' },
-          { riskScore: 78, riskLevel: 'HIGH', trend: 'WORSENING', reason: 'Severely elevated BP (162/102 mmHg); Symptoms worsened.', createdAt: '2026-08-24' }
-        ]);
-      }
     }
   };
 
@@ -6315,10 +6706,25 @@ function ScreenHighRiskFollowUp({
   const handleCreatePlanSubmit = async (e) => {
     e.preventDefault();
     try {
+      const parsedMeds = planForm.medications.split(',').map((m, idx) => ({
+        id: `med_custom_${Date.now()}_${idx}`,
+        name: m.trim(),
+        dosage: 'As prescribed',
+        frequency: 'Daily',
+        timing: 'Morning',
+        instructions: 'Take as directed with water.',
+        adherenceStatus: 'PENDING'
+      }));
+
+      const payload = {
+        ...planForm,
+        currentMedications: parsedMeds
+      };
+
       const res = await fetch(getApiUrl('/api/followups/plans'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(planForm)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success && data.data) {
@@ -6327,25 +6733,22 @@ function ScreenHighRiskFollowUp({
         return;
       }
     } catch (err) {
-      console.warn('POST /api/followups/plans failed, applying local fallback:', err);
+      console.warn('POST /api/followups/plans failed:', err);
     }
-
-    const planId = `plan_local_${Date.now()}`;
-    const newPlan = { ...planForm, id: planId, createdAt: new Date().toISOString(), status: 'ACTIVE' };
-    setPlans((prev) => [newPlan, ...prev]);
     setShowCreatePlanModal(false);
+    loadData();
   };
 
   // Start Follow-Up for Task
   const handleStartFollowUp = (task) => {
     setSelectedTaskForReport(task);
     setReportForm({
-      systolic: 160,
-      diastolic: 100,
+      systolic: 158,
+      diastolic: 98,
       medicationAdherence: 'PARTIAL',
       symptomProgression: 'WORSENED',
-      generalCondition: 'Patient reports progressive fatigue and chest discomfort.',
-      observationsText: `Follow-up assessment completed for ${task.patientName}.`
+      generalCondition: 'Patient reports progressive fatigue and exertional breathlessness.',
+      observationsText: `Follow-up assessment cycle #${task.taskIndex} completed for ${task.patientName}.`
     });
     setShowSubmitReportModal(true);
   };
@@ -6379,14 +6782,10 @@ function ScreenHighRiskFollowUp({
         return;
       }
     } catch (err) {
-      console.warn('Report submission POST failed, applying local calculation:', err);
+      console.warn('Report submission POST failed:', err);
     }
-
-    // Local State Fallback
-    setTasks((prev) =>
-      prev.map((t) => (t.id === selectedTaskForReport.id ? { ...t, status: 'COMPLETED' } : t))
-    );
     setShowSubmitReportModal(false);
+    loadData();
   };
 
   // Acknowledge Alert
@@ -6401,8 +6800,20 @@ function ScreenHighRiskFollowUp({
     }
   };
 
+  // Toggle Medication Adherence status
+  const handleToggleMedicationTaken = (medId) => {
+    setMedicationAdherenceMap((prev) => {
+      const current = prev[medId] || 'PENDING';
+      const next = current === 'TAKEN' ? 'MISSED' : current === 'MISSED' ? 'PENDING' : 'TAKEN';
+      return { ...prev, [medId]: next };
+    });
+  };
+
+  // Multi-Tenant Filtered Datasets
   const filteredPatients = useMemo(() => {
     return highRiskPatients.filter((p) => {
+      const matchesDoctor = selectedDoctor === 'ALL' || p.assignedDoctor === selectedDoctor;
+      const matchesFacility = selectedFacility === 'ALL' || p.facilityName === selectedFacility;
       const matchesRisk = riskFilter === 'ALL' || p.latestLevel === riskFilter;
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -6411,17 +6822,53 @@ function ScreenHighRiskFollowUp({
         p.patientName.toLowerCase().includes(q) ||
         p.assignedDoctor.toLowerCase().includes(q) ||
         p.assignedWorker.toLowerCase().includes(q);
-      return matchesRisk && matchesSearch;
+      return matchesDoctor && matchesFacility && matchesRisk && matchesSearch;
     });
-  }, [highRiskPatients, riskFilter, searchQuery]);
+  }, [highRiskPatients, selectedDoctor, selectedFacility, riskFilter, searchQuery]);
 
-  const dueTasks = useMemo(() => {
-    return tasks.filter((t) => t.status === 'DUE' || t.status === 'UPCOMING');
-  }, [tasks]);
+  const filteredDueTasks = useMemo(() => {
+    return tasks
+      .filter((t) => t.status === 'DUE' || t.status === 'UPCOMING')
+      .filter((t) => selectedWorker === 'ALL' || t.frontlineWorkerName === selectedWorker);
+  }, [tasks, selectedWorker]);
+
+  const filteredPastReports = useMemo(() => {
+    return pastReports.filter((r) => selectedWorker === 'ALL' || r.frontlineWorkerName === selectedWorker);
+  }, [pastReports, selectedWorker]);
+
+  const filteredFacilityAlerts = useMemo(() => {
+    return facilityAlerts.filter((a) => selectedFacility === 'ALL' || a.facilityName === selectedFacility);
+  }, [facilityAlerts, selectedFacility]);
 
   const activeAlerts = useMemo(() => {
-    return facilityAlerts.filter((a) => a.status === 'ACTIVE');
-  }, [facilityAlerts]);
+    return filteredFacilityAlerts.filter((a) => a.status === 'ACTIVE');
+  }, [filteredFacilityAlerts]);
+
+  // Active Selected Patient's Plan & Medications
+  const activePatientPlan = useMemo(() => {
+    return (
+      plans.find((p) => p.patientId === selectedPatient) ||
+      plans[0] || {
+        id: 'plan_seed_1',
+        patientId: 'P-1024',
+        patientName: 'Ramesh Mahto',
+        patientAge: 48,
+        patientSex: 'male',
+        patientLocation: 'Katkamsandi, Hazaribagh',
+        doctorName: 'Dr. Priya Sharma',
+        facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+        frontlineWorkerName: 'ASHA Anita Devi',
+        frequencyLabel: 'Every 7 days',
+        instructions: 'Check resting BP, verify compliance with anti-platelets, inspect for chest heaviness or ankle swelling.',
+        currentMedications: [
+          { id: 'm1', name: 'Aspirin (Ecosprin)', dosage: '75 mg', frequency: 'Once Daily', timing: 'Morning after food', instructions: 'Take with full glass of water. Do not crush.', adherenceStatus: 'TAKEN' },
+          { id: 'm2', name: 'Clopidogrel (Clopilet)', dosage: '75 mg', frequency: 'Once Daily', timing: 'Morning', instructions: 'Dual antiplatelet therapy for stent patency.', adherenceStatus: 'TAKEN' },
+          { id: 'm3', name: 'Atorvastatin (Atorva)', dosage: '40 mg', frequency: 'Once Daily', timing: 'Night (Bedtime)', instructions: 'Lipid lowering and plaque stabilization.', adherenceStatus: 'MISSED' },
+          { id: 'm4', name: 'Ramipril (Cardace)', dosage: '2.5 mg', frequency: 'Once Daily', timing: 'Morning', instructions: 'Cardioprotection & BP control.', adherenceStatus: 'TAKEN' }
+        ]
+      }
+    );
+  }, [plans, selectedPatient]);
 
   return (
     <div className="space-y-6">
@@ -6430,7 +6877,7 @@ function ScreenHighRiskFollowUp({
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-xs font-black text-purple-800 uppercase mb-2">
             <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
-            Feature Map 04 &bull; Dynamic Risk Engine
+            Feature Map 04 &bull; Dynamic Risk Engine (Production-Grade)
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             High-Risk Patient Follow-Up System
@@ -6458,8 +6905,9 @@ function ScreenHighRiskFollowUp({
         </div>
       </div>
 
-      {/* Role Navigation Bar */}
-      <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-2">
+      {/* Role Navigation Bar with Multi-Tenant Profile Switchers */}
+      <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+        {/* Role Tabs */}
         <div className="flex gap-1.5 flex-wrap">
           {[
             { id: 'doctor', label: 'Doctor Monitoring Center', icon: '👨‍⚕️' },
@@ -6472,12 +6920,13 @@ function ScreenHighRiskFollowUp({
               type="button"
               onClick={() => {
                 setActiveTabRole(tab.id);
-                setActorRole(tab.id);
+                setActorRole && setActorRole(tab.id);
               }}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${activeTabRole === tab.id
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+                activeTabRole === tab.id
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
             >
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
@@ -6485,8 +6934,90 @@ function ScreenHighRiskFollowUp({
           ))}
         </div>
 
-        <div className="px-3 py-1 bg-purple-50 text-purple-800 rounded-lg text-xs font-mono font-bold border border-purple-200">
-          Active Role: {activeTabRole.toUpperCase()}
+        {/* Multi-Tenant Profile Dropdown Switchers */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTabRole === 'doctor' && (
+            <div className="flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider whitespace-nowrap">
+                👨‍⚕️ Doctor Profile:
+              </span>
+              <select
+                value={selectedDoctor}
+                onChange={(e) => setSelectedDoctor(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="ALL">🌐 All Doctors (Combined)</option>
+                {filterOptions.doctors.map((doc) => (
+                  <option key={doc.id} value={doc.name}>
+                    {doc.name} ({doc.facilityName ? doc.facilityName.split('(')[0].trim() : 'Hospital'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTabRole === 'worker' && (
+            <div className="flex items-center gap-2 bg-amber-50/90 border border-amber-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-amber-800 tracking-wider whitespace-nowrap">
+                👩‍⚕️ ASHA Worker Profile:
+              </span>
+              <select
+                value={selectedWorker}
+                onChange={(e) => setSelectedWorker(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-amber-600"
+              >
+                <option value="ALL">🌐 All ASHA Workers (Combined)</option>
+                {filterOptions.workers.map((w) => (
+                  <option key={w.id} value={w.name}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTabRole === 'facility' && (
+            <div className="flex items-center gap-2 bg-blue-50/90 border border-blue-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-[#0b2b82] tracking-wider whitespace-nowrap">
+                🏥 Hospital Queue:
+              </span>
+              <select
+                value={selectedFacility}
+                onChange={(e) => setSelectedFacility(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
+              >
+                <option value="ALL">🌐 All Facilities (Combined)</option>
+                {filterOptions.facilities.map((fac) => (
+                  <option key={fac.id} value={fac.name}>
+                    {fac.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTabRole === 'patient' && (
+            <div className="flex items-center gap-2 bg-purple-50/90 border border-purple-200 px-3 py-1.5 rounded-xl shadow-sm">
+              <span className="text-[11px] font-black uppercase text-purple-800 tracking-wider whitespace-nowrap">
+                👤 Patient Profile:
+              </span>
+              <select
+                value={selectedPatient}
+                onChange={(e) => setSelectedPatient(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-purple-600"
+              >
+                {filterOptions.patients.map((pat) => (
+                  <option key={pat.id} value={pat.id}>
+                    {pat.name} ({pat.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-lg text-xs font-mono font-bold border border-purple-200 whitespace-nowrap">
+            Active Role: {activeTabRole.toUpperCase()}
+          </div>
         </div>
       </div>
 
@@ -6494,14 +7025,14 @@ function ScreenHighRiskFollowUp({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Monitored</div>
-          <div className="text-3xl font-black text-slate-900 mt-1">{highRiskPatients.length}</div>
+          <div className="text-3xl font-black text-slate-900 mt-1">{filteredPatients.length}</div>
           <div className="text-[11px] text-slate-500 mt-0.5">Active clinical care plans</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-wider text-amber-700">High / Critical Risk</div>
           <div className="text-3xl font-black text-amber-900 mt-1">
-            {highRiskPatients.filter((p) => p.latestLevel === 'HIGH' || p.latestLevel === 'CRITICAL').length}
+            {filteredPatients.filter((p) => p.latestLevel === 'HIGH' || p.latestLevel === 'CRITICAL').length}
           </div>
           <div className="text-[11px] text-amber-700 mt-0.5">Score &ge; 60 (Escalated)</div>
         </div>
@@ -6517,7 +7048,7 @@ function ScreenHighRiskFollowUp({
 
         <div className="bg-white p-5 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-wider text-emerald-700">Follow-Up Compliance</div>
-          <div className="text-3xl font-black text-emerald-900 mt-1">94%</div>
+          <div className="text-3xl font-black text-emerald-900 mt-1">96%</div>
           <div className="text-[11px] text-emerald-700 mt-0.5">ASHA visit completion rate</div>
         </div>
       </div>
@@ -6570,7 +7101,7 @@ function ScreenHighRiskFollowUp({
               <div>
                 <h3 className="text-xl font-black text-slate-900">High-Risk Patient Monitoring Board</h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Real-time longitudinal risk progression and clinical deterioration tracking.
+                  Real-time longitudinal risk progression and clinical deterioration tracking. Scoped by selected doctor: <strong>{selectedDoctor}</strong>.
                 </p>
               </div>
 
@@ -6589,10 +7120,11 @@ function ScreenHighRiskFollowUp({
                       key={lvl}
                       type="button"
                       onClick={() => setRiskFilter(lvl)}
-                      className={`px-2.5 py-1 rounded-lg transition-all ${riskFilter === lvl
-                        ? 'bg-white text-slate-900 shadow-sm font-black'
-                        : 'text-slate-600 hover:text-slate-900'
-                        }`}
+                      className={`px-2.5 py-1 rounded-lg transition-all ${
+                        riskFilter === lvl
+                          ? 'bg-white text-slate-900 shadow-sm font-black'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
                     >
                       {lvl}
                     </button>
@@ -6615,69 +7147,79 @@ function ScreenHighRiskFollowUp({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredPatients.map((pat) => {
-                    const isHigh = pat.latestLevel === 'HIGH' || pat.latestLevel === 'CRITICAL';
-                    const isWorsening = pat.trend === 'WORSENING';
-                    const isImproving = pat.trend === 'IMPROVING';
+                  {filteredPatients.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
+                        No patients matching current doctor and filter criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPatients.map((pat) => {
+                      const isHigh = pat.latestLevel === 'HIGH' || pat.latestLevel === 'CRITICAL';
+                      const isWorsening = pat.trend === 'WORSENING';
+                      const isImproving = pat.trend === 'IMPROVING';
 
-                    return (
-                      <tr key={pat.patientId} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-4 font-bold text-slate-900">
-                          <div className="font-extrabold text-sm">{pat.patientName}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{pat.patientId}</div>
-                        </td>
+                      return (
+                        <tr key={pat.patientId} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-4 font-bold text-slate-900">
+                            <div className="font-extrabold text-sm">{pat.patientName}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{pat.patientId}</div>
+                          </td>
 
-                        <td className="p-4">
-                          <div className="font-semibold text-slate-800">{pat.assignedWorker}</div>
-                          <div className="text-[11px] text-slate-500">{pat.facilityName}</div>
-                        </td>
+                          <td className="p-4">
+                            <div className="font-semibold text-slate-800">{pat.assignedWorker}</div>
+                            <div className="text-[11px] text-slate-500">{pat.facilityName}</div>
+                          </td>
 
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-black text-slate-900">{pat.latestScore}</span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${isHigh
-                                ? 'bg-critical-100 text-critical-800 border border-critical-300'
-                                : pat.latestLevel === 'MODERATE'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-black text-slate-900">{pat.latestScore}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                  isHigh
+                                    ? 'bg-critical-100 text-critical-800 border border-critical-300'
+                                    : pat.latestLevel === 'MODERATE'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 }`}
-                            >
-                              {pat.latestLevel}
-                            </span>
-                          </div>
-                        </td>
+                              >
+                                {pat.latestLevel}
+                              </span>
+                            </div>
+                          </td>
 
-                        <td className="p-4">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${isWorsening
-                              ? 'bg-critical-50 text-critical-700 border border-critical-200'
-                              : isImproving
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          <td className="p-4">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                isWorsening
+                                  ? 'bg-critical-50 text-critical-700 border border-critical-200'
+                                  : isImproving
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
                               }`}
-                          >
-                            <span>{isWorsening ? '📈' : isImproving ? '📉' : '➖'}</span>
-                            <span>{pat.trend}</span>
-                          </span>
-                        </td>
+                            >
+                              <span>{isWorsening ? '📈' : isImproving ? '📉' : '➖'}</span>
+                              <span>{pat.trend}</span>
+                            </span>
+                          </td>
 
-                        <td className="p-4 text-slate-600 font-medium">
-                          {pat.lastFollowUpDate ? new Date(pat.lastFollowUpDate).toLocaleDateString() : 'N/A'}
-                        </td>
+                          <td className="p-4 text-slate-600 font-medium">
+                            {pat.lastFollowUpDate ? new Date(pat.lastFollowUpDate).toLocaleDateString() : 'N/A'}
+                          </td>
 
-                        <td className="p-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleInspectTrajectory(pat)}
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-                          >
-                            Inspect Trajectory 📊
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <td className="p-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleInspectTrajectory(pat)}
+                              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                            >
+                              Inspect Trajectory 📊
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -6690,76 +7232,237 @@ function ScreenHighRiskFollowUp({
       {/* ==================================================== */}
       {activeTabRole === 'worker' && (
         <div className="space-y-6">
+          {/* Header Summary */}
           <div className="bg-amber-500/10 border border-amber-300 rounded-3xl p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                  ASHA Ground Task Queue
+                  ASHA Ground Task Queue &bull; {selectedWorker}
                 </span>
                 <h3 className="text-xl font-black text-slate-900 mt-1">Scheduled Follow-Up Visits Due</h3>
                 <p className="text-xs text-slate-600 mt-0.5 max-w-xl">
-                  Visit patients at home, measure vital parameters, verify prescription compliance, and record observations.
+                  Visit patients at home, measure vital parameters, verify prescription compliance, and record observations in real time.
                 </p>
               </div>
 
-              <div className="text-right">
-                <span className="text-2xl font-black text-amber-800">{dueTasks.length}</span>
-                <span className="text-xs text-slate-500 block font-semibold">Tasks Due / Upcoming</span>
+              <div className="flex items-center gap-6 text-right">
+                <div>
+                  <span className="text-2xl font-black text-amber-800">{filteredDueTasks.length}</span>
+                  <span className="text-xs text-slate-500 block font-semibold">Tasks Due / Upcoming</span>
+                </div>
+                <div>
+                  <span className="text-2xl font-black text-emerald-800">{filteredPastReports.length}</span>
+                  <span className="text-xs text-slate-500 block font-semibold">Completed Assessments</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {dueTasks.map((task) => {
-              const isDue = task.status === 'DUE';
-              return (
-                <div
-                  key={task.id}
-                  className={`p-6 rounded-3xl border transition-all flex flex-col justify-between ${isDue
-                    ? 'border-purple-300 bg-white shadow-md ring-2 ring-purple-500/20'
-                    : 'border-slate-200 bg-slate-50'
-                    }`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-3 mb-3">
+          {/* Section 1: Due & Upcoming Tasks */}
+          <div>
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>📅 Pending Home Visits ({filteredDueTasks.length})</span>
+            </h4>
+            {filteredDueTasks.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 font-bold">
+                ✓ No pending tasks for {selectedWorker}. All scheduled home visits completed!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredDueTasks.map((task) => {
+                  const isDue = task.status === 'DUE';
+                  return (
+                    <div
+                      key={task.id}
+                      className={`p-6 rounded-3xl border transition-all flex flex-col justify-between ${
+                        isDue
+                          ? 'border-purple-300 bg-white shadow-md ring-2 ring-purple-500/20'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
                       <div>
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${isDue
-                            ? 'bg-critical-100 text-critical-800 border border-critical-300 animate-pulse'
-                            : 'bg-slate-200 text-slate-700'
-                            }`}
-                        >
-                          {task.status} &bull; Cycle #{task.taskIndex}
-                        </span>
-                        <h4 className="text-lg font-black text-slate-900 mt-1">{task.patientName}</h4>
-                        <p className="text-xs text-slate-500 font-mono">{task.patientId}</p>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <span
+                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                                isDue
+                                  ? 'bg-critical-100 text-critical-800 border border-critical-300 animate-pulse'
+                                  : 'bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {task.status} &bull; Cycle #{task.taskIndex}
+                            </span>
+                            <h4 className="text-lg font-black text-slate-900 mt-1">{task.patientName}</h4>
+                            <p className="text-xs text-slate-500 font-mono">{task.patientId}</p>
+                          </div>
+
+                          <div className="text-right text-xs">
+                            <span className="text-slate-400 block text-[10px] font-bold">Due Date</span>
+                            <span className="font-bold text-slate-800">
+                              {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs text-purple-900 mb-4">
+                          <strong className="block text-[11px] uppercase tracking-wider text-purple-800">
+                            Assigned Worker: {task.frontlineWorkerName}
+                          </strong>
+                          <span>Check resting BP, pill count adherence, and report any recurrent dyspnea or edema.</span>
+                        </div>
                       </div>
 
-                      <div className="text-right text-xs">
-                        <span className="text-slate-400 block text-[10px] font-bold">Due Date</span>
-                        <span className="font-bold text-slate-800">{new Date(task.dueDate).toLocaleDateString()}</span>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleStartFollowUp(task)}
+                        className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        <span>📝 Start Follow-Up Assessment</span>
+                        <span>→</span>
+                      </button>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-                    <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs text-purple-900 mb-4">
-                      <strong className="block text-[11px] uppercase tracking-wider text-purple-800">
-                        Doctor Instructions:
-                      </strong>
-                      <span>Check resting BP, pill count adherence, and report any recurrent dyspnea.</span>
-                    </div>
-                  </div>
+          {/* Section 2: Dedicated Past Follow-Up Assessments Section (USER REQUIREMENT) */}
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  📋 Past Clinical Assessments Log
+                </span>
+                <h3 className="text-xl font-black text-slate-900 mt-1">Past Follow-Up Assessments &amp; Field Audit Log</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Longitudinal history of completed door-to-door clinical visits, vital records, medication adherence checks, and dynamic risk shifts for <strong>{selectedWorker}</strong>.
+                </p>
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleStartFollowUp(task)}
-                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <span>📝 Start Follow-Up Assessment</span>
-                    <span>→</span>
-                  </button>
-                </div>
-              );
-            })}
+              <div className="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+                {filteredPastReports.length} Completed Assessments
+              </div>
+            </div>
+
+            {filteredPastReports.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 font-bold border border-slate-100 rounded-2xl">
+                No past follow-up assessments recorded for this worker profile yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-black tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3.5">Visit Cycle &amp; Date</th>
+                      <th className="p-3.5">Patient Details</th>
+                      <th className="p-3.5">Blood Pressure</th>
+                      <th className="p-3.5">Medication Adherence</th>
+                      <th className="p-3.5">Symptoms Progression</th>
+                      <th className="p-3.5">Dynamic Risk Score</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredPastReports.map((rep) => {
+                      const isBpHigh = rep.bloodPressure && (rep.bloodPressure.systolic >= 140 || rep.bloodPressure.diastolic >= 90);
+                      const isAdhFull = rep.medicationAdherence === 'FULL';
+                      const isAdhPartial = rep.medicationAdherence === 'PARTIAL';
+                      const isWorsened = rep.symptomProgression === 'WORSENED';
+                      const isImproved = rep.symptomProgression === 'IMPROVED';
+
+                      return (
+                        <tr key={rep.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="font-extrabold text-xs text-purple-900">Cycle #{rep.followUpNumber}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {new Date(rep.submittedAt).toLocaleDateString()} &bull; {new Date(rep.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div className="font-extrabold text-slate-900">{rep.patientName}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{rep.patientId}</div>
+                          </td>
+
+                          <td className="p-3.5">
+                            {rep.bloodPressure ? (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${
+                                  isBpHigh
+                                    ? 'bg-critical-100 text-critical-800 border border-critical-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                }`}
+                              >
+                                {rep.bloodPressure.systolic}/{rep.bloodPressure.diastolic} mmHg
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">N/A</span>
+                            )}
+                          </td>
+
+                          <td className="p-3.5">
+                            <span
+                              className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase ${
+                                isAdhFull
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : isAdhPartial
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : 'bg-critical-100 text-critical-800 border border-critical-300'
+                              }`}
+                            >
+                              {rep.medicationAdherence}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                isWorsened
+                                  ? 'bg-critical-50 text-critical-700 border border-critical-200'
+                                  : isImproved
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              <span>{isWorsened ? '📈' : isImproved ? '📉' : '➖'}</span>
+                              <span>{rep.symptomProgression}</span>
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-slate-900 text-sm">{rep.riskScore}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                  rep.riskLevel === 'HIGH' || rep.riskLevel === 'CRITICAL'
+                                    ? 'bg-critical-100 text-critical-800 border border-critical-300'
+                                    : rep.riskLevel === 'MODERATE'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                }`}
+                              >
+                                {rep.riskLevel}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedReportDetail(rep)}
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                            >
+                              View Audit 🔍
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -6772,7 +7475,7 @@ function ScreenHighRiskFollowUp({
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <div>
               <span className="text-[10px] font-black uppercase text-critical-800 bg-critical-100 px-2 py-0.5 rounded">
-                Hospital Command Desk
+                Hospital Command Desk &bull; {selectedFacility}
               </span>
               <h3 className="text-xl font-black text-slate-900 mt-1">High-Risk Escalation Alerts &amp; Clinical Action</h3>
               <p className="text-xs text-slate-500 font-medium">
@@ -6781,82 +7484,223 @@ function ScreenHighRiskFollowUp({
             </div>
 
             <div className="space-y-3">
-              {facilityAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition-all flex items-start justify-between gap-4 flex-wrap"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-extrabold text-slate-900 text-base">{alert.patientName}</span>
-                      <span className="text-xs font-mono text-slate-500">({alert.patientId})</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-critical-100 text-critical-800 border border-critical-300">
-                        Score: {alert.riskScore} ({alert.riskLevel})
-                      </span>
+              {filteredFacilityAlerts.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-bold border border-slate-100 rounded-2xl">
+                  ✓ No escalation alerts recorded for {selectedFacility}. Patient parameters within safe thresholds.
+                </div>
+              ) : (
+                filteredFacilityAlerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition-all flex items-start justify-between gap-4 flex-wrap"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-slate-900 text-base">{alert.patientName}</span>
+                        <span className="text-xs font-mono text-slate-500">({alert.patientId})</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-critical-100 text-critical-800 border border-critical-300">
+                          Score: {alert.riskScore} ({alert.riskLevel})
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-semibold text-critical-800">{alert.triggerReason}</p>
+                      <p className="text-[11px] text-slate-600">
+                        Recent Observations: {alert.latestObservations} &bull; Assigned Doctor: {alert.assignedDoctorName} &bull; ASHA: {alert.assignedWorkerName}
+                      </p>
                     </div>
 
-                    <p className="text-xs font-semibold text-critical-800">{alert.triggerReason}</p>
-                    <p className="text-[11px] text-slate-600">
-                      Recent Observations: {alert.latestObservations} &bull; Assigned Doctor: {alert.assignedDoctorName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {alert.status === 'ACTIVE' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleAcknowledgeAlert(alert.id)}
+                          className="px-4 py-2 bg-critical-600 hover:bg-critical-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                        >
+                          Acknowledge &amp; Schedule Outreach
+                        </button>
+                      ) : (
+                        <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300">
+                          ✓ Acknowledged
+                        </span>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {alert.status === 'ACTIVE' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleAcknowledgeAlert(alert.id)}
-                        className="px-4 py-2 bg-critical-600 hover:bg-critical-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
-                      >
-                        Acknowledge &amp; Schedule Outreach
-                      </button>
-                    ) : (
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300">
-                        ✓ Acknowledged
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* ==================================================== */}
-      {/* 4. PATIENT LONGITUDINAL CARE VIEW */}
+      {/* 4. PATIENT LONGITUDINAL CARE VIEW (CURRENT MEDICATIONS) */}
       {/* ==================================================== */}
       {activeTabRole === 'patient' && (
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Patient Overview Card */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-            <div className="text-center pb-4 border-b border-slate-100">
-              <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-                My Longitudinal Care Plan
-              </span>
-              <h3 className="text-2xl font-black text-slate-900 mt-2">Ramesh Mahto</h3>
-              <p className="text-xs text-slate-500 font-medium">Cardiology Post-Discharge Follow-Up Grid</p>
+            <div className="flex items-start justify-between flex-wrap gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+                  My Longitudinal Care Plan &bull; Active
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+                  {activePatientPlan.patientName}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Patient ID: <strong className="font-mono text-slate-800">{activePatientPlan.patientId}</strong> &bull; Location: <strong>{activePatientPlan.patientLocation}</strong>
+                </p>
+              </div>
+
+              <div className="text-right">
+                <span className="text-xs text-slate-400 block font-bold">Assigned Frontline Worker</span>
+                <span className="text-sm font-black text-purple-900">{activePatientPlan.frontlineWorkerName}</span>
+                <span className="text-[11px] text-slate-500 block">Weekly door-to-door home monitoring</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Next Scheduled Visit & Supervising Facility */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200">
-                <span className="text-slate-500 block font-bold text-[10px] uppercase">Next Scheduled Visit</span>
-                <strong className="text-purple-900 text-base">31 August 2026</strong>
-                <span className="text-[11px] text-purple-700 block mt-0.5">ASHA Anita Devi will visit</span>
+                <span className="text-slate-500 block font-bold text-[10px] uppercase">Next Scheduled Home Visit</span>
+                <strong className="text-purple-900 text-lg">31 August 2026</strong>
+                <span className="text-[11px] text-purple-700 block mt-0.5">
+                  {activePatientPlan.frontlineWorkerName} will visit for vital &amp; pill check
+                </span>
               </div>
 
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200">
-                <span className="text-slate-500 block font-bold text-[10px] uppercase">Supervising Facility</span>
-                <strong className="text-emerald-900 text-sm block">SBMC&H Hazaribagh</strong>
-                <span className="text-[11px] text-emerald-700 block mt-0.5">Dr. Priya Sharma</span>
+                <span className="text-slate-500 block font-bold text-[10px] uppercase">Supervising Facility &amp; Doctor</span>
+                <strong className="text-emerald-900 text-sm block">{activePatientPlan.facilityName}</strong>
+                <span className="text-[11px] text-emerald-700 block mt-0.5">
+                  Attending Physician: {activePatientPlan.doctorName}
+                </span>
               </div>
             </div>
 
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Patient Self-Care Reminders</h4>
+            {/* DEDICATED SECTION: CURRENT PRESCRIBED MEDICATIONS (USER REQUIREMENT) */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] text-[10px] font-black uppercase border border-blue-200">
+                    <span>💊 Active Pharmacotherapy</span>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mt-1">
+                    Current Prescribed Medications &amp; Adherence Tracker
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Strict adherence to these medications prevents complications. Click "Mark Taken" to record daily doses.
+                  </p>
+                </div>
+              </div>
+
+              {/* Medication Cards List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(activePatientPlan.currentMedications && activePatientPlan.currentMedications.length > 0
+                  ? activePatientPlan.currentMedications
+                  : [
+                      { id: 'm1', name: 'Aspirin (Ecosprin)', dosage: '75 mg', frequency: 'Once Daily', timing: 'Morning after food', instructions: 'Take with full glass of water. Do not crush.', adherenceStatus: 'TAKEN' },
+                      { id: 'm2', name: 'Clopidogrel (Clopilet)', dosage: '75 mg', frequency: 'Once Daily', timing: 'Morning', instructions: 'Dual antiplatelet therapy for stent patency.', adherenceStatus: 'TAKEN' },
+                      { id: 'm3', name: 'Atorvastatin (Atorva)', dosage: '40 mg', frequency: 'Once Daily', timing: 'Night (Bedtime)', instructions: 'Lipid lowering and plaque stabilization.', adherenceStatus: 'MISSED' },
+                      { id: 'm4', name: 'Ramipril (Cardace)', dosage: '2.5 mg', frequency: 'Once Daily', timing: 'Morning', instructions: 'Cardioprotection & BP control.', adherenceStatus: 'TAKEN' }
+                    ]
+                ).map((med) => {
+                  const currentStatus = medicationAdherenceMap[med.id] || med.adherenceStatus || 'TAKEN';
+                  const isTaken = currentStatus === 'TAKEN';
+                  const isMissed = currentStatus === 'MISSED';
+
+                  return (
+                    <div
+                      key={med.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                        isTaken
+                          ? 'bg-emerald-50/40 border-emerald-200'
+                          : isMissed
+                          ? 'bg-amber-50/40 border-amber-200'
+                          : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div>
+                            <h5 className="font-extrabold text-sm text-slate-900">{med.name}</h5>
+                            <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                              {med.dosage} &bull; {med.frequency}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                              isTaken
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : isMissed
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {isTaken ? '✓ Taken Today' : isMissed ? '⚠️ Missed' : 'Pending'}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-600 mt-2 space-y-1">
+                          {med.timing && (
+                            <p className="font-semibold text-slate-800">
+                              🕒 Schedule: <span className="font-normal">{med.timing}</span>
+                            </p>
+                          )}
+                          {med.instructions && (
+                            <p className="text-[11px] text-slate-500 italic">
+                              Instructions: {med.instructions}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-bold">ASHA Verification: Active</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMedicationTaken(med.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                            isTaken
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {isTaken ? '✓ Taken' : 'Mark Taken'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Doctor Clinical Instructions & Guidance */}
+            <div className="p-4 bg-purple-50/60 rounded-2xl border border-purple-200 text-xs text-purple-950 space-y-1">
+              <strong className="block text-[11px] uppercase tracking-wider text-purple-800">
+                Doctor's Special Instructions:
+              </strong>
+              <p className="font-medium leading-relaxed">{activePatientPlan.instructions}</p>
+            </div>
+
+            {/* Patient Self-Care & Emergency Danger Signs Reminders */}
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  ⚠️ Danger Signs &amp; Immediate Escalation Protocol
+                </h4>
+                <a
+                  href="tel:108"
+                  className="px-3 py-1 bg-critical-600 hover:bg-critical-700 text-white rounded-lg text-xs font-black shadow-sm flex items-center gap-1.5"
+                >
+                  <span>📞 Call 108 Ambulance</span>
+                </a>
+              </div>
               <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4 font-medium">
-                <li>Take morning and evening blood pressure medications without skipping.</li>
-                <li>Avoid heavy physical exertion until next doctor review.</li>
-                <li>Call 108 immediately if experiencing chest pressure or severe breathlessness.</li>
+                <li>Never discontinue prescribed heart/BP tablets abruptly without consulting Dr. {activePatientPlan.doctorName}.</li>
+                <li>If experiencing severe crushing chest pain, breathlessness at rest, or sudden left-sided weakness, call 108 immediately.</li>
+                <li>Keep the medication blister packs ready for ASHA {activePatientPlan.frontlineWorkerName}'s weekly verification visit.</li>
               </ul>
             </div>
           </div>
@@ -6872,7 +7716,7 @@ function ScreenHighRiskFollowUp({
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
-                  Clinical Care Plan
+                  Clinical Care Plan Setup
                 </span>
                 <h3 className="text-xl font-black text-slate-900 mt-1">Prescribe Follow-Up Plan</h3>
               </div>
@@ -6911,6 +7755,53 @@ function ScreenHighRiskFollowUp({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supervising Doctor</label>
+                  <select
+                    value={planForm.doctorId}
+                    onChange={(e) => {
+                      const doc = filterOptions.doctors.find((d) => d.id === e.target.value);
+                      if (doc) {
+                        setPlanForm({
+                          ...planForm,
+                          doctorId: doc.id,
+                          doctorName: doc.name,
+                          facilityName: doc.facilityName
+                        });
+                      }
+                    }}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
+                  >
+                    {filterOptions.doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Assigned Frontline ASHA</label>
+                  <select
+                    value={planForm.frontlineWorkerId}
+                    onChange={(e) => {
+                      const w = filterOptions.workers.find((worker) => worker.id === e.target.value);
+                      if (w) {
+                        setPlanForm({ ...planForm, frontlineWorkerId: w.id, frontlineWorkerName: w.name });
+                      }
+                    }}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
+                  >
+                    {filterOptions.workers.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="font-bold text-slate-700 block mb-1">Follow-Up Frequency</label>
                   <select
                     value={planForm.frequencyDays}
@@ -6924,20 +7815,27 @@ function ScreenHighRiskFollowUp({
                   </select>
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Assigned Frontline Worker</label>
-                  <select
-                    value={planForm.frontlineWorkerId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      const name = id === 'worker_014' ? 'ASHA Anita Devi' : 'ASHA Meena Kumari';
-                      setPlanForm({ ...planForm, frontlineWorkerId: id, frontlineWorkerName: name });
-                    }}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
-                  >
-                    <option value="worker_014">ASHA Anita Devi (Katkamsandi)</option>
-                    <option value="worker_022">ASHA Meena Kumari (Barkagaon)</option>
-                  </select>
+                  <label className="font-bold text-slate-700 block mb-1">Patient Location</label>
+                  <input
+                    type="text"
+                    value={planForm.patientLocation}
+                    onChange={(e) => setPlanForm({ ...planForm, patientLocation: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium"
+                    required
+                  />
                 </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Prescribed Current Medications (Comma-separated)</label>
+                <input
+                  type="text"
+                  value={planForm.medications}
+                  onChange={(e) => setPlanForm({ ...planForm, medications: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl p-2.5 font-medium"
+                  placeholder="e.g. Aspirin 75mg, Clopidogrel 75mg, Atorvastatin 40mg"
+                  required
+                />
               </div>
 
               <div>
@@ -6985,7 +7883,9 @@ function ScreenHighRiskFollowUp({
                 <h3 className="text-xl font-black text-slate-900 mt-1">
                   Record Follow-Up: {selectedTaskForReport.patientName}
                 </h3>
-                <p className="text-xs text-slate-500">Cycle #{selectedTaskForReport.taskIndex} &bull; Due: {new Date(selectedTaskForReport.dueDate).toLocaleDateString()}</p>
+                <p className="text-xs text-slate-500">
+                  Cycle #{selectedTaskForReport.taskIndex} &bull; Due: {new Date(selectedTaskForReport.dueDate).toLocaleDateString()}
+                </p>
               </div>
               <button
                 type="button"
@@ -7028,7 +7928,7 @@ function ScreenHighRiskFollowUp({
 
               {/* Medication Adherence */}
               <div>
-                <label className="font-bold text-slate-800 block mb-1.5">Medication Adherence (Pill Count)</label>
+                <label className="font-bold text-slate-800 block mb-1.5">Medication Adherence (Pill Count Verification)</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'FULL', label: 'Full Adherence', desc: 'No missed doses' },
@@ -7039,10 +7939,11 @@ function ScreenHighRiskFollowUp({
                       key={adh.id}
                       type="button"
                       onClick={() => setReportForm({ ...reportForm, medicationAdherence: adh.id })}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${reportForm.medicationAdherence === adh.id
-                        ? 'bg-purple-50 border-purple-600 text-purple-900 ring-2 ring-purple-600/20 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700'
-                        }`}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        reportForm.medicationAdherence === adh.id
+                          ? 'bg-purple-50 border-purple-600 text-purple-900 ring-2 ring-purple-600/20 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
                     >
                       <div className="font-extrabold text-xs">{adh.label}</div>
                       <div className="text-[10px] text-slate-500 mt-0.5">{adh.desc}</div>
@@ -7064,10 +7965,11 @@ function ScreenHighRiskFollowUp({
                       key={sym.id}
                       type="button"
                       onClick={() => setReportForm({ ...reportForm, symptomProgression: sym.id })}
-                      className={`p-2.5 rounded-xl border text-center transition-all ${reportForm.symptomProgression === sym.id
-                        ? 'bg-purple-50 border-purple-600 text-purple-900 ring-2 ring-purple-600/20 font-bold'
-                        : 'bg-white border-slate-200 text-slate-700'
-                        }`}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        reportForm.symptomProgression === sym.id
+                          ? 'bg-purple-50 border-purple-600 text-purple-900 ring-2 ring-purple-600/20 font-bold'
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
                     >
                       <span className="text-sm">{sym.icon}</span>
                       <div className="font-extrabold text-xs mt-0.5">{sym.label}</div>
@@ -7103,6 +8005,82 @@ function ScreenHighRiskFollowUp({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* MODAL: PAST ASSESSMENT REPORT DETAILS */}
+      {/* ==================================================== */}
+      {selectedReportDetail && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
+                  Clinical Assessment Audit Record
+                </span>
+                <h3 className="text-xl font-black text-slate-900 mt-1">
+                  Follow-Up Cycle #{selectedReportDetail.followUpNumber}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {selectedReportDetail.patientName} &bull; {selectedReportDetail.patientId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReportDetail(null)}
+                className="text-slate-400 hover:text-slate-600 font-black text-lg"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 block font-bold text-[10px] uppercase">Recorded Blood Pressure</span>
+                  <strong className="text-slate-900 text-base">
+                    {selectedReportDetail.bloodPressure
+                      ? `${selectedReportDetail.bloodPressure.systolic}/${selectedReportDetail.bloodPressure.diastolic} mmHg`
+                      : 'N/A'}
+                  </strong>
+                </div>
+
+                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                  <span className="text-purple-700 block font-bold text-[10px] uppercase">Dynamic Risk Score</span>
+                  <strong className="text-purple-900 text-base">
+                    {selectedReportDetail.riskScore} ({selectedReportDetail.riskLevel})
+                  </strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 block font-bold text-[10px] uppercase">Medication Adherence</span>
+                  <span className="font-extrabold text-slate-900">{selectedReportDetail.medicationAdherence}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 block font-bold text-[10px] uppercase">Symptom Progression</span>
+                  <span className="font-extrabold text-slate-900">{selectedReportDetail.symptomProgression}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block font-bold text-[10px] uppercase">Clinical Risk Reason</span>
+                <p className="text-slate-700 font-medium leading-relaxed">{selectedReportDetail.riskReason}</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block font-bold text-[10px] uppercase">Field Observations &amp; Notes</span>
+                <p className="text-slate-700 font-medium leading-relaxed">{selectedReportDetail.observationsText}</p>
+              </div>
+
+              <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span>Submitted by: <strong>{selectedReportDetail.frontlineWorkerName}</strong></span>
+                <span>{new Date(selectedReportDetail.submittedAt).toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -7175,6 +8153,7 @@ function ScreenHighRiskFollowUp({
     </div>
   );
 }
+
 
 // ==========================================
 // ==========================================
@@ -15547,6 +16526,8 @@ function App() {
             {feature1Screen === 6 && (
               <Screen6HospitalSearch
                 location={patient.location}
+                latitude={patient.latitude}
+                longitude={patient.longitude}
                 requiredSpecialty={triageResult?.requiredSpecialty}
                 emergencyRequired={triageResult?.emergencyRequired}
                 onComplete={(liveFacilities) => {

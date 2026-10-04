@@ -7,7 +7,7 @@ import type {
   UserRole
 } from '../../domain/models/referral.model.ts';
 import { validateStatusTransition } from '../../domain/rules/referral-transition.rules.ts';
-import { InMemoryReferralStore } from '../../infrastructure/cache/referral.store.ts';
+import { SqliteReferralStore } from '../../infrastructure/db/sqlite-referral.store.ts';
 
 export interface ReferralListFilters {
   readonly role?: UserRole;
@@ -20,15 +20,15 @@ export interface ReferralListFilters {
 
 export interface ReferralStats {
   readonly total: number;
-  readonly pending: number; // REFERRAL_INITIATED, ACCEPTED, BED_RESERVATION, PATIENT_ARRIVAL, BED_ALLOTTED, TREATMENT_ONGOING
-  readonly rejected: number; // REJECTED
-  readonly completed: number; // COMPLETED
+  readonly pending: number;
+  readonly rejected: number;
+  readonly completed: number;
 }
 
 export class ManageReferralUseCase {
-  private readonly store: InMemoryReferralStore;
+  private readonly store: SqliteReferralStore;
 
-  constructor(store: InMemoryReferralStore) {
+  constructor(store: SqliteReferralStore) {
     this.store = store;
   }
 
@@ -62,14 +62,14 @@ export class ManageReferralUseCase {
       patientAge: dto.patientAge,
       patientSex: dto.patientSex,
       patientPhone: dto.patientPhone || '',
-      patientLocation: dto.patientLocation || 'Jharkhand',
-      referringDoctorId: dto.referringDoctorId,
-      referringDoctorName: dto.referringDoctorName,
-      referringFacilityId: dto.referringFacilityId,
-      referringFacilityName: dto.referringFacilityName,
-      receivingFacilityId: dto.receivingFacilityId,
+      patientLocation: dto.patientLocation || 'India',
+      referringDoctorId: dto.referringDoctorId || 'doc_1',
+      referringDoctorName: dto.referringDoctorName || 'Referring Doctor',
+      referringFacilityId: dto.referringFacilityId || 'fac_referring',
+      referringFacilityName: dto.referringFacilityName || 'Referring Facility',
+      receivingFacilityId: dto.receivingFacilityId || `fac_${dto.receivingFacilityName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20)}`,
       receivingFacilityName: dto.receivingFacilityName,
-      departmentReferredTo: dto.departmentReferredTo || 'General',
+      departmentReferredTo: dto.departmentReferredTo || dto.specialty || 'General',
       specialty: dto.specialty,
       reason: dto.reason,
       clinicalSummary: dto.clinicalSummary || '',
@@ -118,13 +118,10 @@ export class ManageReferralUseCase {
       timestamp: now
     };
 
-    const updatedHistory = [...referral.statusHistory, historyItem];
-
     const updatedReferral: Referral = {
       ...referral,
       status: dto.toStatus,
       updatedAt: now,
-      statusHistory: updatedHistory,
       ...(dto.treatingDoctor !== undefined && { treatingDoctor: dto.treatingDoctor }),
       ...(dto.bedAllocation !== undefined && { bedAllocation: dto.bedAllocation }),
       ...(dto.currentStep !== undefined && { currentStep: dto.currentStep })
@@ -133,68 +130,41 @@ export class ManageReferralUseCase {
     this.store.save(updatedReferral);
     this.store.appendHistory(historyItem);
 
-    return updatedReferral;
+    return this.store.findByReferralId(referralId)!;
   }
 
   public async getReferral(referralId: string): Promise<Referral | null> {
-    const referral = this.store.findByReferralId(referralId);
-    if (!referral) return null;
-    const history = this.store.getHistoryByReferralId(referralId);
-    return {
-      ...referral,
-      statusHistory: history
-    };
+    return this.store.findByReferralId(referralId);
   }
 
   public async listReferrals(filters?: ReferralListFilters): Promise<Referral[]> {
-    let all = this.store.findAll();
+    // Multi-tenant query isolation
+    let all = this.store.findAll({
+      facilityId: filters?.facilityId,
+      doctorId: filters?.doctorId,
+      patientId: filters?.patientId,
+      search: filters?.search
+    });
 
     if (filters?.status) {
       all = all.filter((r) => r.status === filters.status);
     }
 
-    if (filters?.facilityId) {
-      all = all.filter(
-        (r) =>
-          r.receivingFacilityId === filters.facilityId ||
-          r.referringFacilityId === filters.facilityId
-      );
-    }
-
-    if (filters?.doctorId) {
-      all = all.filter((r) => r.referringDoctorId === filters.doctorId);
-    }
-
-    if (filters?.patientId) {
-      all = all.filter((r) => r.patientId === filters.patientId);
-    }
-
-    if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      all = all.filter(
-        (r) =>
-          r.referralId.toLowerCase().includes(q) ||
-          r.patientName.toLowerCase().includes(q) ||
-          r.specialty.toLowerCase().includes(q) ||
-          r.receivingFacilityName.toLowerCase().includes(q)
-      );
-    }
-
     return all;
   }
 
-  public async getPendingReferrals(): Promise<Referral[]> {
-    const all = this.store.findAll();
+  public async getPendingReferrals(filters?: ReferralListFilters): Promise<Referral[]> {
+    const all = await this.listReferrals(filters);
     return all.filter((r) => r.status !== 'COMPLETED' && r.status !== 'REJECTED');
   }
 
-  public async getCompletedReferrals(): Promise<Referral[]> {
-    const all = this.store.findAll();
+  public async getCompletedReferrals(filters?: ReferralListFilters): Promise<Referral[]> {
+    const all = await this.listReferrals(filters);
     return all.filter((r) => r.status === 'COMPLETED');
   }
 
-  public async getStats(): Promise<ReferralStats> {
-    const all = this.store.findAll();
+  public async getStats(filters?: ReferralListFilters): Promise<ReferralStats> {
+    const all = await this.listReferrals(filters);
     return {
       total: all.length,
       pending: all.filter((r) => r.status !== 'COMPLETED' && r.status !== 'REJECTED').length,

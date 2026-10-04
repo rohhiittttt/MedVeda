@@ -10,39 +10,52 @@ import {
   classifySourceReliability,
   determineVerificationStatus
 } from '../../domain/rules/verification.rules.ts';
+import { GeminiHospitalDiscoveryAdapter } from '../../infrastructure/mcp/gemini-search-grounding.adapter.ts';
 
 export class ResearchHospitalsUseCase {
   private readonly searchTool: ISearchToolPort;
   private readonly hospitalCache: IHospitalCachePort;
+  private readonly geminiDiscoveryAdapter: GeminiHospitalDiscoveryAdapter;
 
   constructor(
     searchTool: ISearchToolPort,
-    hospitalCache: IHospitalCachePort
+    hospitalCache: IHospitalCachePort,
+    geminiDiscoveryAdapter?: GeminiHospitalDiscoveryAdapter
   ) {
     this.searchTool = searchTool;
     this.hospitalCache = hospitalCache;
+    this.geminiDiscoveryAdapter = geminiDiscoveryAdapter || new GeminiHospitalDiscoveryAdapter();
   }
 
   async execute(request: HospitalSearchRequest): Promise<HospitalSearchResponse> {
-    const { location, requiredSpecialty, emergencyRequired, searchQueries } = request;
+    const { location, requiredSpecialty, emergencyRequired, searchQueries, latitude, longitude } = request;
 
     let facilities: HospitalCandidate[] = [];
 
+    // 1. PRIMARY: Discover real facilities across India using Gemini Clinical Search & Reasoning
     try {
-      // 1. Execute dynamic web research via Google Search MCP
-      const rawItems = await this.searchTool.searchBatch(searchQueries, 8000);
-
-      if (rawItems.length > 0) {
-        facilities = this.parseRawSearchResults(rawItems, location, requiredSpecialty);
-        // Cache newly researched facilities asynchronously
+      facilities = await this.geminiDiscoveryAdapter.discoverHospitals(request);
+      if (facilities.length > 0) {
         await this.hospitalCache.saveBatch(facilities);
       }
-    } catch (err: unknown) {
-      // Fallback gracefully on search failure or timeout
-      console.warn('Google Search MCP failed or timed out. Falling back to local cache.', err);
+    } catch (geminiErr) {
+      console.warn('Gemini hospital discovery failed. Trying MCP / cache fallback:', geminiErr);
     }
 
-    // 2. If no facilities discovered via web search, fall back to regional cache
+    // 2. SECONDARY: If Gemini returned no results, try legacy Search MCP batch tool
+    if (facilities.length === 0) {
+      try {
+        const rawItems = await this.searchTool.searchBatch(searchQueries, 8000);
+        if (rawItems.length > 0) {
+          facilities = this.parseRawSearchResults(rawItems, location, requiredSpecialty);
+          await this.hospitalCache.saveBatch(facilities);
+        }
+      } catch (err: unknown) {
+        console.warn('Google Search MCP failed or timed out. Falling back to local cache.', err);
+      }
+    }
+
+    // 3. TERTIARY: If still no facilities, fall back to regional cache
     if (facilities.length === 0) {
       const cached = await this.hospitalCache.findNearby(location, requiredSpecialty, emergencyRequired);
       facilities = [...cached];
@@ -112,7 +125,6 @@ export class ResearchHospitalsUseCase {
   }
 
   private extractHospitalName(title: string, location: string): string | null {
-    // Basic extraction heuristic targeting hospital/clinic naming
     const match = title.match(/([A-Za-z0-9\s]+(?:Hospital|Medical College|Health Centre|Clinic|Institute))/i);
     if (match) {
       const extracted = match[1].trim();
@@ -128,10 +140,9 @@ export class ResearchHospitalsUseCase {
   }
 
   private estimateDistanceKm(name: string, location: string): number {
-    // Deterministic distance heuristic for local vs regional referral centers
     if (name.toLowerCase().includes(location.toLowerCase())) {
       return 3.5;
     }
-    return 85.0; // Regional tertiary facility
+    return 45.0;
   }
 }

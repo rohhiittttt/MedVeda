@@ -15,6 +15,16 @@ export interface BloodPressure {
   readonly diastolic: number;
 }
 
+export interface PrescribedMedication {
+  readonly id: string;
+  readonly name: string;
+  readonly dosage: string;
+  readonly frequency: string;
+  readonly timing?: string;
+  readonly instructions?: string;
+  readonly adherenceStatus?: 'TAKEN' | 'MISSED' | 'PENDING';
+}
+
 export interface FollowUpPlan {
   readonly id: string;
   readonly patientId: string;
@@ -35,6 +45,7 @@ export interface FollowUpPlan {
   readonly endDate?: string;
   readonly instructions: string;
   readonly requiredObservations: readonly string[]; // e.g. ['blood_pressure', 'medication_adherence', 'symptoms', 'general_condition']
+  readonly currentMedications?: readonly PrescribedMedication[];
   readonly status: PlanStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -121,6 +132,7 @@ export interface CreatePlanDto {
   readonly endDate?: string;
   readonly instructions: string;
   readonly requiredObservations?: readonly string[];
+  readonly currentMedications?: readonly PrescribedMedication[];
 }
 
 export interface SubmitReportDto {
