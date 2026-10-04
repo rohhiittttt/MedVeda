@@ -9886,6 +9886,28 @@ function ScreenMedicineDiagnostics({
     setTimeout(() => setNotificationToast(null), 4000);
   };
 
+  // --- Sub-View Mode inside Tab 1 (Medicine Search) ---
+  // 'stock_search' | 'nearby_shops' | 'master_catalog'
+  const [medSubView, setMedSubView] = useState('stock_search');
+
+  // --- Live GPS Geolocation State ---
+  const [userLocation, setUserLocation] = useState({
+    lat: 23.998,
+    lng: 85.345,
+    label: 'Katkamsandi Rural PHC, Hazaribagh',
+    isLiveGPS: false
+  });
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  // Preset location hubs across Jharkhand & India
+  const locationPresets = [
+    { label: '📍 Katkamsandi Rural Hub (Hazaribagh)', lat: 23.998, lng: 85.345 },
+    { label: '📍 Hazaribagh Sadar District Hub', lat: 23.993, lng: 85.362 },
+    { label: '📍 Ranchi RIMS Medical College Corridor', lat: 23.372, lng: 85.352 },
+    { label: '📍 Deoghar AIIMS Super-specialty Zone', lat: 24.485, lng: 86.702 },
+    { label: '📍 Delhi NCR National Health Hub', lat: 28.6139, lng: 77.2090 }
+  ];
+
   // --- Medicine Search States ---
   const [medSearchQuery, setMedSearchQuery] = useState('Paracetamol');
   const [medRadius, setMedRadius] = useState(25);
@@ -9894,13 +9916,25 @@ function ScreenMedicineDiagnostics({
   const [medIsFallback, setMedIsFallback] = useState(false);
   const [medLoading, setMedLoading] = useState(false);
 
-  // --- Medicine Order Modal State ---
+  // --- Top Nearby Pharmacies State ---
+  const [nearbyPharmacies, setNearbyPharmacies] = useState([]);
+  const [pharmaciesLoading, setPharmaciesLoading] = useState(false);
+
+  // --- Master Medicines Catalog State ---
+  const [masterMedicines, setMasterMedicines] = useState([]);
+  const [masterCategories, setMasterCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [masterSearchQuery, setMasterSearchQuery] = useState('');
+  const [masterLoading, setMasterLoading] = useState(false);
+
+  // --- Medicine Order Modal State & Digital Pickup Slip ---
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedMedItem, setSelectedMedItem] = useState(null);
   const [orderPatientName, setOrderPatientName] = useState('Ramesh Mahto');
   const [orderPatientPhone, setOrderPatientPhone] = useState('+91-94311-28901');
   const [orderPatientId, setOrderPatientId] = useState('MV-MED-2026-1024');
-  const [orderQuantity, setOrderQuantity] = useState(20);
+  const [orderQuantity, setOrderQuantity] = useState(10);
+  const [confirmedOrderSlip, setConfirmedOrderSlip] = useState(null);
 
   // --- Shop Owner State ---
   const [allShops, setAllShops] = useState([]);
@@ -9967,6 +10001,50 @@ function ScreenMedicineDiagnostics({
     ]
   });
 
+  // Live GPS Handlers
+  const handleGetLiveGPS = () => {
+    if (!navigator.geolocation) {
+      showToast('⚠️ Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const newLoc = {
+          lat: latitude,
+          lng: longitude,
+          label: `Live GPS (${latitude.toFixed(4)}°, ${longitude.toFixed(4)}° ${accuracy ? '±' + Math.round(accuracy) + 'm' : ''})`,
+          isLiveGPS: true
+        };
+        setUserLocation(newLoc);
+        setGpsLoading(false);
+        showToast(`📍 GPS Located: ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`);
+        searchMedicines(medSearchQuery, medRadius, latitude, longitude);
+        loadNearbyPharmacies(latitude, longitude, medRadius);
+      },
+      (err) => {
+        setGpsLoading(false);
+        console.warn('Geolocation error:', err);
+        showToast('⚠️ Location access denied. Using Katkamsandi Hub default.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
+
+  const handleSelectPresetLocation = (preset) => {
+    const newLoc = {
+      lat: preset.lat,
+      lng: preset.lng,
+      label: preset.label,
+      isLiveGPS: false
+    };
+    setUserLocation(newLoc);
+    showToast(`📍 Switched to ${preset.label}`);
+    searchMedicines(medSearchQuery, medRadius, preset.lat, preset.lng);
+    loadNearbyPharmacies(preset.lat, preset.lng, medRadius);
+  };
+
   // Load All Shops
   const loadShops = async () => {
     try {
@@ -9989,12 +10067,17 @@ function ScreenMedicineDiagnostics({
     }
   };
 
-  // Search Medicines
-  const searchMedicines = async (q = medSearchQuery, rad = medRadius) => {
+  // Search Medicines with GPS Coordinates
+  const searchMedicines = async (
+    q = medSearchQuery,
+    rad = medRadius,
+    lat = userLocation.lat,
+    lng = userLocation.lng
+  ) => {
     try {
       setMedLoading(true);
       const res = await fetch(
-        getApiUrl(`/api/medicine/search?query=${encodeURIComponent(q)}&radius=${rad}`)
+        getApiUrl(`/api/medicine/search?query=${encodeURIComponent(q)}&radius=${rad}&lat=${lat}&lng=${lng}`)
       );
       const json = await res.json();
       if (json.data) {
@@ -10006,6 +10089,57 @@ function ScreenMedicineDiagnostics({
       console.warn('Search medicines error:', e);
     } finally {
       setMedLoading(false);
+    }
+  };
+
+  // Load Top Nearby Pharmacies
+  const loadNearbyPharmacies = async (
+    lat = userLocation.lat,
+    lng = userLocation.lng,
+    rad = medRadius
+  ) => {
+    try {
+      setPharmaciesLoading(true);
+      const res = await fetch(
+        getApiUrl(`/api/pharmacies/nearby?lat=${lat}&lng=${lng}&radius=${rad}`)
+      );
+      const json = await res.json();
+      if (json.data) {
+        setNearbyPharmacies(json.data || []);
+      }
+    } catch (e) {
+      console.warn('Load nearby pharmacies error:', e);
+    } finally {
+      setPharmaciesLoading(false);
+    }
+  };
+
+  // Load Master Medicines Catalog & Categories
+  const loadMasterCatalog = async (q = masterSearchQuery, cat = selectedCategory) => {
+    try {
+      setMasterLoading(true);
+      const catParam = cat && cat !== 'ALL' ? `&category=${encodeURIComponent(cat)}` : '';
+      const res = await fetch(getApiUrl(`/api/medicines/master?query=${encodeURIComponent(q)}${catParam}`));
+      const json = await res.json();
+      if (json.data) {
+        setMasterMedicines(json.data || []);
+      }
+    } catch (e) {
+      console.warn('Load master medicines error:', e);
+    } finally {
+      setMasterLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const res = await fetch(getApiUrl('/api/medicines/categories'));
+      const json = await res.json();
+      if (json.data) {
+        setMasterCategories(json.data || []);
+      }
+    } catch (e) {
+      console.warn('Load categories error:', e);
     }
   };
 
@@ -10076,7 +10210,10 @@ function ScreenMedicineDiagnostics({
   useEffect(() => {
     loadShops();
     loadCenters();
-    searchMedicines('Paracetamol', 25);
+    loadCategories();
+    searchMedicines('Paracetamol', 25, userLocation.lat, userLocation.lng);
+    loadNearbyPharmacies(userLocation.lat, userLocation.lng, 25);
+    loadMasterCatalog('', 'ALL');
     searchDiagnosticTests('Lipid Profile', 30);
   }, []);
 
@@ -10122,7 +10259,12 @@ function ScreenMedicineDiagnostics({
       const json = await res.json();
       if (json.success) {
         setShowOrderModal(false);
-        showToast(`🎉 Order reserved for ${selectedMedItem.medicine.medicineName}! Order ID: ${json.data.orderId}`);
+        setConfirmedOrderSlip({
+          ...json.data,
+          shop: selectedMedItem.shop,
+          medicine: selectedMedItem.medicine
+        });
+        showToast(`🎉 Order reserved! Pickup Token: ${json.data.orderId}`);
         loadShopData(selectedMedItem.shop.shopId);
       } else {
         showToast(`⚠️ Order error: ${json.error}`);
@@ -10179,7 +10321,7 @@ function ScreenMedicineDiagnostics({
         setShowAddMedModal(false);
         showToast(`✓ Added '${json.data.medicineName}' to inventory.`);
         loadShopData(activeShopId);
-        searchMedicines();
+        searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng);
       } else {
         showToast(`⚠️ RBAC / Error: ${json.error}`);
       }
@@ -10210,7 +10352,7 @@ function ScreenMedicineDiagnostics({
         setShowEditMedModal(false);
         showToast(`✓ Updated stock for '${json.data.medicineName}'.`);
         loadShopData(activeShopId);
-        searchMedicines();
+        searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng);
       } else {
         showToast(`⚠️ RBAC / Error: ${json.error}`);
       }
@@ -10234,7 +10376,7 @@ function ScreenMedicineDiagnostics({
       if (json.success) {
         showToast('✓ Medicine removed from inventory.');
         loadShopData(activeShopId);
-        searchMedicines();
+        searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng);
       }
     } catch (err) {
       showToast('⚠️ Failed to remove medicine.');
@@ -10336,14 +10478,14 @@ function ScreenMedicineDiagnostics({
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
             <span className="text-[10px] font-black uppercase tracking-widest text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-              FEATURE MAP 06 &bull; MEDICINE &amp; DIAGNOSTIC COORDINATION
+              FEATURE MAP 06 &bull; MEDICINE AVAILABILITY &amp; DIAGNOSTIC COORDINATION
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Medicine Availability &amp; Diagnostic Grid
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-2xl leading-relaxed">
-            Real-time nearby medicine stock search with out-of-radius fallback, owner-only RBAC inventory CRUD, reservation ordering, diagnostic test catalog, and doctor-ordered status progression.
+            Live GPS nearby pharmacy stock search, 24x7 chemist locator, Jan Aushadhi generic substitution savings, zero-payment counter reservations, and diagnostic coordination.
           </p>
         </div>
 
@@ -10369,7 +10511,7 @@ function ScreenMedicineDiagnostics({
             }`}
         >
           <span>💊</span>
-          <span>Medicine Search (Patient/Worker)</span>
+          <span>Medicine Stock &amp; Nearby Shops</span>
         </button>
 
         <button
@@ -10426,187 +10568,594 @@ function ScreenMedicineDiagnostics({
       {/* ========================================================= */}
       {activeTab === 'medicine_search' && (
         <div className="space-y-6">
-          {/* Search Controls */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="text-xl font-black text-slate-900">Nearby Medicine Stock Discovery</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Real-time inventory lookup across registered chemists in Hazaribagh &amp; Jharkhand grid.
+          {/* Live GPS & Location Selector Hub */}
+          <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-teal-700/40 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-300">
+                    LIVE GPS LOCATION ENGINE &bull; ALL-INDIA RADIUS
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <span>📍</span>
+                  <span>{userLocation.label}</span>
+                </h3>
+                <p className="text-xs text-teal-200/80 font-medium">
+                  Lat: <span className="font-mono">{userLocation.lat.toFixed(4)}</span> &bull; Lng: <span className="font-mono">{userLocation.lng.toFixed(4)}</span> &bull; {userLocation.isLiveGPS ? '🟢 Active Device GPS' : '⚪ Preset Location Hub'}
                 </p>
               </div>
-              <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
-                Read-Only Search + Counter Reservation
-              </span>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
-              <div className="sm:col-span-3">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                  Medicine Name / Brand / Generic Molecule
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={medSearchQuery}
-                    onChange={(e) => setMedSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && searchMedicines(medSearchQuery, medRadius)}
-                    placeholder="e.g. Paracetamol, Telmisartan, Ecosprin, Tenecteplase..."
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 bg-slate-50/50"
-                  />
-                  <span className="absolute left-3.5 top-3.5 text-slate-400 text-base">🔍</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleGetLiveGPS}
+                  disabled={gpsLoading}
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <span>{gpsLoading ? '⏳' : '🎯'}</span>
+                  <span>{gpsLoading ? 'Detecting GPS...' : 'Use My Live GPS'}</span>
+                </button>
+
+                <div className="relative inline-block text-left">
+                  <select
+                    onChange={(e) => {
+                      const sel = locationPresets.find((p) => p.label === e.target.value);
+                      if (sel) handleSelectPresetLocation(sel);
+                    }}
+                    value={locationPresets.find((p) => p.lat === userLocation.lat && p.lng === userLocation.lng)?.label || ''}
+                    className="bg-slate-800 text-white border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-teal-400"
+                  >
+                    <option value="" disabled>Switch Location Hub...</option>
+                    {locationPresets.map((p) => (
+                      <option key={p.label} value={p.label}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                  Search Radius
-                </label>
-                <select
-                  value={medRadius}
-                  onChange={(e) => {
-                    const r = Number(e.target.value);
-                    setMedRadius(r);
-                    searchMedicines(medSearchQuery, r);
-                  }}
-                  className="w-full py-3 px-3 border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 bg-white"
-                >
-                  <option value="5">Within 5 km (Walking)</option>
-                  <option value="15">Within 15 km (Block Level)</option>
-                  <option value="25">Within 25 km (District Hub)</option>
-                  <option value="75">Within 75 km (State Network)</option>
-                </select>
-              </div>
             </div>
 
-            {/* Quick Keyword Chips */}
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Searches:</span>
-              {['Paracetamol', 'Telmisartan', 'Metformin', 'Ecosprin', 'Brilinta', 'Tenecteplase'].map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => {
-                    setMedSearchQuery(q);
-                    searchMedicines(q, medRadius);
-                  }}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 transition-colors"
-                >
-                  + {q}
-                </button>
-              ))}
+            {/* Sub-View Switcher inside Medicine Discovery */}
+            <div className="pt-3 border-t border-teal-700/50 flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-[10px] font-black uppercase text-teal-300 tracking-wider">BROWSE MODE:</span>
+              <button
+                type="button"
+                onClick={() => setMedSubView('stock_search')}
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'stock_search'
+                  ? 'bg-white text-teal-900 shadow-md font-black'
+                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                  }`}
+              >
+                🔍 Live Medicine Stock Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMedSubView('nearby_shops');
+                  loadNearbyPharmacies(userLocation.lat, userLocation.lng, medRadius);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'nearby_shops'
+                  ? 'bg-white text-teal-900 shadow-md font-black'
+                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                  }`}
+              >
+                🏪 Top Nearby Medicine Shops ({nearbyPharmacies.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMedSubView('master_catalog');
+                  loadMasterCatalog('', selectedCategory);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'master_catalog'
+                  ? 'bg-white text-teal-900 shadow-md font-black'
+                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                  }`}
+              >
+                📖 Master Essential Catalog &amp; Jan Aushadhi Savings
+              </button>
             </div>
           </div>
 
-          {/* Search Feedback / Non-Empty Fallback Alert */}
-          {medMessage && (
-            <div
-              className={`p-4 rounded-2xl border flex items-center justify-between text-xs gap-3 ${medIsFallback
-                ? 'bg-amber-50 border-amber-300 text-amber-900'
-                : 'bg-teal-50 border-teal-200 text-teal-900'
-                }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">{medIsFallback ? '⚠️' : '✓'}</span>
-                <span className="font-bold">{medMessage}</span>
+          {/* ===================================================== */}
+          {/* SUB-VIEW 1: LIVE MEDICINE STOCK SEARCH (CHEMISTS)    */}
+          {/* ===================================================== */}
+          {medSubView === 'stock_search' && (
+            <div className="space-y-6">
+              {/* Search Controls */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Nearby Stock Discovery &amp; Substitution</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Real-time inventory lookup across registered chemists in your radius with generic cost comparisons.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
+                    Live Chemist Inventory &bull; Real Haversine Proximity
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="sm:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                      Medicine Brand / Generic Molecule
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={medSearchQuery}
+                        onChange={(e) => setMedSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng)}
+                        placeholder="e.g. Paracetamol, Telmisartan, Metformin, Ecosprin, Salbutamol..."
+                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 bg-slate-50/50"
+                      />
+                      <span className="absolute left-3.5 top-3.5 text-slate-400 text-base">🔍</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                      Search Radius
+                    </label>
+                    <select
+                      value={medRadius}
+                      onChange={(e) => {
+                        const r = Number(e.target.value);
+                        setMedRadius(r);
+                        searchMedicines(medSearchQuery, r, userLocation.lat, userLocation.lng);
+                        loadNearbyPharmacies(userLocation.lat, userLocation.lng, r);
+                      }}
+                      className="w-full py-3 px-3 border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 bg-white"
+                    >
+                      <option value="5">Within 5 km (Walking / Local)</option>
+                      <option value="15">Within 15 km (Block Level)</option>
+                      <option value="25">Within 25 km (District Hub)</option>
+                      <option value="50">Within 50 km (Regional Corridor)</option>
+                      <option value="150">Within 150 km (State Grid)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Keyword Chips */}
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Searches:</span>
+                  {['Paracetamol', 'Telmisartan', 'Metformin', 'Ecosprin', 'Amoxicillin', 'Salbutamol Inhaler', 'Tenecteplase', 'Pantoprazole'].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => {
+                        setMedSearchQuery(q);
+                        searchMedicines(q, medRadius, userLocation.lat, userLocation.lng);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 transition-colors"
+                    >
+                      + {q}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {medIsFallback && (
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-200 text-amber-800 rounded">
-                  Out-of-Radius Fallback
-                </span>
+
+              {/* Search Feedback / Non-Empty Fallback Alert */}
+              {medMessage && (
+                <div
+                  className={`p-4 rounded-2xl border flex items-center justify-between text-xs gap-3 ${medIsFallback
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-teal-50 border-teal-200 text-teal-900'
+                    }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{medIsFallback ? '⚠️' : '✓'}</span>
+                    <span className="font-bold">{medMessage}</span>
+                  </div>
+                  {medIsFallback && (
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-200 text-amber-800 rounded">
+                      Out-of-Radius Fallback Activated
+                    </span>
+                  )}
+                </div>
               )}
+
+              {/* Medicine Results Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {medResults.map((item, idx) => {
+                  const med = item.medicine;
+                  const shop = item.shop;
+                  const isInStock = med.status === 'in_stock' && med.quantity > 0;
+                  const isLowStock = isInStock && med.quantity <= 10;
+                  const isOutOfStock = !isInStock;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between space-y-4 hover:shadow-md ${isInStock ? 'border-slate-200 hover:border-teal-400' : 'border-red-200 bg-red-50/20'
+                        }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-lg font-black text-slate-900">{med.medicineName}</h4>
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
+                                {med.dosageForm || 'Tablet'} &bull; {med.strength || 'Standard'}
+                              </span>
+                            </div>
+                            {med.genericName && (
+                              <div className="text-xs text-slate-500 font-medium mt-0.5">
+                                Generic Molecule: <strong className="text-slate-800">{med.genericName}</strong>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            {med.price !== undefined && (
+                              <div className="text-base font-black text-slate-900">₹{med.price.toFixed(2)}</div>
+                            )}
+                            <span
+                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full inline-block mt-0.5 ${isLowStock
+                                ? 'bg-amber-100 text-amber-800'
+                                : isInStock
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-red-100 text-red-800'
+                                }`}
+                            >
+                              {isLowStock
+                                ? `⚠️ Low Stock (${med.quantity} left)`
+                                : isInStock
+                                  ? `✓ In Stock (${med.quantity})`
+                                  : '✗ Out of Stock'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Jan Aushadhi Generic Savings Banner */}
+                        {item.genericSavingsPercent && item.genericSavingsPercent > 0 && (
+                          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-900">
+                            <div className="flex items-center gap-2">
+                              <span>💡</span>
+                              <span className="font-bold">
+                                Jan Aushadhi generic available at ₹{item.genericSubstitutePrice}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-black uppercase bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">
+                              Save {item.genericSavingsPercent}%!
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Out of Stock Alert & Proximity Fallback Notice */}
+                        {isOutOfStock && (
+                          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
+                            <div className="font-bold flex items-center gap-1.5">
+                              <span>⚠️</span>
+                              <span>Not currently in stock at {shop.name}</span>
+                            </div>
+                            <div className="text-[11px] text-red-700">
+                              Try searching with wider radius or reserve at alternate verified chemists shown in the directory.
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Shop Information Card */}
+                        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <strong className="text-slate-900">{shop.name}</strong>
+                              {item.isOpen24_7 && (
+                                <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                                  24x7
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-mono font-bold text-teal-700">
+                              📍 {item.distanceKm} km
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500">{shop.location.address}</div>
+                          <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between border-t border-slate-200/60">
+                            <span>📞 {item.phone || shop.contactNumber}</span>
+                            <span>⭐ {item.rating || 4.5} rating</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          disabled={!isInStock}
+                          onClick={() => {
+                            setSelectedMedItem(item);
+                            setOrderQuantity(Math.min(10, med.quantity || 1));
+                            setShowOrderModal(true);
+                          }}
+                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${isInStock
+                            ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                        >
+                          <span>📦</span>
+                          <span>Reserve for Counter Pickup</span>
+                        </button>
+
+                        <a
+                          href={`tel:${item.phone || shop.contactNumber}`}
+                          className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1"
+                        >
+                          <span>📞</span>
+                          <span>Call</span>
+                        </a>
+
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name + ' ' + shop.location.address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1"
+                        >
+                          <span>🗺️</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* Medicine Results Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {medResults.map((item, idx) => {
-              const med = item.medicine;
-              const shop = item.shop;
-              const isInStock = med.status === 'in_stock' && med.quantity > 0;
-
-              return (
-                <div
-                  key={idx}
-                  className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between space-y-4 hover:shadow-md ${isInStock ? 'border-slate-200 hover:border-teal-400' : 'border-slate-200 bg-slate-50/50'
-                    }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-black text-slate-900">{med.medicineName}</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
-                            {med.dosageForm || 'Tablet'} &bull; {med.strength || 'Standard'}
-                          </span>
-                        </div>
-                        {med.genericName && (
-                          <div className="text-xs text-slate-500 font-medium mt-0.5">
-                            Generic: <strong className="text-slate-700">{med.genericName}</strong>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        {med.price !== undefined && (
-                          <div className="text-base font-black text-slate-900">₹{med.price.toFixed(2)}</div>
-                        )}
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full inline-block mt-0.5 ${isInStock
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-critical-100 text-critical-800'
-                            }`}
-                        >
-                          {isInStock ? `✓ In Stock (${med.quantity})` : '✗ Out of Stock'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Shop Information Card */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
-                      <div className="flex items-center justify-between">
-                        <strong className="text-slate-900">{shop.name}</strong>
-                        <span className="font-mono font-bold text-teal-700">
-                          📍 {item.distanceKm} km
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500">{shop.location.address}</div>
-                      <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
-                        <span>📞 {shop.contactNumber}</span>
-                        <span>Updated: {new Date(med.lastUpdated).toLocaleTimeString()}</span>
-                      </div>
-                    </div>
+          {/* ===================================================== */}
+          {/* SUB-VIEW 2: TOP NEARBY MEDICINE SHOPS DIRECTORY      */}
+          {/* ===================================================== */}
+          {medSubView === 'nearby_shops' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Top Nearby Medicine Shops &amp; 24x7 Chemists</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Ranked by real Haversine distance from your current location ({userLocation.label}).
+                    </p>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      disabled={!isInStock}
-                      onClick={() => {
-                        setSelectedMedItem(item);
-                        setShowOrderModal(true);
-                      }}
-                      className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${isInStock
-                        ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
-                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        }`}
-                    >
-                      <span>📦</span>
-                      <span>Reserve for Counter Pickup</span>
-                    </button>
-
-                    <a
-                      href={`tel:${shop.contactNumber}`}
-                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
-                    >
-                      📞 Call
-                    </a>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full border border-teal-200">
+                      {nearbyPharmacies.length} Licensed Pharmacies Found
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {pharmaciesLoading ? (
+                  <div className="p-12 text-center text-slate-400 text-xs">
+                    ⏳ Calculating proximity across state grid...
+                  </div>
+                ) : nearbyPharmacies.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl">
+                    No pharmacies found within {medRadius} km. Expand your radius filter above.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {nearbyPharmacies.map((pharm) => {
+                      const isJanAushadhi = pharm.type.toLowerCase().includes('jan aushadhi');
+                      const isOpen24 = Boolean(pharm.isOpen24_7);
+
+                      return (
+                        <div
+                          key={pharm.id}
+                          className="bg-white rounded-3xl p-5 border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span
+                                  className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full inline-block mb-1 ${isJanAushadhi
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : isOpen24
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-teal-50 text-teal-700'
+                                    }`}
+                                >
+                                  {pharm.type}
+                                </span>
+                                <h4 className="text-base font-black text-slate-900">{pharm.name}</h4>
+                              </div>
+                              <span className="font-mono font-bold text-xs text-teal-700 bg-teal-50 px-2.5 py-1 rounded-xl border border-teal-200 shrink-0">
+                                📍 {pharm.distanceKm} km
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 line-clamp-2">
+                              {pharm.address}, {pharm.city}, {pharm.district}
+                            </p>
+
+                            <div className="space-y-1.5 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">Operating Hours:</span>
+                                <span className={`font-bold ${isOpen24 ? 'text-purple-700' : 'text-slate-800'}`}>
+                                  {isOpen24 ? '🟢 24 Hours Open' : pharm.openingHours}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">Rating:</span>
+                                <span className="font-bold text-amber-600">⭐ {pharm.rating} ({pharm.reviewCount || 45} reviews)</span>
+                              </div>
+                              {pharm.homeDelivery && (
+                                <div className="text-[10px] text-emerald-700 font-bold">
+                                  🛵 Home Delivery Available within 5 km
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                            <a
+                              href={`tel:${pharm.phone}`}
+                              className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                              <span>📞</span>
+                              <span>Call Chemist</span>
+                            </a>
+
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pharm.name + ' ' + pharm.address)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1"
+                            >
+                              <span>🗺️ Directions</span>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================== */}
+          {/* SUB-VIEW 3: MASTER ESSENTIAL MEDICINES CATALOG       */}
+          {/* ===================================================== */}
+          {medSubView === 'master_catalog' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Master Essential Medicine Catalog</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      WHO / NLEM Essential Medicines with Jan Aushadhi generic equivalent cost comparisons.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
+                    {masterMedicines.length} Ingested Master Formulas
+                  </span>
+                </div>
+
+                {/* Category Pills Filter */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('ALL');
+                      loadMasterCatalog(masterSearchQuery, 'ALL');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl transition-all shrink-0 ${selectedCategory === 'ALL'
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                  >
+                    All Categories ({masterMedicines.length})
+                  </button>
+                  {masterCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        loadMasterCatalog(masterSearchQuery, cat);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl transition-all shrink-0 ${selectedCategory === cat
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Catalog Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={masterSearchQuery}
+                    onChange={(e) => {
+                      setMasterSearchQuery(e.target.value);
+                      loadMasterCatalog(e.target.value, selectedCategory);
+                    }}
+                    placeholder="Search by brand name, generic molecule, therapeutic class..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 bg-slate-50/50"
+                  />
+                  <span className="absolute left-3.5 top-3 text-slate-400 text-sm">🔍</span>
+                </div>
+
+                {/* Master Medicines Grid */}
+                {masterLoading ? (
+                  <div className="p-12 text-center text-slate-400 text-xs">
+                    ⏳ Querying SQLite master catalog...
+                  </div>
+                ) : masterMedicines.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl">
+                    No matching medicines in the master database.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {masterMedicines.map((m) => {
+                      const savings = Math.round(((m.mrp - m.genericPrice) / m.mrp) * 100);
+
+                      return (
+                        <div
+                          key={m.id}
+                          className="bg-white rounded-3xl p-5 border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 inline-block mb-1">
+                                  {m.category} &bull; {m.dosageForm}
+                                </span>
+                                <h4 className="text-base font-black text-slate-900">{m.name}</h4>
+                                <div className="text-xs text-slate-500 font-medium">
+                                  Generic: <strong className="text-slate-800">{m.genericName}</strong>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0">
+                                Save {savings}%
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 line-clamp-2">
+                              {m.therapeuticClass}
+                            </p>
+
+                            {/* Price Comparison Block */}
+                            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 block font-bold uppercase">Brand MRP</span>
+                                <span className="font-black text-slate-500 line-through">₹{m.mrp.toFixed(2)}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] text-emerald-600 block font-bold uppercase">Jan Aushadhi</span>
+                                <span className="font-black text-emerald-700 text-sm">₹{m.genericPrice.toFixed(2)}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                              <span>Brand: {m.brandName}</span>
+                              <span>{m.prescriptionRequired ? '🔒 Rx Required' : '🟢 OTC'}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMedSearchQuery(m.genericName || m.name);
+                              setMedSubView('stock_search');
+                              searchMedicines(m.genericName || m.name, medRadius, userLocation.lat, userLocation.lng);
+                            }}
+                            className="w-full py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <span>📍 Check Nearby Stock</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -10728,20 +11277,20 @@ function ScreenMedicineDiagnostics({
                           <button
                             type="button"
                             onClick={() =>
-                              handleUpdateOrderStatus(ord.orderId, 'confirmed', 'Confirmed. Packed and kept at pickup counter.')
+                              handleUpdateOrderStatus(ord.orderId, 'confirmed', 'Stock reserved at counter for 24h pickup')
                             }
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm"
                           >
-                            ✓ Confirm Pickup
+                            ✓ Confirm Hold
                           </button>
                           <button
                             type="button"
                             onClick={() =>
-                              handleUpdateOrderStatus(ord.orderId, 'unavailable', 'Stock changed, unavailable.')
+                              handleUpdateOrderStatus(ord.orderId, 'cancelled', 'Stock depleted at counter')
                             }
-                            className="px-3 py-1.5 bg-critical-600 hover:bg-critical-700 text-white font-bold rounded-lg text-xs"
+                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs"
                           >
-                            ✗ Unavailable
+                            Reject
                           </button>
                         </>
                       )}
@@ -10752,113 +11301,100 @@ function ScreenMedicineDiagnostics({
             )}
           </div>
 
-          {/* Shop Inventory CRUD Table */}
+          {/* Shop Inventory Grid */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-black text-slate-900">Current Medicine Stock Inventory</h3>
+                <h3 className="text-lg font-black text-slate-900">Current Shop Inventory</h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Real-time stock counts reflecting directly in patient-facing search.
+                  {shopInventory.length} items registered in store stock.
                 </p>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Medicine Name</th>
-                    <th className="py-3 px-4">Generic / Strength</th>
-                    <th className="py-3 px-4">Quantity</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Price (INR)</th>
-                    <th className="py-3 px-4">Last Updated</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {shopInventory.map((item) => (
-                    <tr key={item.inventoryId} className="hover:bg-slate-50/50">
-                      <td className="py-3.5 px-4 font-black text-slate-900">{item.medicineName}</td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        {item.genericName || 'N/A'} &bull; <span className="font-bold">{item.strength}</span>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{item.quantity}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${item.status === 'in_stock'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-critical-100 text-critical-800'
-                            }`}
-                        >
-                          {item.status === 'in_stock' ? 'In Stock' : 'Out of Stock'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-bold">
-                        {item.price !== undefined ? `₹${item.price.toFixed(2)}` : 'N/A'}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-400 text-[10px]">
-                        {new Date(item.lastUpdated).toLocaleTimeString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingMedItem(item);
-                            setMedForm({
-                              medicineName: item.medicineName,
-                              genericName: item.genericName || '',
-                              dosageForm: item.dosageForm || 'Tablet',
-                              strength: item.strength || '',
-                              quantity: item.quantity,
-                              status: item.status,
-                              price: item.price || 0
-                            });
-                            setShowEditMedModal(true);
-                          }}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMedicine(item.inventoryId)}
-                          className="px-2.5 py-1 bg-critical-50 hover:bg-critical-100 text-critical-700 font-bold rounded-lg"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {shopInventory.map((item) => (
+                <div
+                  key={item.inventoryId}
+                  className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 flex flex-col justify-between shadow-sm"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-black text-slate-900 text-sm">{item.medicineName}</h4>
+                      <span
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.status === 'in_stock'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}
+                      >
+                        {item.status === 'in_stock' ? `${item.quantity} units` : 'Out of Stock'}
+                      </span>
+                    </div>
+                    {item.genericName && (
+                      <div className="text-[11px] text-slate-500">Generic: {item.genericName}</div>
+                    )}
+                    <div className="text-[11px] text-slate-700 font-bold">
+                      Price: ₹{item.price?.toFixed(2) || '0.00'} &bull; {item.dosageForm} {item.strength}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingMedItem(item);
+                        setMedForm({
+                          medicineName: item.medicineName,
+                          genericName: item.genericName || '',
+                          dosageForm: item.dosageForm || 'Tablet',
+                          strength: item.strength || '500mg',
+                          quantity: item.quantity,
+                          status: item.status,
+                          price: item.price || 20
+                        });
+                        setShowEditMedModal(true);
+                      }}
+                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMedicine(item.inventoryId)}
+                      className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-bold"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* TAB 3: DIAGNOSTIC TEST SEARCH (DIRECT PATIENT BOOKING) */}
+      {/* TAB 3: DIAGNOSTIC SEARCH (DIRECT PATIENT BOOKING)        */}
       {/* ========================================================= */}
       {activeTab === 'diagnostic_search' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Direct Diagnostic Test Discovery</h3>
+                <h3 className="text-xl font-black text-slate-900">Diagnostic Center &amp; Test Search</h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Search pathology tests, imaging, and biochemistry panels across accredited labs without a doctor mandate.
+                  Direct appointment booking for pathology, radiology &amp; blood biochemistry tests.
                 </p>
               </div>
               <span className="text-[10px] font-black uppercase text-purple-800 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
-                Direct Search &bull; Same-Day Labs
+                Direct Appointment Booking
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
               <div className="sm:col-span-3">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                  Diagnostic Test / Panel Name
+                  Test Name / Pathology Panel
                 </label>
                 <div className="relative">
                   <input
@@ -10866,7 +11402,7 @@ function ScreenMedicineDiagnostics({
                     value={diagSearchQuery}
                     onChange={(e) => setDiagSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && searchDiagnosticTests(diagSearchQuery, diagRadius)}
-                    placeholder="e.g. Complete Blood Count, Lipid Profile, Blood Sugar, HbA1c, Troponin-I..."
+                    placeholder="e.g. Lipid Profile, Complete Blood Count, Troponin-I, HbA1c..."
                     className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 bg-slate-50/50"
                   />
                   <span className="absolute left-3.5 top-3.5 text-slate-400 text-base">🔬</span>
@@ -10875,7 +11411,7 @@ function ScreenMedicineDiagnostics({
 
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                  Radius Filter
+                  Search Radius
                 </label>
                 <select
                   value={diagRadius}
@@ -10887,16 +11423,15 @@ function ScreenMedicineDiagnostics({
                   className="w-full py-3 px-3 border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 bg-white"
                 >
                   <option value="10">Within 10 km</option>
-                  <option value="30">Within 30 km (Sub-District)</option>
-                  <option value="60">Within 60 km (District Hub)</option>
+                  <option value="30">Within 30 km</option>
+                  <option value="60">Within 60 km</option>
                 </select>
               </div>
             </div>
 
-            {/* Quick Test Chips */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Popular Panels:</span>
-              {['Complete Blood Count', 'Lipid Profile', 'Blood Sugar', 'HbA1c', 'Troponin-I', 'X-Ray Chest', 'Echocardiography'].map((t) => (
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Common Tests:</span>
+              {['Lipid Profile', 'Complete Blood Count (CBC)', 'Troponin-I', 'HbA1c Glycated Hemoglobin', 'Chest X-Ray'].map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -10912,7 +11447,6 @@ function ScreenMedicineDiagnostics({
             </div>
           </div>
 
-          {/* Diagnostic Message */}
           {diagMessage && (
             <div
               className={`p-4 rounded-2xl border flex items-center justify-between text-xs gap-3 ${diagIsFallback
@@ -10927,106 +11461,79 @@ function ScreenMedicineDiagnostics({
             </div>
           )}
 
-          {/* Results Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {diagResults.map((item, idx) => {
-              const test = item.test;
-              const center = item.center;
-
-              return (
-                <div
-                  key={idx}
-                  className="bg-white rounded-3xl p-6 border border-slate-200 hover:border-purple-300 transition-all flex flex-col justify-between space-y-4 hover:shadow-md"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-black text-slate-900">{test.testName}</h4>
-                        </div>
-                        <div className="text-xs text-slate-500 font-medium mt-0.5">
-                          Category: <strong className="text-slate-800 uppercase">{test.category}</strong> &bull; Sample: <strong>{test.sampleType || 'Venous Blood'}</strong>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        {test.price !== undefined && (
-                          <div className="text-base font-black text-slate-900">₹{test.price.toFixed(2)}</div>
-                        )}
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 inline-block mt-0.5">
-                          ⏱️ {test.turnaroundTime}
-                        </span>
+            {diagResults.map((item, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-3xl p-6 border border-slate-200 hover:border-purple-400 transition-all flex flex-col justify-between space-y-4 shadow-sm"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900">{item.test.testName}</h4>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">
+                        Category: <strong className="text-slate-700 uppercase">{item.test.category}</strong> &bull; Turnaround: {item.test.turnaroundTime}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      {test.fastingRequired ? (
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold text-[10px]">
-                          ⚠️ Fasting Required (8-10h)
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[10px]">
-                          ✓ No Fasting Required
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Center Details */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
-                      <div className="flex items-center justify-between">
-                        <strong className="text-slate-900">{center.name}</strong>
-                        <span className="font-mono font-bold text-purple-700">📍 {item.distanceKm} km</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500">{center.location.address}</div>
-                      {center.accreditation && (
-                        <div className="text-[10px] text-emerald-700 font-bold mt-1">
-                          🏅 {center.accreditation}
-                        </div>
-                      )}
+                    <div className="text-right shrink-0">
+                      <div className="text-base font-black text-slate-900">₹{item.test.price?.toFixed(2) || 0}</div>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full inline-block mt-0.5 bg-emerald-100 text-emerald-800">
+                        Available
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTestItem(item);
-                        setShowBookingModal(true);
-                      }}
-                      className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <span>🧪</span>
-                      <span>Book Diagnostic Test</span>
-                    </button>
-
-                    <a
-                      href={`tel:${center.contactNumber}`}
-                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
-                    >
-                      📞 Call
-                    </a>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-slate-900">{item.center.name}</strong>
+                      <span className="font-mono font-bold text-purple-700">📍 {item.distanceKm} km</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">{item.center.location.address}</div>
+                    <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
+                      <span>Accreditation: {item.center.accreditation || 'NABL'}</span>
+                      <span>📞 {item.center.contactNumber}</span>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTestItem(item);
+                      setShowBookingModal(true);
+                    }}
+                    className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm"
+                  >
+                    📅 Book Test Appointment
+                  </button>
+                  <a
+                    href={`tel:${item.center.contactNumber}`}
+                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
+                  >
+                    📞 Call Lab
+                  </a>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* TAB 4: DIAGNOSTIC CENTER STAFF DASHBOARD */}
+      {/* TAB 4: DIAGNOSTIC LAB STAFF DASHBOARD                    */}
       {/* ========================================================= */}
       {activeTab === 'lab_dashboard' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40 space-y-4">
+          <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-700/40 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-2xl">
                   🧪
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block">
-                    DIAGNOSTIC CENTER DASHBOARD &bull; LAB STAFF RBAC
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
+                    DIAGNOSTIC CENTER OPERATIONS
                   </span>
                   <h3 className="text-xl font-black text-white">{activeCenterObj?.name}</h3>
                 </div>
@@ -11047,289 +11554,174 @@ function ScreenMedicineDiagnostics({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setTestForm({
-                      testName: '',
-                      category: 'blood',
-                      status: 'available',
-                      turnaroundTime: 'Same Day (3 hours)',
-                      price: 150.0,
-                      fastingRequired: false,
-                      sampleType: 'Venous Blood'
-                    });
-                    setShowAddTestModal(true);
-                  }}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-black rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5"
+                  onClick={() => setShowAddTestModal(true)}
+                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white font-black rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5"
                 >
-                  <span>➕ Add Test</span>
+                  <span>➕ Add Test Offering</span>
                 </button>
               </div>
             </div>
-
-            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <strong>Accreditation:</strong> {activeCenterObj?.accreditation || 'Standard Regional Lab'}
-              </div>
-              <span className="text-[10px] font-mono text-indigo-300">Staff Actor: owner_lab_1</span>
-            </div>
           </div>
 
-          {/* Test Catalog Table */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900">Offered Test Catalog</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Test Name</th>
-                    <th className="py-3 px-4">Category</th>
-                    <th className="py-3 px-4">Turnaround</th>
-                    <th className="py-3 px-4">Fasting</th>
-                    <th className="py-3 px-4">Price</th>
-                    <th className="py-3 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {centerCatalog.map((t) => (
-                    <tr key={t.testOfferingId}>
-                      <td className="py-3 px-4 font-black text-slate-900">{t.testName}</td>
-                      <td className="py-3 px-4 uppercase text-[10px] font-bold text-indigo-700">{t.category}</td>
-                      <td className="py-3 px-4">{t.turnaroundTime}</td>
-                      <td className="py-3 px-4">{t.fastingRequired ? '⚠️ Yes' : '✓ No'}</td>
-                      <td className="py-3 px-4 font-bold">{t.price ? `₹${t.price}` : 'Free'}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
-                          {t.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Inbound Sample &amp; Test Queue</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Track sample accession, test processing, and clinical result publishing.
+                </p>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                {centerOrders.length} Tests in Pipeline
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {centerOrders.map((ord) => (
+                <div
+                  key={ord.orderId}
+                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-3 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-slate-900">{ord.patientName}</strong>
+                      <span className="font-mono text-slate-500">({ord.patientPhone})</span>
+                      <span
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${ord.status === 'result_ready'
+                          ? 'bg-purple-100 text-purple-800'
+                          : ord.status === 'sample_collected'
+                            ? 'bg-teal-100 text-teal-800'
+                            : 'bg-amber-100 text-amber-800'
+                          }`}
+                      >
+                        {ord.status}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-1">
+                      Test: <strong className="text-slate-900">{ord.testName}</strong> &bull; Order ID: <span className="font-mono font-bold text-slate-700">{ord.orderId}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {ord.status === 'sample_pending' && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceOrderStatus(ord.orderId, 'sample_collected')}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs shadow-sm"
+                      >
+                        🩸 Collect Sample
+                      </button>
+                    )}
+                    {ord.status === 'sample_collected' && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvanceOrderStatus(ord.orderId, 'processing')}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm"
+                      >
+                        ⚙️ Start Analysis
+                      </button>
+                    )}
+                    {ord.status === 'processing' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedOrderForStatus(ord);
+                          setShowUploadResultModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-sm"
+                      >
+                        📝 Upload Lab Results
+                      </button>
+                    )}
+                    {ord.status === 'result_ready' && (
+                      <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                        ✓ Report Ready
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* TAB 5: DOCTOR-ORDERED DIAGNOSTIC STATUS TRACKER */}
+      {/* TAB 5: DOCTOR-ORDERED LAB TRACKER (CLINICAL WORKFLOW)    */}
       {/* ========================================================= */}
       {activeTab === 'doctor_orders' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Doctor-Ordered Diagnostic Lifecycle Tracker</h3>
+                <h3 className="text-xl font-black text-slate-900">Doctor-Ordered Diagnostic Tracker</h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Tracks orders initiated during Feature 02 consultations: Sample Collection &rarr; In Progress &rarr; Results Published &rarr; Delivered to EHR.
+                  Follow patient test progress and review verified lab findings directly.
                 </p>
               </div>
+              <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                Clinical Pathology Portal
+              </span>
             </div>
 
-            {/* Select Order */}
             <div className="space-y-3">
-              <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                Select Active Consultation Order:
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {trackedOrders.map((ord) => (
-                  <div
-                    key={ord.orderId}
-                    onClick={() => setSelectedOrderForStatus(ord)}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedOrderForStatus?.orderId === ord.orderId
-                      ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
-                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <strong className="text-slate-900 text-sm">{ord.testName}</strong>
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                        {ord.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      Patient: <strong>{ord.patientName}</strong> &bull; Center: {ord.centerName}
-                    </div>
-                    {ord.orderedBy && (
-                      <div className="text-[11px] text-brand-700 font-bold mt-1">
-                        Ordered by: {ord.orderedBy.name}
+              {trackedOrders.map((ord) => (
+                <div
+                  key={ord.orderId}
+                  className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3"
+                >
+                  <div className="flex items-start justify-between flex-wrap gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-slate-900 text-sm">{ord.testName}</h4>
+                        <span className="text-xs font-mono text-slate-500">[{ord.orderId}]</span>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Stepper & Dual Result Viewer */}
-          {selectedOrderForStatus && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-4">
-                <div>
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
-                    ORDER ID: {selectedOrderForStatus.orderId}
-                  </span>
-                  <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                    {selectedOrderForStatus.testName}
-                  </h3>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    Patient: <strong>{selectedOrderForStatus.patientName}</strong> ({selectedOrderForStatus.patientPhone})
-                  </div>
-                </div>
-
-                {/* Status Advancement Controls */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {selectedOrderForStatus.status === 'sample_pending' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceOrderStatus(selectedOrderForStatus.orderId, 'in_progress')}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-sm"
-                    >
-                      🩸 Collect Sample (In Progress)
-                    </button>
-                  )}
-
-                  {selectedOrderForStatus.status === 'in_progress' && (
-                    <button
-                      type="button"
-                      onClick={() => setShowUploadResultModal(true)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm"
-                    >
-                      📝 Upload Results &amp; Values
-                    </button>
-                  )}
-
-                  {selectedOrderForStatus.status === 'result_ready' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceOrderStatus(selectedOrderForStatus.orderId, 'delivered')}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm"
-                    >
-                      ✓ Deliver to Doctor &amp; Patient Timeline
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Status Stepper Progression */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                {[
-                  { id: 'sample_pending', label: '1. Sample Pending' },
-                  { id: 'in_progress', label: '2. In Progress' },
-                  { id: 'result_ready', label: '3. Result Ready' },
-                  { id: 'delivered', label: '4. Delivered' }
-                ].map((st, i) => {
-                  const stepOrder = ['sample_pending', 'in_progress', 'result_ready', 'delivered'];
-                  const curIdx = stepOrder.indexOf(selectedOrderForStatus.status);
-                  const isDone = i <= curIdx;
-                  return (
-                    <div
-                      key={st.id}
-                      className={`p-3 rounded-2xl font-bold border transition-all ${isDone
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-400'
+                      <div className="text-xs text-slate-600 mt-0.5">
+                        Patient: <strong>{ord.patientName}</strong> &bull; {ord.patientPhone}
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${ord.status === 'result_ready'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-amber-100 text-amber-800'
                         }`}
                     >
-                      <span>{isDone ? '✓ ' : ''}{st.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Dual Results Viewer (Clinical + Patient Friendly) */}
-              {selectedOrderForStatus.resultData ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                  {/* Clinical View */}
-                  <div className="p-6 rounded-3xl bg-slate-900 text-white shadow-xl border border-slate-800 space-y-4">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
-                          CLINICAL VIEW &bull; MEDICAL OFFICER
-                        </span>
-                        <h4 className="text-base font-black text-white">Diagnostic Laboratory Parameters</h4>
-                      </div>
-                      <span className="text-xs font-mono font-bold text-slate-400">NABL Verified</span>
-                    </div>
-
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                      {selectedOrderForStatus.resultData.clinicalSummary}
-                    </p>
-
-                    <div className="space-y-2 pt-2">
-                      {selectedOrderForStatus.resultData.parameters?.map((p, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 bg-white/5 rounded-xl border border-white/10 flex items-center justify-between text-xs"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-200">{p.name}</span>
-                            <div className="text-[10px] text-slate-400">Ref: {p.referenceRange} {p.unit}</div>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-mono font-black text-sm text-white">{p.value} {p.unit}</span>
-                            {p.isAbnormal && (
-                              <span className="block text-[9px] font-black uppercase text-critical-400">
-                                ⚠️ HIGH / ABNORMAL
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {selectedOrderForStatus.resultData.certifiedBy && (
-                      <div className="text-[10px] text-slate-400 border-t border-white/10 pt-2 font-medium">
-                        Verified by: {selectedOrderForStatus.resultData.certifiedBy}
-                      </div>
-                    )}
+                      {ord.status}
+                    </span>
                   </div>
 
-                  {/* Patient Plain-Language View */}
-                  <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 shadow-sm space-y-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xl">🩺</span>
-                        <div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 block">
-                            PATIENT EXPLANATION &bull; PLAIN LANGUAGE
-                          </span>
-                          <h4 className="text-base font-black text-emerald-950">What Your Results Mean</h4>
-                        </div>
+                  {ord.resultData && (
+                    <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 space-y-2 text-xs">
+                      <div className="font-bold text-purple-950">
+                        Verified Finding: {ord.resultData.clinicalSummary}
                       </div>
-
-                      <div className="p-4 bg-white/80 rounded-2xl border border-emerald-200 text-xs text-emerald-950 leading-relaxed font-medium">
-                        {selectedOrderForStatus.resultData.patientFriendlySummary}
+                      <div className="text-purple-900 font-medium text-[11px]">
+                        Patient Explanation: {ord.resultData.patientFriendlySummary}
+                      </div>
+                      <div className="text-[10px] text-purple-700 italic">
+                        Certified by: {ord.resultData.certifiedBy}
                       </div>
                     </div>
-
-                    <div className="p-3 bg-emerald-100/60 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
-                      <span>✓</span>
-                      <span>This report has been automatically synced to your <strong>MedVeda Longitudinal EHR</strong>.</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl">
-                  Sample status is pending/in-progress. Results will be shown here once uploaded by the certified laboratory.
-                </div>
-              )}
+              ))}
             </div>
-          )}
+          </div>
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* MODAL 1: MEDICINE ORDER RESERVATION */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* MODAL 1: MEDICINE ORDER RESERVATION                      */}
+      {/* ========================================================= */}
       {showOrderModal && selectedMedItem && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
-                  Counter Reservation
+                  Zero-Payment Counter Reservation
                 </span>
-                <h3 className="text-xl font-black text-slate-900 mt-1">Reserve Medicine for Pickup</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1">Reserve Medicine Stock</h3>
               </div>
               <button
                 type="button"
@@ -11342,9 +11734,11 @@ function ScreenMedicineDiagnostics({
 
             <form onSubmit={handlePlaceMedicineOrder} className="space-y-3 text-xs">
               <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-200 space-y-1">
-                <div className="font-extrabold text-teal-950 text-sm">{selectedMedItem.medicine.medicineName}</div>
+                <div className="font-extrabold text-teal-950 text-sm">
+                  {selectedMedItem.medicine.medicineName}
+                </div>
                 <div className="text-[11px] text-teal-800">
-                  Shop: <strong>{selectedMedItem.shop.name}</strong> &bull; {selectedMedItem.distanceKm} km
+                  Shop: <strong>{selectedMedItem.shop.name}</strong> &bull; {selectedMedItem.distanceKm} km away
                 </div>
                 {selectedMedItem.medicine.price && (
                   <div className="text-teal-900 font-bold pt-1">
@@ -11390,7 +11784,7 @@ function ScreenMedicineDiagnostics({
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                ℹ️ Payment is collected in person at the counter upon physical pickup.
+                ℹ️ No upfront card payment required. Reserved stock is held for 24 hours at the pharmacy counter.
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -11405,7 +11799,7 @@ function ScreenMedicineDiagnostics({
                   type="submit"
                   className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex-1 shadow-md"
                 >
-                  Confirm Reservation
+                  Generate Pickup Token
                 </button>
               </div>
             </form>
@@ -11413,9 +11807,81 @@ function ScreenMedicineDiagnostics({
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* MODAL 2: DIRECT DIAGNOSTIC BOOKING */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* MODAL 1B: DIGITAL COUNTER PICKUP SLIP POPUP              */}
+      {/* ========================================================= */}
+      {confirmedOrderSlip && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-teal-500/40 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="text-center space-y-2 border-b border-slate-100 pb-4">
+              <span className="text-4xl">🎉</span>
+              <h3 className="text-2xl font-black text-slate-900">Counter Reservation Confirmed!</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Present this digital token at the pharmacy counter to collect your medicine without waiting.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-center space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-teal-800">
+                DIGITAL PICKUP TOKEN
+              </span>
+              <div className="text-2xl font-mono font-black text-teal-900 tracking-wider">
+                {confirmedOrderSlip.orderId}
+              </div>
+              <div className="text-xs text-teal-700 font-bold">
+                Verification PIN: <span className="font-mono bg-white px-2 py-0.5 rounded border border-teal-300">PICK-{Math.floor(100000 + Math.random() * 900000)}</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Medicine:</span>
+                <strong className="text-slate-900">{confirmedOrderSlip.medicineName}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Reserved Units:</span>
+                <strong className="text-slate-900">{confirmedOrderSlip.quantityRequested} strips / units</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Pharmacy Counter:</span>
+                <strong className="text-slate-900">{confirmedOrderSlip.shopName}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Patient:</span>
+                <strong className="text-slate-900">{confirmedOrderSlip.patientName}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Hold Duration:</span>
+                <span className="text-emerald-700 font-bold">Guaranteed 24-Hour Counter Hold</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex-1 flex items-center justify-center gap-1.5"
+              >
+                <span>🖨️</span>
+                <span>Print Slip</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmedOrderSlip(null)}
+                className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs flex-1 shadow-md"
+              >
+                ✓ Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2: DIRECT DIAGNOSTIC BOOKING                       */}
+      {/* ========================================================= */}
       {showBookingModal && selectedTestItem && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -11488,9 +11954,9 @@ function ScreenMedicineDiagnostics({
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* MODAL 3: ADD / EDIT MEDICINE (SHOP OWNER) */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* MODAL 3: ADD / EDIT MEDICINE (SHOP OWNER)                */}
+      {/* ========================================================= */}
       {(showAddMedModal || showEditMedModal) && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -11612,9 +12078,9 @@ function ScreenMedicineDiagnostics({
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* MODAL 4: UPLOAD LAB RESULTS (LAB STAFF) */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* MODAL 4: UPLOAD LAB RESULTS (LAB STAFF)                   */}
+      {/* ========================================================= */}
       {showUploadResultModal && selectedOrderForStatus && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">

@@ -34,7 +34,7 @@ export class ManageFacilityDashboardUseCase {
   public referralStore?: InMemoryReferralStore;
   public followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any;
   public recordsStore?: InMemoryRecordsStore;
-  public medicineStore?: InMemoryMedicineDiagnosticStore;
+  public medicineStore?: InMemoryMedicineDiagnosticStore | any;
 
   constructor(
     dashboardStore: InMemoryFacilityDashboardStore,
@@ -42,7 +42,7 @@ export class ManageFacilityDashboardUseCase {
     referralStore?: InMemoryReferralStore,
     followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any,
     recordsStore?: InMemoryRecordsStore,
-    medicineStore?: InMemoryMedicineDiagnosticStore
+    medicineStore?: InMemoryMedicineDiagnosticStore | any
   ) {
     this.dashboardStore = dashboardStore;
     this.teleconsultStore = teleconsultStore;

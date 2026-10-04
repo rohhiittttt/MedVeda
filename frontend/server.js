@@ -48,7 +48,7 @@ import { ManageFollowUpUseCase } from '../backend/src/application/use-cases/mana
 import { InMemoryRecordsStore } from '../backend/src/infrastructure/cache/records.store.ts';
 import { ManageRecordsUseCase } from '../backend/src/application/use-cases/manage-records.use-case.ts';
 
-import { InMemoryMedicineDiagnosticStore } from '../backend/src/infrastructure/cache/medicine-diagnostic.store.ts';
+import { SqliteMedicineStore } from '../backend/src/infrastructure/db/sqlite-medicine.store.ts';
 import { ManageMedicineDiagnosticUseCase } from '../backend/src/application/use-cases/manage-medicine-diagnostic.use-case.ts';
 
 import { InMemoryFacilityDashboardStore } from '../backend/src/infrastructure/cache/facility-dashboard.store.ts';
@@ -86,8 +86,8 @@ const followUpUseCase = new ManageFollowUpUseCase(followUpStore);
 const recordsStore = new InMemoryRecordsStore();
 const recordsUseCase = new ManageRecordsUseCase(recordsStore);
 
-// Initialize Medicine Availability & Diagnostic Coordination Store & Use Case (Feature 06)
-const medicineStore = new InMemoryMedicineDiagnosticStore();
+// Initialize Medicine Availability & Diagnostic Coordination Store & Use Case (Feature 06: Persistent SQLite)
+const medicineStore = new SqliteMedicineStore();
 const medicineUseCase = new ManageMedicineDiagnosticUseCase(medicineStore);
 
 // Initialize Facility Dashboard Store & Use Case (Feature 07)
@@ -813,7 +813,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 50. Medicine Geo Search: GET /api/medicine/search?query=&lat=&lng=&radius=
+      // 50. Medicine Geo Stock Search: GET /api/medicine/search
       if (normPath === '/api/medicine/search' && req.method === 'GET') {
         const query = urlObj.searchParams.get('query') || '';
         const lat = parseFloat(urlObj.searchParams.get('lat') || '23.998');
@@ -822,6 +822,35 @@ const server = http.createServer(async (req, res) => {
         const searchRes = await medicineUseCase.searchMedicines(query, lat, lng, radius);
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: searchRes }));
+        return;
+      }
+
+      // 50a. Top Nearby Pharmacies / Chemists: GET /api/pharmacies/nearby
+      if (normPath === '/api/pharmacies/nearby' && req.method === 'GET') {
+        const lat = parseFloat(urlObj.searchParams.get('lat') || '23.998');
+        const lng = parseFloat(urlObj.searchParams.get('lng') || '85.345');
+        const radius = parseFloat(urlObj.searchParams.get('radius') || '50');
+        const pharmacies = await medicineUseCase.getTopNearbyPharmacies(lat, lng, radius);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: pharmacies }));
+        return;
+      }
+
+      // 50b. Medicines Master Catalog Search: GET /api/medicines/master
+      if (normPath === '/api/medicines/master' && req.method === 'GET') {
+        const query = urlObj.searchParams.get('query') || '';
+        const category = urlObj.searchParams.get('category') || undefined;
+        const results = await medicineUseCase.searchMedicinesMaster(query, category);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: results }));
+        return;
+      }
+
+      // 50c. Medicine Categories: GET /api/medicines/categories
+      if (normPath === '/api/medicines/categories' && req.method === 'GET') {
+        const categories = await medicineUseCase.getMedicineCategories();
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: categories }));
         return;
       }
 

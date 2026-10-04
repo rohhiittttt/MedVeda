@@ -20,6 +20,7 @@ import {
   validateShopInventoryAccess
 } from '../../domain/rules/medicine-rbac.rules.ts';
 import { InMemoryMedicineDiagnosticStore } from '../../infrastructure/cache/medicine-diagnostic.store.ts';
+import { SqliteMedicineStore } from '../../infrastructure/db/sqlite-medicine.store.ts';
 
 export interface CreateMedicineOrderDTO {
   patientId: string;
@@ -52,15 +53,29 @@ export interface CreateDoctorDiagnosticOrderDTO {
 }
 
 export class ManageMedicineDiagnosticUseCase {
-  private readonly store: InMemoryMedicineDiagnosticStore;
+  private readonly store: InMemoryMedicineDiagnosticStore | SqliteMedicineStore | any;
 
-  constructor(store: InMemoryMedicineDiagnosticStore) {
+  constructor(store: InMemoryMedicineDiagnosticStore | SqliteMedicineStore | any) {
     this.store = store;
   }
 
   // ==========================================
-  // --- MEDICINE INVENTORY OPERATIONS (OWNER RBAC) ---
+  // --- MEDICINE MASTER & GPS SEARCH OPERATIONS ---
   // ==========================================
+
+  public async searchMedicinesMaster(query: string, category?: string) {
+    if (this.store.searchMedicinesMaster) {
+      return this.store.searchMedicinesMaster(query, category);
+    }
+    return [];
+  }
+
+  public async getMedicineCategories() {
+    if (this.store.getMedicineCategories) {
+      return this.store.getMedicineCategories();
+    }
+    return ['Cardiovascular', 'Endocrinology', 'Antibiotics', 'Analgesics', 'Gastroenterology', 'Respiratory', 'Emergency'];
+  }
 
   public async searchMedicines(
     query: string,
@@ -68,9 +83,35 @@ export class ManageMedicineDiagnosticUseCase {
     lng: number = 85.345,
     radiusKm: number = 25
   ) {
+    if (this.store.searchNearbyPharmaciesWithStock) {
+      return this.store.searchNearbyPharmaciesWithStock(query, lat, lng, radiusKm);
+    }
     const allShops = this.store.getAllShops();
     const allInventory = this.store.getAllInventory();
     return rankMedicineShops(allShops, allInventory, lat, lng, query, radiusKm);
+  }
+
+  public async searchNearbyPharmacies(
+    query: string,
+    lat: number = 23.998,
+    lng: number = 85.345,
+    radiusKm: number = 25
+  ) {
+    if (this.store.searchNearbyPharmaciesWithStock) {
+      return this.store.searchNearbyPharmaciesWithStock(query, lat, lng, radiusKm);
+    }
+    return this.searchMedicines(query, lat, lng, radiusKm);
+  }
+
+  public async getTopNearbyPharmacies(
+    lat: number = 23.998,
+    lng: number = 85.345,
+    radiusKm: number = 50
+  ) {
+    if (this.store.getNearbyPharmacies) {
+      return this.store.getNearbyPharmacies(lat, lng, radiusKm);
+    }
+    return this.store.getAllShops();
   }
 
   public async getShopInventory(shopId: string) {
