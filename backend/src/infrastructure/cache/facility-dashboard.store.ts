@@ -101,7 +101,67 @@ export class InMemoryFacilityDashboardStore {
       }
     ];
 
-    for (const a of sadarAlerts) {
+    // --- Seed Alerts for Katkamsandi CHC (fac_02) ---
+    const chcAlerts: FacilityAlert[] = [
+      {
+        alertId: 'ALT-2026-006',
+        facilityId: 'fac_02',
+        alertType: 'critical_resource',
+        severity: 'warning',
+        relatedEntityId: 'res_icu_bed_chc',
+        message: 'Stabilization Bed Warning: Only 1 of 2 stabilization beds available at Katkamsandi CHC.',
+        status: 'active',
+        createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      },
+      {
+        alertId: 'ALT-2026-007',
+        facilityId: 'fac_02',
+        alertType: 'missed_follow_up',
+        severity: 'warning',
+        relatedEntityId: 'PAT-2026-3091',
+        message: 'Overdue Field Visit: Post-natal follow-up visit overdue by 24h in Sector 3 (ASHA Sita Devi).',
+        status: 'active',
+        createdAt: new Date(Date.now() - 75 * 60 * 1000).toISOString()
+      }
+    ];
+
+    // --- Seed Alerts for Sheikh Bhikhari Medical College (fac_03) ---
+    const sbmchAlerts: FacilityAlert[] = [
+      {
+        alertId: 'ALT-2026-008',
+        facilityId: 'fac_03',
+        alertType: 'emergency_case',
+        severity: 'critical',
+        relatedEntityId: 'PAT-2026-9921',
+        message: 'CRITICAL Trauma Influx: Multi-trauma highway accident patient arriving via 108 ALS Ambulance.',
+        status: 'active',
+        createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString()
+      },
+      {
+        alertId: 'ALT-2026-009',
+        facilityId: 'fac_03',
+        alertType: 'critical_resource',
+        severity: 'warning',
+        relatedEntityId: 'res_icu_sbmch',
+        message: 'Cardiology ICU Capacity Alert: 8 of 35 ICU beds remaining (77% occupied).',
+        status: 'active',
+        createdAt: new Date(Date.now() - 40 * 60 * 1000).toISOString()
+      },
+      {
+        alertId: 'ALT-2026-010',
+        facilityId: 'fac_03',
+        alertType: 'system_data_update',
+        severity: 'info',
+        relatedEntityId: 'sync_abdm_sbmch',
+        message: 'ABDM HL7 FHIR Pipeline: 120 electronic records securely synchronized with National Health Stack.',
+        status: 'resolved',
+        createdAt: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
+        resolvedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        resolvedBy: 'Admin (System)'
+      }
+    ];
+
+    for (const a of [...sadarAlerts, ...chcAlerts, ...sbmchAlerts]) {
       this.alerts.set(a.alertId, a);
     }
 

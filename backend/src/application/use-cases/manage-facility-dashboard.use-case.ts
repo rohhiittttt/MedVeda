@@ -398,18 +398,32 @@ export class ManageFacilityDashboardUseCase {
   ): DashboardAnalytics {
     validateDashboardAccess(actor, 'analytics');
 
-    const start = startDate || new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
+    const start = startDate || new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString().split('T')[0];
     const end = endDate || new Date().toISOString().split('T')[0];
 
-    const footfallTrends = [
-      { date: '2026-08-27', totalCount: 142, emergencyCount: 18, opdCount: 124 },
-      { date: '2026-08-28', totalCount: 165, emergencyCount: 22, opdCount: 143 },
-      { date: '2026-08-29', totalCount: 188, emergencyCount: 29, opdCount: 159 },
-      { date: '2026-08-30', totalCount: 135, emergencyCount: 14, opdCount: 121 },
-      { date: '2026-08-31', totalCount: 172, emergencyCount: 26, opdCount: 146 },
-      { date: '2026-09-01', totalCount: 195, emergencyCount: 31, opdCount: 164 },
-      { date: '2026-09-02', totalCount: 180, emergencyCount: 24, opdCount: 156 }
+    // Dynamically generate 7-day footfall trend aligned with current date
+    const footfallTrends = [];
+    const baseCounts = [
+      { total: 142, emrg: 18, opd: 124 },
+      { total: 165, emrg: 22, opd: 143 },
+      { total: 188, emrg: 29, opd: 159 },
+      { total: 135, emrg: 14, opd: 121 },
+      { total: 172, emrg: 26, opd: 146 },
+      { total: 195, emrg: 31, opd: 164 },
+      { total: 180, emrg: 24, opd: 156 }
     ];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 3600 * 1000);
+      const dateStr = d.toISOString().split('T')[0];
+      const countItem = baseCounts[6 - i];
+      footfallTrends.push({
+        date: dateStr,
+        totalCount: countItem.total,
+        emergencyCount: countItem.emrg,
+        opdCount: countItem.opd
+      });
+    }
 
     const diseaseCategoryBreakdown = [
       { category: 'Cardiovascular / Chest Pain', count: 324, percentage: 28 },

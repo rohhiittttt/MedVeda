@@ -321,6 +321,88 @@ export class InMemoryTeleconsultStore {
     for (const doc of SEED_DOCTORS) {
       this.doctors.set(doc.id, doc);
     }
+
+    // Seed initial active queue entries
+    const initialQueue: QueueEntry[] = [
+      {
+        id: 'QUE-SEED-001',
+        appointmentId: 'APT-SEED-01',
+        patientId: 'PAT-2026-1024',
+        patientName: 'Ramesh Mahto',
+        patientAge: 54,
+        patientSex: 'male',
+        doctorId: 'doc_2',
+        doctorName: 'Dr. Rajesh Verma',
+        specialty: 'Cardiology',
+        priorityScore: 92,
+        urgencyTier: 'CRITICAL',
+        highRiskFlags: ['Severe chest pressure', 'Diaphoresis'],
+        bookedBy: 'worker',
+        workerName: 'Anita Devi (ASHA)',
+        joinedAt: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
+        scheduledTime: '10:00 AM',
+        status: 'waiting'
+      },
+      {
+        id: 'QUE-SEED-002',
+        appointmentId: undefined, // Walk-in
+        patientId: 'PAT-2026-2048',
+        patientName: 'Sunita Soren',
+        patientAge: 46,
+        patientSex: 'female',
+        doctorId: 'doc_1',
+        doctorName: 'Dr. Priya Sharma',
+        specialty: 'Neurology',
+        priorityScore: 78,
+        urgencyTier: 'URGENT',
+        highRiskFlags: ['Elevated BP 168/104'],
+        bookedBy: 'patient',
+        joinedAt: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
+        scheduledTime: 'Walk-In',
+        status: 'waiting'
+      },
+      {
+        id: 'QUE-SEED-003',
+        appointmentId: 'APT-SEED-02',
+        patientId: 'PAT-2026-4112',
+        patientName: 'Rekha Devi',
+        patientAge: 32,
+        patientSex: 'female',
+        doctorId: 'doc_4',
+        doctorName: 'Dr. Kavita Murmu',
+        specialty: 'Obstetrics & Gynecology',
+        priorityScore: 65,
+        urgencyTier: 'ROUTINE',
+        highRiskFlags: ['Antenatal Third Trimester'],
+        bookedBy: 'worker',
+        workerName: 'Sunita Devi (ASHA)',
+        joinedAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+        scheduledTime: '10:30 AM',
+        status: 'waiting'
+      },
+      {
+        id: 'QUE-SEED-004',
+        appointmentId: 'APT-SEED-03',
+        patientId: 'PAT-2026-5501',
+        patientName: 'Gopal Yadav',
+        patientAge: 62,
+        patientSex: 'male',
+        doctorId: 'doc_gm',
+        doctorName: 'Dr. Arvind Sinha',
+        specialty: 'General Medicine',
+        priorityScore: 50,
+        urgencyTier: 'ROUTINE',
+        highRiskFlags: [],
+        bookedBy: 'patient',
+        joinedAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+        scheduledTime: '09:30 AM',
+        status: 'called'
+      }
+    ];
+
+    for (const q of initialQueue) {
+      this.queue.set(q.id, q);
+    }
   }
 
   async getDoctorRoster(facilityId?: string, specialty?: string): Promise<Doctor[]> {

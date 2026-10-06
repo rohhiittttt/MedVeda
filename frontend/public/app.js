@@ -941,6 +941,14 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
       label: 'Govt Health Schemes',
       description: 'RAG scheme discovery, deterministic rules engine & gap-filling',
       onSelect: () => setView('feature8')
+    },
+    {
+      id: 'feature9',
+      code: 'Module 09',
+      icon: '🛰️',
+      label: 'District Command Center',
+      description: 'Pan-India surveillance, shortage forecasts & outbreak warnings',
+      onSelect: () => setView('feature9')
     }
   ];
 
@@ -1012,7 +1020,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
                     Platform Feature Modules
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-100">
-                    7 Systems
+                    9 Systems
                   </span>
                 </div>
 
@@ -1593,6 +1601,16 @@ function ScreenHomepage({
       actionLabel: 'Find Schemes',
       action: onLaunchFeature8,
       badge: 'Affordable Care'
+    },
+    {
+      id: 'feature9',
+      code: 'Module 09',
+      icon: '🛰️',
+      title: 'District Admin Command Center',
+      description: 'Pan-India multi-hospital live surveillance, shortage forecasting, epidemic early warning (CDC EARS/CUSUM), and inter-hospital transfer coordination.',
+      actionLabel: 'Command Center',
+      action: () => setView('feature9'),
+      badge: 'Surveillance & Logistics'
     }
   ];
 
@@ -12181,9 +12199,8 @@ function ScreenFacilityDashboard({
 }) {
   const [activeFacilityId, setActiveFacilityId] = useState('fac_01');
   const [facilities, setFacilities] = useState([]);
-  const [activeSection, setActiveSection] = useState(
-    actorRole === 'worker' ? 'patient_care' : 'overview'
-  );
+  const [dashboardRole, setDashboardRole] = useState('admin');
+  const [activeSection, setActiveSection] = useState('overview');
 
   const [notificationToast, setNotificationToast] = useState(null);
   const showToast = (msg) => {
@@ -12200,6 +12217,28 @@ function ScreenFacilityDashboard({
   const [alertsData, setAlertsData] = useState([]);
   const [alertSeverityFilter, setAlertSeverityFilter] = useState('ALL');
 
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Queue Management States
+  const [queueStatusFilter, setQueueStatusFilter] = useState('ALL');
+  const [queueSearchQuery, setQueueSearchQuery] = useState('');
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [walkInForm, setWalkInForm] = useState({
+    patientName: '',
+    patientAge: 45,
+    patientSex: 'female',
+    urgencyTier: 'ROUTINE',
+    doctorId: 'doc_1',
+    specialty: 'General Medicine'
+  });
+  const [isQueueActionLoading, setIsQueueActionLoading] = useState(false);
+
+  // Overview Activity Feed Search & Filter
+  const [activityFilter, setActivityFilter] = useState('ALL');
+  const [activitySearch, setActivitySearch] = useState('');
+
   // Resource Update Modal State
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [selectedResourceType, setSelectedResourceType] = useState('bed');
@@ -12211,21 +12250,23 @@ function ScreenFacilityDashboard({
     try {
       const res = await fetch(getApiUrl('/api/dashboard/facilities'));
       const json = await res.json();
-      if (json.data) setFacilities(json.data);
+      if (json.data && Array.isArray(json.data)) setFacilities(json.data);
     } catch (e) {
       console.warn('Load facilities error:', e);
     }
   };
 
+  // Safe effective role for API requests - always ensure view permission
+  const effectiveRole = dashboardRole === 'facility' ? 'admin' : dashboardRole;
+
   // Load Overview Data
   const loadOverview = async (facId = activeFacilityId) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
       const res = await fetch(
-        getApiUrl(`/api/dashboard/overview?facility_id=${facId}&actor_role=${roleParam}`)
+        getApiUrl(`/api/dashboard/overview?facility_id=${facId}&actor_role=${effectiveRole}`)
       );
       const json = await res.json();
-      if (json.data) setOverviewData(json.data);
+      if (json.success && json.data) setOverviewData(json.data);
     } catch (e) {
       console.warn('Load overview error:', e);
     }
@@ -12234,12 +12275,11 @@ function ScreenFacilityDashboard({
   // Load Patient Care Data
   const loadPatientCare = async (facId = activeFacilityId) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
       const res = await fetch(
-        getApiUrl(`/api/dashboard/patient-care?facility_id=${facId}&actor_role=${roleParam}`)
+        getApiUrl(`/api/dashboard/patient-care?facility_id=${facId}&actor_role=${effectiveRole}`)
       );
       const json = await res.json();
-      if (json.data) setPatientCareData(json.data);
+      if (json.success && json.data) setPatientCareData(json.data);
     } catch (e) {
       console.warn('Load patient care error:', e);
     }
@@ -12248,12 +12288,11 @@ function ScreenFacilityDashboard({
   // Load Appointment & Queue Data
   const loadQueue = async (facId = activeFacilityId) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
       const res = await fetch(
-        getApiUrl(`/api/dashboard/appointments-queue?facility_id=${facId}&actor_role=${roleParam}`)
+        getApiUrl(`/api/dashboard/appointments-queue?facility_id=${facId}&actor_role=${effectiveRole}`)
       );
       const json = await res.json();
-      if (json.data) setQueueData(json.data);
+      if (json.success && json.data) setQueueData(json.data);
     } catch (e) {
       console.warn('Load queue error:', e);
     }
@@ -12262,26 +12301,25 @@ function ScreenFacilityDashboard({
   // Load Service & Resource Data
   const loadServiceResource = async (facId = activeFacilityId) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
       const res = await fetch(
-        getApiUrl(`/api/dashboard/service-resource?facility_id=${facId}&actor_role=${roleParam}`)
+        getApiUrl(`/api/dashboard/service-resource?facility_id=${facId}&actor_role=${effectiveRole}`)
       );
       const json = await res.json();
-      if (json.data) setServiceResourceData(json.data);
+      if (json.success && json.data) setServiceResourceData(json.data);
     } catch (e) {
       console.warn('Load service resource error:', e);
     }
   };
 
   // Load Analytics Data
-  const loadAnalytics = async (facId = activeFacilityId) => {
+  const loadAnalytics = async (facId = activeFacilityId, sDate = startDateFilter, eDate = endDateFilter) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
-      const res = await fetch(
-        getApiUrl(`/api/dashboard/analytics?facility_id=${facId}&actor_role=${roleParam}`)
-      );
+      let url = `/api/dashboard/analytics?facility_id=${facId}&actor_role=${effectiveRole}`;
+      if (sDate) url += `&start_date=${encodeURIComponent(sDate)}`;
+      if (eDate) url += `&end_date=${encodeURIComponent(eDate)}`;
+      const res = await fetch(getApiUrl(url));
       const json = await res.json();
-      if (json.data) setAnalyticsData(json.data);
+      if (json.success && json.data) setAnalyticsData(json.data);
     } catch (e) {
       console.warn('Load analytics error:', e);
     }
@@ -12290,15 +12328,28 @@ function ScreenFacilityDashboard({
   // Load Alerts Data
   const loadAlerts = async (facId = activeFacilityId) => {
     try {
-      const roleParam = actorRole === 'facility' ? 'admin' : actorRole;
       const res = await fetch(
-        getApiUrl(`/api/dashboard/alerts?facility_id=${facId}&actor_role=${roleParam}`)
+        getApiUrl(`/api/dashboard/alerts?facility_id=${facId}&actor_role=${effectiveRole}`)
       );
       const json = await res.json();
-      if (json.data) setAlertsData(json.data);
+      if (json.success && json.data) setAlertsData(json.data);
     } catch (e) {
       console.warn('Load alerts error:', e);
     }
+  };
+
+  // Refresh All Sections for active facility
+  const refreshAll = async (facId = activeFacilityId) => {
+    setIsRefreshing(true);
+    await Promise.allSettled([
+      loadOverview(facId),
+      loadPatientCare(facId),
+      loadQueue(facId),
+      loadServiceResource(facId),
+      loadAnalytics(facId),
+      loadAlerts(facId)
+    ]);
+    setIsRefreshing(false);
   };
 
   useEffect(() => {
@@ -12306,13 +12357,8 @@ function ScreenFacilityDashboard({
   }, []);
 
   useEffect(() => {
-    loadOverview(activeFacilityId);
-    loadPatientCare(activeFacilityId);
-    loadQueue(activeFacilityId);
-    loadServiceResource(activeFacilityId);
-    loadAnalytics(activeFacilityId);
-    loadAlerts(activeFacilityId);
-  }, [activeFacilityId, actorRole]);
+    refreshAll(activeFacilityId);
+  }, [activeFacilityId, dashboardRole]);
 
   useEffect(() => {
     const h = window.location.hash;
@@ -12333,7 +12379,7 @@ function ScreenFacilityDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           facilityId: activeFacilityId,
-          actor: { actorId: 'admin_user', role: 'admin', facilityId: activeFacilityId },
+          actor: { actorId: 'admin_dashboard', role: 'admin', facilityId: activeFacilityId },
           resourceType: selectedResourceType,
           totalCount: Number(resourceTotal),
           availableCount: Number(resourceAvailable)
@@ -12347,11 +12393,168 @@ function ScreenFacilityDashboard({
         loadAlerts(activeFacilityId);
         loadOverview(activeFacilityId);
       } else {
-        showToast(`⚠️ RBAC Error: ${json.error}`);
+        showToast(`⚠️ Update error: ${json.error}`);
       }
     } catch (err) {
       showToast('⚠️ Failed to update resource status.');
     }
+  };
+
+  // Quick adjust resource available count
+  const handleQuickAdjustResource = async (resourceType, delta) => {
+    const resObj = serviceResourceData?.resources?.find((r) => r.resourceType === resourceType);
+    if (!resObj) return;
+    const newAvail = Math.max(0, Math.min(resObj.totalCount, resObj.availableCount + delta));
+    try {
+      const res = await fetch(getApiUrl('/api/dashboard/resource-status/update'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          facilityId: activeFacilityId,
+          actor: { actorId: 'admin_dashboard', role: 'admin', facilityId: activeFacilityId },
+          resourceType,
+          totalCount: resObj.totalCount,
+          availableCount: newAvail
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`✓ Adjusted ${resObj.resourceName}: ${newAvail}/${resObj.totalCount}`);
+        loadServiceResource(activeFacilityId);
+        loadAlerts(activeFacilityId);
+        loadOverview(activeFacilityId);
+      }
+    } catch (e) {
+      showToast('⚠️ Failed to adjust resource.');
+    }
+  };
+
+  // Update Patient Queue Status (e.g. called, in_consultation, completed)
+  const handleUpdateQueueStatus = async (queueId, newStatus) => {
+    setIsQueueActionLoading(true);
+    try {
+      const res = await fetch(getApiUrl('/api/dashboard/queue/update-status'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueId, status: newStatus })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`✓ Patient queue status updated to '${newStatus}'.`);
+        await loadQueue(activeFacilityId);
+        loadOverview(activeFacilityId);
+      } else {
+        showToast(`⚠️ Queue update error: ${json.error || 'Server error'}`);
+      }
+    } catch (err) {
+      showToast('⚠️ Network error updating queue status.');
+    } finally {
+      setIsQueueActionLoading(false);
+    }
+  };
+
+  // Call Next Waiting Patient
+  const handleCallNext = async () => {
+    setIsQueueActionLoading(true);
+    try {
+      const res = await fetch(getApiUrl('/api/dashboard/queue/call-next'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId: 'doc_1' })
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        showToast(`📢 Calling next: ${json.data.patientName} (${json.data.urgencyTier})`);
+        await loadQueue(activeFacilityId);
+        loadOverview(activeFacilityId);
+      } else {
+        showToast('ℹ️ No waiting patients in line.');
+      }
+    } catch (err) {
+      showToast('⚠️ Error calling next patient.');
+    } finally {
+      setIsQueueActionLoading(false);
+    }
+  };
+
+  // Register Walk-In Patient
+  const handleRegisterWalkIn = async (e) => {
+    e.preventDefault();
+    if (!walkInForm.patientName.trim()) {
+      showToast('⚠️ Please enter patient name.');
+      return;
+    }
+    setIsQueueActionLoading(true);
+    try {
+      const res = await fetch(getApiUrl('/api/dashboard/queue/walk-in'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(walkInForm)
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        showToast(`✓ Walk-in patient registered: ${json.data.patientName} (Priority: ${json.data.priorityScore})`);
+        setShowWalkInModal(false);
+        setWalkInForm({
+          patientName: '',
+          patientAge: 45,
+          patientSex: 'female',
+          urgencyTier: 'ROUTINE',
+          doctorId: 'doc_1',
+          specialty: 'General Medicine'
+        });
+        await loadQueue(activeFacilityId);
+        loadOverview(activeFacilityId);
+      } else {
+        showToast(`⚠️ Registration failed: ${json.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      showToast('⚠️ Network error registering walk-in.');
+    } finally {
+      setIsQueueActionLoading(false);
+    }
+  };
+
+  // Export Analytics CSV Report
+  const handleExportCSV = () => {
+    if (!analyticsData) return;
+    const rows = [
+      ['Facility Analytics & Executive Report'],
+      ['Facility ID', activeFacilityId],
+      ['Facility Name', activeFacilityObj.name],
+      ['Report Period', `${analyticsData.dateRange?.start || ''} to ${analyticsData.dateRange?.end || ''}`],
+      ['High-Risk Follow-Up Completion', `${analyticsData.highRiskCompletionRate || 91}%`],
+      ['Total Incoming Referrals', analyticsData.referralAnalytics?.totalIncoming || 0],
+      ['Total Outgoing Referrals', analyticsData.referralAnalytics?.totalOutgoing || 0],
+      [],
+      ['Date', 'Total Footfall', 'OPD Consultations', 'Emergency Admissions'],
+      ...(analyticsData.footfallTrends || []).map((f) => [f.date, f.totalCount, f.opdCount, f.emergencyCount]),
+      [],
+      ['Clinical Disease Category', 'Cases Count', 'Percentage'],
+      ...(analyticsData.diseaseCategoryBreakdown || []).map((d) => [d.category, d.count, `${d.percentage}%`]),
+      [],
+      ['Department', 'Capacity Utilization'],
+      ...(analyticsData.departmentUtilization || []).map((u) => [u.department, `${u.utilizationPercent}%`])
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Facility_Analytics_${activeFacilityId}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('✓ CSV analytics report downloaded successfully.');
+  };
+
+  // Preset Date Filter in Analytics
+  const applyPresetDate = (days) => {
+    const endStr = new Date().toISOString().split('T')[0];
+    const startStr = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString().split('T')[0];
+    setStartDateFilter(startStr);
+    setEndDateFilter(endStr);
+    loadAnalytics(activeFacilityId, startStr, endStr);
   };
 
   // Update Alert Status (Acknowledge / Resolve)
@@ -12362,7 +12565,7 @@ function ScreenFacilityDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           facilityId: activeFacilityId,
-          actor: { actorId: 'admin_user', role: 'admin', facilityId: activeFacilityId },
+          actor: { actorId: 'admin_dashboard', role: 'admin', facilityId: activeFacilityId },
           status: newStatus
         })
       });
@@ -12371,6 +12574,8 @@ function ScreenFacilityDashboard({
         showToast(`✓ Alert marked as ${newStatus}.`);
         loadAlerts(activeFacilityId);
         loadOverview(activeFacilityId);
+      } else {
+        showToast(`⚠️ Action failed: ${json.error}`);
       }
     } catch (err) {
       showToast('⚠️ Failed to update alert status.');
@@ -12388,6 +12593,41 @@ function ScreenFacilityDashboard({
   });
 
   const criticalCount = alertsData.filter((a) => a.severity === 'critical' && a.status === 'active').length;
+
+  // Filtered live queue
+  const filteredQueue = useMemo(() => {
+    if (!queueData?.liveQueue) return [];
+    return queueData.liveQueue.filter((item) => {
+      const matchesStatus =
+        queueStatusFilter === 'ALL' ||
+        item.status.toLowerCase() === queueStatusFilter.toLowerCase() ||
+        (queueStatusFilter === 'WALK_IN' && item.isWalkIn) ||
+        (queueStatusFilter === 'BOOKED' && !item.isWalkIn);
+
+      const matchesSearch =
+        !queueSearchQuery ||
+        item.patientName.toLowerCase().includes(queueSearchQuery.toLowerCase()) ||
+        item.queueId.toLowerCase().includes(queueSearchQuery.toLowerCase());
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [queueData, queueStatusFilter, queueSearchQuery]);
+
+  // Filtered overview activities
+  const filteredActivities = useMemo(() => {
+    if (!overviewData?.recentActivities) return [];
+    return overviewData.recentActivities.filter((act) => {
+      const matchesType =
+        activityFilter === 'ALL' ||
+        act.severity?.toLowerCase() === activityFilter.toLowerCase();
+      const matchesSearch =
+        !activitySearch ||
+        act.type?.toLowerCase().includes(activitySearch.toLowerCase()) ||
+        act.description?.toLowerCase().includes(activitySearch.toLowerCase()) ||
+        act.actor?.toLowerCase().includes(activitySearch.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [overviewData, activityFilter, activitySearch]);
 
   return (
     <div className="space-y-6">
@@ -12416,7 +12656,7 @@ function ScreenFacilityDashboard({
           </p>
         </div>
 
-        {/* Facility Selector & Home Button */}
+        {/* Facility Selector & Action Buttons */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2">
             <span className="text-sm">🏥</span>
@@ -12435,6 +12675,17 @@ function ScreenFacilityDashboard({
 
           <button
             type="button"
+            onClick={() => refreshAll(activeFacilityId)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+            title="Poll latest updates from Features 01–06"
+          >
+            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+            <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={onBackToHome}
             className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
           >
@@ -12443,10 +12694,10 @@ function ScreenFacilityDashboard({
         </div>
       </div>
 
-      {/* Role Context Bar */}
-      <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3 text-xs shadow-md border border-blue-900/40">
+      {/* Role Context & Switcher Bar */}
+      <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white p-4 sm:p-5 rounded-2xl flex items-center justify-between flex-wrap gap-4 text-xs shadow-md border border-blue-900/40">
         <div className="flex items-center gap-3">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
           <div>
             <span className="text-sky-200 font-medium">Active Facility:</span>{' '}
             <strong className="text-white font-bold">{activeFacilityObj.name}</strong> &bull;{' '}
@@ -12454,106 +12705,130 @@ function ScreenFacilityDashboard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sky-200 font-medium">Logged Role:</span>
-          <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white font-mono font-bold uppercase text-[10px] border border-white/20">
-            {actorRole}
-          </span>
-          {actorRole === 'worker' && (
-            <span className="text-[10px] text-amber-300 font-bold">
-              (Restricted to Patient Care &amp; Operational Views)
-            </span>
-          )}
-          {actorRole === 'doctor' && (
-            <span className="text-[10px] text-teal-300 font-bold">
-              (Clinical &amp; Queue Views Enabled)
-            </span>
-          )}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-sky-200 font-medium">Role Perspective:</span>
+          <div className="inline-flex bg-white/10 p-1 rounded-xl border border-white/20 backdrop-blur-sm">
+            {[
+              { id: 'admin', label: '👑 Administrator' },
+              { id: 'doctor', label: '🩺 Medical Officer' },
+              { id: 'worker', label: '📋 Operations Desk' }
+            ].map((role) => (
+              <button
+                key={role.id}
+                type="button"
+                onClick={() => {
+                  setDashboardRole(role.id);
+                  if (setActorRole) setActorRole(role.id);
+                  showToast(`Switched view to ${role.label}`);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  dashboardRole === role.id
+                    ? 'bg-white text-slate-900 shadow-sm font-black'
+                    : 'text-sky-100 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {role.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* 6 Section Module Navigation Tabs */}
+      {/* 6 Section Module Navigation Tabs - Visible to all roles */}
       <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1 overflow-x-auto text-xs font-bold">
-        {actorRole !== 'worker' && (
-          <button
-            type="button"
-            onClick={() => setActiveSection('overview')}
-            className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'overview'
+        <button
+          type="button"
+          onClick={() => setActiveSection('overview')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'overview'
               ? 'bg-slate-900 text-white shadow-md font-black'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-          >
-            <span>📊</span>
-            <span>1. Overview Summary</span>
-          </button>
-        )}
+          }`}
+        >
+          <span>📊</span>
+          <span>1. Overview Summary</span>
+        </button>
 
         <button
           type="button"
           onClick={() => setActiveSection('patient_care')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'patient_care'
-            ? 'bg-brand-600 text-white shadow-md font-black'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'patient_care'
+              ? 'bg-brand-600 text-white shadow-md font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
         >
           <span>👥</span>
           <span>2. Patient &amp; Care Mgmt</span>
+          {patientCareData?.highRiskPatientsCount > 0 && (
+            <span className="px-1.5 py-0.5 bg-brand-200 text-brand-900 rounded-full font-black text-[10px]">
+              {patientCareData.highRiskPatientsCount}
+            </span>
+          )}
         </button>
 
-        {actorRole !== 'worker' && (
-          <button
-            type="button"
-            onClick={() => setActiveSection('appointments_queue')}
-            className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'appointments_queue'
+        <button
+          type="button"
+          onClick={() => setActiveSection('appointments_queue')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'appointments_queue'
               ? 'bg-purple-600 text-white shadow-md font-black'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-          >
-            <span>⏱️</span>
-            <span>3. Appointments &amp; Queue</span>
-          </button>
-        )}
+          }`}
+        >
+          <span>⏱️</span>
+          <span>3. Appointments &amp; Queue</span>
+          {queueData?.waitingCount > 0 && (
+            <span className="px-1.5 py-0.5 bg-purple-200 text-purple-900 rounded-full font-black text-[10px]">
+              {queueData.waitingCount}
+            </span>
+          )}
+        </button>
 
-        {actorRole !== 'worker' && (
-          <button
-            type="button"
-            onClick={() => setActiveSection('service_resource')}
-            className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'service_resource'
+        <button
+          type="button"
+          onClick={() => setActiveSection('service_resource')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'service_resource'
               ? 'bg-teal-600 text-white shadow-md font-black'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-          >
-            <span>🏥</span>
-            <span>4. Service &amp; Resources</span>
-          </button>
-        )}
+          }`}
+        >
+          <span>🏥</span>
+          <span>4. Service &amp; Resources</span>
+          {serviceResourceData?.emergencyReadinessScore && (
+            <span className="px-1.5 py-0.5 bg-teal-200 text-teal-900 rounded-full font-black text-[10px]">
+              {serviceResourceData.emergencyReadinessScore}%
+            </span>
+          )}
+        </button>
 
-        {actorRole !== 'worker' && actorRole !== 'doctor' && (
-          <button
-            type="button"
-            onClick={() => setActiveSection('analytics')}
-            className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'analytics'
+        <button
+          type="button"
+          onClick={() => setActiveSection('analytics')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'analytics'
               ? 'bg-emerald-600 text-white shadow-md font-black'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-          >
-            <span>📈</span>
-            <span>5. Analytics &amp; Reports</span>
-          </button>
-        )}
+          }`}
+        >
+          <span>📈</span>
+          <span>5. Analytics &amp; Reports</span>
+        </button>
 
         <button
           type="button"
           onClick={() => setActiveSection('alerts')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeSection === 'alerts'
-            ? 'bg-critical-600 text-white shadow-md font-black'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeSection === 'alerts'
+              ? 'bg-critical-600 text-white shadow-md font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
         >
           <span>🚨</span>
           <span>6. Alerts &amp; Notifications</span>
           {criticalCount > 0 && (
-            <span className="px-1.5 py-0.2 bg-white text-critical-700 rounded-full font-black text-[10px]">
+            <span className="px-1.5 py-0.5 bg-critical-100 text-critical-800 rounded-full font-black text-[10px]">
               {criticalCount}
             </span>
           )}
@@ -12563,629 +12838,1259 @@ function ScreenFacilityDashboard({
       {/* ========================================================= */}
       {/* SECTION 1: OVERVIEW SUMMARY */}
       {/* ========================================================= */}
-      {activeSection === 'overview' && overviewData && (
+      {activeSection === 'overview' && (
         <div className="space-y-6">
-          {/* 4 KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Total Patients Served
-              </span>
-              <div className="text-3xl font-black text-slate-900 mt-2">
-                {overviewData.totalPatientsServed?.toLocaleString()}
-              </div>
-              <span className="text-[11px] text-emerald-600 font-bold mt-1 inline-block">
-                ↑ 14% vs last month
-              </span>
+          {!overviewData ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+              <span className="text-3xl animate-spin inline-block">🔄</span>
+              <p className="text-sm font-bold text-slate-600">Loading facility overview metrics...</p>
+              <button
+                type="button"
+                onClick={() => loadOverview(activeFacilityId)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+              >
+                Retry Loading
+              </button>
             </div>
-
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Appointments Today
-              </span>
-              <div className="text-3xl font-black text-slate-900 mt-2">
-                {overviewData.appointmentsToday}
-              </div>
-              <span className="text-[11px] text-brand-600 font-bold mt-1 inline-block">
-                {overviewData.activeQueueCount} in live queue
-              </span>
-            </div>
-
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                High-Risk Follow-Up
-              </span>
-              <div className="text-3xl font-black text-purple-700 mt-2">
-                {overviewData.highRiskUnderFollowUp}
-              </div>
-              <span className="text-[11px] text-purple-600 font-bold mt-1 inline-block">
-                Under active ASHA monitoring
-              </span>
-            </div>
-
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Critical Active Alerts
-              </span>
-              <div className="text-3xl font-black text-critical-600 mt-2">
-                {overviewData.criticalAlertsCount}
-              </div>
-              <span className="text-[11px] text-critical-500 font-bold mt-1 inline-block">
-                Immediate clinical attention
-              </span>
-            </div>
-          </div>
-
-          {/* Care Continuity Index Gauge Card */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40 space-y-4">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="flex items-center justify-between flex-wrap gap-2 relative z-10">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-sky-300 block">
-                  LONGITUDINAL RECORD CONTINUITY
-                </span>
-                <h3 className="text-xl font-black text-white mt-0.5">
-                  Care Continuity Index: {overviewData.careContinuityIndex}%
-                </h3>
-              </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-sky-200 border border-white/20 backdrop-blur-sm">
-                ✓ High Continuity Grid
-              </span>
-            </div>
-
-            <p className="text-xs text-blue-100/90 font-normal max-w-2xl leading-relaxed relative z-10">
-              Measures percentage of patients with complete longitudinal record chains without drop-offs between stages: <strong>Triage &rarr; Teleconsultation &rarr; Referral &rarr; Follow-Up</strong>.
-            </p>
-
-            {/* Progress Bar */}
-            <div className="space-y-1.5 pt-2 relative z-10">
-              <div className="w-full h-3.5 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/20">
+          ) : (
+            <>
+              {/* 4 Interactive Clickable KPI Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div
-                  className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all duration-500 shadow-sm"
-                  style={{ width: `${overviewData.careContinuityIndex}%` }}
-                ></div>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-blue-200/80 font-bold">
-                <span>0% Disconnected</span>
-                <span>Target: 80%+</span>
-                <span>100% Fully Connected</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Live Recent Activity Feed */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Live Cross-Platform Activity Stream</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Real-time events aggregated across Care Navigator, Teleconsultation, Referrals, Follow-ups, and Labs.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {overviewData.recentActivities?.map((act) => (
-                <div
-                  key={act.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between flex-wrap gap-3 text-xs"
+                  onClick={() => setActiveSection('patient_care')}
+                  className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:border-brand-500 hover:shadow-md transition-all cursor-pointer group"
+                  title="Click to view Patient Care Management"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">
-                      {act.severity === 'critical' ? '🚨' : act.severity === 'warning' ? '⚠️' : '✓'}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Total Patients Served
                     </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <strong className="text-slate-900 font-extrabold">{act.type}</strong>
-                        {act.severity && (
-                          <span
-                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${act.severity === 'critical'
-                              ? 'bg-critical-100 text-critical-800'
-                              : act.severity === 'warning'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-200 text-slate-700'
-                              }`}
-                          >
-                            {act.severity}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-slate-600 text-xs mt-0.5 font-medium">{act.description}</p>
-                    </div>
+                    <span className="text-base group-hover:scale-110 transition-transform">👥</span>
                   </div>
+                  <div className="text-3xl font-black text-slate-900 mt-2">
+                    {overviewData.totalPatientsServed?.toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-emerald-600 font-bold mt-1 inline-block">
+                    ↑ 14% vs last month &bull; Click to view &rarr;
+                  </span>
+                </div>
 
-                  <div className="text-right text-[10px] text-slate-400 font-medium">
-                    <div>{act.actor}</div>
-                    <div>{new Date(act.timestamp).toLocaleTimeString()}</div>
+                <div
+                  onClick={() => setActiveSection('appointments_queue')}
+                  className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:border-purple-500 hover:shadow-md transition-all cursor-pointer group"
+                  title="Click to view Appointments & Queue"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Appointments Today
+                    </span>
+                    <span className="text-base group-hover:scale-110 transition-transform">⏱️</span>
+                  </div>
+                  <div className="text-3xl font-black text-slate-900 mt-2">
+                    {overviewData.appointmentsToday}
+                  </div>
+                  <span className="text-[11px] text-purple-600 font-bold mt-1 inline-block">
+                    {overviewData.activeQueueCount} in live queue &bull; Manage &rarr;
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setActiveSection('patient_care')}
+                  className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:border-purple-500 hover:shadow-md transition-all cursor-pointer group"
+                  title="Click to inspect High-Risk ASHA Follow-Ups"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      High-Risk Follow-Up
+                    </span>
+                    <span className="text-base group-hover:scale-110 transition-transform">🩺</span>
+                  </div>
+                  <div className="text-3xl font-black text-purple-700 mt-2">
+                    {overviewData.highRiskUnderFollowUp}
+                  </div>
+                  <span className="text-[11px] text-purple-600 font-bold mt-1 inline-block">
+                    Under active ASHA monitoring &bull; Inspect &rarr;
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setActiveSection('alerts')}
+                  className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:border-critical-500 hover:shadow-md transition-all cursor-pointer group"
+                  title="Click to view Active Clinical Alerts"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Critical Active Alerts
+                    </span>
+                    <span className="text-base group-hover:scale-110 transition-transform">🚨</span>
+                  </div>
+                  <div className="text-3xl font-black text-critical-600 mt-2">
+                    {overviewData.criticalAlertsCount}
+                  </div>
+                  <span className="text-[11px] text-critical-500 font-bold mt-1 inline-block">
+                    Immediate clinical attention &bull; Review &rarr;
+                  </span>
+                </div>
+              </div>
+
+              {/* Care Continuity Index Gauge Card with 4-Stage Visual Chain */}
+              <div className="relative overflow-hidden bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40 space-y-5">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="flex items-center justify-between flex-wrap gap-2 relative z-10">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-sky-300 block">
+                      LONGITUDINAL RECORD CONTINUITY
+                    </span>
+                    <h3 className="text-2xl font-black text-white mt-0.5">
+                      Care Continuity Index: {overviewData.careContinuityIndex}%
+                    </h3>
+                  </div>
+                  <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/10 text-sky-200 border border-white/20 backdrop-blur-sm">
+                    ✓ High Continuity Grid
+                  </span>
+                </div>
+
+                <p className="text-xs text-blue-100/90 font-medium max-w-3xl leading-relaxed relative z-10">
+                  Measures the percentage of patients with complete longitudinal record chains without drop-offs across the 4 core continuum stages:
+                </p>
+
+                {/* 4-Stage Connected Chain Visual */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10 text-xs">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center">
+                    <span className="text-lg block">📋</span>
+                    <strong className="block text-sky-200 mt-1">1. Triage</strong>
+                    <span className="text-[10px] text-blue-200/80">AI Red-Flag Check</span>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center">
+                    <span className="text-lg block">🩺</span>
+                    <strong className="block text-sky-200 mt-1">2. Teleconsult</strong>
+                    <span className="text-[10px] text-blue-200/80">Doctor Assessment</span>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center">
+                    <span className="text-lg block">🏥</span>
+                    <strong className="block text-sky-200 mt-1">3. Referral</strong>
+                    <span className="text-[10px] text-blue-200/80">Facility Escalation</span>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center">
+                    <span className="text-lg block">🤝</span>
+                    <strong className="block text-sky-200 mt-1">4. Follow-Up</strong>
+                    <span className="text-[10px] text-blue-200/80">ASHA Home Visit</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1.5 pt-1 relative z-10">
+                  <div className="w-full h-4 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/20">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all duration-500 shadow-sm"
+                      style={{ width: `${overviewData.careContinuityIndex}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-blue-200/80 font-bold">
+                    <span>0% Disconnected</span>
+                    <span>Target: 80%+</span>
+                    <span>100% Fully Connected</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Facility Quick Actions Toolbar */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+                <div className="text-xs">
+                  <strong className="text-slate-900 block font-black">Facility Quick Actions</strong>
+                  <span className="text-slate-500 font-medium text-[11px]">Instant operations and emergency telemetry controls</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleCallNext}
+                    disabled={isQueueActionLoading}
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span>📢 Call Next Patient</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowWalkInModal(true)}
+                    className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span>➕ Register Walk-In</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowResourceModal(true)}
+                    className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span>✏️ Update Beds/Resources</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span>📥 Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Cross-Platform Activity Stream with Search & Filters */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Live Cross-Platform Activity Stream</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Real-time events aggregated across Care Navigator, Teleconsultation, Referrals, Follow-ups, and Labs.
+                    </p>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <input
+                      type="text"
+                      placeholder="Search activities..."
+                      value={activitySearch}
+                      onChange={(e) => setActivitySearch(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none w-44"
+                    />
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                      {['ALL', 'CRITICAL', 'WARNING', 'INFO'].map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setActivityFilter(f)}
+                          className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition-all ${
+                            activityFilter === f
+                              ? 'bg-slate-900 text-white font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {filteredActivities.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl">
+                      No matching events found in activity stream.
+                    </div>
+                  ) : (
+                    filteredActivities.map((act) => (
+                      <div
+                        key={act.id}
+                        className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between flex-wrap gap-3 text-xs hover:bg-slate-100/60 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">
+                            {act.severity === 'critical' ? '🚨' : act.severity === 'warning' ? '⚠️' : '✓'}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <strong className="text-slate-900 font-extrabold">{act.type}</strong>
+                              {act.severity && (
+                                <span
+                                  className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                    act.severity === 'critical'
+                                      ? 'bg-critical-100 text-critical-800'
+                                      : act.severity === 'warning'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-slate-200 text-slate-700'
+                                  }`}
+                                >
+                                  {act.severity}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-slate-600 text-xs mt-0.5 font-medium">{act.description}</p>
+                          </div>
+                        </div>
+
+                        <div className="text-right text-[10px] text-slate-400 font-medium">
+                          <div className="font-bold text-slate-600">{act.actor}</div>
+                          <div>{new Date(act.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {/* ========================================================= */}
       {/* SECTION 2: PATIENT & CARE MANAGEMENT */}
       {/* ========================================================= */}
-      {activeSection === 'patient_care' && patientCareData && (
+      {activeSection === 'patient_care' && (
         <div className="space-y-6">
-          {/* High-Risk Patient List with Dynamic Risk Badges */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">High-Risk Patients Under Longitudinal Monitoring</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Dynamic risk scores calculated from frontline worker observation reports (Feature 04).
-                </p>
-              </div>
-              <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-full">
-                {patientCareData.highRiskPatientsCount} High-Risk Patients
-              </span>
+          {!patientCareData ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+              <span className="text-3xl animate-spin inline-block">🔄</span>
+              <p className="text-sm font-bold text-slate-600">Loading patient care records...</p>
+              <button
+                type="button"
+                onClick={() => loadPatientCare(activeFacilityId)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+              >
+                Retry Loading
+              </button>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Patient Name</th>
-                    <th className="py-3 px-4">Condition</th>
-                    <th className="py-3 px-4">Dynamic Risk Score</th>
-                    <th className="py-3 px-4">Assigned ASHA Worker</th>
-                    <th className="py-3 px-4">Last Assessment</th>
-                    <th className="py-3 px-4">Trend</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {patientCareData.highRiskPatients.map((p, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-3.5 px-4 font-black text-slate-900">
-                        <div>{p.patientName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{p.phone}</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">{p.primaryCondition}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${p.riskLevel === 'HIGH'
-                            ? 'bg-critical-100 text-critical-800'
-                            : p.riskLevel === 'MEDIUM'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                        >
-                          {p.riskScore} / 100 ({p.riskLevel})
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-700 font-bold">{p.assignedWorkerName}</td>
-                      <td className="py-3.5 px-4 text-[10px] text-slate-500">
-                        {p.lastFollowUpDate && !isNaN(new Date(p.lastFollowUpDate).getTime())
-                          ? new Date(p.lastFollowUpDate).toLocaleDateString()
-                          : 'Active Today'}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-[10px] uppercase text-purple-700">
-                        {p.trend === 'DETERIORATING' ? '🚨 Deteriorating' : p.trend === 'IMPROVING' ? '✓ Improving' : '→ Stable'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Referral Tracking Table */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
-              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>📥 Incoming Referrals</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
-                  {patientCareData.incomingReferrals?.length || 0}
-                </span>
-              </h4>
-              <div className="space-y-2">
-                {patientCareData.incomingReferrals?.map((r) => (
-                  <div key={r.referralId} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="text-slate-900">{r.patientName}</span>
-                      <span className="text-[9px] uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
-                        {r.status}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      From: {r.referringDoctorName} &bull; Priority: <strong className="text-slate-700 uppercase">{r.priority}</strong>
-                    </div>
+          ) : (
+            <>
+              {/* High-Risk Patient List with Dynamic Risk Badges */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">High-Risk Patients Under Longitudinal Monitoring</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Dynamic risk scores calculated from frontline worker observation reports (Feature 04).
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-full">
+                    {patientCareData.highRiskPatientsCount} High-Risk Patients
+                  </span>
+                </div>
 
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
-              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>📤 Outgoing Escalations</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
-                  {patientCareData.outgoingReferrals?.length || 0}
-                </span>
-              </h4>
-              <div className="space-y-2">
-                {patientCareData.outgoingReferrals?.map((r) => (
-                  <div key={r.referralId} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="text-slate-900">{r.patientName}</span>
-                      <span className="text-[9px] uppercase px-2 py-0.5 bg-brand-100 text-brand-800 rounded">
-                        {r.status}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      To: {r.receivingFacilityName} &bull; Priority: <strong className="text-slate-700 uppercase">{r.priority}</strong>
-                    </div>
-                  </div>
-                ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Patient Name</th>
+                        <th className="py-3 px-4">Condition</th>
+                        <th className="py-3 px-4">Dynamic Risk Score</th>
+                        <th className="py-3 px-4">Assigned ASHA Worker</th>
+                        <th className="py-3 px-4">Last Assessment</th>
+                        <th className="py-3 px-4">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                      {patientCareData.highRiskPatients?.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-3.5 px-4 font-black text-slate-900">
+                            <div>{p.patientName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{p.phone}</div>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600">{p.primaryCondition}</td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                                p.riskLevel === 'HIGH'
+                                  ? 'bg-critical-100 text-critical-800'
+                                  : p.riskLevel === 'MEDIUM'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {p.riskScore} / 100 ({p.riskLevel})
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-700 font-bold">{p.assignedWorkerName}</td>
+                          <td className="py-3.5 px-4 text-[10px] text-slate-500">
+                            {p.lastFollowUpDate && !isNaN(new Date(p.lastFollowUpDate).getTime())
+                              ? new Date(p.lastFollowUpDate).toLocaleDateString()
+                              : 'Active Today'}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-[10px] uppercase text-purple-700">
+                            {p.trend === 'DETERIORATING' ? '🚨 Deteriorating' : p.trend === 'IMPROVING' ? '✓ Improving' : '→ Stable'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Care Continuity Chain Inspection */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900">Longitudinal Care Chain Integrity</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {patientCareData.careContinuityChains?.map((c) => (
-                <div
-                  key={c.patientId}
-                  className={`p-4 rounded-2xl border ${c.chainComplete ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'
-                    }`}
-                >
-                  <div className="flex items-center justify-between font-bold text-xs">
-                    <span className="text-slate-900">{c.patientName}</span>
-                    <span
-                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${c.chainComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}
-                    >
-                      {c.chainComplete ? '✓ Complete Chain' : '⚠️ Gap in Follow-up'}
+              {/* Referral Tracking Table */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
+                  <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>📥 Incoming Referrals</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
+                      {patientCareData.incomingReferrals?.length || 0}
                     </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-1 mt-3 text-center text-[9px] font-bold">
-                    <div className={`p-1.5 rounded ${c.stages.triage ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
-                      1. Triage
-                    </div>
-                    <div className={`p-1.5 rounded ${c.stages.teleconsult ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
-                      2. Consult
-                    </div>
-                    <div className={`p-1.5 rounded ${c.stages.referral ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
-                      3. Referral
-                    </div>
-                    <div className={`p-1.5 rounded ${c.stages.followUp ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}`}>
-                      4. Follow-Up
-                    </div>
+                  </h4>
+                  <div className="space-y-2">
+                    {patientCareData.incomingReferrals?.map((r) => (
+                      <div key={r.referralId} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="text-slate-900">{r.patientName}</span>
+                          <span className="text-[9px] uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                            {r.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          From: {r.referringDoctorName} &bull; Priority: <strong className="text-slate-700 uppercase">{r.priority}</strong>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
+                  <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>📤 Outgoing Escalations</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
+                      {patientCareData.outgoingReferrals?.length || 0}
+                    </span>
+                  </h4>
+                  <div className="space-y-2">
+                    {patientCareData.outgoingReferrals?.map((r) => (
+                      <div key={r.referralId} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="text-slate-900">{r.patientName}</span>
+                          <span className="text-[9px] uppercase px-2 py-0.5 bg-brand-100 text-brand-800 rounded">
+                            {r.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          To: {r.receivingFacilityName} &bull; Priority: <strong className="text-slate-700 uppercase">{r.priority}</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Care Continuity Chain Inspection */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-lg font-black text-slate-900">Longitudinal Care Chain Integrity</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {patientCareData.careContinuityChains?.map((c) => (
+                    <div
+                      key={c.patientId}
+                      className={`p-4 rounded-2xl border ${
+                        c.chainComplete ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-bold text-xs">
+                        <span className="text-slate-900">{c.patientName}</span>
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                            c.chainComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {c.chainComplete ? '✓ Complete Chain' : '⚠️ Gap in Follow-up'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1 mt-3 text-center text-[9px] font-bold">
+                        <div className={`p-1.5 rounded ${c.stages.triage ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
+                          1. Triage
+                        </div>
+                        <div className={`p-1.5 rounded ${c.stages.teleconsult ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
+                          2. Consult
+                        </div>
+                        <div className={`p-1.5 rounded ${c.stages.referral ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-400'}`}>
+                          3. Referral
+                        </div>
+                        <div className={`p-1.5 rounded ${c.stages.followUp ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}`}>
+                          4. Follow-Up
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {/* ========================================================= */}
       {/* SECTION 3: APPOINTMENTS & QUEUE MANAGEMENT */}
       {/* ========================================================= */}
-      {activeSection === 'appointments_queue' && queueData && (
+      {activeSection === 'appointments_queue' && (
         <div className="space-y-6">
-          {/* Queue KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Wait Time</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">{queueData.avgWaitTimeMinutes} mins</div>
-              <span className="text-[10px] text-emerald-600 font-bold">Within Golden Target (&lt;20m)</span>
+          {!queueData ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+              <span className="text-3xl animate-spin inline-block">🔄</span>
+              <p className="text-sm font-bold text-slate-600">Loading live priority queue telemetry...</p>
+              <button
+                type="button"
+                onClick={() => loadQueue(activeFacilityId)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+              >
+                Retry Loading
+              </button>
             </div>
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Currently Waiting</span>
-              <div className="text-2xl font-black text-purple-700 mt-1">{queueData.waitingCount}</div>
-              <span className="text-[10px] text-purple-600 font-bold">In live priority queue</span>
-            </div>
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Walk-Ins vs Booked</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {queueData.walkInCount} / {queueData.bookedCount}
-              </div>
-              <span className="text-[10px] text-slate-500 font-bold">Walk-in vs Pre-booked</span>
-            </div>
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Total Today</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">{queueData.totalToday}</div>
-              <span className="text-[10px] text-brand-600 font-bold">Scheduled &amp; walk-in slots</span>
-            </div>
-          </div>
-
-          {/* Live Queue Table */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Real-Time Priority Queue Telemetry</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Sorted dynamically by Urgency Tier + Risk Multiplier + Anti-Starvation Wait Time (+2 pts/min).
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Priority Score</th>
-                    <th className="py-3 px-4">Patient Name</th>
-                    <th className="py-3 px-4">Urgency Tier</th>
-                    <th className="py-3 px-4">Wait Duration</th>
-                    <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {queueData.liveQueue.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-3.5 px-4 font-black font-mono text-purple-700 text-sm">
-                        ⭐ {item.priorityScore}
-                      </td>
-                      <td className="py-3.5 px-4 font-black text-slate-900">{item.patientName}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${item.urgencyTier === 'CRITICAL'
-                            ? 'bg-critical-100 text-critical-800'
-                            : item.urgencyTier === 'URGENT'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                        >
-                          {item.urgencyTier}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
-                        ⏱️ {item.waitDurationMinutes} mins
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-bold text-slate-600">
-                          {item.isWalkIn ? '🚶 Walk-In' : '📅 Booked'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-black uppercase text-purple-800 bg-purple-50 px-2 py-0.5 rounded">
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Peak Hours Load Distribution */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900">Hourly Patient Arrival &amp; Peak Load</h3>
-            <div className="space-y-2">
-              {queueData.peakHourMetrics?.map((ph, idx) => (
-                <div key={idx} className="flex items-center gap-3 text-xs">
-                  <span className="w-24 text-slate-500 font-bold text-[11px]">{ph.hour}</span>
-                  <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-purple-600 rounded-full"
-                      style={{ width: `${(ph.patientCount / 30) * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="font-mono font-bold text-slate-900 w-12 text-right">
-                    {ph.patientCount} pts
-                  </span>
+          ) : (
+            <>
+              {/* Queue KPIs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Wait Time</span>
+                  <div className="text-2xl font-black text-slate-900 mt-1">{queueData.avgWaitTimeMinutes} mins</div>
+                  <span className="text-[10px] text-emerald-600 font-bold">Within Golden Target (&lt;20m)</span>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Currently Waiting</span>
+                  <div className="text-2xl font-black text-purple-700 mt-1">{queueData.waitingCount}</div>
+                  <span className="text-[10px] text-purple-600 font-bold">In live priority queue</span>
+                </div>
+                <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Walk-Ins vs Booked</span>
+                  <div className="text-2xl font-black text-slate-900 mt-1">
+                    {queueData.walkInCount} / {queueData.bookedCount}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-bold">Walk-in vs Pre-booked</span>
+                </div>
+                <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Total Today</span>
+                  <div className="text-2xl font-black text-slate-900 mt-1">{queueData.totalToday}</div>
+                  <span className="text-[10px] text-brand-600 font-bold">Scheduled &amp; walk-in slots</span>
+                </div>
+              </div>
+
+              {/* Queue Control Header & Action Bar */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Real-Time Priority Queue Telemetry</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Sorted dynamically by Urgency Tier + Risk Multiplier + Anti-Starvation Wait Time (+2 pts/min).
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleCallNext}
+                      disabled={isQueueActionLoading}
+                      className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black rounded-xl text-xs flex items-center gap-2 shadow-md transition-all"
+                    >
+                      <span>📢 Call Next Patient</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowWalkInModal(true)}
+                      className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-black rounded-xl text-xs flex items-center gap-2 shadow-md transition-all"
+                    >
+                      <span>➕ Register Walk-In</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Queue Filters and Search */}
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    {[
+                      { id: 'ALL', label: 'All' },
+                      { id: 'waiting', label: '⏳ Waiting' },
+                      { id: 'called', label: '📢 Called' },
+                      { id: 'in_consultation', label: '🩺 In Consult' },
+                      { id: 'completed', label: '✓ Completed' },
+                      { id: 'WALK_IN', label: '🚶 Walk-In Only' },
+                      { id: 'BOOKED', label: '📅 Booked Only' }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setQueueStatusFilter(tab.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          queueStatusFilter === tab.id
+                            ? 'bg-purple-700 text-white font-black shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Search patient name or token..."
+                    value={queueSearchQuery}
+                    onChange={(e) => setQueueSearchQuery(e.target.value)}
+                    className="px-3.5 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none w-56 font-medium"
+                  />
+                </div>
+
+                {/* Live Priority Queue Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Priority Score</th>
+                        <th className="py-3 px-4">Patient Name</th>
+                        <th className="py-3 px-4">Urgency Tier</th>
+                        <th className="py-3 px-4">Wait Duration</th>
+                        <th className="py-3 px-4">Type</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                      {filteredQueue.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="py-8 text-center text-slate-400 font-medium">
+                            No patients currently in this queue view.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredQueue.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="py-3.5 px-4 font-black font-mono text-purple-700 text-sm">
+                              ⭐ {item.priorityScore}
+                            </td>
+                            <td className="py-3.5 px-4 font-black text-slate-900">
+                              <div>{item.patientName}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {item.queueId}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${
+                                  item.urgencyTier === 'CRITICAL'
+                                    ? 'bg-critical-100 text-critical-800'
+                                    : item.urgencyTier === 'URGENT'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-emerald-100 text-emerald-800'
+                                }`}
+                              >
+                                {item.urgencyTier}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
+                              ⏱️ {item.waitDurationMinutes} mins
+                              {item.waitDurationMinutes >= 15 && (
+                                <span className="text-[9px] text-amber-600 font-bold ml-1.5">(Boosted)</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="text-[10px] font-bold text-slate-600">
+                                {item.isWalkIn ? '🚶 Walk-In' : '📅 Booked'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded ${
+                                  item.status === 'in_consultation'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : item.status === 'called'
+                                    ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                    : item.status === 'completed'
+                                    ? 'bg-slate-100 text-slate-600'
+                                    : 'bg-purple-100 text-purple-800'
+                                }`}
+                              >
+                                {item.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="inline-flex items-center gap-1.5 justify-end">
+                                {item.status === 'waiting' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQueueStatus(item.queueId, 'called')}
+                                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-[10px] transition-colors"
+                                  >
+                                    📢 Call
+                                  </button>
+                                )}
+                                {item.status === 'called' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQueueStatus(item.queueId, 'in_consultation')}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] transition-colors"
+                                  >
+                                    🩺 Consult
+                                  </button>
+                                )}
+                                {item.status === 'in_consultation' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQueueStatus(item.queueId, 'completed')}
+                                    className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[10px] transition-colors"
+                                  >
+                                    ✓ Complete
+                                  </button>
+                                )}
+                                {item.status === 'completed' && (
+                                  <span className="text-[10px] text-emerald-700 font-bold">✓ Discharged</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Peak Hours Load Distribution */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-lg font-black text-slate-900">Hourly Patient Arrival &amp; Peak Load</h3>
+                <div className="space-y-2">
+                  {queueData.peakHourMetrics?.map((ph, idx) => (
+                    <div key={idx} className="flex items-center gap-3 text-xs">
+                      <span className="w-24 text-slate-500 font-bold text-[11px]">{ph.hour}</span>
+                      <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-purple-600 rounded-full"
+                          style={{ width: `${(ph.patientCount / 30) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900 w-12 text-right">
+                        {ph.patientCount} pts
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {/* ========================================================= */}
       {/* SECTION 4: SERVICE & RESOURCE STATUS */}
       {/* ========================================================= */}
-      {activeSection === 'service_resource' && serviceResourceData && (
+      {activeSection === 'service_resource' && (
         <div className="space-y-6">
-          {/* Emergency Readiness Banner */}
-          <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-teal-400 block">
-                FACILITY EMERGENCY READINESS SCORE
-              </span>
-              <h3 className="text-2xl font-black text-white mt-0.5">
-                Readiness Index: {serviceResourceData.emergencyReadinessScore} / 100
-              </h3>
-              <p className="text-xs text-slate-300 mt-1 max-w-xl font-medium">
-                Evaluated from available ICU beds, oxygen buffer, ready 108 ambulances, and emergency on-duty specialist doctors.
-              </p>
-            </div>
-
-            {actorRole !== 'worker' && (
+          {!serviceResourceData ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+              <span className="text-3xl animate-spin inline-block">🔄</span>
+              <p className="text-sm font-bold text-slate-600">Loading service and resource telemetry...</p>
               <button
                 type="button"
-                onClick={() => {
-                  const b = serviceResourceData.resources.find((r) => r.resourceType === 'bed');
-                  if (b) {
-                    setResourceTotal(b.totalCount);
-                    setResourceAvailable(b.availableCount);
-                  }
-                  setShowResourceModal(true);
-                }}
-                className="px-5 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-xl text-xs shadow-md transition-all flex items-center gap-2"
+                onClick={() => loadServiceResource(activeFacilityId)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
               >
-                <span>✏️ Update Bed &amp; Resource Availability</span>
+                Retry Loading
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Emergency Readiness Banner */}
+              <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40 flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-400 block">
+                    FACILITY EMERGENCY READINESS SCORE
+                  </span>
+                  <h3 className="text-2xl font-black text-white mt-0.5">
+                    Readiness Index: {serviceResourceData.emergencyReadinessScore} / 100
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1 max-w-xl font-medium">
+                    Evaluated from available ICU beds, oxygen buffer, ready 108 ambulances, and emergency on-duty specialist doctors.
+                  </p>
+                </div>
 
-          {/* Resources Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {serviceResourceData.resources?.map((res, idx) => {
-              const utilRatio = (res.totalCount - res.availableCount) / res.totalCount;
-              const isLow = res.availableCount / res.totalCount < 0.20;
-
-              return (
-                <div
-                  key={idx}
-                  className={`bg-white rounded-3xl p-6 border transition-all space-y-3 ${isLow ? 'border-critical-300 bg-critical-50/20' : 'border-slate-200'
-                    }`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const b = serviceResourceData.resources.find((r) => r.resourceType === 'bed');
+                    if (b) {
+                      setResourceTotal(b.totalCount);
+                      setResourceAvailable(b.availableCount);
+                    }
+                    setShowResourceModal(true);
+                  }}
+                  className="px-5 py-3 bg-teal-400 hover:bg-teal-300 text-slate-950 font-black rounded-xl text-xs shadow-md transition-all flex items-center gap-2"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-900">{res.resourceName}</h4>
-                      <span className="text-[10px] font-mono text-slate-400 uppercase">{res.resourceType}</span>
-                    </div>
-                    <span
-                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${isLow ? 'bg-critical-100 text-critical-800' : 'bg-emerald-100 text-emerald-800'
-                        }`}
+                  <span>✏️ Update Bed &amp; Resource Availability</span>
+                </button>
+              </div>
+
+              {/* Resources Telemetry Grid with Quick +/- Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {serviceResourceData.resources?.map((res, idx) => {
+                  const isLow = res.availableCount / res.totalCount < 0.20;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`bg-white rounded-3xl p-6 border transition-all space-y-3 ${
+                        isLow ? 'border-critical-300 bg-critical-50/20' : 'border-slate-200'
+                      }`}
                     >
-                      {isLow ? '⚠️ Low Stock' : '✓ Normal'}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">{res.resourceName}</h4>
+                          <span className="text-[10px] font-mono text-slate-400 uppercase">{res.resourceType}</span>
+                        </div>
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                            isLow ? 'bg-critical-100 text-critical-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {isLow ? '⚠️ Low Stock' : '✓ Normal'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-slate-900">{res.availableCount}</span>
+                          <span className="text-xs font-bold text-slate-500">/ {res.totalCount} Available</span>
+                        </div>
+
+                        {/* Quick +/- Telemetry Adjusters */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickAdjustResource(res.resourceType, -1)}
+                            disabled={res.availableCount <= 0}
+                            title="Decrease available count by 1"
+                            className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-lg text-xs flex items-center justify-center transition-colors disabled:opacity-40"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickAdjustResource(res.resourceType, 1)}
+                            disabled={res.availableCount >= res.totalCount}
+                            title="Increase available count by 1"
+                            className="w-7 h-7 bg-teal-100 hover:bg-teal-200 text-teal-900 font-black rounded-lg text-xs flex items-center justify-center transition-colors disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${isLow ? 'bg-critical-500' : 'bg-teal-500'}`}
+                          style={{ width: `${(res.availableCount / res.totalCount) * 100}%` }}
+                        ></div>
+                      </div>
+
+                      <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
+                        <span>Updated: {new Date(res.lastUpdated).toLocaleTimeString()}</span>
+                        {res.isStale && <span className="text-amber-600 font-bold">⚠️ Stale Data</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Active Clinical Departments Table */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-lg font-black text-slate-900">Active Clinical Departments</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Department</th>
+                        <th className="py-3 px-4">Head Doctor</th>
+                        <th className="py-3 px-4">Available Beds</th>
+                        <th className="py-3 px-4">Capacity Utilization</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                      {serviceResourceData.departments?.map((d) => (
+                        <tr key={d.departmentId}>
+                          <td className="py-3.5 px-4 font-black text-slate-900">{d.name}</td>
+                          <td className="py-3.5 px-4 text-slate-700 font-bold">{d.headDoctor}</td>
+                          <td className="py-3.5 px-4 font-mono font-bold">
+                            {d.availableBeds} / {d.totalBeds}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-teal-600 rounded-full"
+                                  style={{ width: `${d.utilizationPercent}%` }}
+                                ></div>
+                              </div>
+                              <span className="font-mono font-bold text-[10px]">{d.utilizationPercent}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                              {d.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Doctors On Duty Roster */}
+              {serviceResourceData.doctorsOnDuty && serviceResourceData.doctorsOnDuty.length > 0 && (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">Doctors On Duty Roster</h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Active medical officers and clinical specialists on active shift at this facility.
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 bg-teal-100 text-teal-800 rounded-full">
+                      {serviceResourceData.doctorsOnDuty.filter((doc) => doc.onDuty).length} Active Now
                     </span>
                   </div>
 
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-900">{res.availableCount}</span>
-                    <span className="text-xs font-bold text-slate-500">/ {res.totalCount} Available</span>
-                  </div>
-
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${isLow ? 'bg-critical-500' : 'bg-teal-500'}`}
-                      style={{ width: `${(res.availableCount / res.totalCount) * 100}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
-                    <span>Updated: {new Date(res.lastUpdated).toLocaleTimeString()}</span>
-                    {res.isStale && <span className="text-amber-600 font-bold">⚠️ Stale Data</span>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {serviceResourceData.doctorsOnDuty.map((doc) => (
+                      <div
+                        key={doc.doctorId}
+                        className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <strong className="text-slate-900 font-bold">{doc.name}</strong>
+                          </div>
+                          <span className="text-[11px] text-teal-700 font-semibold block mt-0.5">{doc.specialty}</span>
+                          <span className="text-[10px] text-slate-400 mt-1 block">
+                            Shift: <strong className="text-slate-600">{doc.shift}</strong> &bull; Contact: {doc.contact}
+                          </span>
+                        </div>
+                        <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded uppercase">
+                          On Duty
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Departments Capacity Table */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900">Active Clinical Departments</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Department</th>
-                    <th className="py-3 px-4">Head Doctor</th>
-                    <th className="py-3 px-4">Available Beds</th>
-                    <th className="py-3 px-4">Capacity Utilization</th>
-                    <th className="py-3 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {serviceResourceData.departments?.map((d) => (
-                    <tr key={d.departmentId}>
-                      <td className="py-3.5 px-4 font-black text-slate-900">{d.name}</td>
-                      <td className="py-3.5 px-4 text-slate-700 font-bold">{d.headDoctor}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold">
-                        {d.availableBeds} / {d.totalBeds}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-teal-600 rounded-full"
-                              style={{ width: `${d.utilizationPercent}%` }}
-                            ></div>
+              {/* Diagnostic Services & Pharmacy Medicine Stocks */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Diagnostic Services */}
+                {serviceResourceData.diagnosticServicesStatus && (
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span>🧪 Diagnostic &amp; Lab Services</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
+                        {serviceResourceData.diagnosticServicesStatus.length} Services
+                      </span>
+                    </h3>
+                    <div className="space-y-2.5">
+                      {serviceResourceData.diagnosticServicesStatus.map((diag) => (
+                        <div
+                          key={diag.serviceId}
+                          className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <strong className="text-slate-900 block">{diag.name}</strong>
+                            <span className="text-[10px] text-slate-400">
+                              Avg Turnaround: <strong className="text-slate-600">{diag.avgTurnaroundHours}h</strong>
+                            </span>
                           </div>
-                          <span className="font-mono font-bold text-[10px]">{d.utilizationPercent}%</span>
+                          <span
+                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                              diag.status === 'operational'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {diag.status}
+                          </span>
                         </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
-                          {d.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Critical Medicine Stocks */}
+                {serviceResourceData.criticalMedicinesStock && (
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span>💊 Critical Pharmacy Inventory</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-600">
+                        {serviceResourceData.criticalMedicinesStock.length} Tracked
+                      </span>
+                    </h3>
+                    <div className="space-y-2.5">
+                      {serviceResourceData.criticalMedicinesStock.map((med) => {
+                        const isShort = med.status !== 'adequate';
+                        return (
+                          <div
+                            key={med.medicineId}
+                            className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+                              isShort ? 'bg-critical-50/30 border-critical-200' : 'bg-slate-50 border-slate-200'
+                            }`}
+                          >
+                            <div>
+                              <strong className="text-slate-900 block">{med.name}</strong>
+                              <span className="text-[10px] text-slate-400">
+                                Stock: <strong className="text-slate-700">{med.stockUnits} units</strong> (Min: {med.minThreshold})
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                med.status === 'adequate'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : med.status === 'low_stock'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-critical-100 text-critical-800'
+                              }`}
+                            >
+                              {med.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {/* ========================================================= */}
       {/* SECTION 5: ANALYTICS & REPORTS */}
       {/* ========================================================= */}
-      {activeSection === 'analytics' && analyticsData && (
+      {activeSection === 'analytics' && (
         <div className="space-y-6">
-          {/* Footfall Time-Series Chart */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">7-Day Patient Footfall Time-Series</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Aggregated time-series trend of total visits, OPD consultations, and emergency admissions.
-                </p>
-              </div>
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                Date Range: {analyticsData.dateRange.start} to {analyticsData.dateRange.end}
-              </span>
+          {!analyticsData ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+              <span className="text-3xl animate-spin inline-block">🔄</span>
+              <p className="text-sm font-bold text-slate-600">Loading facility analytics and trends...</p>
+              <button
+                type="button"
+                onClick={() => loadAnalytics(activeFacilityId)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+              >
+                Retry Loading
+              </button>
             </div>
-
-            <div className="grid grid-cols-7 gap-2 pt-4 text-center">
-              {analyticsData.footfallTrends?.map((ft, idx) => (
-                <div key={idx} className="space-y-2 flex flex-col justify-end">
-                  <div className="text-[10px] font-mono font-bold text-slate-700">{ft.totalCount}</div>
-                  <div className="w-full bg-slate-100 rounded-2xl p-1.5 flex flex-col justify-end h-40">
-                    <div
-                      className="bg-emerald-500 rounded-t-xl w-full"
-                      style={{ height: `${(ft.opdCount / 200) * 100}%` }}
-                      title={`OPD: ${ft.opdCount}`}
-                    ></div>
-                    <div
-                      className="bg-critical-500 rounded-b-xl w-full mt-0.5"
-                      style={{ height: `${(ft.emergencyCount / 200) * 100}%` }}
-                      title={`Emergency: ${ft.emergencyCount}`}
-                    ></div>
+          ) : (
+            <>
+              {/* Analytics Header Toolbar with Presets & Export Actions */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Executive Facility Analytics &amp; Reports</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Multi-dimensional performance aggregation across patient footfall, clinical disease categories, and referral flow.
+                    </p>
                   </div>
-                  <div className="text-[10px] font-bold text-slate-500">
-                    {new Date(ft.date).toLocaleDateString('en-US', { weekday: 'short' })}
+
+                  {/* Export and Print Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportCSV}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-1.5 transition-all"
+                    >
+                      <span>📥 Export CSV Report</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                    >
+                      <span>🖨️ Print / PDF</span>
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="flex items-center justify-center gap-6 pt-2 text-xs font-bold">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 bg-emerald-500 rounded"></span>
-                <span>OPD Consultations</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 bg-critical-500 rounded"></span>
-                <span>Emergency Admissions</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Disease Category Breakdown */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900">Regional Disease &amp; Clinical Case Distribution</h3>
-            <div className="space-y-3">
-              {analyticsData.diseaseCategoryBreakdown?.map((dc, idx) => (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-slate-800">{dc.category}</span>
-                    <span className="font-mono text-slate-900">
-                      {dc.count} cases ({dc.percentage}%)
-                    </span>
+                {/* Preset Date Buttons & Custom Range Filters */}
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-400 uppercase mr-1">Presets:</span>
+                    {[
+                      { days: 7, label: 'Last 7 Days' },
+                      { days: 14, label: 'Last 14 Days' },
+                      { days: 30, label: 'Last 30 Days' }
+                    ].map((p) => (
+                      <button
+                        key={p.days}
+                        type="button"
+                        onClick={() => applyPresetDate(p.days)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-600 rounded-full"
-                      style={{ width: `${dc.percentage}%` }}
-                    ></div>
+
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl font-bold">
+                      <span className="text-[10px] text-slate-400 uppercase">From:</span>
+                      <input
+                        type="date"
+                        value={startDateFilter || analyticsData.dateRange?.start || ''}
+                        onChange={(e) => setStartDateFilter(e.target.value)}
+                        className="bg-transparent text-slate-800 text-xs focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl font-bold">
+                      <span className="text-[10px] text-slate-400 uppercase">To:</span>
+                      <input
+                        type="date"
+                        value={endDateFilter || analyticsData.dateRange?.end || ''}
+                        onChange={(e) => setEndDateFilter(e.target.value)}
+                        className="bg-transparent text-slate-800 text-xs focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadAnalytics(activeFacilityId, startDateFilter, endDateFilter)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+                    >
+                      Apply Filter
+                    </button>
+                    {(startDateFilter || endDateFilter) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStartDateFilter('');
+                          setEndDateFilter('');
+                          loadAnalytics(activeFacilityId, '', '');
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition-all"
+                      >
+                        Reset
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+
+              {/* 3 Analytics Summary KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    High-Risk Follow-Up Rate
+                  </span>
+                  <div className="text-3xl font-black text-emerald-600 mt-2">
+                    {analyticsData.highRiskCompletionRate}%
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-bold mt-1 inline-block">
+                    Target: &ge; 90% Longitudinal Closure
+                  </span>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    Incoming Referrals Received
+                  </span>
+                  <div className="text-3xl font-black text-brand-600 mt-2">
+                    {analyticsData.referralAnalytics?.totalIncoming || 0}
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-bold mt-1 inline-block">
+                    From primary health centers &amp; sub-centers
+                  </span>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    Outgoing Tertiary Escalations
+                  </span>
+                  <div className="text-3xl font-black text-purple-700 mt-2">
+                    {analyticsData.referralAnalytics?.totalOutgoing || 0}
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-bold mt-1 inline-block">
+                    Transferred to higher specialty care
+                  </span>
+                </div>
+              </div>
+
+              {/* Footfall Time-Series Chart */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-lg font-black text-slate-900">Patient Footfall Time-Series Trend</h3>
+                <div className="grid grid-cols-7 gap-2 pt-4 text-center">
+                  {analyticsData.footfallTrends?.map((ft, idx) => (
+                    <div key={idx} className="space-y-2 flex flex-col justify-end">
+                      <div className="text-[10px] font-mono font-bold text-slate-700">{ft.totalCount}</div>
+                      <div className="w-full bg-slate-100 rounded-2xl p-1.5 flex flex-col justify-end h-40">
+                        <div
+                          className="bg-emerald-500 rounded-t-xl w-full"
+                          style={{ height: `${(ft.opdCount / 200) * 100}%` }}
+                          title={`OPD: ${ft.opdCount}`}
+                        ></div>
+                        <div
+                          className="bg-critical-500 rounded-b-xl w-full mt-0.5"
+                          style={{ height: `${(ft.emergencyCount / 200) * 100}%` }}
+                          title={`Emergency: ${ft.emergencyCount}`}
+                        ></div>
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-500">
+                        {new Date(ft.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-center gap-6 pt-2 text-xs font-bold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-emerald-500 rounded"></span>
+                    <span>OPD Consultations</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-critical-500 rounded"></span>
+                    <span>Emergency Admissions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Disease Categories & Referral Analytics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Disease Category Breakdown */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                  <h3 className="text-lg font-black text-slate-900">Regional Disease &amp; Clinical Distribution</h3>
+                  <div className="space-y-3">
+                    {analyticsData.diseaseCategoryBreakdown?.map((dc, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-slate-800">{dc.category}</span>
+                          <span className="font-mono text-slate-900">
+                            {dc.count} cases ({dc.percentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-600 rounded-full"
+                            style={{ width: `${dc.percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Department Capacity Utilization */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                  <h3 className="text-lg font-black text-slate-900">Department Capacity Utilization</h3>
+                  <div className="space-y-3">
+                    {analyticsData.departmentUtilization?.map((dept, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-slate-800">{dept.department}</span>
+                          <span className="font-mono text-slate-900">
+                            {dept.utilizationPercent}% ({dept.totalPatients} pts)
+                          </span>
+                        </div>
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-teal-600 rounded-full"
+                            style={{ width: `${dept.utilizationPercent}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Referral Analytics Influx by Specialty */}
+              {analyticsData.referralAnalytics?.incomingBySpecialty && (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+                  <h3 className="text-lg font-black text-slate-900">Referral Traffic Breakdown by Specialty</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {analyticsData.referralAnalytics.incomingBySpecialty.map((spec, idx) => (
+                      <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-center">
+                        <strong className="block text-slate-900 font-bold">{spec.specialty}</strong>
+                        <span className="text-lg font-black text-brand-600 mt-1 block">{spec.count}</span>
+                        <span className="text-[10px] text-slate-400">referred cases</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -13210,16 +14115,37 @@ function ScreenFacilityDashboard({
                     key={sev}
                     type="button"
                     onClick={() => setAlertSeverityFilter(sev)}
-                    className={`px-3 py-1.5 rounded-lg transition-all ${alertSeverityFilter === sev
-                      ? 'bg-slate-900 text-white font-black shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      alertSeverityFilter === sev
+                        ? 'bg-slate-900 text-white font-black shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
                   >
                     {sev}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* High Volume Emergency Influx Summary */}
+            {filteredAlerts.length >= 4 && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-300 text-xs flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">⚠️</span>
+                  <div>
+                    <strong className="text-amber-950 font-black">
+                      High Alert Telemetry Volume ({filteredAlerts.length} Active System Alerts)
+                    </strong>
+                    <p className="text-amber-800 text-[11px] font-medium">
+                      Alerts grouped by clinical triage priority to ensure zero oversight during high-influx shifts.
+                    </p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-amber-200 text-amber-900 rounded-full font-black text-[10px] uppercase">
+                  {criticalCount} Critical Triage Red-Flags
+                </span>
+              </div>
+            )}
 
             {/* Alert List */}
             <div className="space-y-3">
@@ -13231,12 +14157,13 @@ function ScreenFacilityDashboard({
                 filteredAlerts.map((alt) => (
                   <div
                     key={alt.alertId}
-                    className={`p-5 rounded-2xl border transition-all flex items-start justify-between flex-wrap gap-3 ${alt.severity === 'critical'
-                      ? 'border-critical-300 bg-critical-50/40'
-                      : alt.severity === 'warning'
+                    className={`p-5 rounded-2xl border transition-all flex items-start justify-between flex-wrap gap-3 ${
+                      alt.severity === 'critical'
+                        ? 'border-critical-300 bg-critical-50/40'
+                        : alt.severity === 'warning'
                         ? 'border-amber-300 bg-amber-50/40'
                         : 'border-slate-200 bg-slate-50'
-                      }`}
+                    }`}
                   >
                     <div className="flex items-start gap-3.5 max-w-2xl">
                       <span className="text-2xl mt-0.5">
@@ -13245,23 +14172,25 @@ function ScreenFacilityDashboard({
                       <div>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${alt.severity === 'critical'
-                              ? 'bg-critical-200 text-critical-900'
-                              : alt.severity === 'warning'
+                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                              alt.severity === 'critical'
+                                ? 'bg-critical-200 text-critical-900'
+                                : alt.severity === 'warning'
                                 ? 'bg-amber-200 text-amber-900'
                                 : 'bg-slate-200 text-slate-800'
-                              }`}
+                            }`}
                           >
                             {alt.severity}
                           </span>
                           <span className="text-[10px] font-mono text-slate-500 uppercase">{alt.alertType}</span>
                           <span
-                            className={`text-[9px] font-bold px-2 py-0.5 rounded ${alt.status === 'active'
-                              ? 'bg-critical-100 text-critical-800 font-black'
-                              : alt.status === 'acknowledged'
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded ${
+                              alt.status === 'active'
+                                ? 'bg-critical-100 text-critical-800 font-black'
+                                : alt.status === 'acknowledged'
                                 ? 'bg-amber-100 text-amber-800'
                                 : 'bg-emerald-100 text-emerald-800'
-                              }`}
+                            }`}
                           >
                             {alt.status}
                           </span>
@@ -13311,7 +14240,7 @@ function ScreenFacilityDashboard({
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
-                  Admin Facility Telemetry
+                  Facility Telemetry
                 </span>
                 <h3 className="text-xl font-black text-slate-900 mt-1">Update Bed &amp; Resource Availability</h3>
               </div>
@@ -13392,6 +14321,123 @@ function ScreenFacilityDashboard({
                   className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex-1 shadow-md"
                 >
                   Save Telemetry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: REGISTER WALK-IN PATIENT */}
+      {/* ========================================================= */}
+      {showWalkInModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase text-purple-800 bg-purple-50 px-2 py-0.5 rounded">
+                  OPD Desk Registration
+                </span>
+                <h3 className="text-xl font-black text-slate-900 mt-1">Register Walk-In Patient</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWalkInModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-black text-lg"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterWalkIn} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ramesh Kumar"
+                  value={walkInForm.patientName}
+                  onChange={(e) => setWalkInForm({ ...walkInForm, patientName: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Age</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={walkInForm.patientAge}
+                    onChange={(e) => setWalkInForm({ ...walkInForm, patientAge: Number(e.target.value) })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Gender</label>
+                  <select
+                    value={walkInForm.patientSex}
+                    onChange={(e) => setWalkInForm({ ...walkInForm, patientSex: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold bg-white"
+                  >
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Urgency Tier</label>
+                  <select
+                    value={walkInForm.urgencyTier}
+                    onChange={(e) => setWalkInForm({ ...walkInForm, urgencyTier: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold bg-white"
+                  >
+                    <option value="ROUTINE">Routine (Score ~15)</option>
+                    <option value="URGENT">Urgent (Score ~45)</option>
+                    <option value="CRITICAL">Critical (Score ~75)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Specialty</label>
+                  <select
+                    value={walkInForm.specialty}
+                    onChange={(e) => setWalkInForm({ ...walkInForm, specialty: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold bg-white"
+                  >
+                    <option value="General Medicine">General Medicine</option>
+                    <option value="Emergency Care">Emergency Care</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Obstetrics & Gynecology">Obstetrics &amp; Gyn</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-[11px] text-purple-900 font-medium">
+                ⭐ Patient will be placed in the priority queue with anti-starvation telemetry and dynamic wait metrics.
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowWalkInModal(false)}
+                  className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isQueueActionLoading}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex-1 shadow-md transition-all"
+                >
+                  {isQueueActionLoading ? 'Registering...' : 'Add to Queue'}
                 </button>
               </div>
             </form>
@@ -15998,6 +17044,1742 @@ function ScreenSchemeFinder({
   );
 }
 
+
+// ============================================================================
+// --- FEATURE 09: DISTRICT ADMIN COMMAND CENTER (MV-DAC) ---
+// --- Styled in White & Blue MedVeda Theme ---
+// ============================================================================
+
+function ScreenCommandCenter({
+  actorRole,
+  setActorRole,
+  onBackToHome,
+  onNavigateToFacilityDashboard,
+  onNavigateToSchemeFinder
+}) {
+  // --- Geography State (Pan-India Master Data) ---
+  const [states, setStates] = useState([]);
+  const [selectedState, setSelectedState] = useState('jharkhand');
+  const [districts, setDistricts] = useState([]);
+  const [selectedDistrict, setSelectedDistrict] = useState('dist_jhk_hazaribagh');
+  const [districtSearch, setDistrictSearch] = useState('');
+  const [isSearchingDistricts, setIsSearchingDistricts] = useState(false);
+
+  // --- Sub-View Tabs: S1 to S8 ---
+  const [activeTab, setActiveTab] = useState('s1_overview');
+
+  // --- Telemetry Data States ---
+  const [overview, setOverview] = useState(null);
+  const [facilities, setFacilities] = useState([]);
+  const [selectedFacilityId, setSelectedFacilityId] = useState('');
+  const [facilityDetail, setFacilityDetail] = useState(null);
+  const [reportsMatrix, setReportsMatrix] = useState(null);
+  const [rules, setRules] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [alertFilter, setAlertFilter] = useState('ALL');
+  const [forecasts, setForecasts] = useState([]);
+  const [outbreakData, setOutbreakData] = useState(null);
+  const [outbreakCluster, setOutbreakCluster] = useState('acute_fever_rash');
+  const [requests, setRequests] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+
+  // --- UI Feedback & Modals ---
+  const [toast, setToast] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [expandedAlertId, setExpandedAlertId] = useState(null);
+
+  // --- Recommender & Transfer Tool State ---
+  const [recommenderFacId, setRecommenderFacId] = useState('');
+  const [recommenderResource, setRecommenderResource] = useState('oxygen_cylinders');
+  const [recommenderQty, setRecommenderQty] = useState(15);
+  const [recommendations, setRecommendations] = useState(null);
+  const [recommenderLoading, setRecommenderLoading] = useState(false);
+
+  // --- Rule Edit Modal ---
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [ruleFormData, setRuleFormData] = useState({
+    id: '',
+    resourceId: 'oxygen_cylinders',
+    resourceName: 'Oxygen Cylinders',
+    facilityId: '',
+    minimumLevel: 10,
+    reorderLevel: 25,
+    targetBuffer: 60,
+    daysOfCoverMin: 7,
+    severity: 'critical'
+  });
+
+  const showToastMsg = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  // --- 1. Load Pan-India States Master ---
+  useEffect(() => {
+    const fetchStates = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/command-center/geography/states'));
+        const json = await res.json();
+        if (json.success && json.data) {
+          setStates(json.data);
+        }
+      } catch (err) {
+        console.warn('Failed to load Indian states:', err);
+      }
+    };
+    fetchStates();
+  }, []);
+
+  // --- 2. Load Districts for Selected State ---
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      try {
+        const res = await fetch(getApiUrl(`/api/command-center/geography/districts?state_id=${selectedState}`));
+        const json = await res.json();
+        if (json.success && json.data) {
+          setDistricts(json.data);
+          const exists = json.data.some(d => d.id === selectedDistrict);
+          if (!exists && json.data.length > 0) {
+            setSelectedDistrict(json.data[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load districts for state:', err);
+      }
+    };
+    fetchDistricts();
+  }, [selectedState]);
+
+  // --- 3. Load District Telemetry on District Change ---
+  const loadDistrictTelemetry = async (dId = selectedDistrict) => {
+    setIsRefreshing(true);
+    try {
+      const ovRes = await fetch(getApiUrl(`/api/command-center/overview?district_id=${dId}`));
+      const ovJson = await ovRes.json();
+      if (ovJson.success) setOverview(ovJson.data);
+
+      const facRes = await fetch(getApiUrl(`/api/command-center/facilities?district_id=${dId}`));
+      const facJson = await facRes.json();
+      if (facJson.success) {
+        setFacilities(facJson.data);
+        if (facJson.data.length > 0 && !selectedFacilityId) {
+          setSelectedFacilityId(facJson.data[0].id);
+        }
+      }
+
+      const altRes = await fetch(getApiUrl(`/api/command-center/alerts?district_id=${dId}`));
+      const altJson = await altRes.json();
+      if (altJson.success) setAlerts(altJson.data);
+
+      const rulRes = await fetch(getApiUrl(`/api/command-center/rules?district_id=${dId}`));
+      const rulJson = await rulRes.json();
+      if (rulJson.success) setRules(rulJson.data);
+
+      const fcRes = await fetch(getApiUrl(`/api/command-center/forecasts?district_id=${dId}`));
+      const fcJson = await fcRes.json();
+      if (fcJson.success) setForecasts(fcJson.data);
+
+      const reqRes = await fetch(getApiUrl(`/api/command-center/requests?district_id=${dId}`));
+      const reqJson = await reqRes.json();
+      if (reqJson.success) setRequests(reqJson.data);
+
+      const repRes = await fetch(getApiUrl(`/api/command-center/reports/matrix?district_id=${dId}&days=7`));
+      const repJson = await repRes.json();
+      if (repJson.success) setReportsMatrix(repJson.data);
+
+      const outRes = await fetch(getApiUrl(`/api/command-center/outbreak/watch?district_id=${dId}&cluster=${outbreakCluster}&days=14`));
+      const outJson = await outRes.json();
+      if (outJson.success) setOutbreakData(outJson.data);
+
+      const audRes = await fetch(getApiUrl(`/api/command-center/audit?district_id=${dId}`));
+      const audJson = await audRes.json();
+      if (audJson.success) setAuditLogs(audJson.data);
+
+    } catch (err) {
+      console.warn('Telemetry load failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDistrict) {
+      loadDistrictTelemetry(selectedDistrict);
+    }
+  }, [selectedDistrict]);
+
+  useEffect(() => {
+    if (selectedFacilityId) {
+      const fetchDetail = async () => {
+        try {
+          const res = await fetch(getApiUrl(`/api/command-center/facility/${selectedFacilityId}`));
+          const json = await res.json();
+          if (json.success) setFacilityDetail(json.data);
+        } catch (err) {
+          console.warn('Failed to load facility detail:', err);
+        }
+      };
+      fetchDetail();
+    }
+  }, [selectedFacilityId]);
+
+  useEffect(() => {
+    if (selectedDistrict) {
+      const fetchOutbreak = async () => {
+        try {
+          const res = await fetch(getApiUrl(`/api/command-center/outbreak/watch?district_id=${selectedDistrict}&cluster=${outbreakCluster}&days=14`));
+          const json = await res.json();
+          if (json.success) setOutbreakData(json.data);
+        } catch (err) {
+          console.warn('Failed to load outbreak data:', err);
+        }
+      };
+      fetchOutbreak();
+    }
+  }, [outbreakCluster]);
+
+  // --- Handlers ---
+  const handleAlertAction = async (alertId, newStatus) => {
+    try {
+      let snoozeReason = '';
+      let snoozeUntil = '';
+      if (newStatus === 'snoozed') {
+        snoozeReason = prompt('Enter justification for snoozing alert (Required for audit compliance):');
+        if (!snoozeReason) return;
+        snoozeUntil = new Date(Date.now() + 4 * 3600000).toISOString();
+      }
+
+      const res = await fetch(getApiUrl(`/api/command-center/alerts/${alertId}/status`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          districtId: selectedDistrict,
+          status: newStatus,
+          actor: `dho_${actorRole}`,
+          snoozeReason,
+          snoozeUntil
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToastMsg(`✓ Alert marked as '${newStatus}'. Logged in district audit trail.`);
+        loadDistrictTelemetry(selectedDistrict);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Failed to update alert status.');
+    }
+  };
+
+  const handleApplyPreset = async (presetName) => {
+    try {
+      const res = await fetch(getApiUrl('/api/command-center/rules/preset'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          districtId: selectedDistrict,
+          preset: presetName,
+          actor: `dho_${actorRole}`
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToastMsg(`✓ Applied seasonal preset '${presetName}' district-wide!`);
+        loadDistrictTelemetry(selectedDistrict);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Failed to apply seasonal preset.');
+    }
+  };
+
+  const handleSendReminder = async (facilityId, facilityName) => {
+    try {
+      const res = await fetch(getApiUrl('/api/command-center/reports/remind'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facilityId, actor: `dho_${actorRole}` })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToastMsg(`🔔 Urgent SLA reminder dispatched to ${facilityName}!`);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Failed to dispatch reminder.');
+    }
+  };
+
+  const handleApproveRequest = async (requestId) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/command-center/requests/${requestId}/status`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'approved',
+          actor: `dho_${actorRole}`,
+          notes: 'Approved for immediate emergency ambulance / cargo transfer dispatch.'
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToastMsg(`✓ Request ${requestId} APPROVED! Digital dispatch authorized.`);
+        loadDistrictTelemetry(selectedDistrict);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Failed to approve transfer request.');
+    }
+  };
+
+  const handleFindDonors = async () => {
+    const facId = recommenderFacId || (facilities[0]?.id || 'fac_01');
+    setRecommenderLoading(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/command-center/transfers/recommend?facility_id=${facId}&resource_id=${recommenderResource}&quantity=${recommenderQty}`));
+      const json = await res.json();
+      if (json.success) {
+        setRecommendations(json.data);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Could not compute donor recommendations.');
+    } finally {
+      setRecommenderLoading(false);
+    }
+  };
+
+  const handleCreateTransferFromDonor = async (donor) => {
+    const facId = recommenderFacId || (facilities[0]?.id || 'fac_01');
+    const shortageFac = facilities.find(f => f.id === facId);
+    try {
+      const res = await fetch(getApiUrl('/api/command-center/requests'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          districtId: selectedDistrict,
+          type: 'transfer',
+          fromFacilityId: donor.fromFacilityId,
+          fromFacilityName: donor.fromFacilityName,
+          toFacilityId: facId,
+          toFacilityName: shortageFac?.name || facId,
+          resourceId: recommenderResource,
+          resourceName: recommenderResource.replace(/_/g, ' ').toUpperCase(),
+          quantityRequested: Math.min(recommenderQty, donor.surplusAvailable),
+          urgency: 'emergency',
+          notes: `AI Recommender optimal route: ${donor.distanceKm} km, ~${donor.estimatedTravelMinutes} mins.`,
+          createdBy: `dho_${actorRole}`
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToastMsg(`✓ Transfer request ${json.data.id} created from ${donor.fromFacilityName}!`);
+        loadDistrictTelemetry(selectedDistrict);
+      }
+    } catch (err) {
+      showToastMsg('⚠️ Failed to initiate transfer request.');
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (!facilities.length) return;
+    const headers = ['Facility ID', 'Name', 'Type', 'Taluka', 'Total Beds', 'Occupied Beds', 'Total ICU', 'Occupied ICU', 'Stress Level', 'Last Reported', 'Stale >24h'];
+    const rows = facilities.map(f => [
+      f.id,
+      `"${f.name}"`,
+      f.type,
+      `"${f.taluka}"`,
+      f.bedsTotal,
+      f.bedsOccupied,
+      f.icuTotal,
+      f.icuOccupied,
+      f.stressLevel,
+      f.lastReportedAt,
+      f.isStale ? 'YES' : 'NO'
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `MedVeda_${selectedDistrict}_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToastMsg('✓ Exported comprehensive district CSV report!');
+  };
+
+  // Filtered alerts
+  const filteredAlerts = alerts.filter(a => {
+    if (alertFilter === 'CRITICAL') return a.severity === 'critical';
+    if (alertFilter === 'WARNING') return a.severity === 'warning';
+    if (alertFilter === 'OPEN') return a.status === 'open';
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-50/70 text-slate-800 flex flex-col font-sans selection:bg-[#0b2b82] selection:text-white">
+
+      {/* --- TOP MISSION CONTROL HEADER & GEOGRAPHY BAR (White & Blue Theme) --- */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+
+            {/* Left Brand & Badge */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shrink-0 text-xs flex items-center gap-1"
+                title="Back to MedVeda Portal"
+              >
+                ← Home
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b2b82] via-[#092268] to-[#0284c7] flex items-center justify-center text-xl text-white shadow-md shadow-blue-900/10 shrink-0">
+                  🛰️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-base font-black text-slate-900 tracking-tight leading-none">
+                      MedVeda District Command Center
+                    </h1>
+                    <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200 uppercase">
+                      MV-DAC • SIH 2026
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[11px] font-mono text-emerald-700 font-bold uppercase tracking-wider">
+                      Surveillance Grid Live
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      Role: District Health Officer (DHO) / Administrator
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Pan-India Geography Selector Controls */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* State Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
+                <span className="text-[11px] font-bold text-slate-500 uppercase">State:</span>
+                <select
+                  value={selectedState}
+                  onChange={(e) => setSelectedState(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  {states.map((st) => (
+                    <option key={st.id} value={st.id} className="text-slate-900">
+                      {st.name} ({st.region})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* District Dropdown */}
+              <div className="flex items-center gap-1.5 bg-blue-50/70 border border-blue-200 rounded-xl px-3 py-1.5 shadow-xs">
+                <span className="text-[11px] font-bold text-[#0b2b82] uppercase">District:</span>
+                <select
+                  value={selectedDistrict}
+                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                  className="bg-transparent text-xs font-black text-[#0b2b82] focus:outline-none cursor-pointer"
+                >
+                  {districts.map((d) => (
+                    <option key={d.id} value={d.id} className="text-slate-900">
+                      {d.name} {d.healthTier ? `[${d.healthTier.toUpperCase()}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Refresh Telemetry Button */}
+              <button
+                type="button"
+                onClick={() => loadDistrictTelemetry(selectedDistrict)}
+                disabled={isRefreshing}
+                className="px-3.5 py-1.5 rounded-xl bg-[#0b2b82] hover:bg-[#082269] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+              >
+                <span className={`inline-block text-sm ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
+                <span>{isRefreshing ? 'Syncing...' : 'Sync'}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* --- 8 SUB-VIEWS NAVIGATION TAB BAR --- */}
+        <div className="border-t border-slate-200 bg-slate-50/80 px-4 sm:px-6 overflow-x-auto scrollbar-none">
+          <div className="max-w-7xl mx-auto flex items-center gap-1.5 py-1.5 min-w-max">
+            {[
+              { id: 's1_overview', label: '📊 S1: Overview & Grid', badge: overview?.criticalAlerts ? `${overview.criticalAlerts} CRIT` : null, badgeColor: 'bg-red-50 text-red-700 border-red-200' },
+              { id: 's2_facilities', label: '🏥 S2: Hospital Drill-Down' },
+              { id: 's3_reports', label: '📋 S3: Reporting SLA Matrix', badge: overview?.missingReportCount ? `${overview.missingReportCount} Stale` : null, badgeColor: 'bg-amber-50 text-amber-800 border-amber-200' },
+              { id: 's4_rules', label: '⚙️ S4: Rules & Presets' },
+              { id: 's5_alerts', label: '🔔 S5: Alerts & Forecasts', count: alerts.filter(a => a.status === 'open').length },
+              { id: 's6_outbreak', label: '🦠 S6: Outbreak Watch (EARS)', badge: 'CDC EARS + AI', badgeColor: 'bg-blue-50 text-[#0b2b82] border-blue-200' },
+              { id: 's7_transfers', label: '🔄 S7: Transfer Requests', count: requests.filter(r => r.status === 'submitted').length },
+              { id: 's8_audit', label: '🛡️ S8: Audit Trail' }
+            ].map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${active
+                    ? 'bg-[#0b2b82] text-white shadow-sm font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full border font-mono font-bold ${tab.badgeColor || 'bg-slate-100 text-slate-700'}`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold ${active ? 'bg-blue-200 text-[#0b2b82]' : 'bg-blue-50 text-[#0b2b82] border border-blue-200'}`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* --- TOAST NOTIFICATION BANNER --- */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-blue-200 text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+          <span className="text-xl">✨</span>
+          <span className="text-xs font-bold">{toast}</span>
+        </div>
+      )}
+
+      {/* --- MAIN DASHBOARD BODY CONTAINER --- */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        {/* =========================================================================
+            SUB-VIEW S1: DISTRICT OVERVIEW & SURVEILLANCE GRID
+        ========================================================================= */}
+        {activeTab === 's1_overview' && (
+          <div className="space-y-6">
+
+            {/* Critical Alert Banner (If Any) */}
+            {overview && overview.criticalAlerts > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-lg text-white animate-pulse shadow-sm">
+                    🚨
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-red-900">
+                      CRITICAL DISTRICT SURVEILLANCE ALERT ({overview.criticalAlerts} ACTIVE)
+                    </h3>
+                    <p className="text-xs text-red-800 font-medium mt-0.5">
+                      Oxygen & ICU capacity depleted in {overview.criticalFacilities.join(', ') || 'District Center'}. Immediate diversion or transfer protocol required.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('s5_alerts')}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase shrink-0 transition-all shadow-sm"
+                >
+                  Inspect Alerts →
+                </button>
+              </div>
+            )}
+
+            {/* 5 High-Impact KPI Tiles (White Cards) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+
+              {/* Tile 1: General Beds */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Beds Capacity</span>
+                <div className="flex items-baseline justify-between mt-1.5">
+                  <span className="text-2xl font-black text-slate-900">{overview?.totalBeds || 0}</span>
+                  <span className="text-xs font-bold text-[#0284c7]">{overview?.availableBedsPercent || 0}% Free</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
+                  <div
+                    className="bg-[#0284c7] h-1.5 rounded-full transition-all duration-500"
+                    style={{ width: `${overview?.availableBedsPercent || 0}%` }}
+                  ></div>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono mt-1.5 block">
+                  {overview?.availableBeds || 0} vacant beds in district
+                </span>
+              </div>
+
+              {/* Tile 2: ICU Capacity */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ICU & Critical Beds</span>
+                <div className="flex items-baseline justify-between mt-1.5">
+                  <span className="text-2xl font-black text-slate-900">{overview?.totalIcuBeds || 0}</span>
+                  <span className={`text-xs font-bold ${(overview?.availableIcuPercent || 0) < 20 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {overview?.availableIcuPercent || 0}% Free
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
+                  <div
+                    className={`h-1.5 rounded-full transition-all duration-500 ${(overview?.availableIcuPercent || 0) < 20 ? 'bg-red-500' : 'bg-amber-500'}`}
+                    style={{ width: `${overview?.availableIcuPercent || 0}%` }}
+                  ></div>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono mt-1.5 block">
+                  {overview?.availableIcuBeds || 0} ICU beds available
+                </span>
+              </div>
+
+              {/* Tile 3: Facilities in Crisis */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stressed Facilities</span>
+                <div className="flex items-baseline justify-between mt-1.5">
+                  <span className="text-2xl font-black text-red-600">
+                    {overview?.criticalFacilities.length || 0}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">of {overview?.totalFacilities || 0} Total</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-3 text-[11px] text-slate-600">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  <span className="truncate">{overview?.criticalFacilities[0] || 'All Facilities Nominal'}</span>
+                </div>
+              </div>
+
+              {/* Tile 4: Epidemic Signals */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Outbreak Signals</span>
+                <div className="flex items-baseline justify-between mt-1.5">
+                  <span className="text-2xl font-black text-[#0b2b82]">
+                    {overview?.activeOutbreakClusters || 0}
+                  </span>
+                  <span className="text-xs font-bold text-blue-600">CDC EARS</span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono mt-3 block">
+                  Active spatial clustering watch
+                </span>
+              </div>
+
+              {/* Tile 5: Delinquent Reports */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Missing 24h Reports</span>
+                <div className="flex items-baseline justify-between mt-1.5">
+                  <span className="text-2xl font-black text-amber-600">
+                    {overview?.missingReportCount || 0}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400">SLA Breach</span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono mt-3 block">
+                  {overview?.facilitiesReporting || 0}/{overview?.totalFacilities || 0} submitted
+                </span>
+              </div>
+
+            </div>
+
+            {/* District Health Grid: Live Hospital Nodes (White Card) */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-black text-slate-900 tracking-tight">
+                    District Facility Surveillance Grid ({overview?.districtName || 'Hazaribagh'}, {overview?.stateName || 'Jharkhand'})
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Live operational telemetry from District Hospital, Sub-District Hospitals, CHCs, and PHCs.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <span>📥</span>
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('s7_transfers')}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#0b2b82] hover:bg-[#082269] text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    Transfer Recommender →
+                  </button>
+                </div>
+              </div>
+
+              {/* Facilities Grid Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {facilities.map((fac) => {
+                  const isCrit = fac.stressLevel === 'critical';
+                  const isMod = fac.stressLevel === 'moderate';
+                  const bedOccupancyPct = fac.bedsTotal > 0 ? Math.round((fac.bedsOccupied / fac.bedsTotal) * 100) : 0;
+                  const icuOccupancyPct = fac.icuTotal > 0 ? Math.round((fac.icuOccupied / fac.icuTotal) * 100) : 0;
+
+                  return (
+                    <div
+                      key={fac.id}
+                      className={`bg-slate-50/70 hover:bg-white border rounded-2xl p-4 transition-all hover:border-blue-300 relative flex flex-col justify-between shadow-xs hover:shadow-md ${isCrit ? 'border-red-300' : isMod ? 'border-amber-300' : 'border-slate-200'}`}
+                    >
+                      <div>
+                        {/* Header: Name & Type */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200">
+                              {fac.type}
+                            </span>
+                            <h3 className="text-sm font-black text-slate-900 mt-1 leading-snug line-clamp-1">
+                              {fac.name}
+                            </h3>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {fac.taluka} • Phone: {fac.phone}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border uppercase ${isCrit ? 'bg-red-50 text-red-700 border-red-200 animate-pulse' : isMod ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}
+                          >
+                            {fac.stressLevel}
+                          </span>
+                        </div>
+
+                        {/* Bed & ICU Meters */}
+                        <div className="space-y-2 text-xs mt-3 bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
+                          <div>
+                            <div className="flex justify-between text-[11px] font-mono text-slate-700 mb-1">
+                              <span>General Beds:</span>
+                              <span className="font-bold text-slate-900">{fac.bedsOccupied}/{fac.bedsTotal} ({bedOccupancyPct}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className={`h-1.5 rounded-full ${bedOccupancyPct >= 85 ? 'bg-red-500' : bedOccupancyPct >= 70 ? 'bg-amber-400' : 'bg-[#0b2b82]'}`}
+                                style={{ width: `${bedOccupancyPct}%` }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          {fac.icuTotal > 0 && (
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-slate-700 mb-1">
+                                <span>ICU Capacity:</span>
+                                <span className={`font-bold ${icuOccupancyPct >= 80 ? 'text-red-600' : 'text-slate-900'}`}>
+                                  {fac.icuOccupied}/{fac.icuTotal} ({icuOccupancyPct}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-1.5 rounded-full ${icuOccupancyPct >= 80 ? 'bg-red-500' : 'bg-amber-500'}`}
+                                  style={{ width: `${icuOccupancyPct}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {fac.isStale && (
+                          <div className="mt-2.5 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center justify-between">
+                            <span>⚠️ Stale: No update in &gt;24h</span>
+                            <button
+                              type="button"
+                              onClick={() => handleSendReminder(fac.id, fac.name)}
+                              className="underline font-bold hover:text-amber-950"
+                            >
+                              Remind Now
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Updated: {fac.lastReportedAt ? new Date(fac.lastReportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFacilityId(fac.id);
+                            setActiveTab('s2_facilities');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0b2b82] border border-blue-200 text-[11px] font-bold transition-all"
+                        >
+                          Inspect Detail →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S2: FACILITY DRILL-DOWN
+        ========================================================================= */}
+        {activeTab === 's2_facilities' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🏥</span>
+                <div>
+                  <h2 className="text-sm font-black text-slate-900">Select Health Facility to Inspect</h2>
+                  <p className="text-xs text-slate-500">Drill down into bed occupancy, live supply stores, and contact logs.</p>
+                </div>
+              </div>
+              <select
+                value={selectedFacilityId}
+                onChange={(e) => setSelectedFacilityId(e.target.value)}
+                className="bg-slate-50 border border-blue-200 text-[#0b2b82] text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+              >
+                {facilities.map(f => (
+                  <option key={f.id} value={f.id}>
+                    [{f.type}] {f.name} ({f.taluka})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {facilityDetail && facilityDetail.facility && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* Left Card: Hospital Profile & Contacts */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200">
+                      {facilityDetail.facility.type} • {facilityDetail.facility.taluka}
+                    </span>
+                    <h3 className="text-base font-black text-slate-900 mt-2">
+                      {facilityDetail.facility.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Registered in MedVeda Health Grid: {new Date(facilityDetail.facility.registeredAt).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Chief Medical Supt:</span>
+                      <span className="font-bold text-slate-900">{facilityDetail.facility.contactPerson}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Emergency Landline:</span>
+                      <span className="font-mono text-[#0b2b82] font-bold">{facilityDetail.facility.phone}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Stress Status:</span>
+                      <span className="font-bold uppercase text-red-600">{facilityDetail.facility.stressLevel}</span>
+                    </div>
+                  </div>
+
+                  {/* Ward Bed Capacities */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Ward Bed Breakdown
+                    </h4>
+                    {facilityDetail.beds.map((b) => (
+                      <div key={b.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                        <div className="flex justify-between font-mono mb-1 text-slate-700">
+                          <span className="uppercase">{b.wardType} Ward</span>
+                          <span className="font-bold text-slate-900">{b.occupied}/{b.totalCapacity} ({b.occupancyRatePct}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-2 rounded-full ${b.occupancyRatePct >= 80 ? 'bg-red-500' : 'bg-[#0b2b82]'}`}
+                            style={{ width: `${b.occupancyRatePct}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-1 block">Free beds: {b.free}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right 2 Columns: Live Critical Stock Inventory & Days of Cover */}
+                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">Live Supply & Therapeutics Stock Status</h3>
+                      <p className="text-xs text-slate-500">Tracked daily consumption velocity and remaining buffer.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecommenderFacId(selectedFacilityId);
+                        setActiveTab('s7_transfers');
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#0b2b82] hover:bg-[#082269] text-white text-xs font-bold transition-all shadow-sm"
+                    >
+                      Request Stock Transfer →
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-50 text-slate-500 uppercase font-mono text-[10px]">
+                        <tr>
+                          <th className="p-3">Resource / Drug</th>
+                          <th className="p-3">Category</th>
+                          <th className="p-3">Current Stock</th>
+                          <th className="p-3">Daily Usage</th>
+                          <th className="p-3">Days Cover</th>
+                          <th className="p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                        {facilityDetail.stocks.map((stk) => {
+                          const isLow = stk.daysOfCoverRemaining <= 3;
+                          const isWarn = stk.daysOfCoverRemaining <= 7 && !isLow;
+
+                          return (
+                            <tr key={stk.id} className="hover:bg-slate-50/70">
+                              <td className="p-3 font-bold text-slate-900 font-sans">{stk.resourceName}</td>
+                              <td className="p-3 uppercase text-slate-500">{stk.category}</td>
+                              <td className="p-3 font-bold text-[#0b2b82]">{stk.currentQuantity} {stk.unit}</td>
+                              <td className="p-3 text-slate-600">{stk.dailyUsageEst} {stk.unit}/day</td>
+                              <td className="p-3 font-black text-slate-900">
+                                {stk.daysOfCoverRemaining} days
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isLow ? 'bg-red-50 text-red-700 border border-red-200' : isWarn ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                                  {isLow ? 'CRITICAL' : isWarn ? 'WARNING' : 'NOMINAL'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S3: REPORTING COMPLIANCE & SLA TRACKER
+        ========================================================================= */}
+        {activeTab === 's3_reports' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-black text-slate-900">
+                    Facility Reporting SLA Compliance Matrix (Last 7 Days)
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Mandatory 24-hour bed and stock snapshot submission tracking across {reportsMatrix?.facilities.length || 0} facilities.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  <span>📥</span>
+                  <span>Export District SLA CSV</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-mono text-[10px]">
+                    <tr>
+                      <th className="p-3">Facility</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Last Submission</th>
+                      <th className="p-3">SLA Status</th>
+                      <th className="p-3">Compliance Rate</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {reportsMatrix?.facilities.map((fac) => (
+                      <tr key={fac.facilityId} className="hover:bg-slate-50/70">
+                        <td className="p-3 font-bold text-slate-900">{fac.facilityName}</td>
+                        <td className="p-3 font-mono text-slate-500">{fac.type}</td>
+                        <td className="p-3 font-mono text-slate-600">
+                          {fac.lastReportedAt ? new Date(fac.lastReportedAt).toLocaleString() : 'Never Reported'}
+                        </td>
+                        <td className="p-3">
+                          {fac.isStale ? (
+                            <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono text-[10px] font-bold">
+                              BREACH (>24H)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-bold">
+                              COMPLIANT
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono text-[#0b2b82] font-black">
+                          {fac.isStale ? '85.7%' : '100%'}
+                        </td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => handleSendReminder(fac.facilityId, fac.facilityName)}
+                            className="px-3 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[11px] transition-all"
+                          >
+                            Send Urgent Reminder
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S4: RULES & THRESHOLDS CONFIGURATION
+        ========================================================================= */}
+        {activeTab === 's4_rules' && (
+          <div className="space-y-6">
+
+            {/* Seasonal Presets Quick Action Bar (Blue Gradient) */}
+            <div className="bg-gradient-to-r from-blue-50 via-indigo-50/60 to-blue-50 border border-blue-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Seasonal Demand & Epidemic Buffer Presets</h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    1-Click re-calibration of district minimums and target buffers for seasonal disease burdens.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset('monsoon_fevers')}
+                    className="px-3 py-1.5 rounded-xl bg-[#0b2b82] hover:bg-[#082269] text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    🌧️ Monsoon Fevers (2x Buffer)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset('dengue_peak')}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    🦟 Dengue Peak (2x IV Fluids)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset('respiratory_winter')}
+                    className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    ❄️ Winter Respiratory (1.5x Oxygen)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset('standard')}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all"
+                  >
+                    Standard Baseline
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Rules Table */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Active Threshold Rules & Reorder Invariants</h3>
+                  <p className="text-xs text-slate-500">Rules evaluated automatically on every snapshot ingestion.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRuleModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#0b2b82] hover:bg-[#082269] text-white text-xs font-bold transition-all shadow-sm"
+                >
+                  + Add Custom Rule
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-mono text-[10px]">
+                    <tr>
+                      <th className="p-3">Resource / Item</th>
+                      <th className="p-3">Scope</th>
+                      <th className="p-3">Min Level</th>
+                      <th className="p-3">Reorder Point</th>
+                      <th className="p-3">Target Buffer</th>
+                      <th className="p-3">Days Cover SLA</th>
+                      <th className="p-3">Severity</th>
+                      <th className="p-3">Preset</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {rules.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/70">
+                        <td className="p-3 font-bold text-slate-900 font-sans">{r.resourceName}</td>
+                        <td className="p-3 text-slate-500">
+                          {r.facilityId ? `Facility: ${r.facilityId}` : 'District Default'}
+                        </td>
+                        <td className="p-3 text-red-600 font-bold">{r.minimumLevel}</td>
+                        <td className="p-3 text-amber-600">{r.reorderLevel}</td>
+                        <td className="p-3 text-[#0b2b82] font-black">{r.targetBuffer}</td>
+                        <td className="p-3 text-slate-800 font-bold">{r.daysOfCoverMin} days</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${r.severity === 'critical' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                            {r.severity}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-500 uppercase">{r.seasonalPreset || 'standard'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Rule Modal */}
+            {showRuleModal && (
+              <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+                  <h3 className="text-base font-black text-slate-900">Configure Resource Threshold Rule</h3>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="text-slate-600 font-bold block mb-1">Resource Name:</label>
+                      <input
+                        type="text"
+                        value={ruleFormData.resourceName}
+                        onChange={(e) => setRuleFormData({ ...ruleFormData, resourceName: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-semibold focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-slate-600 font-bold block mb-1">Min Level:</label>
+                        <input
+                          type="number"
+                          value={ruleFormData.minimumLevel}
+                          onChange={(e) => setRuleFormData({ ...ruleFormData, minimumLevel: Number(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-semibold focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-600 font-bold block mb-1">Reorder Point:</label>
+                        <input
+                          type="number"
+                          value={ruleFormData.reorderLevel}
+                          onChange={(e) => setRuleFormData({ ...ruleFormData, reorderLevel: Number(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-semibold focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-600 font-bold block mb-1">Target Buffer:</label>
+                        <input
+                          type="number"
+                          value={ruleFormData.targetBuffer}
+                          onChange={(e) => setRuleFormData({ ...ruleFormData, targetBuffer: Number(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-semibold focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-slate-600 font-bold block mb-1">Min Days of Cover:</label>
+                      <input
+                        type="number"
+                        value={ruleFormData.daysOfCoverMin}
+                        onChange={(e) => setRuleFormData({ ...ruleFormData, daysOfCoverMin: Number(e.target.value) })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-semibold focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowRuleModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newRule = {
+                          ...ruleFormData,
+                          id: `rule_${Date.now()}`,
+                          districtId: selectedDistrict,
+                          facilityId: null,
+                          isActive: true,
+                          cooldownMinutes: 60,
+                          seasonalPreset: 'standard',
+                          updatedBy: `dho_${actorRole}`,
+                          updatedAt: new Date().toISOString()
+                        };
+                        const res = await fetch(getApiUrl('/api/command-center/rules'), {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(newRule)
+                        });
+                        if (res.ok) {
+                          setShowRuleModal(false);
+                          showToastMsg('✓ Configured threshold rule successfully!');
+                          loadDistrictTelemetry(selectedDistrict);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#0b2b82] text-white text-xs font-black shadow-sm"
+                    >
+                      Save Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S5: ALERTS & PREDICTIVE SHORTAGE FORECASTS
+        ========================================================================= */}
+        {activeTab === 's5_alerts' && (
+          <div className="space-y-6">
+
+            {/* Shortage Forecast Prediction Horizon Panel (White & Blue) */}
+            <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📈</span>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      AI Shortage Forecast Engine (7–14 Days Forward Horizon)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Predicts depletion dates using Weighted Moving Average with 90% confidence bands.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+                  {forecasts.length} Resources Tracked
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {forecasts.map((fc, idx) => (
+                  <div key={idx} className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900">{fc.resourceName}</h4>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          Current Stock: {fc.currentQuantity} • Burn Rate: {fc.dailyUsageEst}/day
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase ${fc.isCritical ? 'bg-red-50 text-red-700 border border-red-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                        {fc.isCritical ? 'CRITICAL STOCK-OUT' : 'ADEQUATE COVER'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Projected Stock-out Date:</span>
+                        <span className="font-extrabold text-red-600">
+                          {fc.projectedStockoutDate || 'Sufficient (>14 days)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Days Remaining:</span>
+                        <span className="font-bold text-[#0b2b82]">{fc.daysUntilStockout || '>14'} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Model Confidence:</span>
+                        <span className="text-slate-700">{(fc.confidence * 100).toFixed(0)}% (WMA)</span>
+                      </div>
+                    </div>
+
+                    {fc.isCritical && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecommenderFacId(fc.facilityId);
+                          setActiveTab('s7_transfers');
+                        }}
+                        className="w-full py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all shadow-sm"
+                      >
+                        Initiate Emergency Transfer Protocol →
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Alerts Feed */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Active District Alert Triage Stream</h3>
+                  <p className="text-xs text-slate-500">Deduplicated & cooldown-regulated alert lifecycle.</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {['ALL', 'CRITICAL', 'WARNING', 'OPEN'].map(flt => (
+                    <button
+                      key={flt}
+                      type="button"
+                      onClick={() => setAlertFilter(flt)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${alertFilter === flt ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      {flt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {filteredAlerts.map((alt) => {
+                  const isCrit = alt.severity === 'critical';
+                  const isExpanded = expandedAlertId === alt.id;
+
+                  return (
+                    <div
+                      key={alt.id}
+                      className={`bg-slate-50/70 border rounded-2xl p-4 transition-all shadow-xs ${isCrit ? 'border-red-200 border-l-4 border-l-red-500' : 'border-slate-200'}`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${isCrit ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                              {alt.severity}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500 uppercase">
+                              Type: {alt.type} • {alt.facilityName || 'District-Wide'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {new Date(alt.createdAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-black text-slate-900">{alt.headline}</h4>
+                          <p className="text-xs text-slate-600 leading-relaxed">{alt.summaryText}</p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {alt.status === 'open' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleAlertAction(alt.id, 'acknowledged')}
+                                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#0b2b82] text-xs font-bold border border-slate-200 transition-all shadow-xs"
+                              >
+                                Acknowledge
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAlertAction(alt.id, 'snoozed')}
+                                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 transition-all"
+                              >
+                                Snooze
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAlertAction(alt.id, 'resolved')}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
+                              >
+                                Resolve
+                              </button>
+                            </>
+                          )}
+                          {alt.status !== 'open' && (
+                            <span className="text-xs font-mono font-bold uppercase text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
+                              {alt.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expandable "Why Flagged" Details */}
+                      <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedAlertId(isExpanded ? null : alt.id)}
+                          className="text-[#0b2b82] hover:underline font-bold"
+                        >
+                          {isExpanded ? 'Hide Clinical Reasoning ▴' : 'View Clinical & Statistical Rationale ▾'}
+                        </button>
+                        <span className="text-[10px] text-slate-400 font-mono">Deduplication Key: {alt.dedupKey}</span>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-2.5 p-3.5 rounded-xl bg-white border border-slate-200 text-xs space-y-2 text-slate-700 animate-in fade-in shadow-xs">
+                          <div>
+                            <span className="font-bold text-slate-900 block">Why Flagged:</span>
+                            <p className="text-slate-600 text-[11px] mt-0.5">{alt.whyFlagged}</p>
+                          </div>
+                          {alt.suggestedAction && (
+                            <div>
+                              <span className="font-bold text-[#0b2b82] block">Suggested Field Action:</span>
+                              <p className="text-slate-700 text-[11px] mt-0.5">{alt.suggestedAction}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S6: OUTBREAK WATCH (CDC EARS / CUSUM + GEMINI BRIEF)
+        ========================================================================= */}
+        {activeTab === 's6_outbreak' && (
+          <div className="space-y-6">
+
+            {/* Outbreak Overview Header & Cluster Selector (White Card) */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🦠</span>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Epidemic Early Warning System (CDC EARS C1/C2/C3 + CUSUM + DBSCAN)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Automated statistical aberration detection across syndromic disease clusters.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-bold">Syndrome:</span>
+                  <select
+                    value={outbreakCluster}
+                    onChange={(e) => setOutbreakCluster(e.target.value)}
+                    className="bg-slate-50 border border-blue-200 text-[#0b2b82] text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+                  >
+                    <option value="acute_fever_rash">Acute Fever with Rash (Dengue/Chikungunya)</option>
+                    <option value="acute_diarrhoeal">Acute Diarrhoeal Disease (Cholera/Gastro)</option>
+                    <option value="sari">Severe Acute Respiratory Illness (SARI)</option>
+                    <option value="malaria_like">Malaria-like Fever Spike</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Statistical Metrics Row */}
+              {outbreakData && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase">Today's Incidence</span>
+                    <span className="text-xl font-black text-slate-900 block mt-1">{outbreakData.currentCount} cases</span>
+                    <span className="text-[11px] text-[#0b2b82] font-mono font-bold">District Aggregate</span>
+                  </div>
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase">7-Day Baseline</span>
+                    <span className="text-xl font-black text-slate-700 block mt-1">{outbreakData.baselineMean} ± {outbreakData.baselineStd}</span>
+                    <span className="text-[11px] text-slate-500 font-mono">Normal Variance</span>
+                  </div>
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase">CDC EARS Z-Score</span>
+                    <span className="text-xl font-black text-[#0b2b82] block mt-1">{outbreakData.zScore}</span>
+                    <span className={`text-[10px] font-mono font-bold uppercase ${outbreakData.c1Triggered ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {outbreakData.c1Triggered ? '🚨 >3.0 Sigma Breach' : 'Normal'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase">CUSUM Creep Value</span>
+                    <span className="text-xl font-black text-amber-600 block mt-1">{outbreakData.cusumValue}</span>
+                    <span className="text-[10px] font-mono text-amber-700 font-bold uppercase">
+                      {outbreakData.cusumThresholdExceeded ? 'Creep Detected' : 'Below Threshold'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gemini AI Chief Epidemiological Briefing Box (White & Blue Themed) */}
+            {outbreakData && (
+              <div className="bg-gradient-to-br from-blue-50/80 via-sky-50/50 to-white border-2 border-blue-200 rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b2b82] to-[#0284c7] flex items-center justify-center text-xl text-white font-black shadow-md shadow-blue-900/10">
+                    🤖
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span>Gemini AI Chief Epidemiologist: Situational Brief</span>
+                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-[#0b2b82] border border-blue-300 uppercase">
+                        AI-Grounded Analysis
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Automated risk assessment and response protocol generated from statistical aberration vectors.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/90 p-4 rounded-xl border border-blue-200 text-xs text-slate-800 leading-relaxed font-sans shadow-xs">
+                  {outbreakData.situationalBrief}
+                </div>
+
+                {outbreakData.recommendedActions && outbreakData.recommendedActions.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-black text-[#0b2b82] uppercase tracking-wider font-mono">
+                      Immediate District Action Protocols:
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {outbreakData.recommendedActions.map((act, i) => (
+                        <div key={i} className="bg-white border border-blue-100 rounded-xl p-3 text-xs text-slate-700 flex items-start gap-2.5 shadow-xs">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 text-[#0b2b82] border border-blue-200 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
+                          <span className="leading-snug">{act}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S7: INTER-HOSPITAL TRANSFERS & PROCUREMENT
+        ========================================================================= */}
+        {activeTab === 's7_transfers' && (
+          <div className="space-y-6">
+
+            {/* AI Surplus Transfer Recommender Interactive Card (White & Blue) */}
+            <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <span>🧠 Surplus Transfer Recommender Engine</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200 uppercase font-bold">
+                    Haversine Transit Solver
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Automatically pairs shortage hospitals with closest donor facilities with surplus above their minimum safety buffer.
+                </p>
+              </div>
+
+              {/* Selector Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Shortage Hospital:</label>
+                  <select
+                    value={recommenderFacId}
+                    onChange={(e) => setRecommenderFacId(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-lg p-2 font-bold focus:outline-none"
+                  >
+                    {facilities.map(f => (
+                      <option key={f.id} value={f.id}>[{f.type}] {f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Needed Resource:</label>
+                  <select
+                    value={recommenderResource}
+                    onChange={(e) => setRecommenderResource(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-lg p-2 font-bold focus:outline-none"
+                  >
+                    <option value="oxygen_cylinders">Oxygen Cylinders (B-type)</option>
+                    <option value="paracetamol_500mg">Paracetamol 500mg Tabs</option>
+                    <option value="blood_o_pos">Blood O+ Units</option>
+                    <option value="iv_fluids_ns">IV Fluids NS (500ml)</option>
+                    <option value="artesunate_inj">Artesunate Injections</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Quantity Needed:</label>
+                  <input
+                    type="number"
+                    value={recommenderQty}
+                    onChange={(e) => setRecommenderQty(Number(e.target.value))}
+                    className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-lg p-2 font-bold focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleFindDonors}
+                    disabled={recommenderLoading}
+                    className="w-full py-2 rounded-lg bg-[#0b2b82] hover:bg-[#082269] text-white font-black text-xs transition-all shadow-sm"
+                  >
+                    {recommenderLoading ? 'Solving Routes...' : 'Find Optimal Donors 🚀'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Recommendations Display */}
+              {recommendations && (
+                <div className="space-y-3 pt-2">
+                  <div className="bg-blue-50 p-3.5 rounded-xl border border-blue-200 text-xs text-slate-800 leading-relaxed font-sans">
+                    <span className="font-bold text-[#0b2b82] block mb-1">Gemini Logistics Brief:</span>
+                    {recommendations.mitigationNarrative}
+                  </div>
+
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider font-mono">
+                    Ranked Donor Hospitals:
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {recommendations.recommendations.map((donor, idx) => (
+                      <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-xs">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-[10px] font-mono font-bold text-[#0b2b82]">Rank #{idx + 1} Donor</span>
+                            <h5 className="text-xs font-black text-slate-900">{donor.fromFacilityName}</h5>
+                          </div>
+                          <span className="text-[10px] font-mono bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                            {donor.distanceKm} km
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] font-mono text-slate-700 space-y-1">
+                          <div className="flex justify-between">
+                            <span>Surplus Capacity:</span>
+                            <span className="font-bold text-[#0b2b82]">{donor.surplusAvailable} units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Road Transit Time:</span>
+                            <span className="font-bold text-slate-900">~{donor.estimatedTravelMinutes} mins</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Donor Retention:</span>
+                            <span className="text-slate-500">{donor.remainingAfterTransfer} units</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCreateTransferFromDonor(donor)}
+                          className="w-full py-1.5 rounded-lg bg-[#0b2b82] hover:bg-[#082269] text-white font-bold text-xs transition-all shadow-sm"
+                        >
+                          Dispatch from this Donor →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Active Requests Stream (White Table) */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Active Inter-Hospital Transfer & Procurement Queue</h3>
+                  <p className="text-xs text-slate-500">Tracked logistics from submission to arrival.</p>
+                </div>
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+                  {requests.length} Requests Active
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-mono text-[10px]">
+                    <tr>
+                      <th className="p-3">Request ID</th>
+                      <th className="p-3">Source Hospital</th>
+                      <th className="p-3">Destination Hospital</th>
+                      <th className="p-3">Resource & Qty</th>
+                      <th className="p-3">Urgency</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {requests.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/70">
+                        <td className="p-3 font-bold text-slate-900">{r.id}</td>
+                        <td className="p-3 text-slate-700 font-sans">{r.fromFacilityName}</td>
+                        <td className="p-3 text-[#0b2b82] font-sans font-bold">{r.toFacilityName}</td>
+                        <td className="p-3 text-slate-900 font-bold">{r.quantityRequested} units of {r.resourceName}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${r.urgency === 'emergency' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                            {r.urgency}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${r.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700'}`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          {r.status === 'submitted' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveRequest(r.id)}
+                              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs"
+                            >
+                              Approve Dispatch
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Approved by {r.approvedBy || 'Admin'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            SUB-VIEW S8: IMMUTABLE AUDIT TRAIL & SETTINGS
+        ========================================================================= */}
+        {activeTab === 's8_audit' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-base font-black text-slate-900">Immutable District Activity & Compliance Audit Log</h3>
+                <p className="text-xs text-slate-500">
+                  Every configuration change, approval, and alert resolution is cryptographically recorded.
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-mono text-[10px]">
+                    <tr>
+                      <th className="p-3">Timestamp</th>
+                      <th className="p-3">User</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Entity</th>
+                      <th className="p-3">Audit Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/70">
+                        <td className="p-3 text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
+                        <td className="p-3 text-slate-900 font-bold">{log.userId}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-700">{log.entity} ({log.entityId})</td>
+                        <td className="p-3 text-slate-700 font-sans">{log.diffSummary}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
+
 // ==========================================
 // --- HOMEPAGE PRE-FOOTER BEATS BANNER ---
 // ==========================================
@@ -16844,6 +19626,10 @@ function App() {
     ) {
       setViewState('feature7');
     } else if (
+      hash === '#feature9' ||
+      hash === '#command-center' ||
+      hash === '#district-admin' ||
+      hash === '#command' ||
       hash === '#feature8' ||
       hash === '#schemes' ||
       hash === '#scheme-finder' ||
@@ -17191,7 +19977,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 9: FEATURE 08 — AI GOVERNMENT HEALTH SCHEME FINDER */}
+                {/* VIEW 9: FEATURE 08 — AI GOVERNMENT HEALTH SCHEME FINDER */}
         {view === 'feature8' && (
           <ScreenSchemeFinder
             actorRole={actorRole}
@@ -17209,6 +19995,17 @@ function App() {
             onNavigateToRecords={() => setView('feature5')}
             triageContext={triageResult}
             patientContext={patient}
+          />
+        )}
+
+        {/* VIEW 10: FEATURE 09 — DISTRICT ADMIN COMMAND CENTER (MV-DAC) */}
+        {view === 'feature9' && (
+          <ScreenCommandCenter
+            actorRole={actorRole}
+            setActorRole={setActorRole}
+            onBackToHome={() => setView('home')}
+            onNavigateToFacilityDashboard={() => setView('feature7')}
+            onNavigateToSchemeFinder={() => setView('feature8')}
           />
         )}
 

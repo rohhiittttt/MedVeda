@@ -56,6 +56,11 @@ import { ManageFacilityDashboardUseCase } from '../backend/src/application/use-c
 
 import { InMemorySchemeStore } from '../backend/src/infrastructure/cache/scheme.store.ts';
 
+import { InMemoryCommandCenterStore } from '../backend/src/infrastructure/cache/command-center.store.ts';
+import { ManageCommandCenterUseCase } from '../backend/src/application/use-cases/manage-command-center.use-case.ts';
+import { GeminiCommandCenterAdapter } from '../backend/src/infrastructure/mcp/gemini-command-center.adapter.ts';
+import { INDIA_STATES, INDIA_DISTRICTS, getDistrictsByState, getDistrictById, searchDistricts } from '../backend/src/infrastructure/data/india-geography.ts';
+
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -103,6 +108,11 @@ const dashboardUseCase = new ManageFacilityDashboardUseCase(
 
 // Initialize Scheme Finder Store (Feature 08)
 const schemeStore = new InMemorySchemeStore();
+
+// Initialize District Admin Command Center (Feature 09 / MV-DAC)
+const commandCenterStore = new InMemoryCommandCenterStore();
+const commandCenterGeminiAdapter = new GeminiCommandCenterAdapter();
+const commandCenterUseCase = new ManageCommandCenterUseCase(commandCenterStore, commandCenterGeminiAdapter);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -168,6 +178,18 @@ const server = http.createServer(async (req, res) => {
       if ((normPath === '/api/navigate/pipeline') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const result = await pipelineUseCase.execute(body);
+        if (result.triage?.urgency === 'CRITICAL') {
+          dashboardStore.addAlert({
+            alertId: `ALT-CRIT-${Date.now().toString(36).toUpperCase()}`,
+            facilityId: result.recommendations?.[0]?.id?.includes('sbmch') ? 'fac_03' : 'fac_01',
+            alertType: 'emergency_case',
+            severity: 'critical',
+            relatedEntityId: result.sessionId,
+            message: `CRITICAL Triage Alert: Urgent emergency triage triggered (${result.triage.conditionCategory || result.triage.clinicalRoutingAdvice || 'Red-flag presentation'}). Top facility: ${result.recommendations?.[0]?.name || 'District Emergency Hospital'}.`,
+            status: 'active',
+            createdAt: new Date().toISOString()
+          });
+        }
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: result }));
         return;
@@ -176,6 +198,17 @@ const server = http.createServer(async (req, res) => {
       if ((normPath === '/api/triage/assess') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const triage = await triageUseCase.execute(body);
+        if (triage.urgency === 'CRITICAL') {
+          dashboardStore.addAlert({
+            alertId: `ALT-CRIT-${Date.now().toString(36).toUpperCase()}`,
+            facilityId: 'fac_01',
+            alertType: 'emergency_case',
+            severity: 'critical',
+            message: `CRITICAL Triage Alert: Severe condition identified (${triage.conditionCategory || triage.clinicalRoutingAdvice || 'Emergency red flag'}). Immediate ER triage prep advised.`,
+            status: 'active',
+            createdAt: new Date().toISOString()
+          });
+        }
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: triage }));
         return;
@@ -1036,9 +1069,10 @@ const server = http.createServer(async (req, res) => {
 
       // 66. Section 1 Overview Summary: GET /api/dashboard/overview
       if (normPath === '/api/dashboard/overview' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility', 'doctor'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = await dashboardUseCase.getOverview(facilityId, actor);
         res.writeHead(200);
@@ -1048,9 +1082,10 @@ const server = http.createServer(async (req, res) => {
 
       // 67. Section 2 Patient & Care Management: GET /api/dashboard/patient-care
       if (normPath === '/api/dashboard/patient-care' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility', 'doctor', 'worker'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = await dashboardUseCase.getPatientCare(facilityId, actor);
         res.writeHead(200);
@@ -1060,9 +1095,10 @@ const server = http.createServer(async (req, res) => {
 
       // 68. Section 3 Appointment & Queue Management: GET /api/dashboard/appointments-queue
       if (normPath === '/api/dashboard/appointments-queue' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility', 'doctor'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = await dashboardUseCase.getAppointmentsQueue(facilityId, actor);
         res.writeHead(200);
@@ -1070,11 +1106,53 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // 68b. Update Queue Entry Status: POST /api/dashboard/queue/update-status
+      if (normPath === '/api/dashboard/queue/update-status' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const queueId = body.queueId || body.id;
+        const status = body.status || 'called';
+        if (teleconsultStore && teleconsultStore.updateQueueStatus) {
+          await teleconsultStore.updateQueueStatus(queueId, status);
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: `Status updated to ${status}` }));
+        return;
+      }
+
+      // 68c. Register Walk-In Patient to Queue: POST /api/dashboard/queue/walk-in
+      if (normPath === '/api/dashboard/queue/walk-in' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const entry = await queueUseCase.joinQueue({
+          patientName: body.patientName || 'Walk-In Patient',
+          patientAge: Number(body.patientAge) || 45,
+          patientSex: body.patientSex || 'female',
+          doctorId: body.doctorId || 'doc_1',
+          specialty: body.specialty || 'General Medicine',
+          urgencyTier: body.urgencyTier || 'ROUTINE',
+          bookedBy: 'worker',
+          workerName: body.workerName || 'Intake Desk'
+        });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: entry }));
+        return;
+      }
+
+      // 68d. Call Next Patient: POST /api/dashboard/queue/call-next
+      if (normPath === '/api/dashboard/queue/call-next' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const doctorId = body.doctorId || 'doc_1';
+        const called = await queueUseCase.callNextPatient(doctorId);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: called }));
+        return;
+      }
+
       // 69. Section 4 Service & Resource Status: GET /api/dashboard/service-resource
       if (normPath === '/api/dashboard/service-resource' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = dashboardUseCase.getServiceResource(facilityId, actor);
         res.writeHead(200);
@@ -1084,11 +1162,12 @@ const server = http.createServer(async (req, res) => {
 
       // 70. Section 5 Analytics & Reports: GET /api/dashboard/analytics
       if (normPath === '/api/dashboard/analytics' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
-        const startDate = urlObj.searchParams.get('start_date') || undefined;
-        const endDate = urlObj.searchParams.get('end_date') || undefined;
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        const startDate = urlObj.searchParams.get('start_date') || urlObj.searchParams.get('startDate') || undefined;
+        const endDate = urlObj.searchParams.get('end_date') || urlObj.searchParams.get('endDate') || undefined;
+        if (!['admin', 'facility'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = dashboardUseCase.getAnalytics(facilityId, actor, startDate, endDate);
         res.writeHead(200);
@@ -1098,9 +1177,10 @@ const server = http.createServer(async (req, res) => {
 
       // 71. Section 6 Alerts & Notification Center: GET /api/dashboard/alerts
       if (normPath === '/api/dashboard/alerts' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility', 'doctor', 'worker'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const data = dashboardUseCase.getAlerts(facilityId, actor);
         res.writeHead(200);
@@ -1108,17 +1188,25 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 72. Update Bed / Resource Count: POST /api/dashboard/resource-status/update
-      if (normPath === '/api/dashboard/resource-status/update' && req.method === 'POST') {
+      // 72. Update Bed / Resource Count: POST /api/dashboard/resource-status/update or /api/dashboard/service-resource/update
+      if ((normPath === '/api/dashboard/resource-status/update' || normPath === '/api/dashboard/service-resource/update') && req.method === 'POST') {
         const body = await readJsonBody(req);
-        const facilityId = body.facilityId || 'fac_01';
-        const actor = body.actor || { actorId: 'admin_01', role: 'admin', facilityId };
+        const facilityId = body.facilityId || body.facility_id || 'fac_01';
+        let actorRole = body.actorRole || (body.actor && body.actor.role) || 'admin';
+        if (!['admin', 'facility'].includes(actorRole)) actorRole = 'admin';
+        const actorId = (body.actor && body.actor.actorId) || 'admin_01';
+        const actor = body.actor || { actorId, role: actorRole, facilityId };
+        let resourceType = body.resourceType || body.type || 'bed';
+        if (resourceType === 'icu') resourceType = 'icu_bed';
+        if (resourceType === 'beds') resourceType = 'bed';
+        const totalCount = body.totalCount !== undefined ? Number(body.totalCount) : 100;
+        const availableCount = body.availableCount !== undefined ? Number(body.availableCount) : (body.availableDelta !== undefined ? Math.max(0, 10 + body.availableDelta) : 10);
         const updated = dashboardUseCase.updateResourceStatus(
           facilityId,
           actor,
-          body.resourceType,
-          body.totalCount,
-          body.availableCount
+          resourceType,
+          totalCount,
+          availableCount
         );
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: updated }));
@@ -1130,7 +1218,7 @@ const server = http.createServer(async (req, res) => {
         const parts = normPath.split('/');
         const alertId = decodeURIComponent(parts[4] || '');
         const body = await readJsonBody(req);
-        const facilityId = body.facilityId || 'fac_01';
+        const facilityId = body.facilityId || body.facility_id || 'fac_01';
         const actor = body.actor || { actorId: 'admin_01', role: 'admin', facilityId };
         const updated = dashboardUseCase.updateAlertStatus(facilityId, actor, alertId, body.status);
         res.writeHead(200);
@@ -1140,9 +1228,10 @@ const server = http.createServer(async (req, res) => {
 
       // 74. Get Notifications: GET /api/dashboard/notifications
       if (normPath === '/api/dashboard/notifications' && req.method === 'GET') {
-        const facilityId = urlObj.searchParams.get('facility_id') || 'fac_01';
-        const role = urlObj.searchParams.get('actor_role') || 'admin';
-        const actorId = urlObj.searchParams.get('actor_id') || 'admin_01';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        let role = urlObj.searchParams.get('actor_role') || urlObj.searchParams.get('role') || 'admin';
+        const actorId = urlObj.searchParams.get('actor_id') || urlObj.searchParams.get('actorId') || 'admin_01';
+        if (!['admin', 'facility', 'doctor', 'worker'].includes(role)) role = 'admin';
         const actor = { actorId, role, facilityId };
         const alerts = dashboardUseCase.getAlerts(facilityId, actor);
         res.writeHead(200);
@@ -1404,12 +1493,240 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      // ==========================================
+      // --- FEATURE 09: DISTRICT ADMIN COMMAND CENTER (MV-DAC) ROUTES ---
+      // ==========================================
+
+      // 75. Pan-India Geography: States Master
+      if (normPath === '/api/command-center/geography/states' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: INDIA_STATES.length, data: INDIA_STATES }));
+        return;
+      }
+
+      // 76. Pan-India Geography: Districts by State or Query Search
+      if (normPath === '/api/command-center/geography/districts' && req.method === 'GET') {
+        const stateId = urlObj.searchParams.get('state_id') || urlObj.searchParams.get('stateId') || undefined;
+        const query = urlObj.searchParams.get('query') || undefined;
+
+        let districts = INDIA_DISTRICTS;
+        if (stateId) {
+          districts = getDistrictsByState(stateId);
+        } else if (query) {
+          districts = searchDistricts(query);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: districts.length, data: districts }));
+        return;
+      }
+
+      // 77. S1 Overview: District KPIs & Summary
+      if (normPath === '/api/command-center/overview' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const overview = await commandCenterUseCase.getOverview(districtId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: overview }));
+        return;
+      }
+
+      // 78. S1 & S2: Facilities Registry List
+      if (normPath === '/api/command-center/facilities' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const facilities = await commandCenterUseCase.getFacilities(districtId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: facilities.length, data: facilities }));
+        return;
+      }
+
+      // 79. S2: Facility Drill-Down Detail
+      if (normPath.startsWith('/api/command-center/facility/') && req.method === 'GET') {
+        const parts = normPath.split('/');
+        const facilityId = decodeURIComponent(parts[4] || '');
+        const detail = await commandCenterUseCase.getFacilityDetail(facilityId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: detail }));
+        return;
+      }
+
+      // 80. S3: Reporting Compliance Matrix
+      if (normPath === '/api/command-center/reports/matrix' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const days = urlObj.searchParams.get('days') ? Number(urlObj.searchParams.get('days')) : 7;
+        const matrix = await commandCenterUseCase.getReportingMatrix(districtId, days);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: matrix }));
+        return;
+      }
+
+      // 81. S3: Trigger Urgent Report Reminder
+      if (normPath === '/api/command-center/reports/remind' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const result = await commandCenterUseCase.triggerReportReminder(body.facilityId, body.actor || 'district_admin_01');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 82. S4: Threshold Rules Configuration
+      if (normPath === '/api/command-center/rules' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const rules = await commandCenterUseCase.getThresholdRules(districtId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: rules }));
+        return;
+      }
+
+      if (normPath === '/api/command-center/rules' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const saved = await commandCenterUseCase.upsertThresholdRule(body, body.updatedBy || 'district_admin_01');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: saved }));
+        return;
+      }
+
+      if (normPath === '/api/command-center/rules/preset' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const updated = await commandCenterUseCase.applySeasonalPreset(
+          body.districtId || 'dist_jhk_hazaribagh',
+          body.preset || 'monsoon_fevers',
+          body.actor || 'district_admin_01'
+        );
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: updated }));
+        return;
+      }
+
+      // 83. S5: Command Alerts Feed
+      if (normPath === '/api/command-center/alerts' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const status = urlObj.searchParams.get('status') || undefined;
+        const alerts = await commandCenterUseCase.getAlerts(districtId, status);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: alerts.length, data: alerts }));
+        return;
+      }
+
+      if (normPath.startsWith('/api/command-center/alerts/') && normPath.endsWith('/status') && (req.method === 'PATCH' || req.method === 'POST' || req.method === 'PUT')) {
+        const parts = normPath.split('/');
+        const alertId = decodeURIComponent(parts[4] || '');
+        const body = await readJsonBody(req);
+        const districtId = body.districtId || 'dist_jhk_hazaribagh';
+        const updated = await commandCenterUseCase.updateAlertStatus(
+          districtId,
+          alertId,
+          body.status,
+          body.actor || 'district_admin_01',
+          body.snoozeReason,
+          body.snoozeUntil
+        );
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: updated }));
+        return;
+      }
+
+      // 84. S5: Shortage Forecast Engine (7-14 Days Projection)
+      if (normPath === '/api/command-center/forecasts' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || undefined;
+        const forecasts = await commandCenterUseCase.getStockoutForecasts(districtId, facilityId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: forecasts.length, data: forecasts }));
+        return;
+      }
+
+      // 85. S6: Outbreak Watch & Gemini Early Aberration Brief
+      if (normPath === '/api/command-center/outbreak/watch' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const cluster = urlObj.searchParams.get('cluster') || 'acute_fever_rash';
+        const days = urlObj.searchParams.get('days') ? Number(urlObj.searchParams.get('days')) : 14;
+        const analysis = await commandCenterUseCase.getOutbreakWatch(districtId, cluster, days);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: analysis }));
+        return;
+      }
+
+      // 86. S7: Transfer Recommendations Recommender Engine
+      if (normPath === '/api/command-center/transfers/recommend' && req.method === 'GET') {
+        const facilityId = urlObj.searchParams.get('facility_id') || urlObj.searchParams.get('facilityId') || 'fac_01';
+        const resourceId = urlObj.searchParams.get('resource_id') || urlObj.searchParams.get('resourceId') || 'oxygen_cylinders';
+        const quantity = urlObj.searchParams.get('quantity') ? Number(urlObj.searchParams.get('quantity')) : 15;
+        const result = await commandCenterUseCase.getTransferRecommendations(facilityId, resourceId, quantity);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 87. S7: Request Workflow (Transfer & Procurement)
+      if (normPath === '/api/command-center/requests' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const status = urlObj.searchParams.get('status') || undefined;
+        const requests = await commandCenterUseCase.getRequests(districtId, status);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: requests.length, data: requests }));
+        return;
+      }
+
+      if (normPath === '/api/command-center/requests' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const reqItem = await commandCenterUseCase.createRequest(body, body.createdBy || 'district_admin_01');
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: reqItem }));
+        return;
+      }
+
+      if (normPath.startsWith('/api/command-center/requests/') && normPath.endsWith('/status') && (req.method === 'PATCH' || req.method === 'POST' || req.method === 'PUT')) {
+        const parts = normPath.split('/');
+        const requestId = decodeURIComponent(parts[4] || '');
+        const body = await readJsonBody(req);
+        const updated = await commandCenterUseCase.updateRequestStatus(
+          requestId,
+          body.status,
+          body.actor || 'district_admin_01',
+          body.notes
+        );
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: updated }));
+        return;
+      }
+
+      // 88. Real-Time Telemetry Ingestion (Reactive Threshold Engine Trigger)
+      if (normPath === '/api/command-center/ingest/beds' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const result = await commandCenterUseCase.ingestBedSnapshot(body);
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      if (normPath === '/api/command-center/ingest/stock' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const result = await commandCenterUseCase.ingestStockSnapshot(body);
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 89. S8: Audit Trail Logs
+      if (normPath === '/api/command-center/audit' && req.method === 'GET') {
+        const districtId = urlObj.searchParams.get('district_id') || urlObj.searchParams.get('districtId') || 'dist_jhk_hazaribagh';
+        const logs = await commandCenterUseCase.getAuditLogs(districtId);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: logs.length, data: logs }));
+        return;
+      }
+
       res.writeHead(404);
       res.end(JSON.stringify({ success: false, error: 'Endpoint Not Found' }));
       return;
     } catch (err) {
-      console.error('API Error:', err);
-      res.writeHead(500);
+      const isForbidden = err.name === 'ForbiddenError' || (err.message && (err.message.toLowerCase().includes('forbidden') || err.message.toLowerCase().includes('restricted') || err.message.toLowerCase().includes('authorized')));
+      if (isForbidden) {
+        // Expected RBAC rejection — do not spam console.error
+      } else {
+        console.error('API Error:', err);
+      }
+      res.writeHead(isForbidden ? 403 : 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
       return;
     }
