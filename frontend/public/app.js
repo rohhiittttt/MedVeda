@@ -879,6 +879,14 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
 
   const featureItems = [
     {
+      id: 'overview',
+      code: 'Module 00',
+      icon: '📊',
+      label: 'Platform Overview',
+      description: 'Unified command hub, patient & clinical role views, system KPIs',
+      onSelect: () => setView('overview')
+    },
+    {
       id: 'feature1',
       code: 'Module 01',
       icon: '🧭',
@@ -952,7 +960,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
     }
   ];
 
-  const isFeatureActive = currentView.startsWith('feature');
+  const isFeatureActive = currentView.startsWith('feature') || currentView === 'overview';
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
@@ -989,34 +997,37 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
             Home
           </button>
 
-          {/* Section 1.5: Overview */}
-          <button
-            type="button"
-            onClick={() => {
-              setView('overview');
-              setFeaturesOpen(false);
-            }}
-            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'overview'
-              ? 'bg-[#0b2b82] text-white shadow-sm'
-              : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
-              }`}
-          >
-            Overview
-          </button>
-
-          {/* Section 2: Features (Dropdown containing all feature map options) */}
-          <div className="relative" ref={featuresRef}>
+          {/* Section 2: Features (Clicking opens Overview by default; chevron toggles quick-jump dropdown) */}
+          <div className="relative flex items-center" ref={featuresRef}>
             <button
               type="button"
-              onClick={() => setFeaturesOpen(!featuresOpen)}
-              className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 ${isFeatureActive
+              onClick={() => {
+                setView('overview');
+                setFeaturesOpen(false);
+              }}
+              className={`px-3.5 py-1.5 rounded-l-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 ${isFeatureActive
                 ? 'bg-[#0b2b82] text-white shadow-sm'
                 : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
                 }`}
-              aria-expanded={featuresOpen}
-              aria-haspopup="true"
+              title="Features Workspace (Default: Overview)"
             >
               <span>Features</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFeaturesOpen(!featuresOpen);
+              }}
+              className={`px-1.5 py-1.5 rounded-r-lg transition-all text-xs font-bold border-l ${isFeatureActive
+                ? 'bg-[#0b2b82] text-white border-blue-700/60 hover:bg-blue-900'
+                : 'text-slate-600 border-slate-200 hover:text-[#0b2b82] hover:bg-blue-50/70'
+                }`}
+              aria-expanded={featuresOpen}
+              aria-haspopup="true"
+              aria-label="Toggle Features Menu"
+              title="Browse all 10 modules"
+            >
               <svg
                 className={`w-3.5 h-3.5 transition-transform duration-200 ${featuresOpen ? 'rotate-180' : ''}`}
                 fill="none"
@@ -1035,7 +1046,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
                     Platform Feature Modules
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-100">
-                    9 Systems
+                    10 Modules
                   </span>
                 </div>
 
@@ -19639,23 +19650,681 @@ function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
   );
 }
 
-function ScreenOverview({ actorRole, setView, setScreen, setTeleconsultScreen }) {
-  const isMedicalStaff = ['doctor', 'facility', 'admin'].includes(actorRole);
-  
-  if (isMedicalStaff) {
-    return <DoctorOverview setView={setView} setScreen={setScreen} setTeleconsultScreen={setTeleconsultScreen} />;
+// ==========================================
+// --- FEATURES WORKSPACE: SIDE NAVBAR ---
+// ==========================================
+
+const FEATURE_NAV_MODULES = [
+  {
+    id: 'overview',
+    code: 'MOD 00',
+    shortCode: '00',
+    icon: '📊',
+    label: 'Platform Overview',
+    shortLabel: 'Overview',
+    description: 'Unified command hub & telemetry',
+    badge: 'Hub',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200'
+  },
+  {
+    id: 'feature1',
+    code: 'MOD 01',
+    shortCode: '01',
+    icon: '🧭',
+    label: 'Care Navigator',
+    shortLabel: 'Care Nav',
+    description: 'Autonomous AI symptom triage',
+    badge: 'AI Triage',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  },
+  {
+    id: 'feature2',
+    code: 'MOD 02',
+    shortCode: '02',
+    icon: '👨‍⚕️',
+    label: 'Teleconsult & Queue',
+    shortLabel: 'Teleconsult',
+    description: 'Doctor roster & priority queue',
+    badge: 'Live',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+  },
+  {
+    id: 'feature3',
+    code: 'MOD 03',
+    shortCode: '03',
+    icon: '🔄',
+    label: 'Smart Referrals',
+    shortLabel: 'Referrals',
+    description: 'Digital passes & QR admissions',
+    badge: 'Network',
+    badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200'
+  },
+  {
+    id: 'feature4',
+    code: 'MOD 04',
+    shortCode: '04',
+    icon: '📋',
+    label: 'High-Risk Follow-Ups',
+    shortLabel: 'Follow-Ups',
+    description: 'ASHA field tracking & auto-alerts',
+    badge: 'Tracking',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200'
+  },
+  {
+    id: 'feature5',
+    code: 'MOD 05',
+    shortCode: '05',
+    icon: '📑',
+    label: 'Health Records (ABDM)',
+    shortLabel: 'Records',
+    description: 'FHIR health data & emergency access',
+    badge: 'ABDM',
+    badgeClass: 'bg-violet-50 text-violet-700 border-violet-200'
+  },
+  {
+    id: 'feature6',
+    code: 'MOD 06',
+    shortCode: '06',
+    icon: '💊',
+    label: 'Medicines & Labs',
+    shortLabel: 'Meds & Lab',
+    description: 'Pharmacy inventory & lab orders',
+    badge: 'Inventory',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200'
+  },
+  {
+    id: 'feature7',
+    code: 'MOD 07',
+    shortCode: '07',
+    icon: '🏥',
+    label: 'Facility Dashboard',
+    shortLabel: 'Facility',
+    description: 'Readiness Index, ICU beds & triage',
+    badge: 'Ops',
+    badgeClass: 'bg-teal-50 text-teal-700 border-teal-200'
+  },
+  {
+    id: 'feature8',
+    code: 'MOD 08',
+    shortCode: '08',
+    icon: '🏛️',
+    label: 'Govt Health Schemes',
+    shortLabel: 'Schemes',
+    description: 'RAG search & eligibility checks',
+    badge: 'RAG',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  },
+  {
+    id: 'feature9',
+    code: 'MOD 09',
+    shortCode: '09',
+    icon: '🛰️',
+    label: 'District Command Center',
+    shortLabel: 'Command',
+    description: 'Pan-India surveillance & forecasts',
+    badge: 'MV-DAC',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200'
   }
-  return <PatientOverview setView={setView} setScreen={setScreen} setTeleconsultScreen={setTeleconsultScreen} />;
+];
+
+function FeaturesSideNavbar({
+  currentView,
+  setView,
+  setScreen,
+  setTeleconsultScreen,
+  actorRole,
+  setActorRole,
+  collapsed,
+  onToggleCollapse
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const activeItemRef = useRef(null);
+
+  useEffect(() => {
+    if (activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [currentView]);
+
+  const handleSelectModule = (modId) => {
+    if (modId === 'feature1') {
+      setView('feature1');
+      if (setScreen) setScreen(1);
+    } else if (modId === 'feature2') {
+      setView('feature2');
+      if (setTeleconsultScreen) setTeleconsultScreen('entry');
+    } else {
+      setView(modId);
+    }
+    setMobileDrawerOpen(false);
+  };
+
+  const currentModule = FEATURE_NAV_MODULES.find(m => m.id === currentView) || FEATURE_NAV_MODULES[0];
+
+  const filteredModules = FEATURE_NAV_MODULES.filter(m => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      m.label.toLowerCase().includes(q) ||
+      m.code.toLowerCase().includes(q) ||
+      m.description.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <>
+      {/* MOBILE BAR (Visible only on < md) */}
+      <div className="md:hidden bg-white border-b border-slate-200 sticky top-[60px] z-30 shadow-xs">
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xl shrink-0">{currentModule.icon}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold font-mono text-[#0b2b82] bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                  {currentModule.code}
+                </span>
+                <span className="text-xs font-black text-slate-800 truncate">
+                  {currentModule.label}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="shrink-0 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-colors"
+          >
+            <span>Modules</span>
+            <span className="bg-[#0b2b82] text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">10</span>
+          </button>
+        </div>
+
+        {/* Quick Horizontal Scrollable Pill Bar */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto no-scrollbar border-t border-slate-100 bg-slate-50/70">
+          {FEATURE_NAV_MODULES.map((m) => {
+            const isActive = currentView === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSelectModule(m.id)}
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  isActive
+                    ? 'bg-[#0b2b82] text-white shadow-xs'
+                    : 'bg-white text-slate-700 hover:text-[#0b2b82] border border-slate-200 hover:border-blue-200'
+                }`}
+              >
+                <span>{m.icon}</span>
+                <span>{m.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* MOBILE DRAWER OVERLAY */}
+      {mobileDrawerOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex">
+          <div className="w-80 max-w-[85%] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0b2b82]"></span>
+                <span className="text-xs font-black tracking-wider uppercase text-slate-800">MedVeda Features</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 border-b border-slate-100">
+              <input
+                type="text"
+                placeholder="Search modules..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0b2b82] focus:bg-white"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {filteredModules.map((m) => {
+                const isActive = currentView === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectModule(m.id)}
+                    className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-3 ${
+                      isActive
+                        ? 'bg-blue-50 border border-blue-200 text-[#0b2b82]'
+                        : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0 p-1 bg-white rounded-lg border border-slate-100 shadow-2xs">{m.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-bold truncate">{m.label}</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold shrink-0">{m.code}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-normal line-clamp-1 mt-0.5">{m.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => { setView('home'); setMobileDrawerOpen(false); }}
+                className="text-xs font-bold text-slate-600 hover:text-[#0b2b82] flex items-center gap-1.5"
+              >
+                ← Back to Home
+              </button>
+              <span className="text-[10px] text-slate-400 font-mono">v2.4 Ready</span>
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setMobileDrawerOpen(false)}></div>
+        </div>
+      )}
+
+      {/* DESKTOP SIDE NAVBAR (Hidden on mobile, sticky on md+) */}
+      <aside
+        className={`hidden md:flex flex-col bg-white border-r border-slate-200 shadow-xs transition-all duration-200 shrink-0 select-none sticky top-[65px] h-[calc(100vh-65px)] ${
+          collapsed ? 'w-20' : 'w-72'
+        }`}
+      >
+        {/* Top Header of Sidebar */}
+        <div className={`p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 ${collapsed ? 'flex-col gap-2 p-2' : ''}`}>
+          {!collapsed ? (
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Features Suite</span>
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">10 Integrated Systems</p>
+            </div>
+          ) : (
+            <span className="text-base" title="MedVeda Features Suite">🧭</span>
+          )}
+
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0b2b82] hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors"
+            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar to Icons'}
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Search Input (When expanded) */}
+        {!collapsed && (
+          <div className="p-2.5 border-b border-slate-100">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search features..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-xs px-2.5 py-1.5 pl-7 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0b2b82] focus:bg-white transition-all"
+              />
+              <svg
+                className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Items List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredModules.map((m) => {
+            const isActive = currentView === m.id;
+            return (
+              <button
+                key={m.id}
+                ref={isActive ? activeItemRef : null}
+                type="button"
+                onClick={() => handleSelectModule(m.id)}
+                title={collapsed ? `${m.code}: ${m.label} - ${m.description}` : undefined}
+                className={`w-full text-left rounded-xl transition-all flex items-center group relative ${
+                  collapsed
+                    ? 'p-2 justify-center'
+                    : 'py-2 px-2.5 gap-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-50/90 text-[#0b2b82] border-l-4 border-[#0b2b82] shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-[#0b2b82] hover:bg-slate-50/80 border-l-4 border-transparent'
+                }`}
+              >
+                <div
+                  className={`rounded-lg flex items-center justify-center text-base shrink-0 transition-all ${
+                    collapsed
+                      ? 'w-10 h-10 text-xl'
+                      : 'w-8 h-8'
+                  } ${
+                    isActive
+                      ? 'bg-white shadow-xs border border-blue-200 text-[#0b2b82]'
+                      : 'bg-slate-100 group-hover:bg-white group-hover:shadow-2xs group-hover:border group-hover:border-slate-200'
+                  }`}
+                >
+                  {m.icon}
+                </div>
+
+                {!collapsed && (
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={`text-xs leading-tight truncate ${isActive ? 'font-black text-[#0b2b82]' : 'font-bold group-hover:text-[#0b2b82]'}`}>
+                        {m.label}
+                      </span>
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
+                        isActive
+                          ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
+                          : m.badgeClass
+                      }`}>
+                        {m.badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-normal leading-snug line-clamp-1 mt-0.5">
+                      {m.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Collapsed Active Indicator Dot */}
+                {collapsed && isActive && (
+                  <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#0b2b82] rounded-r"></span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Bottom Section */}
+        <div className={`border-t border-slate-200 bg-slate-50/80 p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`}>
+          {!collapsed ? (
+            <>
+              <div className="flex items-center justify-between text-[11px] px-1 text-slate-500">
+                <span className="font-semibold">Active Role:</span>
+                <span className="font-mono uppercase font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                  {actorRole || 'patient'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setView('home')}
+                className="w-full text-center py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span>←</span>
+                <span>Return to Home</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setView('home')}
+              className="w-10 h-10 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#0b2b82] transition-colors"
+              title="Return to Home"
+            >
+              🏠
+            </button>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+// Upgraded ScreenOverview — Comprehensive Platform Hub & Directory
+function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen }) {
+  const [activeTab, setActiveTab] = useState(
+    ['doctor', 'facility', 'admin'].includes(actorRole) ? 'doctor' : 'hub'
+  );
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
+      {/* Header Banner */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-50 via-sky-50/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none"></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200 font-mono">
+                Module 00 &bull; Platform Overview Hub
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                All Systems Operational
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              MedVeda Integrated Health Platform
+            </h1>
+            <p className="text-slate-600 text-sm mt-2 leading-relaxed">
+              Explore the unified healthcare architecture powering AI triage, teleconsultation queues, closed-loop referrals, longitudinal ASHA monitoring, ABDM FHIR interoperability, pharmacy logistics, and pan-district surveillance.
+            </p>
+          </div>
+
+          {/* Perspective View Switcher Tabs */}
+          <div className="shrink-0 bg-slate-100 p-1.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-1 self-start md:self-center">
+            <button
+              type="button"
+              onClick={() => setActiveTab('hub')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'hub'
+                  ? 'bg-[#0b2b82] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+              }`}
+            >
+              <span>📊</span>
+              <span>Platform Hub</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('doctor');
+                if (setActorRole) setActorRole('doctor');
+              }}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'doctor'
+                  ? 'bg-[#0b2b82] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+              }`}
+            >
+              <span>👨‍⚕️</span>
+              <span>Clinical / Doctor View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('patient');
+                if (setActorRole) setActorRole('patient');
+              }}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'patient'
+                  ? 'bg-[#0b2b82] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+              }`}
+            >
+              <span>🧑</span>
+              <span>Patient &amp; Family View</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Live Metrics Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Features Suite</p>
+            <p className="text-xl font-black text-[#0b2b82] mt-0.5">10 Modules</p>
+            <p className="text-[10px] text-slate-500">Autonomous &amp; interconnected</p>
+          </div>
+          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Geographic Reach</p>
+            <p className="text-xl font-black text-slate-800 mt-0.5">28 States + 8 UTs</p>
+            <p className="text-[10px] text-slate-500">All India districts mapped</p>
+          </div>
+          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Interoperability</p>
+            <p className="text-xl font-black text-indigo-700 mt-0.5">ABDM M1-M3</p>
+            <p className="text-[10px] text-slate-500">FHIR R4 digital health records</p>
+          </div>
+          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Intelligence</p>
+            <p className="text-xl font-black text-emerald-700 mt-0.5">Gemini 2.5 Flash</p>
+            <p className="text-[10px] text-slate-500">Deterministic clinical safety</p>
+          </div>
+        </div>
+      </div>
+
+      {/* CONDITIONAL TAB CONTENT */}
+      {activeTab === 'hub' && (
+        <div className="space-y-8">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>🚀</span> Platform Feature Directory
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select any module below or use the side navigation bar to switch workspaces.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {FEATURE_NAV_MODULES.filter(m => m.id !== 'overview').map((mod) => (
+                <div
+                  key={mod.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                        {mod.icon}
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${mod.badgeClass}`}>
+                        {mod.code} &bull; {mod.badge}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                      {mod.label}
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                      {mod.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      Production Ready
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mod.id === 'feature1') {
+                          setView('feature1');
+                          if (setScreen) setScreen(1);
+                        } else if (mod.id === 'feature2') {
+                          setView('feature2');
+                          if (setTeleconsultScreen) setTeleconsultScreen('entry');
+                        } else {
+                          setView(mod.id);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>Launch</span>
+                      <span>&rarr;</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Architecture & Compliance Strip */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 text-[#0b2b82]">
+              <span>🛡️</span> Architecture &amp; Clinical Safety Standards
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                  <span>🏛️</span> ABDM / NDHM Compliant
+                </h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Full FHIR R4 interoperability for ABHA addresses, health facility registry (HFR), and cryptographic consent management.
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                  <span>🔒</span> Zero PII Exposure
+                </h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Deterministic redaction of sensitive identifiers before AI model reasoning. End-to-end TLS 1.3 in-transit and AES-256 at rest.
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                  <span>⚡</span> Offline-Resilient Telemetry
+                </h4>
+                <p className="text-slate-600 leading-relaxed">
+                  Optimized for low-bandwidth rural networks with local queue persistence and automatic synchronization for ASHA field operations.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'doctor' && (
+        <DoctorOverview
+          setView={setView}
+          setScreen={setScreen}
+          setTeleconsultScreen={setTeleconsultScreen}
+        />
+      )}
+
+      {activeTab === 'patient' && (
+        <PatientOverview
+          setView={setView}
+          setScreen={setScreen}
+          setTeleconsultScreen={setTeleconsultScreen}
+        />
+      )}
+    </div>
+  );
 }
 
 // ==========================================
 // --- MAIN APPLICATION ROOT (ROUTER & STATE) ---
 // ==========================================
 function App() {
-  const [view, setViewState] = useState('home'); // 'home' | 'feature1' | 'feature2' | 'feature3' | 'feature4' | 'feature5' | 'feature6' | 'feature7'
+  const [view, setViewState] = useState('home'); // 'home' | 'overview' | 'feature1' | 'feature2' | 'feature3' | 'feature4' | 'feature5' | 'feature6' | 'feature7' | 'feature8' | 'feature9'
   const [feature1Screen, setFeature1Screen] = useState(1);
   const [teleconsultScreen, setTeleconsultScreen] = useState('entry'); // 'entry' | 'booking' | 'queue' | 'call' | 'doctor' | 'summary'
   const [actorRole, setActorRole] = useState('worker'); // 'worker' | 'patient' | 'doctor' | 'shop_owner' | 'lab_staff' | 'facility' | 'admin'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Feature 01 States
   const [patient, setPatient] = useState(INITIAL_PATIENT);
@@ -19672,7 +20341,9 @@ function App() {
 
   const parseHash = () => {
     const hash = window.location.hash || '#home';
-    if (hash.startsWith('#screen=')) {
+    if (hash === '#overview' || hash === '#features') {
+      setViewState('overview');
+    } else if (hash.startsWith('#screen=')) {
       const num = Number(hash.replace('#screen=', '')) || 1;
       setViewState('feature1');
       setFeature1Screen(num);
@@ -19774,6 +20445,19 @@ function App() {
     setTeleconsultScreen('entry');
   };
 
+  const isFeatureView = [
+    'overview',
+    'feature1',
+    'feature2',
+    'feature3',
+    'feature4',
+    'feature5',
+    'feature6',
+    'feature7',
+    'feature8',
+    'feature9'
+  ].includes(view);
+
   return (
     <div className="min-h-screen flex flex-col bg-white text-slate-900">
       <Header
@@ -19785,9 +20469,9 @@ function App() {
         setActorRole={setActorRole}
       />
 
-      <main className="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
-        {/* VIEW 1: HOMEPAGE */}
-        {view === 'home' && (
+      {/* HOMEPAGE VIEW */}
+      {view === 'home' && (
+        <main className="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
           <ScreenHomepage
             onLaunchFeature1={() => {
               setView('feature1');
@@ -19824,19 +20508,74 @@ function App() {
             actorRole={actorRole}
             setActorRole={setActorRole}
           />
-        )}
+        </main>
+      )}
 
-        {/* VIEW: OVERVIEW */}
-        {view === 'overview' && (
-          <ScreenOverview
-            actorRole={actorRole}
+      {/* ABOUT US PAGE */}
+      {view === 'about' && (
+        <main className="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
+          <ScreenAboutUs
+            onBackToHome={() => setView('home')}
+            onLaunchFeature1={() => {
+              setView('feature1');
+              setScreen(1);
+            }}
+            onLaunchFeature2={() => {
+              setView('feature2');
+              setTeleconsultScreen('entry');
+            }}
+            onLaunchFeature3={() => {
+              setView('feature3');
+            }}
+            onLaunchFeature4={() => {
+              setView('feature4');
+            }}
+            onLaunchFeature5={() => {
+              setView('feature5');
+            }}
+            onLaunchFeature6={() => {
+              setView('feature6');
+            }}
+            onLaunchFeature7={() => {
+              setView('feature7');
+            }}
+            onLaunchFeature8={() => {
+              setView('feature8');
+            }}
+            onLaunchFeature9={() => {
+              setView('feature9');
+            }}
+          />
+        </main>
+      )}
+
+      {/* FEATURES SUITE WORKSPACE (Side Navbar + Active Feature Screen) */}
+      {isFeatureView && (
+        <div className="flex-1 flex flex-col md:flex-row w-full bg-slate-50 min-h-[calc(100vh-65px)]">
+          <FeaturesSideNavbar
+            currentView={view}
             setView={setView}
             setScreen={setScreen}
             setTeleconsultScreen={setTeleconsultScreen}
+            actorRole={actorRole}
+            setActorRole={setActorRole}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
-        )}
 
-        {/* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR */}
+          <main className="flex-1 min-w-0 bg-white md:border-l border-slate-200 overflow-y-auto">
+            {/* VIEW: OVERVIEW */}
+            {view === 'overview' && (
+              <ScreenOverview
+                actorRole={actorRole}
+                setActorRole={setActorRole}
+                setView={setView}
+                setScreen={setScreen}
+                setTeleconsultScreen={setTeleconsultScreen}
+              />
+            )}
+
+            {/* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR */}
         {view === 'feature1' && (
           <div>
             {feature1Screen === 1 && (
@@ -20118,40 +20857,9 @@ function App() {
             onNavigateToSchemeFinder={() => setView('feature8')}
           />
         )}
-
-        {/* VIEW 10: ABOUT US PAGE */}
-        {view === 'about' && (
-          <ScreenAboutUs
-            onBackToHome={() => setView('home')}
-            onLaunchFeature1={() => {
-              setView('feature1');
-              setScreen(1);
-            }}
-            onLaunchFeature2={() => {
-              setView('feature2');
-              setTeleconsultScreen('entry');
-            }}
-            onLaunchFeature3={() => {
-              setView('feature3');
-            }}
-            onLaunchFeature4={() => {
-              setView('feature4');
-            }}
-            onLaunchFeature5={() => {
-              setView('feature5');
-            }}
-            onLaunchFeature6={() => {
-              setView('feature6');
-            }}
-            onLaunchFeature7={() => {
-              setView('feature7');
-            }}
-            onLaunchFeature8={() => {
-              setView('feature8');
-            }}
-          />
-        )}
       </main>
+    </div>
+  )}
 
       {/* HOMEPAGE ONLY: Pre-Footer Interactive Beats Banner */}
       {view === 'home' && (
