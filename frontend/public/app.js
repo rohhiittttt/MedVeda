@@ -989,6 +989,21 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
             Home
           </button>
 
+          {/* Section 1.5: Overview */}
+          <button
+            type="button"
+            onClick={() => {
+              setView('overview');
+              setFeaturesOpen(false);
+            }}
+            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'overview'
+              ? 'bg-[#0b2b82] text-white shadow-sm'
+              : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+              }`}
+          >
+            Overview
+          </button>
+
           {/* Section 2: Features (Dropdown containing all feature map options) */}
           <div className="relative" ref={featuresRef}>
             <button
@@ -1083,31 +1098,8 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
           </button>
         </nav>
 
-        {/* Right Controls: Role Switcher & Auth (Login / Sign Up) */}
+        {/* Right Controls: Auth (Login / Sign Up) */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Role Switcher */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider hidden xl:inline">Role:</span>
-            <select
-              value={actorRole}
-              onChange={(e) => {
-                setActorRole(e.target.value);
-                if (currentUser) {
-                  setCurrentUser(prev => ({ ...prev, role: e.target.value, roleLabel: getRoleBadgeLabel(e.target.value) }));
-                }
-              }}
-              className="text-xs font-semibold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] shadow-xs cursor-pointer"
-            >
-              <option value="worker">Frontline Health Worker (ASHA)</option>
-              <option value="patient">Self-Service Patient</option>
-              <option value="doctor">Consulting / Referring Doctor</option>
-              <option value="shop_owner">Medical Shop Owner</option>
-              <option value="lab_staff">Diagnostic Lab Staff</option>
-              <option value="facility">Receiving Facility Administrator</option>
-              <option value="admin">Facility Coordinator / Admin</option>
-            </select>
-          </div>
-
           {/* Login & Sign Up Option Buttons / User Profile Chip */}
           {currentUser ? (
             <div className="flex items-center gap-2 bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1 shadow-xs">
@@ -1479,6 +1471,7 @@ function ScreenHomepage({
   onLaunchFeature6,
   onLaunchFeature7,
   onLaunchFeature8,
+  onLaunchFeature9,
   onLaunchAbout,
   actorRole,
   setActorRole
@@ -1609,7 +1602,7 @@ function ScreenHomepage({
       title: 'District Admin Command Center',
       description: 'Pan-India multi-hospital live surveillance, shortage forecasting, epidemic early warning (CDC EARS/CUSUM), and inter-hospital transfer coordination.',
       actionLabel: 'Command Center',
-      action: () => setView('feature9'),
+      action: onLaunchFeature9,
       badge: 'Surveillance & Logistics'
     }
   ];
@@ -2118,39 +2111,6 @@ function ScreenHomepage({
         </div>
       </div>
 
-      {/* Role Simulation Selector (Clean & Professional) */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Persona Simulation</span>
-            <p className="text-xs text-slate-600 font-medium mt-0.5">{roleDescriptions[actorRole] || roleDescriptions.worker}</p>
-          </div>
-        </div>
-
-        <div className="flex gap-1.5 flex-wrap pt-1">
-          {[
-            { id: 'worker', label: 'Frontline Worker (ASHA)' },
-            { id: 'patient', label: 'Self-Service Patient' },
-            { id: 'doctor', label: 'Doctor / Specialist' },
-            { id: 'shop_owner', label: 'Pharmacy Owner' },
-            { id: 'lab_staff', label: 'Diagnostic Lab' },
-            { id: 'facility', label: 'Facility Administrator' },
-            { id: 'admin', label: 'System Coordinator' }
-          ].map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setActorRole(r.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${actorRole === r.id
-                ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-sm'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-[#0b2b82] hover:border-blue-200'
-                }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* System Modules Grid */}
       <div className="space-y-6">
@@ -6236,7 +6196,7 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
             </div>
           )}
 
-          {activeTabRole === 'patient' && (
+          {activeTabRole === 'patient' && actorRole !== 'patient' && (
             <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200 px-3 py-1.5 rounded-xl shadow-sm">
               <span className="text-[11px] font-black uppercase text-purple-800 tracking-wider whitespace-nowrap">👤 Patient Profile:</span>
               <select
@@ -6252,14 +6212,16 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
             </div>
           )}
 
-          <div className="flex bg-slate-100 rounded-xl p-1">
-            {['doctor', 'facility', 'patient'].map((r) => (
-              <button key={r} onClick={() => { setActiveTabRole(r); setActorRole && setActorRole(r); }}
-                className={`px-4 py-2 text-xs font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                {r} View
-              </button>
-            ))}
-          </div>
+          {actorRole !== 'patient' && (
+            <div className="flex bg-slate-100 rounded-xl p-1">
+              {['doctor', 'facility', 'patient'].map((r) => (
+                <button key={r} onClick={() => { setActiveTabRole(r); setActorRole && setActorRole(r); }}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                  {r} View
+                </button>
+              ))}
+            </div>
+          )}
           {activeTabRole === 'doctor' && (
             <button onClick={() => setShowCreateWizard(true)} className="px-5 py-2.5 bg-[#0b2b82] text-white font-bold text-xs rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all whitespace-nowrap">
               + Create Referral
@@ -19178,7 +19140,6 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
                   type="button"
                   onClick={() => handleNav(() => {
                     setView('feature5');
-                    if (setActorRole) setActorRole('patient');
                   })}
                   className="text-slate-200 hover:text-white transition-colors text-left"
                 >
@@ -19209,7 +19170,6 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
                   type="button"
                   onClick={() => handleNav(() => {
                     setView('feature6');
-                    if (setActorRole) setActorRole('shop_owner');
                   })}
                   className="text-slate-200 hover:text-white transition-colors text-left"
                 >
@@ -19221,7 +19181,6 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
                   type="button"
                   onClick={() => handleNav(() => {
                     setView('feature3');
-                    if (setActorRole) setActorRole('doctor');
                   })}
                   className="text-slate-200 hover:text-white transition-colors text-left"
                 >
@@ -19534,6 +19493,162 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
 }
 
 // ==========================================
+// --- OVERVIEW COMPONENTS ---
+// ==========================================
+
+function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
+  return (
+    <div className="p-6 bg-slate-50 min-h-screen">
+      <h2 className="text-2xl font-bold text-slate-800 mb-6">Patient Overview</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">⚡</span> Quick Actions</h3>
+          <div className="space-y-3">
+            <button onClick={() => { setView('feature2'); setTeleconsultScreen('entry'); }} className="w-full text-left p-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold transition-colors">Book Teleconsult</button>
+            <button onClick={() => { setView('feature1'); setScreen(1); }} className="w-full text-left p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors">Symptom Checker</button>
+            <button onClick={() => setView('feature8')} className="w-full text-left p-3 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-semibold transition-colors">Find Gov Schemes</button>
+          </div>
+        </div>
+
+        {/* Health Summary */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">❤️</span> Health Summary</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Latest BP</p>
+              <p className="text-xl font-black text-slate-800">120/80 <span className="text-sm font-medium text-slate-500">mmHg</span></p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Blood Sugar</p>
+              <p className="text-xl font-black text-slate-800">95 <span className="text-sm font-medium text-slate-500">mg/dL</span></p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Last Visit</p>
+              <p className="text-sm font-black text-slate-800">12 Oct 2026</p>
+              <p className="text-xs text-slate-500 mt-0.5">Dr. Sharma (Cardiology)</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Active Prescriptions</p>
+              <button onClick={() => setView('feature6')} className="text-sm font-bold text-teal-600 hover:text-teal-700 self-start">View 2 Medicines &rarr;</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Upcoming Appointments */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-3">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="text-2xl">📅</span> Upcoming Appointments</h3>
+            <button onClick={() => setView('feature2')} className="text-xs font-bold text-[#0b2b82] hover:underline">View All</button>
+          </div>
+          <div className="flex items-center justify-between bg-amber-50 p-4 rounded-xl border border-amber-100">
+            <div className="flex items-center gap-4">
+              <div className="bg-amber-100 text-amber-800 font-bold w-12 h-12 rounded-full flex flex-col items-center justify-center leading-none">
+                <span className="text-lg">15</span>
+                <span className="text-[10px] uppercase">Oct</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm">Teleconsult with Dr. Verma</h4>
+                <p className="text-xs text-slate-600">Neurology Department • 10:30 AM</p>
+              </div>
+            </div>
+            <button onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }} className="px-4 py-2 bg-[#0b2b82] text-white text-xs font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Join Call</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
+  return (
+    <div className="p-6 bg-slate-50 min-h-screen">
+      <h2 className="text-2xl font-bold text-slate-800 mb-6">Doctor Overview</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Key Metrics */}
+        <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-sm md:col-span-3 flex justify-around items-center">
+          <div className="text-center">
+            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Today's Patients</p>
+            <p className="text-3xl font-black">12</p>
+          </div>
+          <div className="w-px h-12 bg-blue-500"></div>
+          <div className="text-center">
+            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Pending Referrals</p>
+            <p className="text-3xl font-black">3</p>
+          </div>
+          <div className="w-px h-12 bg-blue-500"></div>
+          <div className="text-center">
+            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Critical Follow-ups</p>
+            <p className="text-3xl font-black text-amber-300">2</p>
+          </div>
+        </div>
+
+        {/* Schedule */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 md:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="text-2xl">📋</span> Today's Schedule</h3>
+            <button onClick={() => setView('feature2')} className="text-xs font-bold text-[#0b2b82] hover:underline">Manage Queue</button>
+          </div>
+          <div className="space-y-3">
+            {[
+              { time: '09:00 AM', name: 'Ravi Kumar', type: 'Follow-up', status: 'Completed' },
+              { time: '10:30 AM', name: 'Anita Devi', type: 'Teleconsult', status: 'Next' },
+              { time: '11:15 AM', name: 'Suresh Singh', type: 'New Patient', status: 'Waiting' }
+            ].map((pt, i) => (
+              <div key={i} className={`flex items-center justify-between p-3 rounded-xl border ${pt.status === 'Next' ? 'border-[#0b2b82] bg-blue-50' : 'border-slate-100 bg-slate-50'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-bold text-slate-500 w-16">{pt.time}</div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm">{pt.name}</h4>
+                    <p className="text-[11px] text-slate-500">{pt.type}</p>
+                  </div>
+                </div>
+                <div>
+                  {pt.status === 'Next' ? (
+                    <button onClick={() => { setView('feature2'); setTeleconsultScreen('doctor'); }} className="px-3 py-1.5 bg-[#0b2b82] text-white text-[10px] font-bold rounded shadow-sm">Start Consult</button>
+                  ) : pt.status === 'Completed' ? (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Completed</span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">Waiting</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">⚙️</span> Actions</h3>
+          <div className="space-y-3">
+            <button onClick={() => setView('feature5')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
+              Patient Records <span>→</span>
+            </button>
+            <button onClick={() => setView('feature3')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
+              Manage Referrals <span>→</span>
+            </button>
+            <button onClick={() => setView('feature4')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
+              High-Risk Follow-ups <span>→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScreenOverview({ actorRole, setView, setScreen, setTeleconsultScreen }) {
+  const isMedicalStaff = ['doctor', 'facility', 'admin'].includes(actorRole);
+  
+  if (isMedicalStaff) {
+    return <DoctorOverview setView={setView} setScreen={setScreen} setTeleconsultScreen={setTeleconsultScreen} />;
+  }
+  return <PatientOverview setView={setView} setScreen={setScreen} setTeleconsultScreen={setTeleconsultScreen} />;
+}
+
+// ==========================================
 // --- MAIN APPLICATION ROOT (ROUTER & STATE) ---
 // ==========================================
 function App() {
@@ -19569,50 +19684,14 @@ function App() {
       setViewState('feature1');
     } else if (hash === '#feature2') {
       setViewState('feature2');
-    } else if (hash === '#feature3' || hash === '#referrals' || hash === '#referrals-doctor') {
+    } else if (hash === '#feature3' || hash === '#referrals' || hash === '#referrals-doctor' || hash === '#referrals-worker' || hash === '#referrals-facility' || hash === '#referrals-patient') {
       setViewState('feature3');
-      setActorRole('doctor');
-    } else if (hash === '#referrals-worker') {
-      setViewState('feature3');
-      setActorRole('worker');
-    } else if (hash === '#referrals-facility') {
-      setViewState('feature3');
-      setActorRole('facility');
-    } else if (hash === '#referrals-patient') {
-      setViewState('feature3');
-      setActorRole('patient');
-    } else if (hash === '#feature4' || hash === '#followups' || hash === '#followups-doctor') {
+    } else if (hash === '#feature4' || hash === '#followups' || hash === '#followups-doctor' || hash === '#followups-worker' || hash === '#followups-facility' || hash === '#followups-patient') {
       setViewState('feature4');
-      setActorRole('doctor');
-    } else if (hash === '#followups-worker') {
-      setViewState('feature4');
-      setActorRole('worker');
-    } else if (hash === '#followups-facility') {
-      setViewState('feature4');
-      setActorRole('facility');
-    } else if (hash === '#followups-patient') {
-      setViewState('feature4');
-      setActorRole('patient');
-    } else if (hash === '#feature5' || hash === '#records' || hash === '#records-patient') {
+    } else if (hash === '#feature5' || hash === '#records' || hash === '#records-patient' || hash === '#records-doctor' || hash === '#records-worker') {
       setViewState('feature5');
-      setActorRole('patient');
-    } else if (hash === '#records-doctor') {
-      setViewState('feature5');
-      setActorRole('doctor');
-    } else if (hash === '#records-worker') {
-      setViewState('feature5');
-      setActorRole('worker');
-    } else if (hash === '#feature6' || hash === '#medicine' || hash === '#diagnostic') {
+    } else if (hash === '#feature6' || hash === '#medicine' || hash === '#diagnostic' || hash === '#shop-owner' || hash === '#lab-staff' || hash === '#doctor-orders' || hash === '#diagnostic-orders') {
       setViewState('feature6');
-    } else if (hash === '#shop-owner') {
-      setViewState('feature6');
-      setActorRole('shop_owner');
-    } else if (hash === '#lab-staff') {
-      setViewState('feature6');
-      setActorRole('lab_staff');
-    } else if (hash === '#doctor-orders' || hash === '#diagnostic-orders') {
-      setViewState('feature6');
-      setActorRole('doctor');
     } else if (
       hash === '#feature7' ||
       hash === '#dashboard' ||
@@ -19629,7 +19708,10 @@ function App() {
       hash === '#feature9' ||
       hash === '#command-center' ||
       hash === '#district-admin' ||
-      hash === '#command' ||
+      hash === '#command'
+    ) {
+      setViewState('feature9');
+    } else if (
       hash === '#feature8' ||
       hash === '#schemes' ||
       hash === '#scheme-finder' ||
@@ -19650,15 +19732,30 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  const updateHash = (newHash) => {
+    if (window.location.hash === newHash) return;
+    
+    // Coalesce sequential programmatic navigations to avoid duplicate browser history entries
+    if (window.navigatingHash) {
+      window.history.replaceState(null, '', newHash);
+    } else {
+      window.location.hash = newHash;
+      window.navigatingHash = true;
+      setTimeout(() => {
+        window.navigatingHash = false;
+      }, 50);
+    }
+  };
+
   const setView = (v) => {
     setViewState(v);
-    window.location.hash = v;
+    updateHash('#' + v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const setScreen = (s) => {
     setFeature1Screen(s);
-    window.location.hash = `screen=${s}`;
+    updateHash('#screen=' + s);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -19718,11 +19815,24 @@ function App() {
             onLaunchFeature8={() => {
               setView('feature8');
             }}
+            onLaunchFeature9={() => {
+              setView('feature9');
+            }}
             onLaunchAbout={() => {
               setView('about');
             }}
             actorRole={actorRole}
             setActorRole={setActorRole}
+          />
+        )}
+
+        {/* VIEW: OVERVIEW */}
+        {view === 'overview' && (
+          <ScreenOverview
+            actorRole={actorRole}
+            setView={setView}
+            setScreen={setScreen}
+            setTeleconsultScreen={setTeleconsultScreen}
           />
         )}
 
