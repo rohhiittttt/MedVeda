@@ -88,8 +88,13 @@ const followUpStore = new SqliteFollowUpStore();
 const followUpUseCase = new ManageFollowUpUseCase(followUpStore);
 
 // Initialize Interoperable Health Records Store & Use Case (Feature 05)
+import { RecordsRagUseCase } from '../backend/src/application/use-cases/records-rag.use-case.ts';
+import { GeminiRecordsRagAdapter } from '../backend/src/infrastructure/ai/gemini-records-rag.adapter.ts';
+
 const recordsStore = new InMemoryRecordsStore();
 const recordsUseCase = new ManageRecordsUseCase(recordsStore);
+const recordsRagAdapter = new GeminiRecordsRagAdapter();
+const recordsRagUseCase = new RecordsRagUseCase(recordsStore, recordsRagAdapter);
 
 // Initialize Medicine Availability & Diagnostic Coordination Store & Use Case (Feature 06: Persistent SQLite)
 const medicineStore = new SqliteMedicineStore();
@@ -781,6 +786,45 @@ const server = http.createServer(async (req, res) => {
       if (normPath === '/api/audit/emergency-overrides' && req.method === 'GET') {
         const patientId = urlObj.searchParams.get('patient_id') || undefined;
         const logs = recordsStore.getEmergencyLogs(patientId);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: logs }));
+        return;
+      }
+
+      // 44b. AI Multimodal Vision OCR Document Analysis: POST /api/records/ocr/analyze
+      if (normPath === '/api/records/ocr/analyze' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const result = await recordsRagUseCase.analyzeDocumentOcr(body);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: result }));
+        } catch (err) {
+          console.error('Error in /api/records/ocr/analyze:', err);
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: err.message || 'OCR Analysis Failed' }));
+        }
+        return;
+      }
+
+      // 44c. EHR-Integrated Grounded RAG Chatbot: POST /api/records/chat
+      if (normPath === '/api/records/chat' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const result = await recordsRagUseCase.queryPatientRecordsChat(body);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: result }));
+        } catch (err) {
+          console.error('Error in /api/records/chat:', err);
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: err.message || 'RAG Chat Evaluation Failed' }));
+        }
+        return;
+      }
+
+      // 44d. RAG Chat Audit Logs: GET /api/records/chat/audit
+      if (normPath === '/api/records/chat/audit' && req.method === 'GET') {
+        const patientId = urlObj.searchParams.get('patient_id') || undefined;
+        const logs = recordsRagUseCase.getAuditLogs(patientId);
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: logs }));
         return;
