@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "node build.js",
-    "start": "next start --port 3000",
+    "start": "tsx server.js",
+    "serve": "tsx server.js",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

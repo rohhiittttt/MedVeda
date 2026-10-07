@@ -21518,7 +21518,7 @@ function ScreenMedicalAssistantAgent({
     {
       id: 'msg-init',
       sender: 'agent',
-      text: "नमस्ते! I am your MedVeda Autonomous Medical Assistant Agent. मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ।\n\nI can book doctor teleconsultations, check emergency hospital beds, set medicine dosage reminders, and navigate you across MedVeda features — strictly within our verified healthcare network with full privacy protection.\n\nआप मुझसे हिंदी या English में कुछ भी पूछ सकते हैं!",
+      text: "नमस्ते! I am your MedVeda Autonomous Medical Assistant Agent. मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ।\n\nI can provide tentative health guidance on common basic ailments, ask clarifying questions, suggest safe Over-The-Counter (OTC) medicines (no prescription required), analyze lab reports & medicine strips with same-composition alternatives, book doctor teleconsultations, and navigate MedVeda features.\n\nआप मुझसे हिंदी या English में कुछ भी पूछ सकते हैं या रिपोर्ट/दवा की फोटो (📎) अपलोड कर सकते हैं!",
       detectedLanguage: 'en',
       urgencyLevel: 'GREEN',
       timestamp: 'Just now',
@@ -21526,11 +21526,11 @@ function ScreenMedicalAssistantAgent({
         {
           type: 'QUICK_ACTIONS',
           options: [
+            { label: '💊 Dolo 650 Alternatives (समान दवाएं)', query: 'What is Dolo 650 and what are its same composition alternatives?' },
+            { label: '🌡️ Mild Fever & Body Ache (हल्का बुखार)', query: 'I have mild fever and body ache since morning' },
+            { label: '🍋 Acidity & Indigestion (एसिडिटी राहत)', query: 'मुझे पेट में हल्की गैस और एसिडिटी हो रही है' },
             { label: '👨‍⚕️ Book Cardiologist (हृदय रोग डॉक्टर)', query: 'Book an appointment with a cardiologist' },
-            { label: '🏥 Nearby Hospitals & Emergency Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' },
-            { label: '💊 Set Telmisartan Reminder (दवा रिमाइंडर)', query: 'Remind me to take Telmisartan 40mg at 08:00 AM' },
-            { label: '📅 View My Booked Appointments', query: 'View my booked appointments' },
-            { label: '🚀 Navigate to Medicines & Labs', query: 'Take me to Feature 06 medicine stock' }
+            { label: '🏥 Nearby Hospitals & ICU Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' }
           ]
         }
       ]
@@ -21550,6 +21550,9 @@ function ScreenMedicalAssistantAgent({
   const [facilitiesList, setFacilitiesList] = useState([]);
   const [appointmentsList, setAppointmentsList] = useState([]);
 
+  // Multimodal File Attachment State
+  const [selectedFile, setSelectedFile] = useState(null); // { file, base64, mimeType, name, previewUrl, sizeKb }
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll chat to latest message
@@ -21659,20 +21662,61 @@ function ScreenMedicalAssistantAgent({
     }
   };
 
+  // Multimodal File Selection Handler
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit. Please upload a smaller document or photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const dataUrl = uploadEvent.target.result;
+      const base64Data = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      const isImg = file.type.startsWith('image/');
+      setSelectedFile({
+        file,
+        base64: base64Data,
+        mimeType: file.type || 'image/jpeg',
+        name: file.name,
+        previewUrl: isImg ? dataUrl : null,
+        sizeKb: Math.round(file.size / 1024)
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleClearFile = () => {
+    setSelectedFile(null);
+  };
+
   const handleSendMessage = async (textToSend) => {
     const query = (textToSend || inputText).trim();
-    if (!query || isLoading) return;
+    if (!query && !selectedFile) return;
+    if (isLoading) return;
 
+    const fileToUpload = selectedFile;
     const userMsgId = `usr-${Date.now()}`;
     const userMsg = {
       id: userMsgId,
       sender: 'user',
-      text: query,
+      text: query || (fileToUpload ? `Uploaded document: ${fileToUpload.name}` : ''),
+      attachedFile: fileToUpload ? {
+        name: fileToUpload.name,
+        mimeType: fileToUpload.mimeType,
+        previewUrl: fileToUpload.previewUrl,
+        sizeKb: fileToUpload.sizeKb
+      } : null,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
+    setSelectedFile(null);
     setIsLoading(true);
 
     try {
@@ -21680,7 +21724,7 @@ function ScreenMedicalAssistantAgent({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: query,
+          query: query || (fileToUpload ? `Please analyze this uploaded document: ${fileToUpload.name}` : ''),
           language: selectedLanguage,
           patientId: 'PAT-2026-1024',
           patientInfo: {
@@ -21688,7 +21732,10 @@ function ScreenMedicalAssistantAgent({
             age: 48,
             gender: 'male',
             location: 'Katkamsandi, Hazaribagh'
-          }
+          },
+          fileBase64: fileToUpload ? fileToUpload.base64 : undefined,
+          fileMimeType: fileToUpload ? fileToUpload.mimeType : undefined,
+          fileName: fileToUpload ? fileToUpload.name : undefined
         })
       });
 
@@ -21747,7 +21794,6 @@ function ScreenMedicalAssistantAgent({
   // Human-in-the-Loop Confirmation: Execute Real Action in MedVeda Database
   const handleExecuteAction = async (msgId, actionCard, confirmChoice) => {
     if (!confirmChoice) {
-      // User cancelled proposal
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== msgId) return m;
@@ -21803,7 +21849,6 @@ function ScreenMedicalAssistantAgent({
       const data = await res.json();
 
       if (data.success && data.data) {
-        // Update the action card state in message to CONFIRMED
         setMessages((prev) =>
           prev.map((m) => {
             if (m.id !== msgId) return m;
@@ -21823,12 +21868,9 @@ function ScreenMedicalAssistantAgent({
           })
         );
 
-        // Auto play audio confirmation if available
         if (autoVoice && data.data.audioBase64) {
           playBase64Audio(data.data.audioBase64, `action-res-${Date.now()}`);
         }
-
-        // Refresh stores
         fetchLiveStores();
       } else {
         alert(data.error || 'Failed to execute action. Please try again.');
@@ -21852,16 +21894,16 @@ function ScreenMedicalAssistantAgent({
         );
       case 'ORANGE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
-            <span>⚠️</span>
-            <span>URGENT TRIAGE</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white">
+            <span>🛑</span>
+            <span>DOCTOR CONSULT REQUIRED</span>
           </span>
         );
       case 'YELLOW':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
             <span>ℹ️</span>
-            <span>G-NAD HEALTH GUIDANCE</span>
+            <span>CALIBRATED HEALTH GUIDANCE</span>
           </span>
         );
       default:
@@ -21893,11 +21935,11 @@ function ScreenMedicalAssistantAgent({
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  G-NAD & G-HON Safe
+                  OTC-Safe & Multimodal
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Action-capable multilingual health agent: book consults, find beds, set reminders, voice guidance
+                Action-capable multilingual health agent: basic symptom triage, OTC guidance, report review & same-composition alternatives
               </p>
             </div>
           </div>
@@ -22020,52 +22062,45 @@ function ScreenMedicalAssistantAgent({
               </span>
               <button
                 type="button"
+                onClick={() => handleSendMessage('What is Dolo 650 and what are its same composition alternatives?')}
+                className="shrink-0 px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#0b2b82] font-semibold transition-all"
+              >
+                💊 Dolo 650 & Same-Salt Alternatives
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('I have mild fever and headache since yesterday')}
+                className="shrink-0 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold transition-all"
+              >
+                🌡️ Mild Fever & Clarifying Questions
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('मुझे पेट में गैस और एसिडिटी हो रही है')}
+                className="shrink-0 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold transition-all"
+              >
+                🍋 Acidity & Indigestion (हिन्दी में OTC सलाह)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Can you prescribe amoxicillin or antibiotics for my infection?')}
+                className="shrink-0 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-semibold transition-all"
+              >
+                🛑 Antibiotic Guardrail Test (AI Refusal)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('My CBC report shows: Hemoglobin 10.4 g/dL, Platelets 220000. Please explain.')}
+                className="shrink-0 px-3 py-1 rounded-full bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-semibold transition-all"
+              >
+                📋 Explain Lab Report (Strict Grounding)
+              </button>
+              <button
+                type="button"
                 onClick={() => handleSendMessage('Book an appointment with Dr. Rajesh Verma (Cardiologist)')}
                 className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
               >
-                👨‍⚕️ Book Cardiologist (कार्डियोलॉजिस्ट)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('डॉ. प्रिया शर्मा (न्यूरोलॉजिस्ट) से अपॉइंटमेंट बुक करें')}
-                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
-              >
-                🧠 Book Neurologist (हिन्दी में बुकिंग)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('Show nearby hospitals and emergency beds in Hazaribagh')}
-                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
-              >
-                🏥 Check ICU & Emergency Beds
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('Remind me to take Telmisartan 40mg at 08:00 AM')}
-                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
-              >
-                💊 Remind Telmisartan 40mg at 8 AM
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('Take me to Feature 06 medicine stock')}
-                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
-              >
-                🚀 Jump to Medicine Stocks
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('I have severe crushing chest pain and sweating')}
-                className="shrink-0 px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 font-semibold transition-all"
-              >
-                🚨 Emergency 108 Red-Flag Test
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('Order pizza and pay online with credit card')}
-                className="shrink-0 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold transition-all"
-              >
-                🛡️ Out of Bounds Test (G-HON)
+                👨‍⚕️ Book Cardiologist
               </button>
             </div>
 
@@ -22128,17 +22163,338 @@ function ScreenMedicalAssistantAgent({
                       </div>
                     )}
 
+                    {/* User Attached File Preview in Bubble */}
+                    {msg.attachedFile && (
+                      <div className="mb-2.5 p-2 bg-white/15 rounded-xl border border-white/20 flex items-center gap-2 text-xs">
+                        {msg.attachedFile.previewUrl ? (
+                          <img
+                            src={msg.attachedFile.previewUrl}
+                            alt="Attached Document"
+                            className="w-10 h-10 rounded-lg object-cover border border-white/40"
+                          />
+                        ) : (
+                          <span className="text-xl">📄</span>
+                        )}
+                        <div className="truncate">
+                          <p className="font-bold truncate">{msg.attachedFile.name}</p>
+                          <p className="text-[10px] opacity-80">{msg.attachedFile.sizeKb} KB &bull; {msg.attachedFile.mimeType}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Message Body Text */}
                     <div className="text-sm leading-relaxed whitespace-pre-line font-normal">
                       {msg.text}
                     </div>
 
-                    {/* ACTION CARDS (Human-in-the-Loop Booking, Lists, Navigation) */}
+                    {/* ACTION CARDS */}
                     {msg.actionCards && msg.actionCards.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
                         {msg.actionCards.map((card, cIdx) => (
                           <div key={cIdx}>
-                            {/* 1. CONFIRMATION CARD (Human-in-the-Loop - Section 12.3 & D4) */}
+                            {/* 1. MEDICINE INFO & SAME COMPOSITION ALTERNATIVES CARD */}
+                            {card.type === 'MEDICINE_INFO_CARD' && (
+                              <div className="bg-gradient-to-br from-blue-50/80 to-slate-50 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl">💊</span>
+                                    <div>
+                                      <h4 className="text-sm font-black text-[#0b2b82]">
+                                        {card.primaryName || 'Medication Details'}
+                                      </h4>
+                                      <p className="text-xs text-slate-500 font-medium">
+                                        {card.therapeuticClass || 'Pharmaceutical Drug'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      card.isOtc
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`}>
+                                      {card.isOtc ? '🟢 OTC (No Prescription)' : '🔴 Prescription Only'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-1.5 text-xs text-slate-700 mb-3">
+                                  <div className="flex justify-between items-center py-0.5">
+                                    <span className="font-semibold text-slate-500">Active Chemical Salt:</span>
+                                    <span className="font-black text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                      {card.activeComposition || card.strength}
+                                    </span>
+                                  </div>
+                                  <div className="py-0.5">
+                                    <span className="font-semibold text-slate-500">Therapeutic Indication:</span>
+                                    <p className="font-medium text-slate-800 mt-0.5">{card.indication}</p>
+                                  </div>
+                                  {card.usageAdvice && (
+                                    <div className="py-0.5 pt-1 border-t border-slate-100">
+                                      <span className="font-semibold text-slate-500">Dosage & Safety Advice:</span>
+                                      <p className="text-slate-700 mt-0.5">{card.usageAdvice}</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* SAME COMPOSITION ALTERNATIVES */}
+                                {card.brandAlternatives && card.brandAlternatives.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>🔄</span> Verified Same-Composition Alternatives:
+                                      </h5>
+                                      <span className="text-[10px] font-mono text-teal-700 font-bold bg-teal-50 px-1.5 py-0.2 rounded">
+                                        EXACT SAME SALT
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {card.brandAlternatives.map((alt, aIdx) => (
+                                        <div key={aIdx} className="p-2.5 rounded-lg bg-white border border-slate-200 flex flex-col justify-between">
+                                          <div>
+                                            <div className="flex items-center justify-between">
+                                              <span className="font-bold text-xs text-slate-900">{alt.brand}</span>
+                                              <span className="text-[10px] font-mono text-slate-500">{alt.priceEst}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500">{alt.manufacturer}</p>
+                                            <p className="text-[10px] font-semibold text-teal-700 mt-1">Salt: {alt.salt}</p>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (onNavigate) onNavigate('#feature6');
+                                              else window.location.hash = '#feature6';
+                                            }}
+                                            className="mt-2 py-1 px-2 bg-slate-50 hover:bg-blue-50 text-[#0b2b82] rounded text-[10px] font-bold border border-slate-200 transition-all flex items-center justify-center gap-1"
+                                          >
+                                            <span>Check Live Stock (Feature 06) &rarr;</span>
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {card.disclaimer && (
+                                  <p className="text-[10px] text-slate-400 italic mt-2.5">
+                                    ⚠️ {card.disclaimer}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 2. LAB REPORT PARAMETERS & GROUNDED SUMMARY CARD */}
+                            {card.type === 'LAB_REPORT_CARD' && (
+                              <div className="bg-white border-2 border-teal-300 rounded-xl p-4 shadow-xs">
+                                <div className="flex items-start justify-between gap-2 mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl">📋</span>
+                                    <div>
+                                      <h4 className="text-sm font-black text-slate-900">
+                                        {card.title || 'Diagnostic Pathology Lab Report'}
+                                      </h4>
+                                      <p className="text-xs text-slate-500">
+                                        {card.facilityOrLab} &bull; {card.date}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
+                                    REPORT GROUNDED
+                                  </span>
+                                </div>
+
+                                {/* Parameters Table */}
+                                {card.parameters && card.parameters.length > 0 && (
+                                  <div className="overflow-x-auto rounded-lg border border-slate-200 mb-3">
+                                    <table className="w-full text-xs text-left">
+                                      <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-bold">
+                                        <tr>
+                                          <th className="p-2">Test Parameter</th>
+                                          <th className="p-2">Observed</th>
+                                          <th className="p-2">Normal Range</th>
+                                          <th className="p-2">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {card.parameters.map((p, pIdx) => {
+                                          const statusColor =
+                                            p.status === 'NORMAL'
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : p.status === 'LOW'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-rose-100 text-rose-800';
+                                          return (
+                                            <tr key={pIdx} className="hover:bg-slate-50/50">
+                                              <td className="p-2 font-bold text-slate-800">
+                                                {p.name}
+                                                {p.meaning && <p className="text-[10px] font-normal text-slate-500">{p.meaning}</p>}
+                                              </td>
+                                              <td className="p-2 font-mono font-bold text-slate-900">
+                                                {p.observedValue} {p.unit}
+                                              </td>
+                                              <td className="p-2 font-mono text-slate-500">{p.normalRange} {p.unit}</td>
+                                              <td className="p-2">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColor}`}>
+                                                  {p.status}
+                                                </span>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+
+                                {/* Grounded Summary */}
+                                {card.groundedSummary && (
+                                  <div className="bg-teal-50/80 border border-teal-200 rounded-lg p-3 text-xs text-teal-950 mb-3">
+                                    <span className="font-bold block text-teal-900 mb-1">🔍 Report Grounded Finding:</span>
+                                    <p className="leading-relaxed">{card.groundedSummary}</p>
+                                  </div>
+                                )}
+
+                                {card.disclaimer && (
+                                  <p className="text-[10px] text-slate-400 italic">
+                                    ⚠️ {card.disclaimer}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 3. CLARIFYING QUESTIONS CARD */}
+                            {card.type === 'CLARIFYING_QUESTIONS_CARD' && (
+                              <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">❓</span>
+                                    <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider">
+                                      {card.title || 'Clarifying Questions to Rule Out Red Flags'}
+                                    </h4>
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900">
+                                    TRIAGE CHECK
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5 text-xs text-amber-900 font-medium">
+                                  {(card.questions || []).map((q, qIdx) => (
+                                    <div key={qIdx} className="flex items-start gap-1.5 bg-white/70 p-2 rounded-lg border border-amber-200">
+                                      <span className="font-bold text-amber-800">{qIdx + 1}.</span>
+                                      <span>{q}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {card.quickReplies && card.quickReplies.length > 0 && (
+                                  <div className="mt-2.5 pt-2 border-t border-amber-200/80">
+                                    <span className="text-[10px] font-bold text-amber-800 uppercase">Quick Reply (क्लिक करके जवाब दें):</span>
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {card.quickReplies.map((qr, qrIdx) => (
+                                        <button
+                                          key={qrIdx}
+                                          type="button"
+                                          onClick={() => handleSendMessage(qr)}
+                                          className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold border border-amber-300 transition-all shadow-2xs"
+                                        >
+                                          {qr} &rarr;
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 4. OTC MEDICATION CARD */}
+                            {card.type === 'OTC_MEDICATION_CARD' && (
+                              <div className="bg-emerald-50/90 border border-emerald-300 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">🟢</span>
+                                    <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                                      {card.title || 'Safe Over-The-Counter (OTC) Guidance'}
+                                    </h4>
+                                  </div>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900">
+                                    NO PRESCRIPTION NEEDED
+                                  </span>
+                                </div>
+                                <div className="space-y-2 mt-2">
+                                  {(card.medicines || []).map((med, mIdx) => (
+                                    <div key={mIdx} className="p-3 bg-white rounded-xl border border-emerald-200 text-xs shadow-2xs">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-bold text-slate-900 text-sm">{med.name}</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                          {med.activeSalt}
+                                        </span>
+                                      </div>
+                                      <p className="text-slate-700 font-medium mt-1">
+                                        <strong>Dosage:</strong> {med.dosage} &bull; {med.frequency}
+                                      </p>
+                                      <p className="text-slate-500 text-[11px] mt-1 italic">
+                                        {selectedLanguage === 'hi' ? med.notesHi : med.notesEn}
+                                      </p>
+                                      <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-slate-100">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendMessage(`Remind me to take ${med.activeSalt || med.name} at 08:00 AM`)}
+                                          className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-md text-[11px] font-bold transition-all flex items-center gap-1"
+                                        >
+                                          <span>⏰ Set Reminder</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (onNavigate) onNavigate('#feature6');
+                                            else window.location.hash = '#feature6';
+                                          }}
+                                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-md text-[11px] font-bold transition-all flex items-center gap-1"
+                                        >
+                                          <span>💊 Check Stock</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 5. DOCTOR REFERRAL REQUIRED CARD */}
+                            {card.type === 'DOCTOR_REFERRAL_REQUIRED_CARD' && (
+                              <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-4 shadow-xs">
+                                <div className="flex items-start gap-2.5 mb-2">
+                                  <span className="text-2xl shrink-0">🛑</span>
+                                  <div>
+                                    <h4 className="text-xs font-black text-rose-950 uppercase tracking-wider">
+                                      {card.title || 'Doctor Consultation Required'}
+                                    </h4>
+                                    <p className="text-xs text-rose-800 font-medium mt-0.5">
+                                      {card.reason || 'This condition requires certified medical physical examination and prescription-only medications.'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-rose-200">
+                                  {(card.options || []).map((opt, oIdx) => (
+                                    <button
+                                      key={oIdx}
+                                      type="button"
+                                      onClick={() => {
+                                        if (opt.doctorId) handleSendMessage(`Book appointment with Dr. Rajesh Verma`);
+                                        else if (opt.route) {
+                                          if (onNavigate) onNavigate(opt.route);
+                                          else window.location.hash = opt.route;
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                                    >
+                                      <span>{opt.label}</span>
+                                      <span>&rarr;</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 6. CONFIRMATION CARD (Human-in-the-Loop Booking) */}
                             {card.type === 'CONFIRMATION_CARD' && (
                               <div className="bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white rounded-xl border-2 border-blue-300 p-4 shadow-xs">
                                 <div className="flex items-center justify-between mb-3">
@@ -22244,7 +22600,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 2. DOCTORS LIST CARD */}
+                            {/* 7. DOCTORS LIST CARD */}
                             {card.type === 'DOCTORS_LIST' && (
                               <div className="space-y-2">
                                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -22282,7 +22638,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 3. FACILITIES LIST CARD */}
+                            {/* 8. FACILITIES LIST CARD */}
                             {card.type === 'FACILITIES_LIST' && (
                               <div className="space-y-2">
                                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -22328,7 +22684,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 4. PROPOSE REMINDER CARD */}
+                            {/* 9. PROPOSE REMINDER CARD */}
                             {card.type === 'PROPOSE_REMINDER' && (
                               <div className="bg-amber-50/70 border border-amber-300 rounded-xl p-3.5 shadow-2xs">
                                 <div className="flex items-center justify-between mb-2">
@@ -22364,7 +22720,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 5. APPOINTMENTS LIST CARD */}
+                            {/* 10. APPOINTMENTS LIST CARD */}
                             {card.type === 'APPOINTMENTS_LIST' && (
                               <div className="space-y-2">
                                 {(card.appointments || []).length === 0 ? (
@@ -22397,7 +22753,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 6. NAVIGATE ACTION CARD */}
+                            {/* 11. NAVIGATE ACTION CARD */}
                             {card.type === 'NAVIGATE_ACTION' && (
                               <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
                                 <div>
@@ -22418,7 +22774,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* EMERGENCY 108 ACTION CARD */}
+                            {/* 12. EMERGENCY ACTIONS CARD */}
                             {card.type === 'EMERGENCY_ACTIONS' && (
                               <div className="bg-rose-50 border-2 border-rose-400 rounded-xl p-4 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
@@ -22453,7 +22809,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* CAPABILITY FALLBACK (G-HON BOUNDS) */}
+                            {/* 13. CAPABILITY FALLBACK CARD */}
                             {card.type === 'CAPABILITY_FALLBACK' && (
                               <div className="bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 shadow-2xs">
                                 <div className="flex items-center justify-between mb-2">
@@ -22485,7 +22841,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* HEALTH GUIDANCE ACTIONS */}
+                            {/* 14. HEALTH GUIDANCE ACTIONS */}
                             {card.type === 'HEALTH_GUIDANCE_ACTIONS' && (
                               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs">
                                 <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
@@ -22498,7 +22854,7 @@ function ScreenMedicalAssistantAgent({
                                       type="button"
                                       onClick={() => {
                                         if (opt.doctorId) {
-                                          handleSendMessage(`Book appointment with Dr.`);
+                                          handleSendMessage(`Book appointment with Dr. Rajesh Verma`);
                                         } else if (opt.route) {
                                           if (onNavigate) onNavigate(opt.route);
                                           else window.location.hash = opt.route;
@@ -22513,7 +22869,7 @@ function ScreenMedicalAssistantAgent({
                               </div>
                             )}
 
-                            {/* 7. QUICK ACTIONS PILLS */}
+                            {/* 15. QUICK ACTIONS PILLS */}
                             {card.type === 'QUICK_ACTIONS' && (
                               <div className="flex flex-wrap gap-2 pt-1">
                                 {(card.options || []).map((opt, oIdx) => (
@@ -22556,7 +22912,7 @@ function ScreenMedicalAssistantAgent({
                     <span className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"></span>
                   </div>
                   <span className="font-medium text-slate-600">
-                    Agent reasoning & preparing action proposal...
+                    Agent reasoning, checking OTC safety & preparing cards...
                   </span>
                 </div>
               )}
@@ -22566,6 +22922,35 @@ function ScreenMedicalAssistantAgent({
 
             {/* Input Footer Area */}
             <div className="p-3 sm:p-4 bg-white border-t border-slate-200">
+              {/* Selected file preview pill */}
+              {selectedFile && (
+                <div className="mb-2 p-2 px-3 bg-blue-50/90 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900 animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    {selectedFile.previewUrl ? (
+                      <img
+                        src={selectedFile.previewUrl}
+                        alt="Upload preview"
+                        className="w-8 h-8 rounded-lg object-cover border border-blue-200 shadow-2xs"
+                      />
+                    ) : (
+                      <span className="text-xl">📄</span>
+                    )}
+                    <div>
+                      <p className="font-bold text-slate-800 truncate max-w-[200px] sm:max-w-md">{selectedFile.name}</p>
+                      <p className="text-[10px] text-blue-700">{selectedFile.sizeKb} KB &bull; {selectedFile.mimeType}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearFile}
+                    className="p-1 rounded-full hover:bg-blue-200 text-blue-800 font-bold text-sm"
+                    title="Remove attachment"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -22573,6 +22958,29 @@ function ScreenMedicalAssistantAgent({
                 }}
                 className="flex items-center gap-2"
               >
+                {/* Hidden File Input for Multimodal Upload */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*,application/pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                {/* Multimodal Attachment Button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`p-3 rounded-xl border text-base flex items-center justify-center transition-all shrink-0 ${
+                    selectedFile
+                      ? 'bg-blue-100 text-[#0b2b82] border-blue-300 font-bold shadow-xs'
+                      : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border-slate-200'
+                  }`}
+                  title="Upload Medicine Strip, Prescription or Lab Report (मल्टीमॉडल रिपोर्ट या दवा की फोटो अपलोड करें)"
+                >
+                  <span>📎</span>
+                </button>
+
                 {/* Voice Input Microphone Button */}
                 <button
                   type="button"
@@ -22594,8 +23002,8 @@ function ScreenMedicalAssistantAgent({
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder={
                     selectedLanguage === 'hi'
-                      ? 'अपनी समस्या बताएं, डॉक्टर बुक करें, या दवा रिमाइंडर सेट करें...'
-                      : 'Ask to book a doctor, check emergency beds, or set a medicine reminder...'
+                      ? 'अपनी समस्या बताएं, दवा के बारे में पूछें, या रिपोर्ट अपलोड करें...'
+                      : 'Describe symptoms, ask about medicine alternatives, or upload a report...'
                   }
                   className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0b2b82] focus:bg-white transition-all"
                   disabled={isLoading}
@@ -22604,7 +23012,7 @@ function ScreenMedicalAssistantAgent({
                 {/* Send Button */}
                 <button
                   type="submit"
-                  disabled={!inputText.trim() || isLoading}
+                  disabled={(!inputText.trim() && !selectedFile) || isLoading}
                   className="px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-800 disabled:opacity-50 text-white text-sm font-black transition-all flex items-center gap-1.5 shadow-sm shrink-0"
                 >
                   <span>Send</span>
@@ -22614,10 +23022,10 @@ function ScreenMedicalAssistantAgent({
 
               <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400">
                 <span>
-                  🛡️ Strictly within MedVeda bounds. G-NAD Non-diagnostic guidance.
+                  🛡️ Safe OTC Guidance &bull; Exact Same-Salt Alternatives &bull; Non-Diagnostic AI
                 </span>
                 <span className="hidden sm:inline">
-                  ⚡ Port 8001 Python AI & Voice Engine
+                  ⚡ Port 8001 Python Multimodal AI Engine
                 </span>
               </div>
             </div>
@@ -22725,23 +23133,34 @@ function ScreenMedicalAssistantAgent({
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-2xl">🏥</span>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200">
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center text-xl font-bold border border-teal-100">
+                        🏥
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                         {fac.type}
                       </span>
                     </div>
-                    <h4 className="text-base font-black text-slate-900">{fac.name}</h4>
-                    <p className="text-xs text-slate-600 mt-1">{fac.address}</p>
+                    <h4 className="text-sm font-black text-slate-900">{fac.name}</h4>
+                    <p className="text-xs text-slate-500 mt-1">{fac.address}</p>
 
                     <div className="grid grid-cols-2 gap-2 mt-4">
-                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Emergency Beds</span>
-                        <div className="text-lg font-black text-emerald-900">{fac.emergencyBeds} Available</div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Emergency Beds</span>
+                        <span className="text-sm font-black text-emerald-700">
+                          {fac.emergencyBeds} Ready
+                        </span>
                       </div>
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                        <span className="text-[10px] font-bold text-blue-700 uppercase">Direct Helpline</span>
-                        <div className="text-xs font-mono font-bold text-blue-900 mt-1">{fac.contactPhone}</div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">ICU Beds</span>
+                        <span className="text-sm font-black text-blue-700">
+                          {fac.icuBeds} Ready
+                        </span>
                       </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
+                      <span>📞 {fac.phone}</span>
+                      <span>🚗 {fac.distanceKm} km away</span>
                     </div>
                   </div>
 
@@ -22812,7 +23231,7 @@ function ScreenMedicalAssistantAgent({
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-lg shrink-0">
-                        [OK]
+                        ✅
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -22853,6 +23272,7 @@ function ScreenMedicalAssistantAgent({
     </div>
   );
 }
+
 
 // ==========================================
 // --- FEATURES WORKSPACE: SIDE NAVBAR ---

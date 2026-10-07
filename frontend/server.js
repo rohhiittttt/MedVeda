@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 import { AssessTriageUseCase } from '../backend/src/application/use-cases/assess-triage.use-case.ts';
 import { ResearchHospitalsUseCase } from '../backend/src/application/use-cases/research-hospitals.use-case.ts';
@@ -33,6 +34,135 @@ try {
 } catch (e) {
   console.warn('Could not parse .env file:', e);
 }
+
+// ==========================================
+// --- PYTHON AI & VOICE ENGINE AUTO-SPAWNER (UNIFIED BACKEND) ---
+// ==========================================
+const PYTHON_SERVICE_PORT = process.env.PYTHON_PORT || '8001';
+const PYTHON_SERVICE_BASE = process.env.PYTHON_SERVICE_URL || `http://127.0.0.1:${PYTHON_SERVICE_PORT}`;
+let pythonProcess = null;
+let isStartingPython = false;
+
+function resolvePythonPath() {
+  if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
+    return process.env.PYTHON_PATH;
+  }
+  const possiblePaths = [
+    process.env.PYTHON_PATH,
+    'C:\\Users\\rohit das\\AppData\\Local\\Programs\\Python\\Python312\\python.exe',
+    'python3',
+    'python',
+    'py'
+  ].filter(Boolean);
+
+  for (const p of possiblePaths) {
+    if (p.includes(path.sep) && fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return possiblePaths[0] || 'python';
+}
+
+async function isPythonRunning() {
+  try {
+    const res = await fetch(`${PYTHON_SERVICE_BASE}/api/agent/doctors`, { signal: AbortSignal.timeout(1200) });
+    return res.status === 200;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function ensurePythonServiceRunning() {
+  if (isStartingPython) return;
+
+  const alreadyRunning = await isPythonRunning();
+  if (alreadyRunning) {
+    console.log(`[Unified Server] Python AI & Voice Service is already active on ${PYTHON_SERVICE_BASE}`);
+    return;
+  }
+
+  // If a remote URL is explicitly configured, don't attempt to spawn locally
+  if (process.env.PYTHON_SERVICE_URL && !process.env.PYTHON_SERVICE_URL.includes('127.0.0.1') && !process.env.PYTHON_SERVICE_URL.includes('localhost')) {
+    console.log(`[Unified Server] Connecting to remote Python AI Service at ${process.env.PYTHON_SERVICE_URL}`);
+    return;
+  }
+
+  isStartingPython = true;
+  const pythonExec = resolvePythonPath();
+  const scriptPath = path.resolve(__dirname, '../python_service/app.py');
+  const projectRoot = path.resolve(__dirname, '..');
+
+  console.log(`[Unified Server] Spawning Python AI Service internally: ${pythonExec} ${scriptPath}`);
+
+  try {
+    pythonProcess = spawn(pythonExec, [scriptPath], {
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+        PORT: String(PYTHON_SERVICE_PORT)
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    pythonProcess.stdout.on('data', (chunk) => {
+      const msg = chunk.toString().trim();
+      if (msg) console.log(`[Python AI Service] ${msg}`);
+    });
+
+    pythonProcess.stderr.on('data', (chunk) => {
+      const msg = chunk.toString().trim();
+      if (msg) console.log(`[Python AI Service stderr] ${msg}`);
+    });
+
+    pythonProcess.on('exit', (code, signal) => {
+      console.warn(`[Unified Server] Internal Python AI Service process exited (code: ${code}, signal: ${signal})`);
+      pythonProcess = null;
+    });
+
+    // Wait up to 15 seconds for Python service to report healthy
+    const startTime = Date.now();
+    while (Date.now() - startTime < 15000) {
+      await new Promise((r) => setTimeout(r, 600));
+      if (await isPythonRunning()) {
+        console.log(`[Unified Server] Python AI & Voice Service is online and connected at ${PYTHON_SERVICE_BASE}`);
+        isStartingPython = false;
+        return;
+      }
+    }
+    console.warn(`[Unified Server] Python AI Service startup is taking longer than expected. Continuing in background.`);
+  } catch (err) {
+    console.error(`[Unified Server] Error launching Python AI Service:`, err);
+  } finally {
+    isStartingPython = false;
+  }
+}
+
+function cleanupPythonProcess() {
+  if (pythonProcess && !pythonProcess.killed) {
+    console.log('[Unified Server] Shutting down internal Python AI Service process...');
+    try {
+      pythonProcess.kill('SIGTERM');
+    } catch (e) {
+      // ignore
+    }
+    pythonProcess = null;
+  }
+}
+
+process.on('SIGINT', () => {
+  cleanupPythonProcess();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  cleanupPythonProcess();
+  process.exit(0);
+});
+
+process.on('exit', () => {
+  cleanupPythonProcess();
+});
 
 import { InMemoryTeleconsultStore } from '../backend/src/infrastructure/cache/teleconsult.cache.ts';
 import { TeleconsultBookingUseCase } from '../backend/src/application/use-cases/teleconsult-booking.use-case.ts';
@@ -791,10 +921,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // Helper to proxy AI requests to Python FastAPI Service (http://127.0.0.1:8001)
+      // Helper to proxy AI requests to Python FastAPI Service (Unified Backend)
       const proxyToPython = async (subPath, body) => {
         try {
-          const pyRes = await fetch(`http://127.0.0.1:8001${subPath}`, {
+          const pyRes = await fetch(`${PYTHON_SERVICE_BASE}${subPath}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: body ? JSON.stringify(body) : undefined
@@ -803,7 +933,10 @@ const server = http.createServer(async (req, res) => {
             return await pyRes.json();
           }
         } catch (e) {
-          // Python service unreachable, fall back to Node implementation
+          // If Python service crashed or not running locally, auto-revive it!
+          if (!process.env.PYTHON_SERVICE_URL || process.env.PYTHON_SERVICE_URL.includes('127.0.0.1')) {
+            ensurePythonServiceRunning().catch(() => {});
+          }
         }
         return null;
       };
@@ -941,7 +1074,7 @@ const server = http.createServer(async (req, res) => {
             }
           } else if (req.method === 'GET') {
             try {
-              const pyFetch = await fetch(`http://127.0.0.1:8001${subPath}${urlObj.search}`);
+              const pyFetch = await fetch(`${PYTHON_SERVICE_BASE}${subPath}${urlObj.search}`);
               if (pyFetch.ok) {
                 const pyData = await pyFetch.json();
                 res.writeHead(200);
@@ -1941,6 +2074,7 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Smart Care Navigator unified server running at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', async () => {
+  console.log(`MedVeda Unified Server running at http://localhost:${PORT}`);
+  await ensurePythonServiceRunning();
 });

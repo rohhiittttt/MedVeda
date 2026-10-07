@@ -21518,7 +21518,7 @@ function ScreenMedicalAssistantAgent({
     {
       id: 'msg-init',
       sender: 'agent',
-      text: "नमस्ते! I am your MedVeda Autonomous Medical Assistant Agent. मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ।\n\nI can book doctor teleconsultations, check emergency hospital beds, set medicine dosage reminders, and navigate you across MedVeda features — strictly within our verified healthcare network with full privacy protection.\n\nआप मुझसे हिंदी या English में कुछ भी पूछ सकते हैं!",
+      text: "नमस्ते! I am your MedVeda Autonomous Medical Assistant Agent. मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ।\n\nI can provide tentative health guidance on common basic ailments, ask clarifying questions, suggest safe Over-The-Counter (OTC) medicines (no prescription required), analyze lab reports & medicine strips with same-composition alternatives, book doctor teleconsultations, and navigate MedVeda features.\n\nआप मुझसे हिंदी या English में कुछ भी पूछ सकते हैं या रिपोर्ट/दवा की फोटो (📎) अपलोड कर सकते हैं!",
       detectedLanguage: 'en',
       urgencyLevel: 'GREEN',
       timestamp: 'Just now',
@@ -21526,11 +21526,11 @@ function ScreenMedicalAssistantAgent({
         {
           type: 'QUICK_ACTIONS',
           options: [
+            { label: '💊 Dolo 650 Alternatives (समान दवाएं)', query: 'What is Dolo 650 and what are its same composition alternatives?' },
+            { label: '🌡️ Mild Fever & Body Ache (हल्का बुखार)', query: 'I have mild fever and body ache since morning' },
+            { label: '🍋 Acidity & Indigestion (एसिडिटी राहत)', query: 'मुझे पेट में हल्की गैस और एसिडिटी हो रही है' },
             { label: '👨‍⚕️ Book Cardiologist (हृदय रोग डॉक्टर)', query: 'Book an appointment with a cardiologist' },
-            { label: '🏥 Nearby Hospitals & Emergency Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' },
-            { label: '💊 Set Telmisartan Reminder (दवा रिमाइंडर)', query: 'Remind me to take Telmisartan 40mg at 08:00 AM' },
-            { label: '📅 View My Booked Appointments', query: 'View my booked appointments' },
-            { label: '🚀 Navigate to Medicines & Labs', query: 'Take me to Feature 06 medicine stock' }
+            { label: '🏥 Nearby Hospitals & ICU Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' }
           ]
         }
       ]
@@ -21550,6 +21550,9 @@ function ScreenMedicalAssistantAgent({
   const [facilitiesList, setFacilitiesList] = useState([]);
   const [appointmentsList, setAppointmentsList] = useState([]);
 
+  // Multimodal File Attachment State
+  const [selectedFile, setSelectedFile] = useState(null); // { file, base64, mimeType, name, previewUrl, sizeKb }
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll chat to latest message
@@ -21659,20 +21662,61 @@ function ScreenMedicalAssistantAgent({
     }
   };
 
+  // Multimodal File Selection Handler
+  const handleFileSelect = (e) => {
+    const file = _optionalChain([e, 'access', _224 => _224.target, 'access', _225 => _225.files, 'optionalAccess', _226 => _226[0]]);
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit. Please upload a smaller document or photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const dataUrl = uploadEvent.target.result;
+      const base64Data = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      const isImg = file.type.startsWith('image/');
+      setSelectedFile({
+        file,
+        base64: base64Data,
+        mimeType: file.type || 'image/jpeg',
+        name: file.name,
+        previewUrl: isImg ? dataUrl : null,
+        sizeKb: Math.round(file.size / 1024)
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleClearFile = () => {
+    setSelectedFile(null);
+  };
+
   const handleSendMessage = async (textToSend) => {
     const query = (textToSend || inputText).trim();
-    if (!query || isLoading) return;
+    if (!query && !selectedFile) return;
+    if (isLoading) return;
 
+    const fileToUpload = selectedFile;
     const userMsgId = `usr-${Date.now()}`;
     const userMsg = {
       id: userMsgId,
       sender: 'user',
-      text: query,
+      text: query || (fileToUpload ? `Uploaded document: ${fileToUpload.name}` : ''),
+      attachedFile: fileToUpload ? {
+        name: fileToUpload.name,
+        mimeType: fileToUpload.mimeType,
+        previewUrl: fileToUpload.previewUrl,
+        sizeKb: fileToUpload.sizeKb
+      } : null,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
+    setSelectedFile(null);
     setIsLoading(true);
 
     try {
@@ -21680,7 +21724,7 @@ function ScreenMedicalAssistantAgent({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: query,
+          query: query || (fileToUpload ? `Please analyze this uploaded document: ${fileToUpload.name}` : ''),
           language: selectedLanguage,
           patientId: 'PAT-2026-1024',
           patientInfo: {
@@ -21688,7 +21732,10 @@ function ScreenMedicalAssistantAgent({
             age: 48,
             gender: 'male',
             location: 'Katkamsandi, Hazaribagh'
-          }
+          },
+          fileBase64: fileToUpload ? fileToUpload.base64 : undefined,
+          fileMimeType: fileToUpload ? fileToUpload.mimeType : undefined,
+          fileName: fileToUpload ? fileToUpload.name : undefined
         })
       });
 
@@ -21747,7 +21794,6 @@ function ScreenMedicalAssistantAgent({
   // Human-in-the-Loop Confirmation: Execute Real Action in MedVeda Database
   const handleExecuteAction = async (msgId, actionCard, confirmChoice) => {
     if (!confirmChoice) {
-      // User cancelled proposal
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== msgId) return m;
@@ -21774,7 +21820,7 @@ function ScreenMedicalAssistantAgent({
           params: {
             doctorId: actionCard.doctor.id,
             slotTime: actionCard.slot.time,
-            patientName: _optionalChain([actionCard, 'access', _224 => _224.patient, 'optionalAccess', _225 => _225.name]) || 'Ramesh Mahto',
+            patientName: _optionalChain([actionCard, 'access', _227 => _227.patient, 'optionalAccess', _228 => _228.name]) || 'Ramesh Mahto',
             urgencyTier: actionCard.urgencyTier || 'ROUTINE',
             mode: actionCard.mode || 'teleconsult',
             reasonNote: `Confirmed teleconsultation with ${actionCard.doctor.name}`
@@ -21803,7 +21849,6 @@ function ScreenMedicalAssistantAgent({
       const data = await res.json();
 
       if (data.success && data.data) {
-        // Update the action card state in message to CONFIRMED
         setMessages((prev) =>
           prev.map((m) => {
             if (m.id !== msgId) return m;
@@ -21823,12 +21868,9 @@ function ScreenMedicalAssistantAgent({
           })
         );
 
-        // Auto play audio confirmation if available
         if (autoVoice && data.data.audioBase64) {
           playBase64Audio(data.data.audioBase64, `action-res-${Date.now()}`);
         }
-
-        // Refresh stores
         fetchLiveStores();
       } else {
         alert(data.error || 'Failed to execute action. Please try again.');
@@ -21845,67 +21887,67 @@ function ScreenMedicalAssistantAgent({
     switch (level) {
       case 'RED':
         return (
-          React.createElement('span', { className: "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21848}}
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21849}}, "🚨")
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21850}}, "EMERGENCY 108" )
+          React.createElement('span', { className: "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21890}}
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21891}}, "🚨")
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21892}}, "EMERGENCY 108" )
           )
         );
       case 'ORANGE':
         return (
-          React.createElement('span', { className: "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21855}}
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21856}}, "⚠️")
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21857}}, "URGENT TRIAGE" )
+          React.createElement('span', { className: "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21897}}
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21898}}, "🛑")
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21899}}, "DOCTOR CONSULT REQUIRED"  )
           )
         );
       case 'YELLOW':
         return (
-          React.createElement('span', { className: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21862}}
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21863}}, "ℹ️")
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21864}}, "G-NAD HEALTH GUIDANCE"  )
+          React.createElement('span', { className: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21904}}
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21905}}, "ℹ️")
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21906}}, "CALIBRATED HEALTH GUIDANCE"  )
           )
         );
       default:
         return (
-          React.createElement('span', { className: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21869}}
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21870}}, "🛡️")
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21871}}, "VERIFIED MEDVEDA BOUNDS"  )
+          React.createElement('span', { className: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21911}}
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21912}}, "🛡️")
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21913}}, "VERIFIED MEDVEDA BOUNDS"  )
           )
         );
     }
   };
 
   return (
-    React.createElement('div', { className: "min-h-[calc(100vh-70px)] bg-slate-50 flex flex-col"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21878}}
+    React.createElement('div', { className: "min-h-[calc(100vh-70px)] bg-slate-50 flex flex-col"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21920}}
       /* TOP HEADER STRIP */
-      , React.createElement('div', { className: "bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-xs"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21880}}
-        , React.createElement('div', { className: "max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21881}}
-          , React.createElement('div', { className: "flex items-center gap-3"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21882}}
-            , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0b2b82] to-teal-500 text-white flex items-center justify-center text-xl shadow-sm"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21883}}, "🤖"
+      , React.createElement('div', { className: "bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-xs"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21922}}
+        , React.createElement('div', { className: "max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21923}}
+          , React.createElement('div', { className: "flex items-center gap-3"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21924}}
+            , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0b2b82] to-teal-500 text-white flex items-center justify-center text-xl shadow-sm"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21925}}, "🤖"
 
             )
-            , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21886}}
-              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21887}}
-                , React.createElement('h1', { className: "text-lg font-black text-slate-900 tracking-tight"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21888}}, "Medical AI Assistant Agent"
+            , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 21928}}
+              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21929}}
+                , React.createElement('h1', { className: "text-lg font-black text-slate-900 tracking-tight"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21930}}, "Medical AI Assistant Agent"
 
                 )
-                , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21891}}, "MOD 10 • AUTONOMOUS"
+                , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21933}}, "MOD 10 • AUTONOMOUS"
 
                 )
-                , React.createElement('span', { className: "hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21894}}
-                  , React.createElement('span', { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21895}}), "G-NAD & G-HON Safe"
+                , React.createElement('span', { className: "hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21936}}
+                  , React.createElement('span', { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21937}}), "OTC-Safe & Multimodal"
 
                 )
               )
-              , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21899}}, "Action-capable multilingual health agent: book consults, find beds, set reminders, voice guidance"
+              , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21941}}, "Action-capable multilingual health agent: basic symptom triage, OTC guidance, report review & same-composition alternatives"
 
               )
             )
           )
 
           /* CONTROLS: TABS, LANGUAGE & AUDIO */
-          , React.createElement('div', { className: "flex items-center flex-wrap gap-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21906}}
+          , React.createElement('div', { className: "flex items-center flex-wrap gap-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21948}}
             /* View Tabs */
-            , React.createElement('div', { className: "flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21908}}
+            , React.createElement('div', { className: "flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21950}}
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setActiveTab('chat'),
@@ -21913,7 +21955,7 @@ function ScreenMedicalAssistantAgent({
                   activeTab === 'chat'
                     ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21909}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21951}}
 , "💬 Agent Chat"
 
               )
@@ -21924,7 +21966,7 @@ function ScreenMedicalAssistantAgent({
                   activeTab === 'doctors'
                     ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21920}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21962}}
 , "👨‍⚕️ Doctors ("
                   , doctorsList.length, ")"
               )
@@ -21935,7 +21977,7 @@ function ScreenMedicalAssistantAgent({
                   activeTab === 'facilities'
                     ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21931}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21973}}
 , "🏥 Beds ("
                   , facilitiesList.length, ")"
               )
@@ -21946,14 +21988,14 @@ function ScreenMedicalAssistantAgent({
                   activeTab === 'appointments'
                     ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21942}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21984}}
 , "📅 My Bookings ("
                    , appointmentsList.length, ")"
               )
             )
 
             /* Language Selector */
-            , React.createElement('div', { className: "flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21956}}
+            , React.createElement('div', { className: "flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21998}}
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setSelectedLanguage('auto'),
@@ -21962,7 +22004,7 @@ function ScreenMedicalAssistantAgent({
                     ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`,
-                title: "Detect automatically from message"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21957}}
+                title: "Detect automatically from message"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21999}}
 , "⚡ Auto"
 
               )
@@ -21973,7 +22015,7 @@ function ScreenMedicalAssistantAgent({
                   selectedLanguage === 'hi'
                     ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21969}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22011}}
 , "🇮🇳 हिन्दी"
 
               )
@@ -21984,7 +22026,7 @@ function ScreenMedicalAssistantAgent({
                   selectedLanguage === 'en'
                     ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 21980}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22022}}
 , "🇬🇧 English"
 
               )
@@ -21999,107 +22041,100 @@ function ScreenMedicalAssistantAgent({
                   ? 'bg-teal-50 text-teal-800 border-teal-200'
                   : 'bg-white text-slate-500 border-slate-200'
               }`,
-              title: "Toggle automatic TTS voice playback"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 21994}}
+              title: "Toggle automatic TTS voice playback"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22036}}
 
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22004}}, autoVoice ? '🔊' : '🔇')
-              , React.createElement('span', { className: "hidden sm:inline" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22005}}, "Voice: " , autoVoice ? 'ON' : 'OFF')
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22046}}, autoVoice ? '🔊' : '🔇')
+              , React.createElement('span', { className: "hidden sm:inline" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22047}}, "Voice: " , autoVoice ? 'ON' : 'OFF')
             )
           )
         )
       )
 
       /* MAIN CONTAINER */
-      , React.createElement('div', { className: "max-w-7xl w-full mx-auto p-4 sm:p-6 flex-1 flex flex-col"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22012}}
+      , React.createElement('div', { className: "max-w-7xl w-full mx-auto p-4 sm:p-6 flex-1 flex flex-col"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22054}}
         /* TAB 1: CHAT & AGENT INTERACTION */
         , activeTab === 'chat' && (
-          React.createElement('div', { className: "flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22015}}
+          React.createElement('div', { className: "flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22057}}
             /* Quick Prompt Pill Chips */
-            , React.createElement('div', { className: "p-3 bg-slate-50/70 border-b border-slate-200 flex items-center gap-2 overflow-x-auto text-xs"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22017}}
-              , React.createElement('span', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 flex items-center gap-1"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22018}}
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22019}}, "💡"), " Try Actions:"
+            , React.createElement('div', { className: "p-3 bg-slate-50/70 border-b border-slate-200 flex items-center gap-2 overflow-x-auto text-xs"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22059}}
+              , React.createElement('span', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 flex items-center gap-1"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22060}}
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22061}}, "💡"), " Try Actions:"
+              )
+              , React.createElement('button', {
+                type: "button",
+                onClick: () => handleSendMessage('What is Dolo 650 and what are its same composition alternatives?'),
+                className: "shrink-0 px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#0b2b82] font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22063}}
+, "💊 Dolo 650 & Same-Salt Alternatives"
+
+              )
+              , React.createElement('button', {
+                type: "button",
+                onClick: () => handleSendMessage('I have mild fever and headache since yesterday'),
+                className: "shrink-0 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22070}}
+, "🌡️ Mild Fever & Clarifying Questions"
+
+              )
+              , React.createElement('button', {
+                type: "button",
+                onClick: () => handleSendMessage('मुझे पेट में गैस और एसिडिटी हो रही है'),
+                className: "shrink-0 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22077}}
+, "🍋 Acidity & Indigestion (हिन्दी में OTC सलाह)"
+
+              )
+              , React.createElement('button', {
+                type: "button",
+                onClick: () => handleSendMessage('Can you prescribe amoxicillin or antibiotics for my infection?'),
+                className: "shrink-0 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22084}}
+, "🛑 Antibiotic Guardrail Test (AI Refusal)"
+
+              )
+              , React.createElement('button', {
+                type: "button",
+                onClick: () => handleSendMessage('My CBC report shows: Hemoglobin 10.4 g/dL, Platelets 220000. Please explain.'),
+                className: "shrink-0 px-3 py-1 rounded-full bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22091}}
+, "📋 Explain Lab Report (Strict Grounding)"
+
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => handleSendMessage('Book an appointment with Dr. Rajesh Verma (Cardiologist)'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22021}}
-, "👨‍⚕️ Book Cardiologist (कार्डियोलॉजिस्ट)"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('डॉ. प्रिया शर्मा (न्यूरोलॉजिस्ट) से अपॉइंटमेंट बुक करें'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22028}}
-, "🧠 Book Neurologist (हिन्दी में बुकिंग)"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('Show nearby hospitals and emergency beds in Hazaribagh'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22035}}
-, "🏥 Check ICU & Emergency Beds"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('Remind me to take Telmisartan 40mg at 08:00 AM'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22042}}
-, "💊 Remind Telmisartan 40mg at 8 AM"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('Take me to Feature 06 medicine stock'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22049}}
-, "🚀 Jump to Medicine Stocks"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('I have severe crushing chest pain and sweating'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22056}}
-, "🚨 Emergency 108 Red-Flag Test"
-
-              )
-              , React.createElement('button', {
-                type: "button",
-                onClick: () => handleSendMessage('Order pizza and pay online with credit card'),
-                className: "shrink-0 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22063}}
-, "🛡️ Out of Bounds Test (G-HON)"
+                className: "shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22098}}
+, "👨‍⚕️ Book Cardiologist"
 
               )
             )
 
             /* Messages Scroll Area */
-            , React.createElement('div', { className: "flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[62vh] min-h-[420px] bg-slate-50/30"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22073}}
+            , React.createElement('div', { className: "flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[62vh] min-h-[420px] bg-slate-50/30"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22108}}
               , messages.map((msg) => (
                 React.createElement('div', {
                   key: msg.id,
                   className: `flex flex-col ${
                     msg.sender === 'user' ? 'items-end' : 'items-start'
-                  }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22075}}
+                  }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22110}}
 
                   , React.createElement('div', {
                     className: `max-w-3xl w-full rounded-2xl p-4 shadow-2xs transition-all ${
                       msg.sender === 'user'
                         ? 'bg-[#0b2b82] text-white ml-auto max-w-xl'
                         : 'bg-white border border-slate-200/90 text-slate-800'
-                    }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22081}}
+                    }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22116}}
 
                     /* Header meta for Assistant */
                     , msg.sender === 'agent' && (
-                      React.createElement('div', { className: "flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 gap-2"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22090}}
-                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22091}}
-                          , React.createElement('div', { className: "w-6 h-6 rounded-md bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xs font-bold border border-blue-100"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22092}}, "🤖"
+                      React.createElement('div', { className: "flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 gap-2"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22125}}
+                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22126}}
+                          , React.createElement('div', { className: "w-6 h-6 rounded-md bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xs font-bold border border-blue-100"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22127}}, "🤖"
 
                           )
-                          , React.createElement('span', { className: "text-xs font-bold text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22095}}, "MedVeda Assistant Agent"
+                          , React.createElement('span', { className: "text-xs font-bold text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22130}}, "MedVeda Assistant Agent"
 
                           )
-                          , React.createElement('span', { className: "text-[10px] text-slate-400 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22098}}
+                          , React.createElement('span', { className: "text-[10px] text-slate-400 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22133}}
                             , msg.detectedLanguage === 'hi' ? '🇮🇳 हिन्दी' : '🇬🇧 English'
                           )
                         )
-                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22102}}
+                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22137}}
                           , getUrgencyBadge(msg.urgencyLevel)
                           , msg.audioBase64 && (
                             React.createElement('button', {
@@ -22116,10 +22151,10 @@ function ScreenMedicalAssistantAgent({
                                   ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
                                   : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border border-slate-200'
                               }`,
-                              title: playingMessageId === msg.id ? 'Stop Voice' : 'Play TTS Voice', __self: this, __source: {fileName: _jsxFileName, lineNumber: 22105}}
+                              title: playingMessageId === msg.id ? 'Stop Voice' : 'Play TTS Voice', __self: this, __source: {fileName: _jsxFileName, lineNumber: 22140}}
 
-                              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22121}}, playingMessageId === msg.id ? '⏹️' : '🔊')
-                              , React.createElement('span', { className: "text-[10px]", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22122}}
+                              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22156}}, playingMessageId === msg.id ? '⏹️' : '🔊')
+                              , React.createElement('span', { className: "text-[10px]", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22157}}
                                 , playingMessageId === msg.id ? 'Stop' : 'Voice'
                               )
                             )
@@ -22128,153 +22163,294 @@ function ScreenMedicalAssistantAgent({
                       )
                     )
 
+                    /* User Attached File Preview in Bubble */
+                    , msg.attachedFile && (
+                      React.createElement('div', { className: "mb-2.5 p-2 bg-white/15 rounded-xl border border-white/20 flex items-center gap-2 text-xs"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22168}}
+                        , msg.attachedFile.previewUrl ? (
+                          React.createElement('img', {
+                            src: msg.attachedFile.previewUrl,
+                            alt: "Attached Document" ,
+                            className: "w-10 h-10 rounded-lg object-cover border border-white/40"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22170}}
+                          )
+                        ) : (
+                          React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22176}}, "📄")
+                        )
+                        , React.createElement('div', { className: "truncate", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22178}}
+                          , React.createElement('p', { className: "font-bold truncate" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22179}}, msg.attachedFile.name)
+                          , React.createElement('p', { className: "text-[10px] opacity-80" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22180}}, msg.attachedFile.sizeKb, " KB • "   , msg.attachedFile.mimeType)
+                        )
+                      )
+                    )
+
                     /* Message Body Text */
-                    , React.createElement('div', { className: "text-sm leading-relaxed whitespace-pre-line font-normal"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22132}}
+                    , React.createElement('div', { className: "text-sm leading-relaxed whitespace-pre-line font-normal"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22186}}
                       , msg.text
                     )
 
-                    /* ACTION CARDS (Human-in-the-Loop Booking, Lists, Navigation) */
+                    /* ACTION CARDS */
                     , msg.actionCards && msg.actionCards.length > 0 && (
-                      React.createElement('div', { className: "mt-4 pt-3 border-t border-slate-100 space-y-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22138}}
+                      React.createElement('div', { className: "mt-4 pt-3 border-t border-slate-100 space-y-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22192}}
                         , msg.actionCards.map((card, cIdx) => (
-                          React.createElement('div', { key: cIdx, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22140}}
-                            /* 1. CONFIRMATION CARD (Human-in-the-Loop - Section 12.3 & D4) */
-                            , card.type === 'CONFIRMATION_CARD' && (
-                              React.createElement('div', { className: "bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white rounded-xl border-2 border-blue-300 p-4 shadow-xs"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22143}}
-                                , React.createElement('div', { className: "flex items-center justify-between mb-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22144}}
-                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22145}}
-                                    , React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22146}}, "📅")
-                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22147}}
-                                      , React.createElement('h4', { className: "text-xs font-black text-[#0b2b82] uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22148}}, "Action Proposal: Confirm Appointment Booking"
-
+                          React.createElement('div', { key: cIdx, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22194}}
+                            /* 1. MEDICINE INFO & SAME COMPOSITION ALTERNATIVES CARD */
+                            , card.type === 'MEDICINE_INFO_CARD' && (
+                              React.createElement('div', { className: "bg-gradient-to-br from-blue-50/80 to-slate-50 border-2 border-blue-300 rounded-xl p-4 shadow-xs"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22197}}
+                                , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-2"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22198}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22199}}
+                                    , React.createElement('span', { className: "text-2xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22200}}, "💊")
+                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22201}}
+                                      , React.createElement('h4', { className: "text-sm font-black text-[#0b2b82]"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22202}}
+                                        , card.primaryName || 'Medication Details'
                                       )
-                                      , React.createElement('p', { className: "text-[11px] text-slate-600" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22151}}, "प्रस्तावित बुकिंग की समीक्षा करें और पुष्टि करें"
-
+                                      , React.createElement('p', { className: "text-xs text-slate-500 font-medium"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22205}}
+                                        , card.therapeuticClass || 'Pharmaceutical Drug'
                                       )
                                     )
                                   )
-                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-[#0b2b82]"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22156}}, "TELECONSULT OPD"
+                                  , React.createElement('div', { className: "flex items-center gap-1.5 shrink-0"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22210}}
+                                    , React.createElement('span', { className: `text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      card.isOtc
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22211}}
+                                      , card.isOtc ? '🟢 OTC (No Prescription)' : '🔴 Prescription Only'
+                                    )
+                                  )
+                                )
+
+                                , React.createElement('div', { className: "bg-white rounded-lg p-3 border border-blue-100 space-y-1.5 text-xs text-slate-700 mb-3"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22221}}
+                                  , React.createElement('div', { className: "flex justify-between items-center py-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22222}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22223}}, "Active Chemical Salt:"  )
+                                    , React.createElement('span', { className: "font-black text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-200"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22224}}
+                                      , card.activeComposition || card.strength
+                                    )
+                                  )
+                                  , React.createElement('div', { className: "py-0.5", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22228}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22229}}, "Therapeutic Indication:" )
+                                    , React.createElement('p', { className: "font-medium text-slate-800 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22230}}, card.indication)
+                                  )
+                                  , card.usageAdvice && (
+                                    React.createElement('div', { className: "py-0.5 pt-1 border-t border-slate-100"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22233}}
+                                      , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22234}}, "Dosage & Safety Advice:"   )
+                                      , React.createElement('p', { className: "text-slate-700 mt-0.5" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22235}}, card.usageAdvice)
+                                    )
+                                  )
+                                )
+
+                                /* SAME COMPOSITION ALTERNATIVES */
+                                , card.brandAlternatives && card.brandAlternatives.length > 0 && (
+                                  React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22242}}
+                                    , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22243}}
+                                      , React.createElement('h5', { className: "text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22244}}
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22245}}, "🔄"), " Verified Same-Composition Alternatives:"
+                                      )
+                                      , React.createElement('span', { className: "text-[10px] font-mono text-teal-700 font-bold bg-teal-50 px-1.5 py-0.2 rounded"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22247}}, "EXACT SAME SALT"
+
+                                      )
+                                    )
+                                    , React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22251}}
+                                      , card.brandAlternatives.map((alt, aIdx) => (
+                                        React.createElement('div', { key: aIdx, className: "p-2.5 rounded-lg bg-white border border-slate-200 flex flex-col justify-between"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22253}}
+                                          , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22254}}
+                                            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22255}}
+                                              , React.createElement('span', { className: "font-bold text-xs text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22256}}, alt.brand)
+                                              , React.createElement('span', { className: "text-[10px] font-mono text-slate-500"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22257}}, alt.priceEst)
+                                            )
+                                            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22259}}, alt.manufacturer)
+                                            , React.createElement('p', { className: "text-[10px] font-semibold text-teal-700 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22260}}, "Salt: " , alt.salt)
+                                          )
+                                          , React.createElement('button', {
+                                            type: "button",
+                                            onClick: () => {
+                                              if (onNavigate) onNavigate('#feature6');
+                                              else window.location.hash = '#feature6';
+                                            },
+                                            className: "mt-2 py-1 px-2 bg-slate-50 hover:bg-blue-50 text-[#0b2b82] rounded text-[10px] font-bold border border-slate-200 transition-all flex items-center justify-center gap-1"               , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22262}}
+
+                                            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22270}}, "Check Live Stock (Feature 06) →"     )
+                                          )
+                                        )
+                                      ))
+                                    )
+                                  )
+                                )
+
+                                , card.disclaimer && (
+                                  React.createElement('p', { className: "text-[10px] text-slate-400 italic mt-2.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22279}}, "⚠️ "
+                                     , card.disclaimer
+                                  )
+                                )
+                              )
+                            )
+
+                            /* 2. LAB REPORT PARAMETERS & GROUNDED SUMMARY CARD */
+                            , card.type === 'LAB_REPORT_CARD' && (
+                              React.createElement('div', { className: "bg-white border-2 border-teal-300 rounded-xl p-4 shadow-xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22288}}
+                                , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22289}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22290}}
+                                    , React.createElement('span', { className: "text-2xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22291}}, "📋")
+                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22292}}
+                                      , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22293}}
+                                        , card.title || 'Diagnostic Pathology Lab Report'
+                                      )
+                                      , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22296}}
+                                        , card.facilityOrLab, " • "  , card.date
+                                      )
+                                    )
+                                  )
+                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22301}}, "REPORT GROUNDED"
 
                                   )
                                 )
 
-                                , React.createElement('div', { className: "bg-white rounded-lg p-3 border border-blue-100 mb-3 space-y-1.5 text-xs text-slate-700"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22161}}
-                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22162}}
-                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22163}}, "Doctor:")
-                                    , React.createElement('span', { className: "font-bold text-slate-900" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22164}}, card.doctor.name, " (" , card.doctor.qualification, ")")
-                                  )
-                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22166}}
-                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22167}}, "Specialty:")
-                                    , React.createElement('span', { className: "font-bold text-teal-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22168}}, card.doctor.specialty)
-                                  )
-                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22170}}
-                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22171}}, "Hospital:")
-                                    , React.createElement('span', { className: "font-medium text-slate-800" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22172}}, card.doctor.facilityName)
-                                  )
-                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22174}}
-                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22175}}, "Slot Time:" )
-                                    , React.createElement('span', { className: "font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-200"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22176}}
-                                      , card.slot.time
-                                    )
-                                  )
-                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22180}}
-                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22181}}, "Patient:")
-                                    , React.createElement('span', { className: "font-medium text-slate-800" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22182}}, card.patient.name, " (" , card.patient.phone, ")")
-                                  )
-                                )
-
-                                , card.status === 'CONFIRMED' ? (
-                                  React.createElement('div', { className: "bg-emerald-50 border border-emerald-300 rounded-lg p-3 text-xs text-emerald-900 space-y-1"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22187}}
-                                    , React.createElement('div', { className: "flex items-center justify-between font-bold text-emerald-800"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22188}}
-                                      , React.createElement('span', { className: "flex items-center gap-1.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22189}}
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22190}}, "✅"), " Booking Confirmed (अपॉइंटमेंट पक्का हो गया)"
-                                      )
-                                      , React.createElement('span', { className: "font-mono bg-emerald-200/80 px-2 py-0.5 rounded"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22192}}
-                                        , _optionalChain([card, 'access', _226 => _226.executedResult, 'optionalAccess', _227 => _227.appointment, 'optionalAccess', _228 => _228.id])
-                                      )
-                                    )
-                                    , React.createElement('p', { className: "text-[11px] text-emerald-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22196}}
-                                      , _optionalChain([card, 'access', _229 => _229.executedResult, 'optionalAccess', _230 => _230.smsNotification, 'optionalAccess', _231 => _231.text])
-                                    )
-                                    , React.createElement('div', { className: "pt-2 flex items-center justify-end"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22199}}
-                                      , React.createElement('button', {
-                                        type: "button",
-                                        onClick: () => {
-                                          if (onNavigate) onNavigate('#feature2');
-                                          else window.location.hash = '#feature2';
-                                        },
-                                        className: "px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-xs flex items-center gap-1"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22200}}
-
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22208}}, "🚀 Open Teleconsult OPD (Feature 02)"     )
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22209}}, "→")
-                                      )
-                                    )
-                                  )
-                                ) : card.status === 'CANCELLED' ? (
-                                  React.createElement('div', { className: "bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-600 flex items-center gap-1.5 font-medium"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22214}}
-                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22215}}, "❌"), " Booking proposal cancelled by user."
-                                  )
-                                ) : (
-                                  React.createElement('div', { className: "flex items-center justify-end gap-2 pt-1"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22218}}
-                                    , React.createElement('button', {
-                                      type: "button",
-                                      disabled: actionInProgress !== null,
-                                      onClick: () => handleExecuteAction(msg.id, card, false),
-                                      className: "px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-all"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22219}}
-, "Cancel (रद्द करें)"
-
-                                    )
-                                    , React.createElement('button', {
-                                      type: "button",
-                                      disabled: actionInProgress !== null,
-                                      onClick: () => handleExecuteAction(msg.id, card, true),
-                                      className: "px-4 py-1.5 rounded-lg bg-[#0b2b82] hover:bg-blue-800 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-sm"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22227}}
-
-                                      , actionInProgress === `${msg.id}-${card.type}` ? (
-                                        React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22234}}, "⏳ Booking Slot..."  )
-                                      ) : (
-                                        React.createElement(React.Fragment, null
-                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22237}}, "✅ Confirm Booking (पुष्टि करें)"    )
-                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22238}}, "→")
+                                /* Parameters Table */
+                                , card.parameters && card.parameters.length > 0 && (
+                                  React.createElement('div', { className: "overflow-x-auto rounded-lg border border-slate-200 mb-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22308}}
+                                    , React.createElement('table', { className: "w-full text-xs text-left"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22309}}
+                                      , React.createElement('thead', { className: "bg-slate-100 text-slate-700 uppercase text-[10px] font-bold"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22310}}
+                                        , React.createElement('tr', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22311}}
+                                          , React.createElement('th', { className: "p-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22312}}, "Test Parameter" )
+                                          , React.createElement('th', { className: "p-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22313}}, "Observed")
+                                          , React.createElement('th', { className: "p-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22314}}, "Normal Range" )
+                                          , React.createElement('th', { className: "p-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22315}}, "Status")
                                         )
                                       )
+                                      , React.createElement('tbody', { className: "divide-y divide-slate-100" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22318}}
+                                        , card.parameters.map((p, pIdx) => {
+                                          const statusColor =
+                                            p.status === 'NORMAL'
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : p.status === 'LOW'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-rose-100 text-rose-800';
+                                          return (
+                                            React.createElement('tr', { key: pIdx, className: "hover:bg-slate-50/50", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22327}}
+                                              , React.createElement('td', { className: "p-2 font-bold text-slate-800"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22328}}
+                                                , p.name
+                                                , p.meaning && React.createElement('p', { className: "text-[10px] font-normal text-slate-500"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22330}}, p.meaning)
+                                              )
+                                              , React.createElement('td', { className: "p-2 font-mono font-bold text-slate-900"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22332}}
+                                                , p.observedValue, " " , p.unit
+                                              )
+                                              , React.createElement('td', { className: "p-2 font-mono text-slate-500"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22335}}, p.normalRange, " " , p.unit)
+                                              , React.createElement('td', { className: "p-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22336}}
+                                                , React.createElement('span', { className: `px-2 py-0.5 rounded text-[10px] font-bold ${statusColor}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22337}}
+                                                  , p.status
+                                                )
+                                              )
+                                            )
+                                          );
+                                        })
+                                      )
+                                    )
+                                  )
+                                )
+
+                                /* Grounded Summary */
+                                , card.groundedSummary && (
+                                  React.createElement('div', { className: "bg-teal-50/80 border border-teal-200 rounded-lg p-3 text-xs text-teal-950 mb-3"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22351}}
+                                    , React.createElement('span', { className: "font-bold block text-teal-900 mb-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22352}}, "🔍 Report Grounded Finding:"   )
+                                    , React.createElement('p', { className: "leading-relaxed", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22353}}, card.groundedSummary)
+                                  )
+                                )
+
+                                , card.disclaimer && (
+                                  React.createElement('p', { className: "text-[10px] text-slate-400 italic"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22358}}, "⚠️ "
+                                     , card.disclaimer
+                                  )
+                                )
+                              )
+                            )
+
+                            /* 3. CLARIFYING QUESTIONS CARD */
+                            , card.type === 'CLARIFYING_QUESTIONS_CARD' && (
+                              React.createElement('div', { className: "bg-amber-50/90 border border-amber-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22367}}
+                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22368}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22369}}
+                                    , React.createElement('span', { className: "text-lg", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22370}}, "❓")
+                                    , React.createElement('h4', { className: "text-xs font-black text-amber-950 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22371}}
+                                      , card.title || 'Clarifying Questions to Rule Out Red Flags'
+                                    )
+                                  )
+                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22375}}, "TRIAGE CHECK"
+
+                                  )
+                                )
+                                , React.createElement('div', { className: "space-y-1.5 text-xs text-amber-900 font-medium"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22379}}
+                                  , (card.questions || []).map((q, qIdx) => (
+                                    React.createElement('div', { key: qIdx, className: "flex items-start gap-1.5 bg-white/70 p-2 rounded-lg border border-amber-200"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22381}}
+                                      , React.createElement('span', { className: "font-bold text-amber-800" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22382}}, qIdx + 1, ".")
+                                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22383}}, q)
+                                    )
+                                  ))
+                                )
+                                , card.quickReplies && card.quickReplies.length > 0 && (
+                                  React.createElement('div', { className: "mt-2.5 pt-2 border-t border-amber-200/80"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22388}}
+                                    , React.createElement('span', { className: "text-[10px] font-bold text-amber-800 uppercase"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22389}}, "Quick Reply (क्लिक करके जवाब दें):"     )
+                                    , React.createElement('div', { className: "flex flex-wrap gap-1.5 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22390}}
+                                      , card.quickReplies.map((qr, qrIdx) => (
+                                        React.createElement('button', {
+                                          key: qrIdx,
+                                          type: "button",
+                                          onClick: () => handleSendMessage(qr),
+                                          className: "px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold border border-amber-300 transition-all shadow-2xs"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22392}}
+
+                                          , qr, " →"
+                                        )
+                                      ))
                                     )
                                   )
                                 )
                               )
                             )
 
-                            /* 2. DOCTORS LIST CARD */
-                            , card.type === 'DOCTORS_LIST' && (
-                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22249}}
-                                , React.createElement('h4', { className: "text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22250}}
-                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22251}}, "👨‍⚕️"), " Available Specialists in Network:"
-                                )
-                                , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-2.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22253}}
-                                  , (card.doctors || []).map((doc) => (
-                                    React.createElement('div', {
-                                      key: doc.id,
-                                      className: "p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-300 shadow-2xs flex flex-col justify-between"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22255}}
+                            /* 4. OTC MEDICATION CARD */
+                            , card.type === 'OTC_MEDICATION_CARD' && (
+                              React.createElement('div', { className: "bg-emerald-50/90 border border-emerald-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22409}}
+                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22410}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22411}}
+                                    , React.createElement('span', { className: "text-lg", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22412}}, "🟢")
+                                    , React.createElement('h4', { className: "text-xs font-black text-emerald-950 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22413}}
+                                      , card.title || 'Safe Over-The-Counter (OTC) Guidance'
+                                    )
+                                  )
+                                  , React.createElement('span', { className: "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22417}}, "NO PRESCRIPTION NEEDED"
 
-                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22259}}
-                                        , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22260}}
-                                          , React.createElement('h5', { className: "font-bold text-xs text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22261}}, doc.name)
-                                          , React.createElement('span', { className: "text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22262}}
-                                            , doc.specialty
-                                          )
-                                        )
-                                        , React.createElement('p', { className: "text-[11px] text-slate-500 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22266}}, doc.facilityName)
-                                        , React.createElement('p', { className: "text-[10px] text-slate-400 mt-1 font-mono"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22267}}, "Next: "
-                                           , _optionalChain([doc, 'access', _232 => _232.slots, 'optionalAccess', _233 => _233[0], 'optionalAccess', _234 => _234.time]) || 'Today'
+                                  )
+                                )
+                                , React.createElement('div', { className: "space-y-2 mt-2" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22421}}
+                                  , (card.medicines || []).map((med, mIdx) => (
+                                    React.createElement('div', { key: mIdx, className: "p-3 bg-white rounded-xl border border-emerald-200 text-xs shadow-2xs"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22423}}
+                                      , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22424}}
+                                        , React.createElement('span', { className: "font-bold text-slate-900 text-sm"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22425}}, med.name)
+                                        , React.createElement('span', { className: "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22426}}
+                                          , med.activeSalt
                                         )
                                       )
-                                      , React.createElement('button', {
-                                        type: "button",
-                                        onClick: () => handleSendMessage(`Book appointment with ${doc.name}`),
-                                        className: "mt-2.5 w-full py-1.5 px-3 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-blue-200"                 , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22271}}
+                                      , React.createElement('p', { className: "text-slate-700 font-medium mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22430}}
+                                        , React.createElement('strong', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22431}}, "Dosage:"), " " , med.dosage, " • "  , med.frequency
+                                      )
+                                      , React.createElement('p', { className: "text-slate-500 text-[11px] mt-1 italic"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22433}}
+                                        , selectedLanguage === 'hi' ? med.notesHi : med.notesEn
+                                      )
+                                      , React.createElement('div', { className: "flex items-center justify-end gap-2 mt-2 pt-2 border-t border-slate-100"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22436}}
+                                        , React.createElement('button', {
+                                          type: "button",
+                                          onClick: () => handleSendMessage(`Remind me to take ${med.activeSalt || med.name} at 08:00 AM`),
+                                          className: "px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-md text-[11px] font-bold transition-all flex items-center gap-1"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22437}}
 
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22276}}, "📅 Book Slot with Doctor"    )
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22277}}, "→")
+                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22442}}, "⏰ Set Reminder"  )
+                                        )
+                                        , React.createElement('button', {
+                                          type: "button",
+                                          onClick: () => {
+                                            if (onNavigate) onNavigate('#feature6');
+                                            else window.location.hash = '#feature6';
+                                          },
+                                          className: "px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-md text-[11px] font-bold transition-all flex items-center gap-1"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22444}}
+
+                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22452}}, "💊 Check Stock"  )
+                                        )
                                       )
                                     )
                                   ))
@@ -22282,31 +22458,211 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* 3. FACILITIES LIST CARD */
-                            , card.type === 'FACILITIES_LIST' && (
-                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22287}}
-                                , React.createElement('h4', { className: "text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22288}}
-                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22289}}, "🏥"), " Verified District Facilities:"
+                            /* 5. DOCTOR REFERRAL REQUIRED CARD */
+                            , card.type === 'DOCTOR_REFERRAL_REQUIRED_CARD' && (
+                              React.createElement('div', { className: "bg-rose-50 border-2 border-rose-300 rounded-xl p-4 shadow-xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22463}}
+                                , React.createElement('div', { className: "flex items-start gap-2.5 mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22464}}
+                                  , React.createElement('span', { className: "text-2xl shrink-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22465}}, "🛑")
+                                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22466}}
+                                    , React.createElement('h4', { className: "text-xs font-black text-rose-950 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22467}}
+                                      , card.title || 'Doctor Consultation Required'
+                                    )
+                                    , React.createElement('p', { className: "text-xs text-rose-800 font-medium mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22470}}
+                                      , card.reason || 'This condition requires certified medical physical examination and prescription-only medications.'
+                                    )
+                                  )
                                 )
-                                , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-2.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22291}}
+                                , React.createElement('div', { className: "flex flex-wrap gap-2 mt-3 pt-2 border-t border-rose-200"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22475}}
+                                  , (card.options || []).map((opt, oIdx) => (
+                                    React.createElement('button', {
+                                      key: oIdx,
+                                      type: "button",
+                                      onClick: () => {
+                                        if (opt.doctorId) handleSendMessage(`Book appointment with Dr. Rajesh Verma`);
+                                        else if (opt.route) {
+                                          if (onNavigate) onNavigate(opt.route);
+                                          else window.location.hash = opt.route;
+                                        }
+                                      },
+                                      className: "px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22477}}
+
+                                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22489}}, opt.label)
+                                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22490}}, "→")
+                                    )
+                                  ))
+                                )
+                              )
+                            )
+
+                            /* 6. CONFIRMATION CARD (Human-in-the-Loop Booking) */
+                            , card.type === 'CONFIRMATION_CARD' && (
+                              React.createElement('div', { className: "bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white rounded-xl border-2 border-blue-300 p-4 shadow-xs"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22499}}
+                                , React.createElement('div', { className: "flex items-center justify-between mb-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22500}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22501}}
+                                    , React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22502}}, "📅")
+                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22503}}
+                                      , React.createElement('h4', { className: "text-xs font-black text-[#0b2b82] uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22504}}, "Action Proposal: Confirm Appointment Booking"
+
+                                      )
+                                      , React.createElement('p', { className: "text-[11px] text-slate-600" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22507}}, "प्रस्तावित बुकिंग की समीक्षा करें और पुष्टि करें"
+
+                                      )
+                                    )
+                                  )
+                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-[#0b2b82]"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22512}}, "TELECONSULT OPD"
+
+                                  )
+                                )
+
+                                , React.createElement('div', { className: "bg-white rounded-lg p-3 border border-blue-100 mb-3 space-y-1.5 text-xs text-slate-700"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22517}}
+                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22518}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22519}}, "Doctor:")
+                                    , React.createElement('span', { className: "font-bold text-slate-900" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22520}}, card.doctor.name, " (" , card.doctor.qualification, ")")
+                                  )
+                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22522}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22523}}, "Specialty:")
+                                    , React.createElement('span', { className: "font-bold text-teal-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22524}}, card.doctor.specialty)
+                                  )
+                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22526}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22527}}, "Hospital:")
+                                    , React.createElement('span', { className: "font-medium text-slate-800" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22528}}, card.doctor.facilityName)
+                                  )
+                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22530}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22531}}, "Slot Time:" )
+                                    , React.createElement('span', { className: "font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-200"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22532}}
+                                      , card.slot.time
+                                    )
+                                  )
+                                  , React.createElement('div', { className: "flex justify-between" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22536}}
+                                    , React.createElement('span', { className: "font-semibold text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22537}}, "Patient:")
+                                    , React.createElement('span', { className: "font-medium text-slate-800" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22538}}, card.patient.name, " (" , card.patient.phone, ")")
+                                  )
+                                )
+
+                                , card.status === 'CONFIRMED' ? (
+                                  React.createElement('div', { className: "bg-emerald-50 border border-emerald-300 rounded-lg p-3 text-xs text-emerald-900 space-y-1"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22543}}
+                                    , React.createElement('div', { className: "flex items-center justify-between font-bold text-emerald-800"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22544}}
+                                      , React.createElement('span', { className: "flex items-center gap-1.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22545}}
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22546}}, "✅"), " Booking Confirmed (अपॉइंटमेंट पक्का हो गया)"
+                                      )
+                                      , React.createElement('span', { className: "font-mono bg-emerald-200/80 px-2 py-0.5 rounded"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22548}}
+                                        , _optionalChain([card, 'access', _229 => _229.executedResult, 'optionalAccess', _230 => _230.appointment, 'optionalAccess', _231 => _231.id])
+                                      )
+                                    )
+                                    , React.createElement('p', { className: "text-[11px] text-emerald-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22552}}
+                                      , _optionalChain([card, 'access', _232 => _232.executedResult, 'optionalAccess', _233 => _233.smsNotification, 'optionalAccess', _234 => _234.text])
+                                    )
+                                    , React.createElement('div', { className: "pt-2 flex items-center justify-end"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22555}}
+                                      , React.createElement('button', {
+                                        type: "button",
+                                        onClick: () => {
+                                          if (onNavigate) onNavigate('#feature2');
+                                          else window.location.hash = '#feature2';
+                                        },
+                                        className: "px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-xs flex items-center gap-1"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22556}}
+
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22564}}, "🚀 Open Teleconsult OPD (Feature 02)"     )
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22565}}, "→")
+                                      )
+                                    )
+                                  )
+                                ) : card.status === 'CANCELLED' ? (
+                                  React.createElement('div', { className: "bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-600 flex items-center gap-1.5 font-medium"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22570}}
+                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22571}}, "❌"), " Booking proposal cancelled by user."
+                                  )
+                                ) : (
+                                  React.createElement('div', { className: "flex items-center justify-end gap-2 pt-1"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22574}}
+                                    , React.createElement('button', {
+                                      type: "button",
+                                      disabled: actionInProgress !== null,
+                                      onClick: () => handleExecuteAction(msg.id, card, false),
+                                      className: "px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-all"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22575}}
+, "Cancel (रद्द करें)"
+
+                                    )
+                                    , React.createElement('button', {
+                                      type: "button",
+                                      disabled: actionInProgress !== null,
+                                      onClick: () => handleExecuteAction(msg.id, card, true),
+                                      className: "px-4 py-1.5 rounded-lg bg-[#0b2b82] hover:bg-blue-800 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-sm"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22583}}
+
+                                      , actionInProgress === `${msg.id}-${card.type}` ? (
+                                        React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22590}}, "⏳ Booking Slot..."  )
+                                      ) : (
+                                        React.createElement(React.Fragment, null
+                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22593}}, "✅ Confirm Booking (पुष्टि करें)"    )
+                                          , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22594}}, "→")
+                                        )
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+
+                            /* 7. DOCTORS LIST CARD */
+                            , card.type === 'DOCTORS_LIST' && (
+                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22605}}
+                                , React.createElement('h4', { className: "text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22606}}
+                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22607}}, "👨‍⚕️"), " Available Specialists in Network:"
+                                )
+                                , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-2.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22609}}
+                                  , (card.doctors || []).map((doc) => (
+                                    React.createElement('div', {
+                                      key: doc.id,
+                                      className: "p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-300 shadow-2xs flex flex-col justify-between"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22611}}
+
+                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22615}}
+                                        , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22616}}
+                                          , React.createElement('h5', { className: "font-bold text-xs text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22617}}, doc.name)
+                                          , React.createElement('span', { className: "text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22618}}
+                                            , doc.specialty
+                                          )
+                                        )
+                                        , React.createElement('p', { className: "text-[11px] text-slate-500 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22622}}, doc.facilityName)
+                                        , React.createElement('p', { className: "text-[10px] text-slate-400 mt-1 font-mono"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22623}}, "Next: "
+                                           , _optionalChain([doc, 'access', _235 => _235.slots, 'optionalAccess', _236 => _236[0], 'optionalAccess', _237 => _237.time]) || 'Today'
+                                        )
+                                      )
+                                      , React.createElement('button', {
+                                        type: "button",
+                                        onClick: () => handleSendMessage(`Book appointment with ${doc.name}`),
+                                        className: "mt-2.5 w-full py-1.5 px-3 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-blue-200"                 , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22627}}
+
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22632}}, "📅 Book Slot with Doctor"    )
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22633}}, "→")
+                                      )
+                                    )
+                                  ))
+                                )
+                              )
+                            )
+
+                            /* 8. FACILITIES LIST CARD */
+                            , card.type === 'FACILITIES_LIST' && (
+                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22643}}
+                                , React.createElement('h4', { className: "text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22644}}
+                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22645}}, "🏥"), " Verified District Facilities:"
+                                )
+                                , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-2.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22647}}
                                   , (card.facilities || []).map((fac) => (
                                     React.createElement('div', {
                                       key: fac.id,
-                                      className: "p-3 rounded-xl bg-white border border-slate-200 hover:border-teal-300 shadow-2xs flex flex-col justify-between"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22293}}
+                                      className: "p-3 rounded-xl bg-white border border-slate-200 hover:border-teal-300 shadow-2xs flex flex-col justify-between"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22649}}
 
-                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22297}}
-                                        , React.createElement('div', { className: "flex items-start justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22298}}
-                                          , React.createElement('h5', { className: "font-bold text-xs text-slate-900 leading-snug"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22299}}, fac.name)
-                                          , React.createElement('span', { className: "text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded shrink-0"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22300}}
+                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22653}}
+                                        , React.createElement('div', { className: "flex items-start justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22654}}
+                                          , React.createElement('h5', { className: "font-bold text-xs text-slate-900 leading-snug"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22655}}, fac.name)
+                                          , React.createElement('span', { className: "text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded shrink-0"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22656}}
                                             , fac.type
                                           )
                                         )
-                                        , React.createElement('p', { className: "text-[11px] text-slate-500 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22304}}, fac.address)
-                                        , React.createElement('div', { className: "flex items-center gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22305}}
-                                          , React.createElement('span', { className: "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22306}}, "🛏️ "
+                                        , React.createElement('p', { className: "text-[11px] text-slate-500 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22660}}, fac.address)
+                                        , React.createElement('div', { className: "flex items-center gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22661}}
+                                          , React.createElement('span', { className: "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22662}}, "🛏️ "
                                              , fac.emergencyBeds, " Beds Ready"
                                           )
-                                          , React.createElement('span', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22309}}, "📞 "
+                                          , React.createElement('span', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22665}}, "📞 "
                                              , fac.contactPhone
                                           )
                                         )
@@ -22317,10 +22673,10 @@ function ScreenMedicalAssistantAgent({
                                           if (onNavigate) onNavigate('#feature1');
                                           else window.location.hash = '#feature1';
                                         },
-                                        className: "mt-2.5 w-full py-1.5 px-3 bg-teal-50 hover:bg-teal-700 text-teal-800 hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-teal-200"                 , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22314}}
+                                        className: "mt-2.5 w-full py-1.5 px-3 bg-teal-50 hover:bg-teal-700 text-teal-800 hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-teal-200"                 , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22670}}
 
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22322}}, "📍 View in Care Navigator"    )
-                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22323}}, "→")
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22678}}, "📍 View in Care Navigator"    )
+                                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22679}}, "→")
                                       )
                                     )
                                   ))
@@ -22328,17 +22684,17 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* 4. PROPOSE REMINDER CARD */
+                            /* 9. PROPOSE REMINDER CARD */
                             , card.type === 'PROPOSE_REMINDER' && (
-                              React.createElement('div', { className: "bg-amber-50/70 border border-amber-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22333}}
-                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22334}}
-                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22335}}
-                                    , React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22336}}, "⏰")
-                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22337}}
-                                      , React.createElement('h4', { className: "text-xs font-bold text-amber-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22338}}, "Dosage Reminder: "
+                              React.createElement('div', { className: "bg-amber-50/70 border border-amber-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22689}}
+                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22690}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22691}}
+                                    , React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22692}}, "⏰")
+                                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22693}}
+                                      , React.createElement('h4', { className: "text-xs font-bold text-amber-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22694}}, "Dosage Reminder: "
                                           , card.medicineName
                                       )
-                                      , React.createElement('p', { className: "text-[11px] text-amber-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22341}}, "Schedule: "
+                                      , React.createElement('p', { className: "text-[11px] text-amber-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22697}}, "Schedule: "
                                          , card.time, " • "  , card.instruction
                                       )
                                     )
@@ -22346,40 +22702,40 @@ function ScreenMedicalAssistantAgent({
                                 )
 
                                 , card.status === 'CONFIRMED' ? (
-                                  React.createElement('div', { className: "bg-emerald-50 border border-emerald-200 rounded p-2 text-xs text-emerald-800 font-bold flex items-center gap-1.5"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22349}}
-                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22350}}, "✅ Reminder Active: Alert set for "      , card.time)
+                                  React.createElement('div', { className: "bg-emerald-50 border border-emerald-200 rounded p-2 text-xs text-emerald-800 font-bold flex items-center gap-1.5"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22705}}
+                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22706}}, "✅ Reminder Active: Alert set for "      , card.time)
                                   )
                                 ) : (
-                                  React.createElement('div', { className: "flex justify-end gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22353}}
+                                  React.createElement('div', { className: "flex justify-end gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22709}}
                                     , React.createElement('button', {
                                       type: "button",
                                       disabled: actionInProgress !== null,
                                       onClick: () => handleExecuteAction(msg.id, card, true),
-                                      className: "px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22354}}
+                                      className: "px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22710}}
 
-                                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22360}}, "⏰ Save & Activate Reminder"    )
+                                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22716}}, "⏰ Save & Activate Reminder"    )
                                     )
                                   )
                                 )
                               )
                             )
 
-                            /* 5. APPOINTMENTS LIST CARD */
+                            /* 10. APPOINTMENTS LIST CARD */
                             , card.type === 'APPOINTMENTS_LIST' && (
-                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22369}}
+                              React.createElement('div', { className: "space-y-2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22725}}
                                 , (card.appointments || []).length === 0 ? (
-                                  React.createElement('p', { className: "text-xs text-slate-500 italic"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22371}}, "No booked appointments found."   )
+                                  React.createElement('p', { className: "text-xs text-slate-500 italic"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22727}}, "No booked appointments found."   )
                                 ) : (
                                   card.appointments.map((apt) => (
-                                    React.createElement('div', { key: apt.id, className: "p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22374}}
-                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22375}}
-                                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22376}}
-                                          , React.createElement('span', { className: "font-bold text-xs text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22377}}, apt.doctorName)
-                                          , React.createElement('span', { className: "text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-50 text-[#0b2b82]"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22378}}
+                                    React.createElement('div', { key: apt.id, className: "p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22730}}
+                                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22731}}
+                                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22732}}
+                                          , React.createElement('span', { className: "font-bold text-xs text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22733}}, apt.doctorName)
+                                          , React.createElement('span', { className: "text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-50 text-[#0b2b82]"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22734}}
                                             , apt.id
                                           )
                                         )
-                                        , React.createElement('p', { className: "text-[11px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22382}}, apt.facilityName, " • "  , apt.scheduledTime)
+                                        , React.createElement('p', { className: "text-[11px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22738}}, apt.facilityName, " • "  , apt.scheduledTime)
                                       )
                                       , React.createElement('button', {
                                         type: "button",
@@ -22387,7 +22743,7 @@ function ScreenMedicalAssistantAgent({
                                           if (onNavigate) onNavigate('#feature2');
                                           else window.location.hash = '#feature2';
                                         },
-                                        className: "px-2.5 py-1 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded text-xs font-bold transition-all"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22384}}
+                                        className: "px-2.5 py-1 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded text-xs font-bold transition-all"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22740}}
 , "Open OPD →"
 
                                       )
@@ -22397,12 +22753,12 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* 6. NAVIGATE ACTION CARD */
+                            /* 11. NAVIGATE ACTION CARD */
                             , card.type === 'NAVIGATE_ACTION' && (
-                              React.createElement('div', { className: "bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22402}}
-                                , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22403}}
-                                  , React.createElement('h4', { className: "text-xs font-bold text-[#0b2b82]"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22404}}, card.title)
-                                  , React.createElement('p', { className: "text-[11px] text-slate-600 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22405}}, card.route)
+                              React.createElement('div', { className: "bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22758}}
+                                , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22759}}
+                                  , React.createElement('h4', { className: "text-xs font-bold text-[#0b2b82]"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22760}}, card.title)
+                                  , React.createElement('p', { className: "text-[11px] text-slate-600 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22761}}, card.route)
                                 )
                                 , React.createElement('button', {
                                   type: "button",
@@ -22410,34 +22766,34 @@ function ScreenMedicalAssistantAgent({
                                     if (onNavigate) onNavigate(card.route);
                                     else window.location.hash = card.route;
                                   },
-                                  className: "px-3 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22407}}
+                                  className: "px-3 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22763}}
 
-                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22415}}, card.buttonLabel || 'Open Feature')
-                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22416}}, "→")
+                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22771}}, card.buttonLabel || 'Open Feature')
+                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22772}}, "→")
                                 )
                               )
                             )
 
-                            /* EMERGENCY 108 ACTION CARD */
+                            /* 12. EMERGENCY ACTIONS CARD */
                             , card.type === 'EMERGENCY_ACTIONS' && (
-                              React.createElement('div', { className: "bg-rose-50 border-2 border-rose-400 rounded-xl p-4 shadow-sm"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22423}}
-                                , React.createElement('div', { className: "flex items-center gap-2 mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22424}}
-                                  , React.createElement('span', { className: "text-2xl animate-bounce" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22425}}, "🚨")
-                                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22426}}
-                                    , React.createElement('h4', { className: "text-xs font-black text-rose-900 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22427}}
+                              React.createElement('div', { className: "bg-rose-50 border-2 border-rose-400 rounded-xl p-4 shadow-sm"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22779}}
+                                , React.createElement('div', { className: "flex items-center gap-2 mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22780}}
+                                  , React.createElement('span', { className: "text-2xl animate-bounce" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22781}}, "🚨")
+                                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22782}}
+                                    , React.createElement('h4', { className: "text-xs font-black text-rose-900 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22783}}
                                       , card.title || 'Immediate Emergency Contacts'
                                     )
-                                    , React.createElement('p', { className: "text-[11px] text-rose-700 font-semibold"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22430}}, "Nearest ER: "
-                                        , _optionalChain([card, 'access', _235 => _235.nearestHospital, 'optionalAccess', _236 => _236.name]), " (" , _optionalChain([card, 'access', _237 => _237.nearestHospital, 'optionalAccess', _238 => _238.emergencyBeds]), " Beds)"
+                                    , React.createElement('p', { className: "text-[11px] text-rose-700 font-semibold"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22786}}, "Nearest ER: "
+                                        , _optionalChain([card, 'access', _238 => _238.nearestHospital, 'optionalAccess', _239 => _239.name]), " (" , _optionalChain([card, 'access', _240 => _240.nearestHospital, 'optionalAccess', _241 => _241.emergencyBeds]), " Beds)"
                                     )
                                   )
                                 )
-                                , React.createElement('div', { className: "flex items-center gap-2 mt-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22435}}
+                                , React.createElement('div', { className: "flex items-center gap-2 mt-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22791}}
                                   , React.createElement('a', {
                                     href: "tel:108",
-                                    className: "px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-black shadow-xs flex items-center gap-1.5 animate-pulse"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22436}}
+                                    className: "px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-black shadow-xs flex items-center gap-1.5 animate-pulse"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22792}}
 
-                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22440}}, "📞 Call 108 Ambulance"   )
+                                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22796}}, "📞 Call 108 Ambulance"   )
                                   )
                                   , React.createElement('button', {
                                     type: "button",
@@ -22445,7 +22801,7 @@ function ScreenMedicalAssistantAgent({
                                       if (onNavigate) onNavigate('#feature1');
                                       else window.location.hash = '#feature1';
                                     },
-                                    className: "px-3 py-2 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-lg text-xs font-bold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22442}}
+                                    className: "px-3 py-2 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-lg text-xs font-bold transition-all"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22798}}
 , "🏥 Emergency Navigation →"
 
                                   )
@@ -22453,21 +22809,21 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* CAPABILITY FALLBACK (G-HON BOUNDS) */
+                            /* 13. CAPABILITY FALLBACK CARD */
                             , card.type === 'CAPABILITY_FALLBACK' && (
-                              React.createElement('div', { className: "bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22458}}
-                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22459}}
-                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22460}}
-                                    , React.createElement('span', { className: "text-lg", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22461}}, "🛡️")
-                                    , React.createElement('h4', { className: "text-xs font-bold text-amber-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22462}}
+                              React.createElement('div', { className: "bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22814}}
+                                , React.createElement('div', { className: "flex items-center justify-between mb-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22815}}
+                                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22816}}
+                                    , React.createElement('span', { className: "text-lg", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22817}}, "🛡️")
+                                    , React.createElement('h4', { className: "text-xs font-bold text-amber-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22818}}
                                       , card.title || 'MedVeda Supported Alternatives'
                                     )
                                   )
-                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22466}}, "G-HON SECURE"
+                                  , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22822}}, "G-HON SECURE"
 
                                   )
                                 )
-                                , React.createElement('div', { className: "flex flex-wrap gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22470}}
+                                , React.createElement('div', { className: "flex flex-wrap gap-2 mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22826}}
                                   , (card.options || []).map((opt, oIdx) => (
                                     React.createElement('button', {
                                       key: oIdx,
@@ -22476,7 +22832,7 @@ function ScreenMedicalAssistantAgent({
                                         if (onNavigate) onNavigate(opt.route);
                                         else window.location.hash = opt.route;
                                       },
-                                      className: "px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold transition-all shadow-2xs"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22472}}
+                                      className: "px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold transition-all shadow-2xs"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22828}}
 
                                       , opt.label, " →"
                                     )
@@ -22485,26 +22841,26 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* HEALTH GUIDANCE ACTIONS */
+                            /* 14. HEALTH GUIDANCE ACTIONS */
                             , card.type === 'HEALTH_GUIDANCE_ACTIONS' && (
-                              React.createElement('div', { className: "bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22490}}
-                                , React.createElement('h4', { className: "text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22491}}
-                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22492}}, "ℹ️"), " Recommended Next Steps:"
+                              React.createElement('div', { className: "bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22846}}
+                                , React.createElement('h4', { className: "text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22847}}
+                                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22848}}, "ℹ️"), " Recommended Next Steps:"
                                 )
-                                , React.createElement('div', { className: "flex flex-wrap gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22494}}
+                                , React.createElement('div', { className: "flex flex-wrap gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22850}}
                                   , (card.options || []).map((opt, oIdx) => (
                                     React.createElement('button', {
                                       key: oIdx,
                                       type: "button",
                                       onClick: () => {
                                         if (opt.doctorId) {
-                                          handleSendMessage(`Book appointment with Dr.`);
+                                          handleSendMessage(`Book appointment with Dr. Rajesh Verma`);
                                         } else if (opt.route) {
                                           if (onNavigate) onNavigate(opt.route);
                                           else window.location.hash = opt.route;
                                         }
                                       },
-                                      className: "px-3 py-1.5 bg-white hover:bg-blue-50 text-[#0b2b82] border border-blue-200 rounded-lg text-xs font-bold transition-all shadow-2xs"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22496}}
+                                      className: "px-3 py-1.5 bg-white hover:bg-blue-50 text-[#0b2b82] border border-blue-200 rounded-lg text-xs font-bold transition-all shadow-2xs"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22852}}
 
                                       , opt.label, " →"
                                     )
@@ -22513,9 +22869,9 @@ function ScreenMedicalAssistantAgent({
                               )
                             )
 
-                            /* 7. QUICK ACTIONS PILLS */
+                            /* 15. QUICK ACTIONS PILLS */
                             , card.type === 'QUICK_ACTIONS' && (
-                              React.createElement('div', { className: "flex flex-wrap gap-2 pt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22518}}
+                              React.createElement('div', { className: "flex flex-wrap gap-2 pt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22874}}
                                 , (card.options || []).map((opt, oIdx) => (
                                   React.createElement('button', {
                                     key: oIdx,
@@ -22528,7 +22884,7 @@ function ScreenMedicalAssistantAgent({
                                         else window.location.hash = opt.route;
                                       }
                                     },
-                                    className: "px-3 py-1 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] rounded-lg text-xs font-semibold border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22520}}
+                                    className: "px-3 py-1 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] rounded-lg text-xs font-semibold border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22876}}
 
                                     , opt.label
                                   )
@@ -22541,7 +22897,7 @@ function ScreenMedicalAssistantAgent({
                     )
                   )
 
-                  , React.createElement('span', { className: "text-[10px] text-slate-400 mt-1 px-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22544}}
+                  , React.createElement('span', { className: "text-[10px] text-slate-400 mt-1 px-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22900}}
                     , msg.timestamp
                   )
                 )
@@ -22549,29 +22905,81 @@ function ScreenMedicalAssistantAgent({
 
               /* Typing indicator */
               , isLoading && (
-                React.createElement('div', { className: "flex items-center gap-2 text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2.5 w-fit shadow-2xs"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22552}}
-                  , React.createElement('div', { className: "flex items-center gap-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22553}}
-                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22554}})
-                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22555}})
-                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22556}})
+                React.createElement('div', { className: "flex items-center gap-2 text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2.5 w-fit shadow-2xs"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22908}}
+                  , React.createElement('div', { className: "flex items-center gap-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22909}}
+                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22910}})
+                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22911}})
+                    , React.createElement('span', { className: "w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22912}})
                   )
-                  , React.createElement('span', { className: "font-medium text-slate-600" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22558}}, "Agent reasoning & preparing action proposal..."
+                  , React.createElement('span', { className: "font-medium text-slate-600" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22914}}, "Agent reasoning, checking OTC safety & preparing cards..."
 
                   )
                 )
               )
 
-              , React.createElement('div', { ref: messagesEndRef, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22564}} )
+              , React.createElement('div', { ref: messagesEndRef, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22920}} )
             )
 
             /* Input Footer Area */
-            , React.createElement('div', { className: "p-3 sm:p-4 bg-white border-t border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22568}}
+            , React.createElement('div', { className: "p-3 sm:p-4 bg-white border-t border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22924}}
+              /* Selected file preview pill */
+              , selectedFile && (
+                React.createElement('div', { className: "mb-2 p-2 px-3 bg-blue-50/90 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900 animate-fadeIn"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22927}}
+                  , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22928}}
+                    , selectedFile.previewUrl ? (
+                      React.createElement('img', {
+                        src: selectedFile.previewUrl,
+                        alt: "Upload preview" ,
+                        className: "w-8 h-8 rounded-lg object-cover border border-blue-200 shadow-2xs"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22930}}
+                      )
+                    ) : (
+                      React.createElement('span', { className: "text-xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22936}}, "📄")
+                    )
+                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22938}}
+                      , React.createElement('p', { className: "font-bold text-slate-800 truncate max-w-[200px] sm:max-w-md"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22939}}, selectedFile.name)
+                      , React.createElement('p', { className: "text-[10px] text-blue-700" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22940}}, selectedFile.sizeKb, " KB • "   , selectedFile.mimeType)
+                    )
+                  )
+                  , React.createElement('button', {
+                    type: "button",
+                    onClick: handleClearFile,
+                    className: "p-1 rounded-full hover:bg-blue-200 text-blue-800 font-bold text-sm"     ,
+                    title: "Remove attachment" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22943}}
+, "×"
+
+                  )
+                )
+              )
+
               , React.createElement('form', {
                 onSubmit: (e) => {
                   e.preventDefault();
                   handleSendMessage();
                 },
-                className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22569}}
+                className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22954}}
+
+                /* Hidden File Input for Multimodal Upload */
+                , React.createElement('input', {
+                  type: "file",
+                  ref: fileInputRef,
+                  accept: "image/*,application/pdf",
+                  onChange: handleFileSelect,
+                  className: "hidden", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22962}}
+                )
+
+                /* Multimodal Attachment Button */
+                , React.createElement('button', {
+                  type: "button",
+                  onClick: () => _optionalChain([fileInputRef, 'access', _242 => _242.current, 'optionalAccess', _243 => _243.click, 'call', _244 => _244()]),
+                  className: `p-3 rounded-xl border text-base flex items-center justify-center transition-all shrink-0 ${
+                    selectedFile
+                      ? 'bg-blue-100 text-[#0b2b82] border-blue-300 font-bold shadow-xs'
+                      : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border-slate-200'
+                  }`,
+                  title: "Upload Medicine Strip, Prescription or Lab Report (मल्टीमॉडल रिपोर्ट या दवा की फोटो अपलोड करें)"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22971}}
+
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22981}}, "📎")
+                )
 
                 /* Voice Input Microphone Button */
                 , React.createElement('button', {
@@ -22582,9 +22990,9 @@ function ScreenMedicalAssistantAgent({
                       ? 'bg-rose-500 text-white border-rose-600 animate-pulse shadow-md'
                       : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border-slate-200'
                   }`,
-                  title: isListening ? 'Listening... click to stop' : 'Click to speak via Microphone', __self: this, __source: {fileName: _jsxFileName, lineNumber: 22577}}
+                  title: isListening ? 'Listening... click to stop' : 'Click to speak via Microphone', __self: this, __source: {fileName: _jsxFileName, lineNumber: 22985}}
 
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22587}}, isListening ? '🔴' : '🎙️')
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22995}}, isListening ? '🔴' : '🎙️')
                 )
 
                 /* Text Input Box */
@@ -22594,29 +23002,29 @@ function ScreenMedicalAssistantAgent({
                   onChange: (e) => setInputText(e.target.value),
                   placeholder: 
                     selectedLanguage === 'hi'
-                      ? 'अपनी समस्या बताएं, डॉक्टर बुक करें, या दवा रिमाइंडर सेट करें...'
-                      : 'Ask to book a doctor, check emergency beds, or set a medicine reminder...'
+                      ? 'अपनी समस्या बताएं, दवा के बारे में पूछें, या रिपोर्ट अपलोड करें...'
+                      : 'Describe symptoms, ask about medicine alternatives, or upload a report...'
                   ,
                   className: "flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0b2b82] focus:bg-white transition-all"            ,
-                  disabled: isLoading, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22591}}
+                  disabled: isLoading, __self: this, __source: {fileName: _jsxFileName, lineNumber: 22999}}
                 )
 
                 /* Send Button */
                 , React.createElement('button', {
                   type: "submit",
-                  disabled: !inputText.trim() || isLoading,
-                  className: "px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-800 disabled:opacity-50 text-white text-sm font-black transition-all flex items-center gap-1.5 shadow-sm shrink-0"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22605}}
+                  disabled: (!inputText.trim() && !selectedFile) || isLoading,
+                  className: "px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-800 disabled:opacity-50 text-white text-sm font-black transition-all flex items-center gap-1.5 shadow-sm shrink-0"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23013}}
 
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22610}}, "Send")
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22611}}, "→")
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23018}}, "Send")
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23019}}, "→")
                 )
               )
 
-              , React.createElement('div', { className: "flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22615}}
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22616}}, "🛡️ Strictly within MedVeda bounds. G-NAD Non-diagnostic guidance."
+              , React.createElement('div', { className: "flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23023}}
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23024}}, "🛡️ Safe OTC Guidance • Exact Same-Salt Alternatives • Non-Diagnostic AI"
 
                 )
-                , React.createElement('span', { className: "hidden sm:inline" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22619}}, "⚡ Port 8001 Python AI & Voice Engine"
+                , React.createElement('span', { className: "hidden sm:inline" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23027}}, "⚡ Port 8001 Python Multimodal AI Engine"
 
                 )
               )
@@ -22626,51 +23034,51 @@ function ScreenMedicalAssistantAgent({
 
         /* TAB 2: REGISTERED DOCTORS ROSTER */
         , activeTab === 'doctors' && (
-          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22629}}
-            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22630}}
-              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22631}}
-                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22632}}, "Registered Specialist Doctors Database"
+          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23037}}
+            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23038}}
+              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23039}}
+                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23040}}, "Registered Specialist Doctors Database"
 
                 )
-                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22635}}, "5 specialists available for direct appointment proposals & teleconsultation"
+                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23043}}, "5 specialists available for direct appointment proposals & teleconsultation"
 
                 )
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setActiveTab('chat'),
-                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22639}}
+                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23047}}
 , "← Back to Chat"
 
               )
             )
 
-            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22648}}
+            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23056}}
               , doctorsList.map((doc) => (
                 React.createElement('div', {
                   key: doc.id,
-                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22650}}
+                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23058}}
 
-                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22654}}
-                    , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-2"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22655}}
-                      , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xl font-bold border border-blue-100"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22656}}, "👨‍⚕️"
+                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23062}}
+                    , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-2"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23063}}
+                      , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xl font-bold border border-blue-100"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23064}}, "👨‍⚕️"
 
                       )
-                      , React.createElement('span', { className: "text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22659}}
+                      , React.createElement('span', { className: "text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23067}}
                         , doc.specialty
                       )
                     )
-                    , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22663}}, doc.name)
-                    , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22664}}, doc.qualification)
-                    , React.createElement('p', { className: "text-xs text-slate-700 font-medium mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22665}}, doc.facilityName)
+                    , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23071}}, doc.name)
+                    , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23072}}, doc.qualification)
+                    , React.createElement('p', { className: "text-xs text-slate-700 font-medium mt-2"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23073}}, doc.facilityName)
 
-                    , React.createElement('div', { className: "mt-3 pt-3 border-t border-slate-100"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22667}}
-                      , React.createElement('span', { className: "text-[11px] font-bold text-slate-400 uppercase"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22668}}, "Available Slots:" )
-                      , React.createElement('div', { className: "flex flex-wrap gap-1.5 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22669}}
+                    , React.createElement('div', { className: "mt-3 pt-3 border-t border-slate-100"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23075}}
+                      , React.createElement('span', { className: "text-[11px] font-bold text-slate-400 uppercase"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23076}}, "Available Slots:" )
+                      , React.createElement('div', { className: "flex flex-wrap gap-1.5 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23077}}
                         , (doc.slots || []).map((s, idx) => (
                           React.createElement('span', {
                             key: idx,
-                            className: "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22671}}
+                            className: "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23079}}
 
                             , s.time
                           )
@@ -22685,10 +23093,10 @@ function ScreenMedicalAssistantAgent({
                       setActiveTab('chat');
                       handleSendMessage(`Book appointment with ${doc.name}`);
                     },
-                    className: "mt-4 w-full py-2 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22682}}
+                    className: "mt-4 w-full py-2 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23090}}
 
-                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22690}}, "📅 Book Appointment Proposal"   )
-                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22691}}, "→")
+                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23098}}, "📅 Book Appointment Proposal"   )
+                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23099}}, "→")
                   )
                 )
               ))
@@ -22698,64 +23106,75 @@ function ScreenMedicalAssistantAgent({
 
         /* TAB 3: DISTRICT FACILITIES & EMERGENCY BEDS */
         , activeTab === 'facilities' && (
-          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22701}}
-            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22702}}
-              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22703}}
-                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22704}}, "Hazaribagh District Facilities & Emergency Capacity"
+          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23109}}
+            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23110}}
+              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23111}}
+                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23112}}, "Hazaribagh District Facilities & Emergency Capacity"
 
                 )
-                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22707}}, "Verified network hospitals with real-time bed & ICU availability"
+                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23115}}, "Verified network hospitals with real-time bed & ICU availability"
 
                 )
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setActiveTab('chat'),
-                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22711}}
+                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23119}}
 , "← Back to Chat"
 
               )
             )
 
-            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22720}}
+            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23128}}
               , facilitiesList.map((fac) => (
                 React.createElement('div', {
                   key: fac.id,
-                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22722}}
+                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23130}}
 
-                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22726}}
-                    , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-2"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22727}}
-                      , React.createElement('span', { className: "text-2xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22728}}, "🏥")
-                      , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22729}}
+                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23134}}
+                    , React.createElement('div', { className: "flex items-start justify-between gap-2 mb-2"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23135}}
+                      , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center text-xl font-bold border border-teal-100"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23136}}, "🏥"
+
+                      )
+                      , React.createElement('span', { className: "text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23139}}
                         , fac.type
                       )
                     )
-                    , React.createElement('h4', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22733}}, fac.name)
-                    , React.createElement('p', { className: "text-xs text-slate-600 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22734}}, fac.address)
+                    , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23143}}, fac.name)
+                    , React.createElement('p', { className: "text-xs text-slate-500 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23144}}, fac.address)
 
-                    , React.createElement('div', { className: "grid grid-cols-2 gap-2 mt-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22736}}
-                      , React.createElement('div', { className: "p-3 bg-emerald-50 border border-emerald-200 rounded-xl"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22737}}
-                        , React.createElement('span', { className: "text-[10px] font-bold text-emerald-700 uppercase"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22738}}, "Emergency Beds" )
-                        , React.createElement('div', { className: "text-lg font-black text-emerald-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22739}}, fac.emergencyBeds, " Available" )
+                    , React.createElement('div', { className: "grid grid-cols-2 gap-2 mt-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23146}}
+                      , React.createElement('div', { className: "p-2.5 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23147}}
+                        , React.createElement('span', { className: "text-[10px] font-bold text-slate-400 uppercase block"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23148}}, "Emergency Beds" )
+                        , React.createElement('span', { className: "text-sm font-black text-emerald-700"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23149}}
+                          , fac.emergencyBeds, " Ready"
+                        )
                       )
-                      , React.createElement('div', { className: "p-3 bg-blue-50 border border-blue-200 rounded-xl"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22741}}
-                        , React.createElement('span', { className: "text-[10px] font-bold text-blue-700 uppercase"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22742}}, "Direct Helpline" )
-                        , React.createElement('div', { className: "text-xs font-mono font-bold text-blue-900 mt-1"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22743}}, fac.contactPhone)
+                      , React.createElement('div', { className: "p-2.5 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23153}}
+                        , React.createElement('span', { className: "text-[10px] font-bold text-slate-400 uppercase block"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23154}}, "ICU Beds" )
+                        , React.createElement('span', { className: "text-sm font-black text-blue-700"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23155}}
+                          , fac.icuBeds, " Ready"
+                        )
                       )
+                    )
+
+                    , React.createElement('div', { className: "mt-3 flex items-center justify-between text-xs text-slate-600"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23161}}
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23162}}, "📞 " , fac.phone)
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23163}}, "🚗 " , fac.distanceKm, " km away"  )
                     )
                   )
 
-                  , React.createElement('div', { className: "mt-4 pt-3 border-t border-slate-100 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22748}}
+                  , React.createElement('div', { className: "mt-4 pt-3 border-t border-slate-100 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23167}}
                     , React.createElement('button', {
                       type: "button",
                       onClick: () => {
                         if (onNavigate) onNavigate('#feature1');
                         else window.location.hash = '#feature1';
                       },
-                      className: "px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22749}}
+                      className: "px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23168}}
 
-                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22757}}, "📍 View in Care Navigator"    )
-                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22758}}, "→")
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23176}}, "📍 View in Care Navigator"    )
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23177}}, "→")
                     )
                     , React.createElement('button', {
                       type: "button",
@@ -22763,7 +23182,7 @@ function ScreenMedicalAssistantAgent({
                         setActiveTab('chat');
                         handleSendMessage(`Show doctors available at ${fac.name}`);
                       },
-                      className: "text-xs font-bold text-[#0b2b82] hover:underline"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22760}}
+                      className: "text-xs font-bold text-[#0b2b82] hover:underline"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23179}}
 , "Find Doctors →"
 
                     )
@@ -22776,31 +23195,31 @@ function ScreenMedicalAssistantAgent({
 
         /* TAB 4: ACTIVE BOOKED APPOINTMENTS */
         , activeTab === 'appointments' && (
-          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22779}}
-            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22780}}
-              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22781}}
-                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22782}}, "Confirmed Patient Appointments"
+          React.createElement('div', { className: "space-y-4", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23198}}
+            , React.createElement('div', { className: "flex items-center justify-between"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23199}}
+              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23200}}
+                , React.createElement('h3', { className: "text-base font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23201}}, "Confirmed Patient Appointments"
 
                 )
-                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22785}}, "Real-time appointments store synchronized with Feature 02 Teleconsultation OPD"
+                , React.createElement('p', { className: "text-xs text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23204}}, "Real-time appointments store synchronized with Feature 02 Teleconsultation OPD"
 
                 )
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setActiveTab('chat'),
-                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22789}}
+                className: "px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23208}}
 , "← Back to Chat"
 
               )
             )
 
-            , React.createElement('div', { className: "space-y-3", __self: this, __source: {fileName: _jsxFileName, lineNumber: 22798}}
+            , React.createElement('div', { className: "space-y-3", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23217}}
               , appointmentsList.length === 0 ? (
-                React.createElement('div', { className: "p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22800}}
-                  , React.createElement('span', { className: "text-3xl block mb-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22801}}, "📅")
-                  , React.createElement('p', { className: "text-sm font-semibold" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22802}}, "No appointments booked yet."   )
-                  , React.createElement('p', { className: "text-xs text-slate-400 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22803}}, "Ask the assistant \"Book an appointment with Dr. Rajesh Verma\" to schedule one now."
+                React.createElement('div', { className: "p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23219}}
+                  , React.createElement('span', { className: "text-3xl block mb-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23220}}, "📅")
+                  , React.createElement('p', { className: "text-sm font-semibold" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23221}}, "No appointments booked yet."   )
+                  , React.createElement('p', { className: "text-xs text-slate-400 mt-1"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23222}}, "Ask the assistant \"Book an appointment with Dr. Rajesh Verma\" to schedule one now."
 
                   )
                 )
@@ -22808,39 +23227,39 @@ function ScreenMedicalAssistantAgent({
                 appointmentsList.map((apt) => (
                   React.createElement('div', {
                     key: apt.id,
-                    className: "p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22809}}
+                    className: "p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23228}}
 
-                    , React.createElement('div', { className: "flex items-start gap-3"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22813}}
-                      , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-lg shrink-0"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22814}}, "[OK]"
+                    , React.createElement('div', { className: "flex items-start gap-3"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23232}}
+                      , React.createElement('div', { className: "w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-lg shrink-0"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23233}}, "✅"
 
                       )
-                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22817}}
-                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22818}}
-                          , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22819}}, apt.doctorName)
-                          , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22820}}
+                      , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23236}}
+                        , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23237}}
+                          , React.createElement('h4', { className: "text-sm font-black text-slate-900"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23238}}, apt.doctorName)
+                          , React.createElement('span', { className: "text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23239}}
                             , apt.id
                           )
                         )
-                        , React.createElement('p', { className: "text-xs text-slate-600 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22824}}
+                        , React.createElement('p', { className: "text-xs text-slate-600 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23243}}
                           , apt.specialty, " • "  , apt.facilityName
                         )
-                        , React.createElement('p', { className: "text-xs text-[#0b2b82] font-semibold mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22827}}, "⏰ Scheduled: "
+                        , React.createElement('p', { className: "text-xs text-[#0b2b82] font-semibold mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23246}}, "⏰ Scheduled: "
                             , apt.scheduledTime, " (" , apt.mode || 'Teleconsult', ")"
                         )
                       )
                     )
 
-                    , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22833}}
+                    , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23252}}
                       , React.createElement('button', {
                         type: "button",
                         onClick: () => {
                           if (onNavigate) onNavigate('#feature2');
                           else window.location.hash = '#feature2';
                         },
-                        className: "px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 22834}}
+                        className: "px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23253}}
 
-                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22842}}, "🚀 Launch Teleconsult OPD"   )
-                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 22843}}, "→")
+                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23261}}, "🚀 Launch Teleconsult OPD"   )
+                        , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23262}}, "→")
                       )
                     )
                   )
@@ -22853,6 +23272,7 @@ function ScreenMedicalAssistantAgent({
     )
   );
 }
+
 
 // ==========================================
 // --- FEATURES WORKSPACE: SIDE NAVBAR ---
@@ -23030,16 +23450,16 @@ function FeaturesSideNavbar({
   return (
     React.createElement(React.Fragment, null
       /* MOBILE BAR (Visible only on < md) */
-      , React.createElement('div', { className: "md:hidden bg-white border-b border-slate-200 sticky top-[60px] z-30 shadow-xs"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23033}}
-        , React.createElement('div', { className: "flex items-center justify-between px-3 py-2.5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23034}}
-          , React.createElement('div', { className: "flex items-center gap-2 min-w-0"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23035}}
-            , React.createElement('span', { className: "text-xl shrink-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23036}}, currentModule.icon)
-            , React.createElement('div', { className: "min-w-0", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23037}}
-              , React.createElement('div', { className: "flex items-center gap-1.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23038}}
-                , React.createElement('span', { className: "text-[10px] font-bold font-mono text-[#0b2b82] bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23039}}
+      , React.createElement('div', { className: "md:hidden bg-white border-b border-slate-200 sticky top-[60px] z-30 shadow-xs"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23453}}
+        , React.createElement('div', { className: "flex items-center justify-between px-3 py-2.5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23454}}
+          , React.createElement('div', { className: "flex items-center gap-2 min-w-0"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23455}}
+            , React.createElement('span', { className: "text-xl shrink-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23456}}, currentModule.icon)
+            , React.createElement('div', { className: "min-w-0", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23457}}
+              , React.createElement('div', { className: "flex items-center gap-1.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23458}}
+                , React.createElement('span', { className: "text-[10px] font-bold font-mono text-[#0b2b82] bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23459}}
                   , currentModule.code
                 )
-                , React.createElement('span', { className: "text-xs font-black text-slate-800 truncate"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23042}}
+                , React.createElement('span', { className: "text-xs font-black text-slate-800 truncate"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23462}}
                   , currentModule.label
                 )
               )
@@ -23048,15 +23468,15 @@ function FeaturesSideNavbar({
           , React.createElement('button', {
             type: "button",
             onClick: () => setMobileDrawerOpen(true),
-            className: "shrink-0 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-colors"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23048}}
+            className: "shrink-0 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-colors"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23468}}
 
-            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23053}}, "Modules")
-            , React.createElement('span', { className: "bg-[#0b2b82] text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23054}}, "10")
+            , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23473}}, "Modules")
+            , React.createElement('span', { className: "bg-[#0b2b82] text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23474}}, "10")
           )
         )
 
         /* Quick Horizontal Scrollable Pill Bar */
-        , React.createElement('div', { className: "flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto no-scrollbar border-t border-slate-100 bg-slate-50/70"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23059}}
+        , React.createElement('div', { className: "flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto no-scrollbar border-t border-slate-100 bg-slate-50/70"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23479}}
           , FEATURE_NAV_MODULES.map((m) => {
             const isActive = currentView === m.id;
             return (
@@ -23068,10 +23488,10 @@ function FeaturesSideNavbar({
                   isActive
                     ? 'bg-[#0b2b82] text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:text-[#0b2b82] border border-slate-200 hover:border-blue-200'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23063}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23483}}
 
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23073}}, m.icon)
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23074}}, m.shortLabel)
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23493}}, m.icon)
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23494}}, m.shortLabel)
               )
             );
           })
@@ -23080,33 +23500,33 @@ function FeaturesSideNavbar({
 
       /* MOBILE DRAWER OVERLAY */
       , mobileDrawerOpen && (
-        React.createElement('div', { className: "md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23083}}
-          , React.createElement('div', { className: "w-80 max-w-[85%] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23084}}
-            , React.createElement('div', { className: "p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23085}}
-              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23086}}
-                , React.createElement('span', { className: "w-2.5 h-2.5 rounded-full bg-[#0b2b82]"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23087}})
-                , React.createElement('span', { className: "text-xs font-black tracking-wider uppercase text-slate-800"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23088}}, "MedVeda Features" )
+        React.createElement('div', { className: "md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23503}}
+          , React.createElement('div', { className: "w-80 max-w-[85%] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-200"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23504}}
+            , React.createElement('div', { className: "p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23505}}
+              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23506}}
+                , React.createElement('span', { className: "w-2.5 h-2.5 rounded-full bg-[#0b2b82]"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23507}})
+                , React.createElement('span', { className: "text-xs font-black tracking-wider uppercase text-slate-800"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23508}}, "MedVeda Features" )
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setMobileDrawerOpen(false),
-                className: "w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23090}}
+                className: "w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23510}}
 , "✕"
 
               )
             )
 
-            , React.createElement('div', { className: "p-3 border-b border-slate-100"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23099}}
+            , React.createElement('div', { className: "p-3 border-b border-slate-100"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23519}}
               , React.createElement('input', {
                 type: "text",
                 placeholder: "Search modules..." ,
                 value: searchQuery,
                 onChange: (e) => setSearchQuery(e.target.value),
-                className: "w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0b2b82] focus:bg-white"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23100}}
+                className: "w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0b2b82] focus:bg-white"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23520}}
               )
             )
 
-            , React.createElement('div', { className: "flex-1 overflow-y-auto p-2 space-y-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23109}}
+            , React.createElement('div', { className: "flex-1 overflow-y-auto p-2 space-y-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23529}}
               , filteredModules.map((m) => {
                 const isActive = currentView === m.id;
                 return (
@@ -23118,33 +23538,33 @@ function FeaturesSideNavbar({
                       isActive
                         ? 'bg-blue-50 border border-blue-200 text-[#0b2b82]'
                         : 'hover:bg-slate-50 text-slate-700 border border-transparent'
-                    }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23113}}
+                    }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23533}}
 
-                    , React.createElement('span', { className: "text-xl shrink-0 p-1 bg-white rounded-lg border border-slate-100 shadow-2xs"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23123}}, m.icon)
-                    , React.createElement('div', { className: "flex-1 min-w-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23124}}
-                      , React.createElement('div', { className: "flex items-center justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23125}}
-                        , React.createElement('span', { className: "text-xs font-bold truncate"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23126}}, m.label)
-                        , React.createElement('span', { className: "text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23127}}, m.code)
+                    , React.createElement('span', { className: "text-xl shrink-0 p-1 bg-white rounded-lg border border-slate-100 shadow-2xs"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23543}}, m.icon)
+                    , React.createElement('div', { className: "flex-1 min-w-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23544}}
+                      , React.createElement('div', { className: "flex items-center justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23545}}
+                        , React.createElement('span', { className: "text-xs font-bold truncate"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23546}}, m.label)
+                        , React.createElement('span', { className: "text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23547}}, m.code)
                       )
-                      , React.createElement('p', { className: "text-[11px] text-slate-500 font-normal line-clamp-1 mt-0.5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23129}}, m.description)
+                      , React.createElement('p', { className: "text-[11px] text-slate-500 font-normal line-clamp-1 mt-0.5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23549}}, m.description)
                     )
                   )
                 );
               })
             )
 
-            , React.createElement('div', { className: "p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23136}}
+            , React.createElement('div', { className: "p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23556}}
               , React.createElement('button', {
                 type: "button",
                 onClick: () => { setView('home'); setMobileDrawerOpen(false); },
-                className: "text-xs font-bold text-slate-600 hover:text-[#0b2b82] flex items-center gap-1.5"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23137}}
+                className: "text-xs font-bold text-slate-600 hover:text-[#0b2b82] flex items-center gap-1.5"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23557}}
 , "← Back to Home"
 
               )
-              , React.createElement('span', { className: "text-[10px] text-slate-400 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23144}}, "v2.4 Ready" )
+              , React.createElement('span', { className: "text-[10px] text-slate-400 font-mono"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23564}}, "v2.4 Ready" )
             )
           )
-          , React.createElement('div', { className: "flex-1", onClick: () => setMobileDrawerOpen(false), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23147}})
+          , React.createElement('div', { className: "flex-1", onClick: () => setMobileDrawerOpen(false), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23567}})
         )
       )
 
@@ -23152,64 +23572,64 @@ function FeaturesSideNavbar({
       , React.createElement('aside', {
         className: `hidden md:flex flex-col bg-white border-r border-slate-200 shadow-xs transition-all duration-200 shrink-0 select-none sticky top-[65px] h-[calc(100vh-65px)] ${
           collapsed ? 'w-20' : 'w-72'
-        }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23152}}
+        }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23572}}
 
         /* Top Header of Sidebar */
-        , React.createElement('div', { className: `p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 ${collapsed ? 'flex-col gap-2 p-2' : ''}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23158}}
+        , React.createElement('div', { className: `p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 ${collapsed ? 'flex-col gap-2 p-2' : ''}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23578}}
           , !collapsed ? (
-            React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23160}}
-              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23161}}
-                , React.createElement('span', { className: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23162}})
-                , React.createElement('span', { className: "text-[11px] font-black uppercase tracking-wider text-slate-700"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23163}}, "Features Suite" )
+            React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23580}}
+              , React.createElement('div', { className: "flex items-center gap-2"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23581}}
+                , React.createElement('span', { className: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23582}})
+                , React.createElement('span', { className: "text-[11px] font-black uppercase tracking-wider text-slate-700"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23583}}, "Features Suite" )
               )
-              , React.createElement('p', { className: "text-[10px] text-slate-500 font-medium"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23165}}, "10 Integrated Systems"  )
+              , React.createElement('p', { className: "text-[10px] text-slate-500 font-medium"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23585}}, "10 Integrated Systems"  )
             )
           ) : (
-            React.createElement('span', { className: "text-base", title: "MedVeda Features Suite"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23168}}, "🧭")
+            React.createElement('span', { className: "text-base", title: "MedVeda Features Suite"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23588}}, "🧭")
           )
 
           , React.createElement('button', {
             type: "button",
             onClick: onToggleCollapse,
             className: "p-1.5 rounded-lg text-slate-400 hover:text-[#0b2b82] hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors"        ,
-            title: collapsed ? 'Expand Sidebar' : 'Collapse Sidebar to Icons', __self: this, __source: {fileName: _jsxFileName, lineNumber: 23171}}
+            title: collapsed ? 'Expand Sidebar' : 'Collapse Sidebar to Icons', __self: this, __source: {fileName: _jsxFileName, lineNumber: 23591}}
 
             , React.createElement('svg', {
               className: `w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`,
               fill: "none",
               viewBox: "0 0 24 24"   ,
-              stroke: "currentColor", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23177}}
+              stroke: "currentColor", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23597}}
 
-              , React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.5", d: "M15 19l-7-7 7-7"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23183}} )
+              , React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.5", d: "M15 19l-7-7 7-7"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23603}} )
             )
           )
         )
 
         /* Search Input (When expanded) */
         , !collapsed && (
-          React.createElement('div', { className: "p-2.5 border-b border-slate-100"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23190}}
-            , React.createElement('div', { className: "relative", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23191}}
+          React.createElement('div', { className: "p-2.5 border-b border-slate-100"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23610}}
+            , React.createElement('div', { className: "relative", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23611}}
               , React.createElement('input', {
                 type: "text",
                 placeholder: "Search features..." ,
                 value: searchQuery,
                 onChange: (e) => setSearchQuery(e.target.value),
-                className: "w-full text-xs px-2.5 py-1.5 pl-7 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0b2b82] focus:bg-white transition-all"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23192}}
+                className: "w-full text-xs px-2.5 py-1.5 pl-7 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0b2b82] focus:bg-white transition-all"              , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23612}}
               )
               , React.createElement('svg', {
                 className: "w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2"      ,
                 fill: "none",
                 viewBox: "0 0 24 24"   ,
-                stroke: "currentColor", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23199}}
+                stroke: "currentColor", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23619}}
 
-                , React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23205}} )
+                , React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23625}} )
               )
             )
           )
         )
 
         /* Navigation Items List */
-        , React.createElement('div', { className: "flex-1 overflow-y-auto p-2 space-y-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23212}}
+        , React.createElement('div', { className: "flex-1 overflow-y-auto p-2 space-y-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23632}}
           , filteredModules.map((m) => {
             const isActive = currentView === m.id;
             return (
@@ -23227,7 +23647,7 @@ function FeaturesSideNavbar({
                   isActive
                     ? 'bg-blue-50/90 text-[#0b2b82] border-l-4 border-[#0b2b82] shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-[#0b2b82] hover:bg-slate-50/80 border-l-4 border-transparent'
-                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23216}}
+                }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23636}}
 
                 , React.createElement('div', {
                   className: `rounded-lg flex items-center justify-center text-base shrink-0 transition-all ${
@@ -23238,26 +23658,26 @@ function FeaturesSideNavbar({
                     isActive
                       ? 'bg-white shadow-xs border border-blue-200 text-[#0b2b82]'
                       : 'bg-slate-100 group-hover:bg-white group-hover:shadow-2xs group-hover:border group-hover:border-slate-200'
-                  }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23232}}
+                  }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23652}}
 
                   , m.icon
                 )
 
                 , !collapsed && (
-                  React.createElement('div', { className: "flex-1 min-w-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23247}}
-                    , React.createElement('div', { className: "flex items-center justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23248}}
-                      , React.createElement('span', { className: `text-xs leading-tight truncate ${isActive ? 'font-black text-[#0b2b82]' : 'font-bold group-hover:text-[#0b2b82]'}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23249}}
+                  React.createElement('div', { className: "flex-1 min-w-0" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23667}}
+                    , React.createElement('div', { className: "flex items-center justify-between gap-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23668}}
+                      , React.createElement('span', { className: `text-xs leading-tight truncate ${isActive ? 'font-black text-[#0b2b82]' : 'font-bold group-hover:text-[#0b2b82]'}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23669}}
                         , m.label
                       )
                       , React.createElement('span', { className: `text-[9px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
                         isActive
                           ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
                           : m.badgeClass
-                      }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23252}}
+                      }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23672}}
                         , m.badge
                       )
                     )
-                    , React.createElement('p', { className: "text-[11px] text-slate-500 font-normal leading-snug line-clamp-1 mt-0.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23260}}
+                    , React.createElement('p', { className: "text-[11px] text-slate-500 font-normal leading-snug line-clamp-1 mt-0.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23680}}
                       , m.description
                     )
                   )
@@ -23265,7 +23685,7 @@ function FeaturesSideNavbar({
 
                 /* Collapsed Active Indicator Dot */
                 , collapsed && isActive && (
-                  React.createElement('span', { className: "absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#0b2b82] rounded-r"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23268}})
+                  React.createElement('span', { className: "absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#0b2b82] rounded-r"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23688}})
                 )
               )
             );
@@ -23273,22 +23693,22 @@ function FeaturesSideNavbar({
         )
 
         /* Bottom Section */
-        , React.createElement('div', { className: `border-t border-slate-200 bg-slate-50/80 p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23276}}
+        , React.createElement('div', { className: `border-t border-slate-200 bg-slate-50/80 p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23696}}
           , !collapsed ? (
             React.createElement(React.Fragment, null
-              , React.createElement('div', { className: "flex items-center justify-between text-[11px] px-1 text-slate-500"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23279}}
-                , React.createElement('span', { className: "font-semibold", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23280}}, "Active Role:" )
-                , React.createElement('span', { className: "font-mono uppercase font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-100"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23281}}
+              , React.createElement('div', { className: "flex items-center justify-between text-[11px] px-1 text-slate-500"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23699}}
+                , React.createElement('span', { className: "font-semibold", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23700}}, "Active Role:" )
+                , React.createElement('span', { className: "font-mono uppercase font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-100"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23701}}
                   , actorRole || 'patient'
                 )
               )
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setView('home'),
-                className: "w-full text-center py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-1.5"                  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23285}}
+                className: "w-full text-center py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-1.5"                  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23705}}
 
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23290}}, "←")
-                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23291}}, "Return to Home"  )
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23710}}, "←")
+                , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23711}}, "Return to Home"  )
               )
             )
           ) : (
@@ -23296,7 +23716,7 @@ function FeaturesSideNavbar({
               type: "button",
               onClick: () => setView('home'),
               className: "w-10 h-10 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#0b2b82] transition-colors"            ,
-              title: "Return to Home"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23295}}
+              title: "Return to Home"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23715}}
 , "🏠"
 
             )
@@ -23314,32 +23734,32 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
   );
 
   return (
-    React.createElement('div', { className: "p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23317}}
+    React.createElement('div', { className: "p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23737}}
       /* Header Banner */
-      , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8 relative overflow-hidden"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23319}}
-        , React.createElement('div', { className: "absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-50 via-sky-50/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23320}})
+      , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8 relative overflow-hidden"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23739}}
+        , React.createElement('div', { className: "absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-50 via-sky-50/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23740}})
 
-        , React.createElement('div', { className: "relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23322}}
-          , React.createElement('div', { className: "max-w-2xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23323}}
-            , React.createElement('div', { className: "flex items-center gap-2 mb-2 flex-wrap"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23324}}
-              , React.createElement('span', { className: "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200 font-mono"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23325}}, "Module 00 • Platform Overview Hub"
+        , React.createElement('div', { className: "relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23742}}
+          , React.createElement('div', { className: "max-w-2xl", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23743}}
+            , React.createElement('div', { className: "flex items-center gap-2 mb-2 flex-wrap"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23744}}
+              , React.createElement('span', { className: "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200 font-mono"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23745}}, "Module 00 • Platform Overview Hub"
 
               )
-              , React.createElement('span', { className: "flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23328}}
-                , React.createElement('span', { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23329}}), "All Systems Operational"
+              , React.createElement('span', { className: "flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23748}}
+                , React.createElement('span', { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23749}}), "All Systems Operational"
 
               )
             )
-            , React.createElement('h1', { className: "text-2xl sm:text-3xl font-black text-slate-900 tracking-tight"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23333}}, "MedVeda Integrated Health Platform"
+            , React.createElement('h1', { className: "text-2xl sm:text-3xl font-black text-slate-900 tracking-tight"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23753}}, "MedVeda Integrated Health Platform"
 
             )
-            , React.createElement('p', { className: "text-slate-600 text-sm mt-2 leading-relaxed"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23336}}, "Explore the unified healthcare architecture powering AI triage, teleconsultation queues, closed-loop referrals, longitudinal ASHA monitoring, ABDM FHIR interoperability, pharmacy logistics, and pan-district surveillance."
+            , React.createElement('p', { className: "text-slate-600 text-sm mt-2 leading-relaxed"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23756}}, "Explore the unified healthcare architecture powering AI triage, teleconsultation queues, closed-loop referrals, longitudinal ASHA monitoring, ABDM FHIR interoperability, pharmacy logistics, and pan-district surveillance."
 
             )
           )
 
           /* Perspective View Switcher Tabs */
-          , React.createElement('div', { className: "shrink-0 bg-slate-100 p-1.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-1 self-start md:self-center"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23342}}
+          , React.createElement('div', { className: "shrink-0 bg-slate-100 p-1.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-1 self-start md:self-center"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23762}}
             , React.createElement('button', {
               type: "button",
               onClick: () => setActiveTab('hub'),
@@ -23347,10 +23767,10 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                 activeTab === 'hub'
                   ? 'bg-[#0b2b82] text-white shadow-sm'
                   : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
-              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23343}}
+              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23763}}
 
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23352}}, "📊")
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23353}}, "Platform Hub" )
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23772}}, "📊")
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23773}}, "Platform Hub" )
             )
             , React.createElement('button', {
               type: "button",
@@ -23362,10 +23782,10 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                 activeTab === 'doctor'
                   ? 'bg-[#0b2b82] text-white shadow-sm'
                   : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
-              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23355}}
+              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23775}}
 
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23367}}, "👨‍⚕️")
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23368}}, "Clinical / Doctor View"   )
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23787}}, "👨‍⚕️")
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23788}}, "Clinical / Doctor View"   )
             )
             , React.createElement('button', {
               type: "button",
@@ -23377,80 +23797,80 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                 activeTab === 'patient'
                   ? 'bg-[#0b2b82] text-white shadow-sm'
                   : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
-              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23370}}
+              }`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23790}}
 
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23382}}, "🧑")
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23383}}, "Patient & Family View"   )
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23802}}, "🧑")
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23803}}, "Patient & Family View"   )
             )
           )
         )
 
         /* Live Metrics Row */
-        , React.createElement('div', { className: "grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23389}}
-          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23390}}
-            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23391}}, "Features Suite" )
-            , React.createElement('p', { className: "text-xl font-black text-[#0b2b82] mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23392}}, "10 Modules" )
-            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23393}}, "Autonomous & interconnected"  )
+        , React.createElement('div', { className: "grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23809}}
+          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23810}}
+            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23811}}, "Features Suite" )
+            , React.createElement('p', { className: "text-xl font-black text-[#0b2b82] mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23812}}, "10 Modules" )
+            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23813}}, "Autonomous & interconnected"  )
           )
-          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23395}}
-            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23396}}, "Geographic Reach" )
-            , React.createElement('p', { className: "text-xl font-black text-slate-800 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23397}}, "28 States + 8 UTs"    )
-            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23398}}, "All India districts mapped"   )
+          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23815}}
+            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23816}}, "Geographic Reach" )
+            , React.createElement('p', { className: "text-xl font-black text-slate-800 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23817}}, "28 States + 8 UTs"    )
+            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23818}}, "All India districts mapped"   )
           )
-          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23400}}
-            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23401}}, "Interoperability")
-            , React.createElement('p', { className: "text-xl font-black text-indigo-700 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23402}}, "ABDM M1-M3" )
-            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23403}}, "FHIR R4 digital health records"    )
+          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23820}}
+            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23821}}, "Interoperability")
+            , React.createElement('p', { className: "text-xl font-black text-indigo-700 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23822}}, "ABDM M1-M3" )
+            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23823}}, "FHIR R4 digital health records"    )
           )
-          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23405}}
-            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23406}}, "Intelligence")
-            , React.createElement('p', { className: "text-xl font-black text-emerald-700 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23407}}, "Gemini 2.5 Flash"  )
-            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23408}}, "Deterministic clinical safety"  )
+          , React.createElement('div', { className: "bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23825}}
+            , React.createElement('p', { className: "text-[11px] font-bold text-slate-500 uppercase tracking-wider"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23826}}, "Intelligence")
+            , React.createElement('p', { className: "text-xl font-black text-emerald-700 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23827}}, "Gemini 2.5 Flash"  )
+            , React.createElement('p', { className: "text-[10px] text-slate-500" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23828}}, "Deterministic clinical safety"  )
           )
         )
       )
 
       /* CONDITIONAL TAB CONTENT */
       , activeTab === 'hub' && (
-        React.createElement('div', { className: "space-y-8", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23415}}
-          , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23416}}
-            , React.createElement('div', { className: "flex items-center justify-between mb-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23417}}
-              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23418}}
-                , React.createElement('h2', { className: "text-xl font-black text-slate-900 tracking-tight flex items-center gap-2"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23419}}
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23420}}, "🚀"), " Platform Feature Directory"
+        React.createElement('div', { className: "space-y-8", __self: this, __source: {fileName: _jsxFileName, lineNumber: 23835}}
+          , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23836}}
+            , React.createElement('div', { className: "flex items-center justify-between mb-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23837}}
+              , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23838}}
+                , React.createElement('h2', { className: "text-xl font-black text-slate-900 tracking-tight flex items-center gap-2"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23839}}
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23840}}, "🚀"), " Platform Feature Directory"
                 )
-                , React.createElement('p', { className: "text-xs text-slate-500 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23422}}, "Select any module below or use the side navigation bar to switch workspaces."
+                , React.createElement('p', { className: "text-xs text-slate-500 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23842}}, "Select any module below or use the side navigation bar to switch workspaces."
 
                 )
               )
             )
 
-            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23428}}
+            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23848}}
               , FEATURE_NAV_MODULES.filter(m => m.id !== 'overview').map((mod) => (
                 React.createElement('div', {
                   key: mod.id,
-                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23430}}
+                  className: "bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23850}}
 
-                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23434}}
-                    , React.createElement('div', { className: "flex items-start justify-between gap-3 mb-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23435}}
-                      , React.createElement('div', { className: "w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23436}}
+                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23854}}
+                    , React.createElement('div', { className: "flex items-start justify-between gap-3 mb-3"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23855}}
+                      , React.createElement('div', { className: "w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform"           , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23856}}
                         , mod.icon
                       )
-                      , React.createElement('span', { className: `text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${mod.badgeClass}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23439}}
+                      , React.createElement('span', { className: `text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${mod.badgeClass}`, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23859}}
                         , mod.code, " • "  , mod.badge
                       )
                     )
 
-                    , React.createElement('h3', { className: "text-base font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23444}}
+                    , React.createElement('h3', { className: "text-base font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23864}}
                       , mod.label
                     )
-                    , React.createElement('p', { className: "text-xs text-slate-600 mt-1.5 leading-relaxed"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23447}}
+                    , React.createElement('p', { className: "text-xs text-slate-600 mt-1.5 leading-relaxed"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23867}}
                       , mod.description
                     )
                   )
 
-                  , React.createElement('div', { className: "mt-5 pt-4 border-t border-slate-100 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23452}}
-                    , React.createElement('span', { className: "text-[11px] font-semibold text-slate-400"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23453}}, "Production Ready"
+                  , React.createElement('div', { className: "mt-5 pt-4 border-t border-slate-100 flex items-center justify-between"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23872}}
+                    , React.createElement('span', { className: "text-[11px] font-semibold text-slate-400"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23873}}, "Production Ready"
 
                     )
                     , React.createElement('button', {
@@ -23466,10 +23886,10 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                           setView(mod.id);
                         }
                       },
-                      className: "px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23456}}
+                      className: "px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"            , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23876}}
 
-                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23471}}, "Launch")
-                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23472}}, "→")
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23891}}, "Launch")
+                      , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23892}}, "→")
                     )
                   )
                 )
@@ -23478,32 +23898,32 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           )
 
           /* Architecture & Compliance Strip */
-          , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200 p-6 shadow-xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23481}}
-            , React.createElement('h3', { className: "text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 text-[#0b2b82]"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23482}}
-              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23483}}, "🛡️"), " Architecture & Clinical Safety Standards"
+          , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200 p-6 shadow-xs"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23901}}
+            , React.createElement('h3', { className: "text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 text-[#0b2b82]"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23902}}
+              , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23903}}, "🛡️"), " Architecture & Clinical Safety Standards"
             )
-            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4 text-xs"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23485}}
-              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23486}}
-                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23487}}
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23488}}, "🏛️"), " ABDM / NDHM Compliant"
+            , React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4 text-xs"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23905}}
+              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23906}}
+                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23907}}
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23908}}, "🏛️"), " ABDM / NDHM Compliant"
                 )
-                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23490}}, "Full FHIR R4 interoperability for ABHA addresses, health facility registry (HFR), and cryptographic consent management."
+                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23910}}, "Full FHIR R4 interoperability for ABHA addresses, health facility registry (HFR), and cryptographic consent management."
 
                 )
               )
-              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23494}}
-                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23495}}
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23496}}, "🔒"), " Zero PII Exposure"
+              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23914}}
+                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23915}}
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23916}}, "🔒"), " Zero PII Exposure"
                 )
-                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23498}}, "Deterministic redaction of sensitive identifiers before AI model reasoning. End-to-end TLS 1.3 in-transit and AES-256 at rest."
+                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23918}}, "Deterministic redaction of sensitive identifiers before AI model reasoning. End-to-end TLS 1.3 in-transit and AES-256 at rest."
 
                 )
               )
-              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23502}}
-                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23503}}
-                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23504}}, "⚡"), " Offline-Resilient Telemetry"
+              , React.createElement('div', { className: "p-4 rounded-xl bg-slate-50 border border-slate-200"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23922}}
+                , React.createElement('h4', { className: "font-bold text-slate-800 mb-1 flex items-center gap-1.5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23923}}
+                  , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23924}}, "⚡"), " Offline-Resilient Telemetry"
                 )
-                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23506}}, "Optimized for low-bandwidth rural networks with local queue persistence and automatic synchronization for ASHA field operations."
+                , React.createElement('p', { className: "text-slate-600 leading-relaxed" , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23926}}, "Optimized for low-bandwidth rural networks with local queue persistence and automatic synchronization for ASHA field operations."
 
                 )
               )
@@ -23516,7 +23936,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
         React.createElement(DoctorOverview, {
           setView: setView,
           setScreen: setScreen,
-          setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23516}}
+          setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23936}}
         )
       )
 
@@ -23524,7 +23944,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
         React.createElement(PatientOverview, {
           setView: setView,
           setScreen: setScreen,
-          setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23524}}
+          setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23944}}
         )
       )
     )
@@ -23716,19 +24136,19 @@ function App() {
   ].includes(view);
 
   return (
-    React.createElement('div', { className: "min-h-screen flex flex-col bg-white text-slate-900"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23719}}
+    React.createElement('div', { className: "min-h-screen flex flex-col bg-white text-slate-900"    , __self: this, __source: {fileName: _jsxFileName, lineNumber: 24139}}
       , React.createElement(Header, {
         currentView: view,
         setView: setView,
         currentScreen: feature1Screen,
         setScreen: setScreen,
         actorRole: actorRole,
-        setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23720}}
+        setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24140}}
       )
 
       /* HOMEPAGE VIEW */
       , view === 'home' && (
-        React.createElement('main', { className: "flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23731}}
+        React.createElement('main', { className: "flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 24151}}
           , React.createElement(ScreenHomepage, {
             onLaunchFeature1: () => {
               setView('feature1');
@@ -23766,14 +24186,14 @@ function App() {
               setView('about');
             },
             actorRole: actorRole,
-            setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23732}}
+            setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24152}}
           )
         )
       )
 
       /* ABOUT US PAGE */
       , view === 'about' && (
-        React.createElement('main', { className: "flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23776}}
+        React.createElement('main', { className: "flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 24196}}
           , React.createElement(ScreenAboutUs, {
             onBackToHome: () => setView('home'),
             onLaunchFeature1: () => {
@@ -23807,14 +24227,14 @@ function App() {
             },
             onLaunchFeature10: () => {
               setView('feature10');
-            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23777}}
+            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24197}}
           )
         )
       )
 
       /* FEATURES SUITE WORKSPACE (Side Navbar + Active Feature Screen) */
       , isFeatureView && (
-        React.createElement('div', { className: "flex-1 flex flex-col md:flex-row w-full bg-slate-50 min-h-[calc(100vh-65px)]"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23817}}
+        React.createElement('div', { className: "flex-1 flex flex-col md:flex-row w-full bg-slate-50 min-h-[calc(100vh-65px)]"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 24237}}
           , React.createElement(FeaturesSideNavbar, {
             currentView: view,
             setView: setView,
@@ -23823,10 +24243,10 @@ function App() {
             actorRole: actorRole,
             setActorRole: setActorRole,
             collapsed: sidebarCollapsed,
-            onToggleCollapse: () => setSidebarCollapsed(!sidebarCollapsed), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23818}}
+            onToggleCollapse: () => setSidebarCollapsed(!sidebarCollapsed), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24238}}
           )
 
-          , React.createElement('main', { className: "flex-1 min-w-0 bg-white md:border-l border-slate-200 overflow-y-auto"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 23829}}
+          , React.createElement('main', { className: "flex-1 min-w-0 bg-white md:border-l border-slate-200 overflow-y-auto"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 24249}}
             /* VIEW: OVERVIEW */
             , view === 'overview' && (
               React.createElement(ScreenOverview, {
@@ -23834,18 +24254,18 @@ function App() {
                 setActorRole: setActorRole,
                 setView: setView,
                 setScreen: setScreen,
-                setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23832}}
+                setTeleconsultScreen: setTeleconsultScreen, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24252}}
               )
             )
 
             /* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR */
         , view === 'feature1' && (
-          React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23843}}
+          React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 24263}}
             , feature1Screen === 1 && (
               React.createElement(Screen1PatientInfo, {
                 patient: patient,
                 setPatient: setPatient,
-                onNext: () => setScreen(2), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23845}}
+                onNext: () => setScreen(2), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24265}}
               )
             )
 
@@ -23854,7 +24274,7 @@ function App() {
                 symptoms: symptoms,
                 setSymptoms: setSymptoms,
                 onNext: () => setScreen(3),
-                onBack: () => setScreen(1), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23853}}
+                onBack: () => setScreen(1), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24273}}
               )
             )
 
@@ -23863,7 +24283,7 @@ function App() {
                 redFlags: redFlags,
                 setRedFlags: setRedFlags,
                 onNext: () => setScreen(4),
-                onBack: () => setScreen(2), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23862}}
+                onBack: () => setScreen(2), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24282}}
               )
             )
 
@@ -23875,7 +24295,7 @@ function App() {
                 onComplete: (data) => {
                   if (data) setTriageResult(data);
                   setScreen(5);
-                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23871}}
+                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24291}}
               )
             )
 
@@ -23883,7 +24303,7 @@ function App() {
               React.createElement(Screen5TriageResult, {
                 triage: triageResult,
                 onFindHospitals: () => setScreen(6),
-                onBack: () => setScreen(3), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23883}}
+                onBack: () => setScreen(3), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24303}}
               )
             )
 
@@ -23892,15 +24312,15 @@ function App() {
                 location: patient.location,
                 latitude: patient.latitude,
                 longitude: patient.longitude,
-                requiredSpecialty: _optionalChain([triageResult, 'optionalAccess', _239 => _239.requiredSpecialty]),
-                emergencyRequired: _optionalChain([triageResult, 'optionalAccess', _240 => _240.emergencyRequired]),
+                requiredSpecialty: _optionalChain([triageResult, 'optionalAccess', _245 => _245.requiredSpecialty]),
+                emergencyRequired: _optionalChain([triageResult, 'optionalAccess', _246 => _246.emergencyRequired]),
                 onComplete: (liveFacilities) => {
                   if (liveFacilities && liveFacilities.length > 0) {
                     setFacilities(liveFacilities);
                     setSelectedFacility(liveFacilities[0]);
                   }
                   setScreen(7);
-                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23891}}
+                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24311}}
               )
             )
 
@@ -23911,7 +24331,7 @@ function App() {
                   setSelectedFacility(fac);
                   setScreen(8);
                 },
-                onBack: () => setScreen(5), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23908}}
+                onBack: () => setScreen(5), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24328}}
               )
             )
 
@@ -23919,7 +24339,7 @@ function App() {
               React.createElement(Screen8FacilityDetails, {
                 facility: selectedFacility,
                 onNext: () => setScreen(9),
-                onBack: () => setScreen(7), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23919}}
+                onBack: () => setScreen(7), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24339}}
               )
             )
 
@@ -23927,7 +24347,7 @@ function App() {
               React.createElement(Screen9ReferralPass, {
                 facility: selectedFacility,
                 patient: patient,
-                onRestart: handleRestartFeature1, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23927}}
+                onRestart: handleRestartFeature1, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24347}}
               )
             )
           )
@@ -23935,7 +24355,7 @@ function App() {
 
         /* VIEW 3: FEATURE 02 — TELECONSULTATION & QUEUE MANAGEMENT */
         , view === 'feature2' && (
-          React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 23938}}
+          React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 24358}}
             , teleconsultScreen === 'entry' && (
               React.createElement(ScreenTeleconsultEntry, {
                 actorRole: actorRole,
@@ -23943,7 +24363,7 @@ function App() {
                   setActorRole(path);
                   setTeleconsultScreen('booking');
                 },
-                onBackToHome: () => setView('home'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23940}}
+                onBackToHome: () => setView('home'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24360}}
               )
             )
 
@@ -23958,7 +24378,7 @@ function App() {
                 onEmergencyEscalate: () => {
                   setView('feature1');
                   setScreen(1);
-                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23951}}
+                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24371}}
               )
             )
 
@@ -23966,7 +24386,7 @@ function App() {
               React.createElement(ScreenTeleconsultQueue, {
                 appointment: teleconsultAppointment,
                 onJoinCall: () => setTeleconsultScreen('call'),
-                onBack: () => setTeleconsultScreen('booking'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23966}}
+                onBack: () => setTeleconsultScreen('booking'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24386}}
               )
             )
 
@@ -23977,7 +24397,7 @@ function App() {
                 onCompleteConsultation: (vitalsLogged) => {
                   setRecordedVitals(vitalsLogged);
                   setTeleconsultScreen('doctor');
-                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23974}}
+                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24394}}
               )
             )
 
@@ -23988,7 +24408,7 @@ function App() {
                 onSaveDocumentation: (docData) => {
                   setConsultationDocumentation(docData);
                   setTeleconsultScreen('summary');
-                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 23985}}
+                }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24405}}
               )
             )
 
@@ -23996,7 +24416,7 @@ function App() {
               React.createElement(ScreenConsultationSummary, {
                 consultationData: consultationDocumentation,
                 onRestart: handleRestartFeature2,
-                onGoHome: () => setView('home'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 23996}}
+                onGoHome: () => setView('home'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24416}}
               )
             )
           )
@@ -24012,7 +24432,7 @@ function App() {
             onNavigateToCareNavigator: () => {
               setView('feature1');
               setScreen(1);
-            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24007}}
+            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24427}}
           )
         )
 
@@ -24026,7 +24446,7 @@ function App() {
               setView('feature1');
               setScreen(1);
             },
-            onNavigateToReferrals: () => setView('feature3'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24021}}
+            onNavigateToReferrals: () => setView('feature3'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24441}}
           )
         )
 
@@ -24045,7 +24465,7 @@ function App() {
               setTeleconsultScreen('entry');
             },
             onNavigateToReferrals: () => setView('feature3'),
-            onNavigateToFollowUps: () => setView('feature4'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24035}}
+            onNavigateToFollowUps: () => setView('feature4'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24455}}
           )
         )
 
@@ -24065,7 +24485,7 @@ function App() {
             },
             onNavigateToReferrals: () => setView('feature3'),
             onNavigateToFollowUps: () => setView('feature4'),
-            onNavigateToRecords: () => setView('feature5'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24054}}
+            onNavigateToRecords: () => setView('feature5'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24474}}
           )
         )
 
@@ -24086,7 +24506,7 @@ function App() {
             onNavigateToReferrals: () => setView('feature3'),
             onNavigateToFollowUps: () => setView('feature4'),
             onNavigateToRecords: () => setView('feature5'),
-            onNavigateToMedicine: () => setView('feature6'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24074}}
+            onNavigateToMedicine: () => setView('feature6'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24494}}
           )
         )
 
@@ -24107,7 +24527,7 @@ function App() {
             onNavigateToReferrals: () => setView('feature3'),
             onNavigateToRecords: () => setView('feature5'),
             triageContext: triageResult,
-            patientContext: patient, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24095}}
+            patientContext: patient, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24515}}
           )
         )
 
@@ -24118,7 +24538,7 @@ function App() {
             setActorRole: setActorRole,
             onBackToHome: () => setView('home'),
             onNavigateToFacilityDashboard: () => setView('feature7'),
-            onNavigateToSchemeFinder: () => setView('feature8'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24116}}
+            onNavigateToSchemeFinder: () => setView('feature8'), __self: this, __source: {fileName: _jsxFileName, lineNumber: 24536}}
           )
         )
 
@@ -24140,7 +24560,7 @@ function App() {
               else if (route === '#feature9') { setView('feature9'); }
               else if (route === '#feature10' || route === '#assistant' || route === '#medical-agent') { setView('feature10'); }
               else { window.location.hash = route; }
-            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24127}}
+            }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24547}}
           )
         )
       )
@@ -24160,7 +24580,7 @@ function App() {
           },
           onLaunchFeature8: () => {
             setView('feature8');
-          }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24152}}
+          }, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24572}}
         )
       )
 
@@ -24168,7 +24588,7 @@ function App() {
         setView: setView,
         setScreen: setScreen,
         setTeleconsultScreen: setTeleconsultScreen,
-        setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24167}}
+        setActorRole: setActorRole, __self: this, __source: {fileName: _jsxFileName, lineNumber: 24587}}
       )
     )
   );
@@ -24176,5 +24596,5 @@ function App() {
 
 // Mount the React Application
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 24179}} ));
+root.render(React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 24599}} ));
 
