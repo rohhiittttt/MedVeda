@@ -445,6 +445,102 @@ const MOCK_DOCTORS = [
     isAvailableOnline: true,
     nextSlot: 'Today, Immediate / On-Duty',
     avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_ped_2',
+    name: 'Dr. Rohit K. Bhagat',
+    qualification: 'MD (Pediatrics), Fellow Neonatology',
+    registrationNumber: 'JH-MED-5921',
+    specialties: ['Pediatrics', 'Neonatal Care', 'Child Development'],
+    facilityNames: ['SBMC&H Hazaribagh', 'RIMS Super Specialty'],
+    experience: '14 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 11:30 AM',
+    avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_ped_3',
+    name: 'Dr. Shalini Prasad',
+    qualification: 'DNB (Pediatrics), Child Specialist',
+    registrationNumber: 'JH-MED-6380',
+    specialties: ['Pediatrics', 'Child Health', 'Adolescent Medicine'],
+    facilityNames: ['Arogyam Children Clinic', 'Sadar Hospital'],
+    experience: '9 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 02:00 PM',
+    avatar: '👩‍⚕️'
+  },
+  {
+    id: 'doc_cardio_2',
+    name: 'Dr. Amitava Ghosh',
+    qualification: 'DM (Interventional Cardiology), MD',
+    registrationNumber: 'JH-MED-4710',
+    specialties: ['Cardiology', 'ECG & Arrhythmia', 'Cardiac Care'],
+    facilityNames: ['SBMC&H Hazaribagh', 'Apollo Clinic'],
+    experience: '15 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 02:30 PM',
+    avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_neuro_2',
+    name: 'Dr. Sameer K. Jha',
+    qualification: 'MCh (Neuro), DNB (Neurology)',
+    registrationNumber: 'JH-MED-5192',
+    specialties: ['Neurology', 'Epilepsy & Migraine', 'Neuro-Medicine'],
+    facilityNames: ['RIMS Ranchi', 'SBMC&H Hazaribagh'],
+    experience: '13 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 11:15 AM',
+    avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_gm_2',
+    name: 'Dr. Suresh Chandra',
+    qualification: 'MD (Internal Medicine), Senior Physician',
+    registrationNumber: 'JH-MED-2940',
+    specialties: ['General Medicine', 'Diabetes & Fevers', 'Geriatric Care'],
+    facilityNames: ['Sadar Hospital Hazaribagh', 'Katkamsandi CHC'],
+    experience: '21 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 10:15 AM',
+    avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_obgyn_2',
+    name: 'Dr. Rashmi Tiwari',
+    qualification: 'MS (Obstetrics & Gynecology)',
+    registrationNumber: 'JH-MED-6840',
+    specialties: ['Obstetrics & Gynecology', 'Fetal Medicine', 'Antenatal Care'],
+    facilityNames: ['Kalyani Hospital', 'Sadar Hospital'],
+    experience: '12 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 03:30 PM',
+    avatar: '👩‍⚕️'
+  },
+  {
+    id: 'doc_ortho_2',
+    name: 'Dr. Manish Tigga',
+    qualification: 'MS (Orthopedics), Spine Fellow',
+    registrationNumber: 'JH-MED-6104',
+    specialties: ['Orthopedics', 'Spine & Sports Injury', 'Bone Trauma'],
+    facilityNames: ['SBMC&H Hazaribagh', 'Arogyam Hospital'],
+    experience: '11 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 01:45 PM',
+    avatar: '👨‍⚕️'
+  },
+  {
+    id: 'doc_pulm_2',
+    name: 'Dr. Archana Kumari',
+    qualification: 'DNB (Respiratory Medicine), DTCD',
+    registrationNumber: 'JH-MED-7215',
+    specialties: ['Pulmonology / Respiratory Medicine', 'Asthma Care', 'Chest Medicine'],
+    facilityNames: ['Sadar Hospital', 'Tuberculosis Center'],
+    experience: '10 years exp.',
+    isAvailableOnline: true,
+    nextSlot: 'Today, 03:00 PM',
+    avatar: '👩‍⚕️'
   }
 ];
 
@@ -997,37 +1093,21 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
             Home
           </button>
 
-          {/* Section 2: Features (Clicking opens Overview by default; chevron toggles quick-jump dropdown) */}
-          <div className="relative flex items-center" ref={featuresRef}>
+          {/* Section 2: Features (Clicking toggles dropdown showing all features) */}
+          <div className="relative" ref={featuresRef}>
             <button
               type="button"
-              onClick={() => {
-                setView('overview');
-                setFeaturesOpen(false);
-              }}
-              className={`px-3.5 py-1.5 rounded-l-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 ${isFeatureActive
+              onClick={() => setFeaturesOpen(!featuresOpen)}
+              className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${isFeatureActive || featuresOpen
                 ? 'bg-[#0b2b82] text-white shadow-sm'
                 : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
                 }`}
-              title="Features Workspace (Default: Overview)"
-            >
-              <span>Features</span>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setFeaturesOpen(!featuresOpen);
-              }}
-              className={`px-1.5 py-1.5 rounded-r-lg transition-all text-xs font-bold border-l ${isFeatureActive
-                ? 'bg-[#0b2b82] text-white border-blue-700/60 hover:bg-blue-900'
-                : 'text-slate-600 border-slate-200 hover:text-[#0b2b82] hover:bg-blue-50/70'
-                }`}
               aria-expanded={featuresOpen}
               aria-haspopup="true"
-              aria-label="Toggle Features Menu"
-              title="Browse all 10 modules"
+              aria-label="Features Menu"
+              title="Browse all features"
             >
+              <span>Features</span>
               <svg
                 className={`w-3.5 h-3.5 transition-transform duration-200 ${featuresOpen ? 'rotate-180' : ''}`}
                 fill="none"
@@ -3313,6 +3393,164 @@ function Screen9ReferralPass({ facility, patient, onRestart }) {
 // ==========================================
 
 function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
+  const [showWorkerLogin, setShowWorkerLogin] = useState(false);
+  const [workerId, setWorkerId] = useState('ASHA-JH-7842');
+  const [workerPassword, setWorkerPassword] = useState('asha@2026');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleWorkerLogin = (e) => {
+    if (e) e.preventDefault();
+    if (!workerId.trim()) {
+      setLoginError('Please enter your Frontline Worker ID or Mobile Number.');
+      return;
+    }
+    if (!workerPassword.trim()) {
+      setLoginError('Please enter your Password or Security PIN.');
+      return;
+    }
+    setIsAuthenticating(true);
+    setLoginError('');
+    setTimeout(() => {
+      setIsAuthenticating(false);
+      onSelectPath('worker');
+    }, 400);
+  };
+
+  if (showWorkerLogin) {
+    return (
+      <div className="max-w-xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
+          <div className="mb-6 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 uppercase mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Assisted Path &bull; Frontline Worker Authentication</span>
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+              <span>👩‍⚕️</span>
+              <span>Frontline Worker Login</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Authenticate with your Health Worker ID &amp; Password to unlock assisted teleconsultation and open patient intake.
+            </p>
+          </div>
+
+          <form onSubmit={handleWorkerLogin} className="space-y-4">
+            {loginError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                Frontline Health Worker ID / Mobile No.
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={workerId}
+                  onChange={(e) => setWorkerId(e.target.value)}
+                  placeholder="e.g. ASHA-JH-7842 or 9431158201"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-900 text-sm focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] transition-all bg-slate-50/50 focus:bg-white"
+                  required
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono">
+                  Govt ID
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
+                  Password / Security PIN
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-xs font-bold text-[#0b2b82] hover:underline"
+                >
+                  {showPassword ? 'Hide PIN' : 'Show PIN'}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={workerPassword}
+                  onChange={(e) => setWorkerPassword(e.target.value)}
+                  placeholder="Enter your security password or PIN"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-900 text-sm focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] transition-all bg-slate-50/50 focus:bg-white"
+                  required
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                  🔒
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/80 text-xs text-emerald-900 flex items-start gap-2.5">
+              <span className="text-base leading-none">🏥</span>
+              <div className="leading-snug">
+                <span className="font-extrabold block">Assigned Sector: Katkamsandi Primary Health Sub-Centre</span>
+                <span className="text-emerald-700 text-[11px]">All teleconsultations will be tagged as worker-verified with digital geo-audit.</span>
+              </div>
+            </div>
+
+            {/* Quick Demo Credentials Pill */}
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkerId('ASHA-JH-7842');
+                  setWorkerPassword('asha@2026');
+                  setLoginError('');
+                }}
+                className="text-[11px] font-bold text-[#0b2b82] bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors flex items-center gap-1.5"
+              >
+                <span>💡</span>
+                <span>Auto-fill Demo Credentials (ASHA Anita Devi)</span>
+              </button>
+            </div>
+
+            <div className="pt-2 space-y-2.5">
+              <button
+                type="submit"
+                disabled={isAuthenticating}
+                className="w-full py-3.5 bg-[#0b2b82] hover:bg-[#071c59] text-white font-extrabold text-sm rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Verifying Health Worker Credentials...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Continue to Patient Teleconsultation Data Intake</span>
+                    <span>&rarr;</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWorkerLogin(false);
+                  setLoginError('');
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                &larr; Back to Path Selection
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
@@ -3329,7 +3567,7 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
           {/* Path 1: Assisted Path */}
           <div
-            onClick={() => onSelectPath('worker')}
+            onClick={() => setShowWorkerLogin(true)}
             className={`p-6 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between hover:shadow-md ${actorRole === 'worker'
               ? 'border-brand-600 bg-brand-50/30 ring-2 ring-brand-500/20 shadow-sm'
               : 'border-slate-200 bg-white hover:border-brand-300'
@@ -3363,7 +3601,11 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
 
             <button
               type="button"
-              className="w-full py-3 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-brand-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowWorkerLogin(true);
+              }}
+              className="w-full py-3 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
             >
               Continue as Frontline Worker &rarr;
             </button>
@@ -3482,12 +3724,32 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
   }, [isSpecialtyDropdownOpen]);
 
   const filteredDoctors = useMemo(() => {
-    return MOCK_DOCTORS.filter((d) =>
+    const list = MOCK_DOCTORS.filter((d) =>
       d.specialties.some((s) => matchesSpecialty(s, selectedSpecialty))
     );
+    if (list.length < 2) {
+      const generalDoctors = MOCK_DOCTORS.filter((d) =>
+        d.specialties.some((s) => matchesSpecialty(s, 'General Medicine')) &&
+        !list.some((existing) => existing.id === d.id)
+      );
+      return [...list, ...generalDoctors].slice(0, 4);
+    }
+    return list;
   }, [selectedSpecialty]);
 
-  const activeDoctor = filteredDoctors[0] || MOCK_DOCTORS[0];
+  const activeDoctor = useMemo(() => {
+    const found = filteredDoctors.find((d) => d.id === selectedDoctorId);
+    return found || filteredDoctors[0] || MOCK_DOCTORS[0];
+  }, [filteredDoctors, selectedDoctorId]);
+
+  useEffect(() => {
+    if (filteredDoctors.length > 0 && !filteredDoctors.some((d) => d.id === selectedDoctorId)) {
+      setSelectedDoctorId(filteredDoctors[0].id);
+      if (filteredDoctors[0].nextSlot) {
+        setSelectedSlot(filteredDoctors[0].nextSlot);
+      }
+    }
+  }, [filteredDoctors, selectedDoctorId]);
 
   const handleSymptomCheck = (text) => {
     setSymptoms(text);
@@ -3647,6 +3909,15 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
       </div>
 
       <div className="space-y-5">
+        {pathActor === 'worker' && (
+          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs flex items-center justify-between text-emerald-900">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-extrabold">Authenticated Operator: Anita Devi (ASHA Worker &bull; ID: ASHA-JH-7842)</span>
+            </div>
+            <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded font-bold text-emerald-800">Verified ASHA Intake</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Patient Full Name</label>
@@ -3803,29 +4074,119 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
           )}
         </div>
 
-        {/* Doctor Roster Card */}
+        {/* Doctor Roster Cards List */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Matching Specialist Doctor</label>
-          <div className="p-4 rounded-xl border border-brand-200 bg-brand-50/40 flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white border border-brand-200 flex items-center justify-center text-2xl shrink-0 shadow-sm">
-                {activeDoctor.avatar}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-extrabold text-slate-900 text-sm">{activeDoctor.name}</h4>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Online</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">{activeDoctor.qualification} &bull; Reg: {activeDoctor.registrationNumber}</p>
-                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  {activeDoctor.facilityNames.map((fac, i) => (
-                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
-                      🏥 {fac}
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
+              Choose Specialist Doctor ({filteredDoctors.length} Available)
+            </label>
+            <span className="text-[11px] font-bold text-slate-500">
+              Tap any doctor card to select
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {filteredDoctors.map((doc) => {
+              const isSelected = doc.id === activeDoctor.id;
+
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => {
+                    setSelectedDoctorId(doc.id);
+                    if (doc.nextSlot) {
+                      setSelectedSlot(doc.nextSlot);
+                    }
+                  }}
+                  className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-[#0b2b82] bg-blue-50/50 shadow-md ring-2 ring-[#0b2b82]/15'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
+                  }`}
+                >
+                  <div>
+                    {/* Header: Avatar, Name, Status, Selection Indicator */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-2xs border ${
+                            isSelected ? 'bg-white border-blue-200' : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          {doc.avatar}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-extrabold text-slate-900 text-sm leading-tight">
+                              {doc.name}
+                            </h4>
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                              Online
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
+                            {doc.qualification}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Selection Radio / Checkmark */}
+                      <div className="shrink-0 mt-0.5">
+                        {isSelected ? (
+                          <div className="w-5 h-5 rounded-full bg-[#0b2b82] text-white flex items-center justify-center text-xs font-black shadow-xs">
+                            ✓
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-slate-300 hover:border-blue-400"></div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Meta info: Reg No, Experience */}
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold mb-2">
+                      <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                        {doc.registrationNumber}
+                      </span>
+                      {doc.experience && (
+                        <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
+                          ⭐ {doc.experience}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Hospital affiliations */}
+                    <div className="flex items-center gap-1 flex-wrap mb-2.5">
+                      {doc.facilityNames.slice(0, 2).map((fac, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 truncate max-w-[170px]"
+                        >
+                          🏥 {fac}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Card Footer: Next Slot & Status */}
+                  <div
+                    className={`pt-2 border-t flex items-center justify-between text-[11px] ${
+                      isSelected ? 'border-blue-200/80' : 'border-slate-100'
+                    }`}
+                  >
+                    <span className="text-slate-500">
+                      ⏱️ <strong className="text-slate-800">{doc.nextSlot || 'Today, 10:00 AM'}</strong>
                     </span>
-                  ))}
+                    <span
+                      className={`font-bold ${
+                        isSelected ? 'text-[#0b2b82]' : 'text-slate-400'
+                      }`}
+                    >
+                      {isSelected ? '● Selected' : 'Tap to select'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -5714,7 +6075,7 @@ function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
   );
 }
 
-function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNavigateToCareNavigator }) {
+function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHome, onNavigateToCareNavigator }) {
   const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
   const [referrals, setReferrals] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, rejected: 0, completed: 0 });
@@ -6169,7 +6530,23 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
       <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-20">
         <div>
           <h1 className="text-2xl font-black text-[#0b2b82] tracking-tight flex items-center gap-3">
-            <button onClick={onBackToHome} className="text-slate-400 hover:text-[#0b2b82]"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else if (onBackToHome) {
+                  onBackToHome();
+                }
+              }}
+              className="text-slate-400 hover:text-[#0b2b82] p-1.5 -ml-2 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer flex items-center justify-center"
+              title="Go back a single step"
+              aria-label="Go back a single step"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+            </button>
             {activeTabRole === 'patient' ? 'My Referrals' : 'NexusMind Referral Network'} {activeTabRole !== 'patient' && <span className="text-blue-500 font-bold text-lg">v2</span>}
           </h1>
         </div>
@@ -20418,10 +20795,43 @@ function App() {
     }
   };
 
-  const setView = (v) => {
+  const [viewHistory, setViewHistory] = useState(['overview']);
+
+  const navigateToView = (v) => {
+    setViewHistory((prev) => {
+      if (prev[prev.length - 1] === v) return prev;
+      return [...prev, v];
+    });
     setViewState(v);
+  };
+
+  const setView = (v) => {
+    navigateToView(v);
     updateHash('#' + v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackFromReferrals = () => {
+    // Find previously visited feature in the workflow (ignoring current view and avoiding jumping to home)
+    const historyWithoutCurrent = viewHistory.filter((h) => h !== 'feature3');
+    const lastVisitedFeature = [...historyWithoutCurrent].reverse().find((h) => h !== 'home');
+
+    if (lastVisitedFeature) {
+      if (lastVisitedFeature === 'feature1') {
+        setView('feature1');
+        setScreen(9);
+      } else if (lastVisitedFeature === 'feature2') {
+        setView('feature2');
+        setTeleconsultScreen('entry');
+      } else {
+        setView(lastVisitedFeature);
+      }
+    } else {
+      // Natural single step back in Features Suite workflow:
+      // Module 03 (Smart Referrals) -> Module 02 (Teleconsult & Queue)
+      setView('feature2');
+      setTeleconsultScreen('entry');
+    }
   };
 
   const setScreen = (s) => {
@@ -20744,6 +21154,7 @@ function App() {
           <ScreenReferralManagement
             actorRole={actorRole}
             setActorRole={setActorRole}
+            onBack={handleBackFromReferrals}
             onBackToHome={() => setView('home')}
             onNavigateToCareNavigator={() => {
               setView('feature1');
