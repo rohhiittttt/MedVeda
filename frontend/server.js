@@ -791,10 +791,33 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // Helper to proxy AI requests to Python FastAPI Service (http://127.0.0.1:8001)
+      const proxyToPython = async (subPath, body) => {
+        try {
+          const pyRes = await fetch(`http://127.0.0.1:8001${subPath}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+          });
+          if (pyRes.ok) {
+            return await pyRes.json();
+          }
+        } catch (e) {
+          // Python service unreachable, fall back to Node implementation
+        }
+        return null;
+      };
+
       // 44b. AI Multimodal Vision OCR Document Analysis: POST /api/records/ocr/analyze
       if (normPath === '/api/records/ocr/analyze' && req.method === 'POST') {
         try {
           const body = await readJsonBody(req);
+          const pyRes = await proxyToPython('/api/records/ocr/analyze', body);
+          if (pyRes && pyRes.success) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
           const result = await recordsRagUseCase.analyzeDocumentOcr(body);
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, data: result }));
@@ -806,10 +829,16 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 44c. EHR-Integrated Grounded RAG Chatbot: POST /api/records/chat
+      // 44c. EHR-Integrated Multilingual Grounded RAG Chatbot: POST /api/records/chat
       if (normPath === '/api/records/chat' && req.method === 'POST') {
         try {
           const body = await readJsonBody(req);
+          const pyRes = await proxyToPython('/api/records/chat', body);
+          if (pyRes && pyRes.success) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
           const result = await recordsRagUseCase.queryPatientRecordsChat(body);
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, data: result }));
@@ -821,12 +850,115 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // 44c2. Voice Speech-to-Text Transcription: POST /api/records/voice/transcribe
+      if (normPath === '/api/records/voice/transcribe' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const pyRes = await proxyToPython('/api/records/voice/transcribe', body);
+          if (pyRes) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: { transcript: '', detectedLanguage: 'en' } }));
+        } catch (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+        return;
+      }
+
+      // 44c3. Voice Text-to-Speech Synthesis: POST /api/records/voice/synthesize
+      if (normPath === '/api/records/voice/synthesize' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const pyRes = await proxyToPython('/api/records/voice/synthesize', body);
+          if (pyRes) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: 'Voice synthesis service offline' }));
+        } catch (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+        return;
+      }
+
       // 44d. RAG Chat Audit Logs: GET /api/records/chat/audit
       if (normPath === '/api/records/chat/audit' && req.method === 'GET') {
         const patientId = urlObj.searchParams.get('patient_id') || undefined;
         const logs = recordsRagUseCase.getAuditLogs(patientId);
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: logs }));
+        return;
+      }
+
+      // ==========================================
+      // --- FEATURE 10: MEDICAL AI ASSISTANT AGENT (STANDALONE ACTION AGENT) ---
+      // ==========================================
+
+      if (normPath.startsWith('/api/agent/')) {
+        const subPath = normPath;
+        try {
+          if (req.method === 'POST') {
+            const body = await readJsonBody(req);
+            const pyRes = await proxyToPython(subPath, body);
+            if (pyRes) {
+              // Sync confirmed booking into Node teleconsultStore for seamless cross-feature visibility
+              if (subPath === '/api/agent/action/execute' && pyRes.success && pyRes.data?.appointment) {
+                try {
+                  const apt = pyRes.data.appointment;
+                  await teleconsultStore.createAppointment({
+                    id: apt.id || `APT-${Date.now()}`,
+                    patientId: apt.patientId || 'PAT-2026-1024',
+                    patientName: apt.patientName || 'Ramesh Mahto',
+                    patientAge: apt.patientAge || 48,
+                    patientSex: apt.patientSex || 'male',
+                    doctorId: apt.doctorId || 'doc_2',
+                    doctorName: apt.doctorName || 'Dr. Rajesh Verma',
+                    specialty: apt.specialty || 'Cardiology',
+                    facilityId: apt.facilityId || 'fac_sbmch',
+                    facilityName: apt.facilityName || 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+                    scheduledDate: new Date().toISOString().split('T')[0],
+                    scheduledTime: apt.scheduledTime || 'Tomorrow 10:00 AM',
+                    status: 'booked',
+                    bookedBy: 'patient',
+                    priorityScore: 50,
+                    urgencyTier: 'ROUTINE',
+                    createdAt: new Date().toISOString()
+                  });
+                } catch (syncErr) {
+                  console.warn('Could not sync agent appointment into teleconsultStore:', syncErr);
+                }
+              }
+              res.writeHead(200);
+              res.end(JSON.stringify(pyRes));
+              return;
+            }
+          } else if (req.method === 'GET') {
+            try {
+              const pyFetch = await fetch(`http://127.0.0.1:8001${subPath}${urlObj.search}`);
+              if (pyFetch.ok) {
+                const pyData = await pyFetch.json();
+                res.writeHead(200);
+                res.end(JSON.stringify(pyData));
+                return;
+              }
+            } catch (err) {
+              // fallback below
+            }
+          }
+          res.writeHead(503);
+          res.end(JSON.stringify({ success: false, error: 'Python Medical Assistant Service is offline on port 8001' }));
+        } catch (err) {
+          console.error('Error in agent proxy:', err);
+          res.writeHead(500);
+          res.end(JSON.stringify({ success: false, error: err.message || 'Medical Assistant Agent failed' }));
+        }
         return;
       }
 

@@ -1053,6 +1053,14 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
       label: 'District Command Center',
       description: 'Pan-India surveillance, shortage forecasts & outbreak warnings',
       onSelect: () => setView('feature9')
+    },
+    {
+      id: 'feature10',
+      code: 'Module 10',
+      icon: '🤖',
+      label: 'Medical AI Assistant Agent',
+      description: 'Autonomous action agent: booking, facility search, dosage reminders & voice',
+      onSelect: () => setView('feature10')
     }
   ];
 
@@ -1563,6 +1571,7 @@ function ScreenHomepage({
   onLaunchFeature7,
   onLaunchFeature8,
   onLaunchFeature9,
+  onLaunchFeature10,
   onLaunchAbout,
   actorRole,
   setActorRole
@@ -1695,6 +1704,16 @@ function ScreenHomepage({
       actionLabel: 'Command Center',
       action: onLaunchFeature9,
       badge: 'Surveillance & Logistics'
+    },
+    {
+      id: 'feature10',
+      code: 'Module 10',
+      icon: '🤖',
+      title: 'Medical AI Assistant Agent',
+      description: 'Autonomous voice & action agent: book doctor appointments, find emergency beds, set medicine dosage reminders, and navigate MedVeda.',
+      actionLabel: 'Launch AI Agent',
+      action: onLaunchFeature10,
+      badge: 'Bilingual & Actions'
     }
   ];
 
@@ -8528,6 +8547,61 @@ function ScreenHighRiskFollowUp({
 // --- FEATURE 05: INTEROPERABLE HEALTH RECORDS COMPONENT ---
 // ==========================================
 
+// Helper to parse markdown links [Text](url) and raw http(s) URLs into clickable anchors
+function renderClickableContent(text) {
+  if (!text || typeof text !== 'string') return text;
+  const pattern = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s)]+)/g;
+  const elements = [];
+  let lastIndex = 0;
+  let match;
+  let keyIdx = 0;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(text.substring(lastIndex, match.index));
+    }
+
+    if (match[2] && match[3]) {
+      const label = match[2];
+      const url = match[3];
+      elements.push(
+        <a
+          key={`md-link-${keyIdx++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sky-600 hover:text-sky-800 underline font-bold inline-flex items-center gap-0.5 mx-0.5"
+        >
+          <span>{label}</span>
+          <span className="text-[10px]">↗</span>
+        </a>
+      );
+    } else {
+      const url = match[0];
+      elements.push(
+        <a
+          key={`raw-link-${keyIdx++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sky-600 hover:text-sky-800 underline font-bold inline-flex items-center gap-0.5 mx-0.5 break-all"
+        >
+          <span>{url}</span>
+          <span className="text-[10px]">↗</span>
+        </a>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.substring(lastIndex));
+  }
+
+  return elements.length > 0 ? elements : text;
+}
+
 function ScreenInteroperableRecords({
   actorRole,
   setActorRole,
@@ -8639,7 +8713,8 @@ function ScreenInteroperableRecords({
     {
       id: 'msg_welcome',
       sender: 'assistant',
-      text: 'Hello Ramesh! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including hospital discharge summaries, cardiology prescriptions, biochemistry lab tests, and vaccination records). Ask me anything about your diagnoses, medications, dosages, lab trends, or doctor instructions.',
+      text: 'Hello Ramesh! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (discharge summaries, prescriptions, and lab tests). You can ask by voice or text in both Hindi and English.\n\nनमस्ते रमेश जी! मैं आपका मेदवेद रिकॉर्ड्स एआई सहायक हूँ। आपके सत्यापित मेडिकल रिकॉर्ड्स तैयार हैं। आप मुझसे बोलकर या लिखकर हिन्दी अथवा English में अपनी दवाइयों, खुराक और रिपोर्ट के बारे में पूछ सकते हैं।',
+      detectedLanguage: 'hi',
       confidence: 'HIGH',
       timestamp: 'Just now',
       citations: []
@@ -8648,6 +8723,17 @@ function ScreenInteroperableRecords({
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatScopedDoc, setChatScopedDoc] = useState(null);
+
+  // Multilingual & Voice RAG State (Python Backend)
+  const [chatLanguage, setChatLanguage] = useState('auto'); // 'auto' | 'hi' | 'en'
+  const [autoPlayVoice, setAutoPlayVoice] = useState(true);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceRecordingStatus, setVoiceRecordingStatus] = useState('');
+  const [currentlyPlayingAudioId, setCurrentlyPlayingAudioId] = useState(null);
+  const audioPlayerRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   // ABDM Sandbox Modal State
   const [abdmInputAbha, setAbdmInputAbha] = useState('91-2890-1423-8891@sbx');
@@ -9080,12 +9166,208 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   };
 
   // ==========================================
-  // EHR RAG CHATBOT LOGIC & HANDLERS
+  // EHR RAG CHATBOT LOGIC & VOICE HANDLERS (PYTHON SERVICE)
   // ==========================================
+
+  const stopAudioPlayback = () => {
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+      } catch (e) {}
+    }
+    setCurrentlyPlayingAudioId(null);
+  };
+
+  const playAudioMessage = (msgId, audioBase64, lang) => {
+    if (currentlyPlayingAudioId === msgId) {
+      stopAudioPlayback();
+      return;
+    }
+    stopAudioPlayback();
+
+    if (!audioBase64) return;
+
+    try {
+      const audioUrl = audioBase64.startsWith('data:') ? audioBase64 : `data:audio/mp3;base64,${audioBase64}`;
+      const audio = new Audio(audioUrl);
+      audioPlayerRef.current = audio;
+      setCurrentlyPlayingAudioId(msgId);
+
+      audio.onended = () => {
+        setCurrentlyPlayingAudioId(null);
+      };
+      audio.onerror = (e) => {
+        console.warn('Audio playback error:', e);
+        setCurrentlyPlayingAudioId(null);
+      };
+      audio.play().catch((err) => {
+        console.warn('Audio autoplay prevented by browser policy:', err);
+        setCurrentlyPlayingAudioId(null);
+      });
+    } catch (err) {
+      console.error('Audio instance creation failed:', err);
+      setCurrentlyPlayingAudioId(null);
+    }
+  };
+
+  const handleSynthesizeAndPlay = async (msg) => {
+    if (currentlyPlayingAudioId === msg.id) {
+      stopAudioPlayback();
+      return;
+    }
+    if (msg.audioBase64) {
+      playAudioMessage(msg.id, msg.audioBase64, msg.detectedLanguage);
+      return;
+    }
+    try {
+      showToast('Synthesizing voice audio with Python AI...');
+      const res = await fetch(getApiUrl('/api/records/voice/synthesize'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: msg.text,
+          language: msg.detectedLanguage || (chatLanguage === 'auto' ? undefined : chatLanguage)
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.data && data.data.audioBase64) {
+        msg.audioBase64 = data.data.audioBase64;
+        msg.detectedLanguage = data.data.language || msg.detectedLanguage || 'hi';
+        playAudioMessage(msg.id, data.data.audioBase64, data.data.language);
+      } else {
+        showToast('Could not synthesize speech audio.');
+      }
+    } catch (e) {
+      console.warn('Voice synthesis request failed:', e);
+      showToast('Voice service unreachable.');
+    }
+  };
+
+  const handleToggleVoiceRecording = () => {
+    if (isRecordingVoice) {
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch (e) {}
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try { mediaRecorderRef.current.stop(); } catch (e) {}
+      }
+      setIsRecordingVoice(false);
+      setVoiceRecordingStatus('');
+      return;
+    }
+
+    // Try Web Speech API for low-latency browser streaming
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRec) {
+      try {
+        const rec = new SpeechRec();
+        const targetLang = chatLanguage === 'hi' ? 'hi-IN' : (chatLanguage === 'en' ? 'en-IN' : 'hi-IN');
+        rec.lang = targetLang;
+        rec.continuous = false;
+        rec.interimResults = true;
+
+        rec.onstart = () => {
+          setIsRecordingVoice(true);
+          setVoiceRecordingStatus(targetLang.startsWith('hi') ? 'सुन रहे हैं... (Listening in Hindi)' : 'Listening in English...');
+        };
+
+        rec.onresult = (e) => {
+          const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+          setChatInput(transcript);
+        };
+
+        rec.onerror = (e) => {
+          console.warn('Speech recognition error:', e.error);
+          setIsRecordingVoice(false);
+          setVoiceRecordingStatus('');
+          if (e.error === 'not-allowed') {
+            showToast('Microphone access denied. Please grant microphone permission.');
+          }
+        };
+
+        rec.onend = () => {
+          setIsRecordingVoice(false);
+          setVoiceRecordingStatus('');
+        };
+
+        speechRecognitionRef.current = rec;
+        rec.start();
+        return;
+      } catch (err) {
+        console.warn('SpeechRecognition initialization error, trying MediaRecorder fallback:', err);
+      }
+    }
+
+    // MediaRecorder Fallback to Python Gemini Audio Endpoint
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          const mediaRecorder = new MediaRecorder(stream);
+          mediaRecorderRef.current = mediaRecorder;
+          audioChunksRef.current = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunksRef.current.push(e.data);
+          };
+
+          mediaRecorder.onstart = () => {
+            setIsRecordingVoice(true);
+            setVoiceRecordingStatus('Recording audio (बोलें)... Click mic again to finish');
+          };
+
+          mediaRecorder.onstop = async () => {
+            setIsRecordingVoice(false);
+            setVoiceRecordingStatus('Transcribing with Gemini Multimodal Audio (Python)...');
+            stream.getTracks().forEach(t => t.stop());
+
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+              const base64Audio = reader.result;
+              try {
+                const res = await fetch(getApiUrl('/api/records/voice/transcribe'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    audioBase64: base64Audio,
+                    mimeType: 'audio/webm',
+                    languageHint: chatLanguage === 'auto' ? undefined : chatLanguage
+                  })
+                });
+                const data = await res.json();
+                if (data.success && data.data && data.data.transcript) {
+                  setChatInput(data.data.transcript);
+                  if (data.data.detectedLanguage) {
+                    showToast(`Spoken: "${data.data.transcript}" (${data.data.detectedLanguage === 'hi' ? 'हिन्दी' : 'English'})`);
+                  }
+                }
+              } catch (e) {
+                console.warn('Audio transcription failed:', e);
+                showToast('Could not transcribe audio');
+              } finally {
+                setVoiceRecordingStatus('');
+              }
+            };
+          };
+
+          mediaRecorder.start();
+        })
+        .catch((err) => {
+          console.warn('Microphone access denied:', err);
+          showToast('Microphone not accessible. Please check permissions.');
+        });
+    } else {
+      showToast('Voice input is not supported in this browser environment.');
+    }
+  };
 
   const handleSendChatMessage = async (textToSend, docScope) => {
     const q = (textToSend || chatInput).trim();
     if (!q || chatLoading) return;
+
+    stopAudioPlayback();
 
     const userMsg = {
       id: 'msg_user_' + Date.now(),
@@ -9099,6 +9381,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
     setChatLoading(true);
 
     const targetDocId = docScope !== undefined ? docScope : (chatScopedDoc?.id || undefined);
+    const chosenLang = chatLanguage === 'auto' ? undefined : chatLanguage;
 
     try {
       const res = await fetch(getApiUrl('/api/records/chat'), {
@@ -9109,7 +9392,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           question: q,
           scopedDocumentId: targetDocId,
           requesterRole: activeRole,
-          language: 'en'
+          language: chosenLang
         })
       });
       const data = await res.json();
@@ -9119,6 +9402,8 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           id: 'msg_ai_' + Date.now(),
           sender: 'assistant',
           text: resp.answer,
+          detectedLanguage: resp.detectedLanguage || 'en',
+          audioBase64: resp.audioBase64 || null,
           citations: resp.citations || [],
           confidence: resp.confidence || 'HIGH',
           isEmergency: !!resp.isEmergency,
@@ -9129,6 +9414,13 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
+
+        // Auto-play voice audio if enabled
+        if (autoPlayVoice && resp.audioBase64) {
+          setTimeout(() => {
+            playAudioMessage(assistantMsg.id, resp.audioBase64, resp.detectedLanguage);
+          }, 300);
+        }
       } else {
         throw new Error(data.error || 'Chat response error');
       }
@@ -9155,6 +9447,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           sender: 'assistant',
           text: fallbackAnswer,
           confidence: 'MEDIUM',
+          detectedLanguage: 'en',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           disclaimer: 'Grounded in patient health records. Always consult a certified physician.'
         }
@@ -9992,28 +10285,126 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       {activeSubView === 'chat' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
           {/* RAG Context & Guardrails Header */}
-          <div className="p-4 bg-gradient-to-r from-sky-50 via-indigo-50/40 to-slate-50 rounded-2xl border border-sky-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-sky-50 via-indigo-50/40 to-slate-50 rounded-2xl border border-sky-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-xl font-black shadow-md shadow-sky-600/30">
+              <div className="w-11 h-11 rounded-2xl bg-sky-600 text-white flex items-center justify-center text-xl font-black shadow-md shadow-sky-600/30 shrink-0">
                 🤖
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-slate-900 text-base">MedVeda EHR Grounded Health Assistant</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-slate-900 text-base">MedVeda EHR Multilingual Voice Assistant</h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Safe Grounding Mode
+                    Safe Grounding
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-100 text-sky-800 border border-sky-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Python AI (8001)</span>
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 font-medium mt-0.5">
                   Locked to <strong>{patient.name}</strong> ({patient.internalMedicalId}) &bull; Indexed across <strong>{records.length} verified documents</strong>.
                 </p>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[10px]">
+                  <span className="text-slate-400 font-bold uppercase">Official Portals:</span>
+                  <a
+                    href="https://abdm.gov.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-sky-700 hover:text-sky-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
+                  >
+                    <span>ABDM</span>
+                    <span>↗</span>
+                  </a>
+                  <a
+                    href="https://pmjay.gov.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-emerald-700 hover:text-emerald-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
+                  >
+                    <span>PM-JAY</span>
+                    <span>↗</span>
+                  </a>
+                  <a
+                    href="https://cowin.gov.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-indigo-700 hover:text-indigo-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
+                  >
+                    <span>CoWIN</span>
+                    <span>↗</span>
+                  </a>
+                  <a
+                    href="http://127.0.0.1:8001/docs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-0.5 rounded bg-sky-50 border border-sky-300 text-sky-800 hover:underline font-bold inline-flex items-center gap-0.5 shadow-2xs"
+                  >
+                    <span>Python API Docs</span>
+                    <span>↗</span>
+                  </a>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {/* Language Mode Selector */}
+              <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-sm gap-1">
+                <button
+                  type="button"
+                  onClick={() => setChatLanguage('auto')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    chatLanguage === 'auto'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Automatically detect whether question is in Hindi or English"
+                >
+                  ⚡ Auto (स्वतः)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatLanguage('hi')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    chatLanguage === 'hi'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Answer strictly in Hindi with Hindi voice"
+                >
+                  🇮🇳 हिन्दी
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatLanguage('en')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    chatLanguage === 'en'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Answer strictly in English with English voice"
+                >
+                  🇬🇧 English
+                </button>
+              </div>
+
+              {/* Auto Voice Toggle */}
+              <button
+                type="button"
+                onClick={() => setAutoPlayVoice(!autoPlayVoice)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  autoPlayVoice
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                }`}
+                title="Automatically synthesize & speak response audio"
+              >
+                <span>{autoPlayVoice ? '🔊' : '🔈'}</span>
+                <span>Auto-Voice: {autoPlayVoice ? 'ON' : 'OFF'}</span>
+              </button>
+
               {chatScopedDoc ? (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-100 border border-sky-300 text-sky-900 text-xs font-bold">
-                  <span>📄 Scoped: {chatScopedDoc.title.slice(0, 24)}...</span>
+                  <span>📄 Scoped: {chatScopedDoc.title.slice(0, 22)}...</span>
                   <button
                     type="button"
                     onClick={() => setChatScopedDoc(null)}
@@ -10023,48 +10414,80 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                   </button>
                 </div>
               ) : (
-                <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-xl border border-slate-200">
-                  🌐 Searching All Patient Records
+                <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-xl border border-slate-200 hidden sm:inline-block">
+                  🌐 All Records
                 </span>
               )}
 
               <button
                 type="button"
                 onClick={() => {
+                  stopAudioPlayback();
                   setChatMessages([
                     {
                       id: 'msg_reset_' + Date.now(),
                       sender: 'assistant',
-                      text: `Chat reset. I am ready to answer grounded questions from ${patient.name}'s ${records.length} records.`,
+                      text: chatLanguage === 'hi'
+                        ? `बातचीत रीसेट हो गई है। मैं ${patient.name} के ${records.length} सत्यापित स्वास्थ्य रिकॉर्ड से उत्तर देने के लिए तैयार हूँ।`
+                        : `Chat reset. I am ready to answer grounded questions from ${patient.name}'s ${records.length} records in English or Hindi.`,
+                      detectedLanguage: chatLanguage === 'hi' ? 'hi' : 'en',
                       confidence: 'HIGH',
                       timestamp: 'Just now'
                     }
                   ]);
                 }}
-                className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200"
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200"
               >
-                Clear History
+                Clear
               </button>
             </div>
           </div>
 
-          {/* Quick Suggested Prompt Chips */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-extrabold uppercase text-slate-400">Recommended Questions:</span>
+          {/* Quick Suggested Prompt Chips (Bilingual) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase text-slate-400">
+                {chatLanguage === 'hi'
+                  ? 'सुझाए गए प्रश्न (Click to Ask in Hindi):'
+                  : chatLanguage === 'en'
+                  ? 'Recommended Questions (Click to Ask in English):'
+                  : 'Bilingual Quick Questions (हिन्दी व English):'}
+              </span>
+              <span className="text-[10px] font-bold text-sky-600">
+                Voice &amp; Text in Detected Language
+              </span>
+            </div>
             <div className="flex gap-2 flex-wrap">
-              {[
-                { label: '💊 What active medications am I taking and what are the doses?', q: 'What medications am I currently taking and what are the dosages?' },
-                { label: '🧪 What were my latest lab results (Cholesterol, etc.)?', q: 'What were my last lab test results and are any of them abnormal?' },
-                { label: '🏥 Summarize my hospital discharge instructions', q: 'Summarize my recent hospital discharge summary and follow-up advice.' },
-                { label: '⚠️ Any recorded allergies or drug contraindications?', q: 'Do my records document any drug allergies or contraindications?' },
-                { label: '📈 Timeline of cardiology visits', q: 'What is the timeline of my cardiology consultations and procedures?' }
-              ].map((chip, idx) => (
+              {(chatLanguage === 'hi'
+                ? [
+                    { label: '💊 वर्तमान दवाइयाँ और उनकी खुराक (Dosage)', q: 'मेरी वर्तमान दवाइयाँ और उनकी खुराक (Dosage) क्या है?' },
+                    { label: '🧪 नवीनतम लैब टेस्ट (कोलेस्ट्रॉल) रिपोर्ट', q: 'मेरी नवीनतम लैब टेस्ट रिपोर्ट और कोलेस्ट्रॉल का स्तर क्या है?' },
+                    { label: '🏥 अस्पताल डिस्चार्ज व डॉक्टर के निर्देश', q: 'मेरे अस्पताल डिस्चार्ज सारांश और डॉक्टर के निर्देशों का सार बताएं।' },
+                    { label: '⚠️ क्या कोई दवा एलर्जी या चेतावनी दर्ज है?', q: 'क्या मेरे रिकॉर्ड में कोई दवा एलर्जी या चेतावनी दर्ज है?' },
+                    { label: '🚨 सीने में तेज दर्द व पसीना (Emergency Test)', q: 'मुझे सीने में तेज दर्द हो रहा है और बाएँ हाथ में खिंचाव महसूस हो रहा है।' }
+                  ]
+                : chatLanguage === 'en'
+                ? [
+                    { label: '💊 What active medications am I taking and doses?', q: 'What medications am I currently taking and what are the dosages?' },
+                    { label: '🧪 What were my latest lab results (Cholesterol, etc.)?', q: 'What were my last lab test results and are any of them abnormal?' },
+                    { label: '🏥 Summarize hospital discharge instructions', q: 'Summarize my recent hospital discharge summary and follow-up advice.' },
+                    { label: '⚠️ Any recorded allergies or drug contraindications?', q: 'Do my records document any drug allergies or contraindications?' },
+                    { label: '🚨 Emergency alert: Acute severe chest pain', q: 'I have severe acute crushing chest pain radiating to left jaw with sweating.' }
+                  ]
+                : [
+                    { label: '🇮🇳 💊 मेरी वर्तमान दवाइयाँ और खुराक क्या है?', q: 'मेरी वर्तमान दवाइयाँ और उनकी खुराक क्या है?' },
+                    { label: '🇬🇧 💊 What are my current medications & doses?', q: 'What medications am I currently taking and what are the dosages?' },
+                    { label: '🇮🇳 🧪 नवीनतम लैब रिपोर्ट (कोलेस्ट्रॉल)', q: 'मेरी नवीनतम लैब टेस्ट रिपोर्ट और कोलेस्ट्रॉल के परिणाम बताएं।' },
+                    { label: '🇬🇧 🧪 What were my latest lab test results?', q: 'What were my last lab test results and are any of them abnormal?' },
+                    { label: '🇮🇳 🚨 सीने में तेज दर्द (आपातकाल टेस्ट)', q: 'सीने में तेज दर्द और सांस लेने में तकलीफ हो रही है।' }
+                  ]
+              ).map((chip, idx) => (
                 <button
                   key={idx}
                   type="button"
                   disabled={chatLoading}
                   onClick={() => handleSendChatMessage(chip.q)}
-                  className="px-3 py-1.5 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all text-left"
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all text-left shadow-2xs"
                 >
                   {chip.label}
                 </button>
@@ -10077,6 +10500,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
             {chatMessages.map((msg) => {
               const isAi = msg.sender === 'assistant';
               const isEmergency = msg.isEmergency;
+              const isPlaying = currentlyPlayingAudioId === msg.id;
 
               return (
                 <div
@@ -10099,11 +10523,22 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                     }`}
                   >
                     {/* Header info */}
-                    <div className="flex items-center justify-between text-[11px] gap-2 border-b pb-2 border-slate-100">
-                      <span className={`font-black ${isAi ? (isEmergency ? 'text-rose-900 font-extrabold' : 'text-sky-800') : 'text-slate-300'}`}>
-                        {isAi ? (isEmergency ? '🚨 CRITICAL MEDICAL EMERGENCY DETECTED' : 'MedVeda Records Assistant') : 'You (Patient)'}
-                      </span>
-                      <span className={isAi ? 'text-slate-400 font-mono' : 'text-slate-400 font-mono'}>
+                    <div className="flex items-center justify-between text-[11px] gap-2 border-b pb-2 border-slate-100 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-black ${isAi ? (isEmergency ? 'text-rose-900 font-extrabold' : 'text-sky-800') : 'text-slate-300'}`}>
+                          {isAi ? (isEmergency ? '🚨 CRITICAL MEDICAL EMERGENCY DETECTED' : 'MedVeda Records Assistant') : 'You (Patient)'}
+                        </span>
+                        {isAi && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                            msg.detectedLanguage === 'hi'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : 'bg-sky-100 text-sky-900 border border-sky-300'
+                          }`}>
+                            {msg.detectedLanguage === 'hi' ? '🇮🇳 हिन्दी (Hindi)' : '🇬🇧 English'}
+                          </span>
+                        )}
+                      </div>
+                      <span className={isAi ? 'text-slate-400 font-mono text-[10px]' : 'text-slate-400 font-mono text-[10px]'}>
                         {msg.timestamp}
                       </span>
                     </div>
@@ -10113,17 +10548,17 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                       <div className="p-3 bg-rose-100/80 rounded-xl border border-rose-300 text-rose-950 space-y-2">
                         <div className="flex items-center gap-2 font-black text-xs text-rose-900">
                           <span>🚑</span>
-                          <span>IMMEDIATE EMERGENCY ASSISTANCE REQUIRED</span>
+                          <span>IMMEDIATE EMERGENCY ASSISTANCE REQUIRED / तत्काल आपातकालीन सहायता</span>
                         </div>
                         <p className="text-xs font-bold leading-relaxed">
-                          The symptoms mentioned indicate a potentially life-threatening situation. Do NOT wait for an online response or delay medical attention.
+                          {msg.emergencyAdvice || 'The symptoms indicate a potentially life-threatening emergency. Do not wait for an online reply.'}
                         </p>
                         <div className="flex items-center gap-2 pt-1 flex-wrap">
                           <a
                             href="tel:108"
                             className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-md inline-flex items-center gap-1.5"
                           >
-                            <span>📞 Call 108 (Ambulance)</span>
+                            <span>📞 Call 108 (Ambulance / एम्बुलेंस)</span>
                           </a>
                           <a
                             href="tel:112"
@@ -10137,15 +10572,50 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
                     {/* Message Body */}
                     <div className="text-xs leading-relaxed whitespace-pre-line font-normal">
-                      {msg.text}
+                      {renderClickableContent(msg.text)}
                     </div>
+
+                    {/* Voice Audio Player Bar for Assistant responses */}
+                    {isAi && (
+                      <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-100 flex items-center justify-between gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleSynthesizeAndPlay(msg)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                            isPlaying
+                              ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                              : 'bg-white text-sky-800 hover:bg-sky-100 border border-sky-200 shadow-xs'
+                          }`}
+                        >
+                          {isPlaying ? (
+                            <>
+                              <span className="flex items-center gap-0.5 h-3">
+                                <span className="w-1 bg-white animate-pulse h-3 rounded-full"></span>
+                                <span className="w-1 bg-white animate-bounce h-2 rounded-full"></span>
+                                <span className="w-1 bg-white animate-pulse h-3.5 rounded-full"></span>
+                              </span>
+                              <span>⏹️ Stop Voice ({msg.detectedLanguage === 'hi' ? 'आवाज़ रोकें' : 'Stop'})</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>🔊</span>
+                              <span>Play Voice ({msg.detectedLanguage === 'hi' ? 'आवाज़ सुनें' : 'Listen Audio'})</span>
+                            </>
+                          )}
+                        </button>
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          <span>Python Voice ({msg.detectedLanguage === 'hi' ? 'Hindi gTTS' : 'English gTTS'})</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Structured Summary Cards (if present) */}
                     {msg.structuredSummary && (
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
                         {msg.structuredSummary.keyPoints && msg.structuredSummary.keyPoints.length > 0 && (
                           <div>
-                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Key Findings:</span>
+                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Key Findings / मुख्य बिंदु:</span>
                             <ul className="list-disc pl-4 space-y-0.5 text-slate-800">
                               {msg.structuredSummary.keyPoints.map((kp, kIdx) => (
                                 <li key={kIdx}>{kp}</li>
@@ -10155,7 +10625,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                         )}
                         {msg.structuredSummary.medicationsMentioned && msg.structuredSummary.medicationsMentioned.length > 0 && (
                           <div className="pt-1 border-t border-slate-200">
-                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Medications Referenced:</span>
+                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Medications Referenced / संदर्भित दवाइयाँ:</span>
                             <div className="flex gap-1.5 flex-wrap">
                               {msg.structuredSummary.medicationsMentioned.map((med, mIdx) => (
                                 <span key={mIdx} className="px-2 py-0.5 bg-sky-100 text-sky-800 rounded font-bold text-[10px]">
@@ -10191,14 +10661,27 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                               </p>
                               <div className="flex items-center justify-between pt-1">
                                 <span className="text-[9px] text-slate-400 font-medium">{c.facilityName || c.facility}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleViewCitationInTimeline(c.documentId)}
-                                  className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-0.5"
-                                >
-                                  <span>View in Timeline</span>
-                                  <span>→</span>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  {(c.websiteUrl || c.sourceUrl || (c.title && c.title.includes('CoWIN') ? 'https://cowin.gov.in' : (c.facilityName && c.facilityName.includes('Medical College') ? 'https://nhp.gov.in' : 'https://abdm.gov.in'))) && (
+                                    <a
+                                      href={c.websiteUrl || c.sourceUrl || (c.title && c.title.includes('CoWIN') ? 'https://cowin.gov.in' : (c.facilityName && c.facilityName.includes('Medical College') ? 'https://nhp.gov.in' : 'https://abdm.gov.in'))}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
+                                    >
+                                      <span>Website</span>
+                                      <span>↗</span>
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleViewCitationInTimeline(c.documentId)}
+                                    className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-0.5"
+                                  >
+                                    <span>Timeline</span>
+                                    <span>→</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -10231,34 +10714,78 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                 </div>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3 text-xs font-bold text-slate-600">
                   <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Grounded Gemini is searching your health records &amp; verifying clinical citations...</span>
+                  <span>
+                    {chatLanguage === 'hi'
+                      ? 'पायथन एआई रिकॉर्ड्स की जांच कर रहा है एवं हिन्दी में उत्तर तैयार कर रहा है...'
+                      : 'Python Grounded Gemini is analyzing patient records & synthesising voice response...'}
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Chat Input Box */}
+          {/* Voice Recording Status Banner */}
+          {voiceRecordingStatus && (
+            <div className="flex items-center justify-between px-4 py-2 bg-rose-50 border border-rose-300 rounded-2xl text-xs font-bold text-rose-800 animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-rose-600 rounded-full animate-ping"></span>
+                <span>🎙️ {voiceRecordingStatus}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleVoiceRecording}
+                className="px-2.5 py-1 bg-rose-600 text-white text-[10px] font-black rounded-lg hover:bg-rose-700"
+              >
+                Stop &amp; Submit
+              </button>
+            </div>
+          )}
+
+          {/* Chat Input Box with Microphone Voice Control */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSendChatMessage();
             }}
-            className="flex items-center gap-3"
+            className="flex items-center gap-2 sm:gap-3"
           >
+            {/* Microphone Button */}
+            <button
+              type="button"
+              onClick={handleToggleVoiceRecording}
+              disabled={chatLoading}
+              title={isRecordingVoice ? 'Stop Recording' : (chatLanguage === 'hi' ? 'माइक से बोलकर पूछें (Voice Input)' : 'Speak query via mic')}
+              className={`px-3 sm:px-4 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm ${
+                isRecordingVoice
+                  ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
+                  : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-300'
+              }`}
+            >
+              <span className="text-sm">{isRecordingVoice ? '🔴' : '🎙️'}</span>
+              <span className="hidden sm:inline font-bold">
+                {isRecordingVoice ? 'सुन रहे हैं...' : (chatLanguage === 'hi' ? 'माइक' : 'Voice')}
+              </span>
+            </button>
+
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask anything about Ramesh's health records (e.g. 'What dose of Telmisartan was prescribed?')..."
+              placeholder={
+                chatLanguage === 'hi'
+                  ? "रमेश के रिकॉर्ड से कुछ भी पूछें या माइक से बोलें (जैसे: 'मेरी कौन सी दवाइयाँ चल रही हैं?')..."
+                  : "Ask anything about Ramesh's records in Hindi or English (or click mic)..."
+              }
               disabled={chatLoading}
               className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all shadow-sm"
             />
+
             <button
               type="submit"
               disabled={chatLoading || !chatInput.trim()}
-              className="px-6 py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-300 text-white font-bold text-xs rounded-2xl shadow-md shadow-sky-600/30 transition-all flex items-center gap-2"
+              className="px-5 sm:px-6 py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-300 text-white font-bold text-xs rounded-2xl shadow-md shadow-sky-600/30 transition-all flex items-center gap-2 shrink-0"
             >
-              <span>Ask AI</span>
+              <span>{chatLanguage === 'hi' ? 'पूछें' : 'Ask AI'}</span>
               <span>→</span>
             </button>
           </form>
@@ -20978,6 +21505,1356 @@ function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
 }
 
 // ==========================================
+// --- FEATURE 10: MEDICAL AI ASSISTANT AGENT (STANDALONE ACTION AGENT) ---
+// ==========================================
+
+function ScreenMedicalAssistantAgent({
+  actorRole,
+  setActorRole,
+  onBackToHome,
+  onNavigate
+}) {
+  const [messages, setMessages] = useState([
+    {
+      id: 'msg-init',
+      sender: 'agent',
+      text: "नमस्ते! I am your MedVeda Autonomous Medical Assistant Agent. मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ।\n\nI can book doctor teleconsultations, check emergency hospital beds, set medicine dosage reminders, and navigate you across MedVeda features — strictly within our verified healthcare network with full privacy protection.\n\nआप मुझसे हिंदी या English में कुछ भी पूछ सकते हैं!",
+      detectedLanguage: 'en',
+      urgencyLevel: 'GREEN',
+      timestamp: 'Just now',
+      actionCards: [
+        {
+          type: 'QUICK_ACTIONS',
+          options: [
+            { label: '👨‍⚕️ Book Cardiologist (हृदय रोग डॉक्टर)', query: 'Book an appointment with a cardiologist' },
+            { label: '🏥 Nearby Hospitals & Emergency Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' },
+            { label: '💊 Set Telmisartan Reminder (दवा रिमाइंडर)', query: 'Remind me to take Telmisartan 40mg at 08:00 AM' },
+            { label: '📅 View My Booked Appointments', query: 'View my booked appointments' },
+            { label: '🚀 Navigate to Medicines & Labs', query: 'Take me to Feature 06 medicine stock' }
+          ]
+        }
+      ]
+    }
+  ]);
+
+  const [inputText, setInputText] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('auto'); // 'auto', 'hi', 'en'
+  const [autoVoice, setAutoVoice] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState(null);
+  const [playingMessageId, setPlayingMessageId] = useState(null);
+  const [actionInProgress, setActionInProgress] = useState(null);
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'doctors', 'facilities', 'appointments'
+  const [doctorsList, setDoctorsList] = useState([]);
+  const [facilitiesList, setFacilitiesList] = useState([]);
+  const [appointmentsList, setAppointmentsList] = useState([]);
+
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  // Load backend stores data on mount
+  useEffect(() => {
+    fetchLiveStores();
+  }, []);
+
+  const fetchLiveStores = async () => {
+    try {
+      const [docRes, facRes, aptRes] = await Promise.all([
+        fetch('/api/agent/doctors').then(r => r.json()).catch(() => null),
+        fetch('/api/agent/facilities').then(r => r.json()).catch(() => null),
+        fetch('/api/agent/appointments?patient_id=PAT-2026-1024').then(r => r.json()).catch(() => null)
+      ]);
+      if (docRes && docRes.success) setDoctorsList(docRes.data || []);
+      if (facRes && facRes.success) setFacilitiesList(facRes.data || []);
+      if (aptRes && aptRes.success) setAppointmentsList(aptRes.data || []);
+    } catch (e) {
+      console.warn('Could not preload agent stores:', e);
+    }
+  };
+
+  const playBase64Audio = (b64Audio, msgId) => {
+    if (!b64Audio) return;
+    try {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      const audio = new Audio(`data:audio/mp3;base64,${b64Audio}`);
+      setCurrentAudio(audio);
+      setPlayingMessageId(msgId);
+      audio.onended = () => {
+        setPlayingMessageId(null);
+        setCurrentAudio(null);
+      };
+      audio.onerror = () => {
+        setPlayingMessageId(null);
+        setCurrentAudio(null);
+      };
+      audio.play().catch(e => console.log('Audio autoplay prevented:', e));
+    } catch (err) {
+      console.error('Audio playback error:', err);
+      setPlayingMessageId(null);
+    }
+  };
+
+  const stopAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+      setPlayingMessageId(null);
+    }
+  };
+
+  // Speech Recognition (STT) via Web Speech API
+  const handleToggleVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please type your message.');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setIsListening(false);
+        if (transcript) {
+          setInputText(transcript);
+          handleSendMessage(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setIsListening(false);
+    }
+  };
+
+  const handleSendMessage = async (textToSend) => {
+    const query = (textToSend || inputText).trim();
+    if (!query || isLoading) return;
+
+    const userMsgId = `usr-${Date.now()}`;
+    const userMsg = {
+      id: userMsgId,
+      sender: 'user',
+      text: query,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInputText('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query,
+          language: selectedLanguage,
+          patientId: 'PAT-2026-1024',
+          patientInfo: {
+            name: 'Ramesh Mahto',
+            age: 48,
+            gender: 'male',
+            location: 'Katkamsandi, Hazaribagh'
+          }
+        })
+      });
+
+      const resData = await res.json();
+      if (resData.success && resData.data) {
+        const agentMsgId = `agt-${Date.now()}`;
+        const agentMsg = {
+          id: agentMsgId,
+          sender: 'agent',
+          text: resData.data.answer,
+          detectedLanguage: resData.data.detectedLanguage || 'en',
+          urgencyLevel: resData.data.urgencyLevel || 'GREEN',
+          actionCards: resData.data.actionCards || [],
+          audioBase64: resData.data.audioBase64,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setMessages((prev) => [...prev, agentMsg]);
+
+        // Auto play audio if enabled
+        if (autoVoice && resData.data.audioBase64) {
+          playBase64Audio(resData.data.audioBase64, agentMsgId);
+        }
+
+        // Refresh stores
+        fetchLiveStores();
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            sender: 'agent',
+            text: resData.error || 'Medical Assistant is temporarily unavailable. Please try again.',
+            urgencyLevel: 'YELLOW',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Agent chat error:', err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sender: 'agent',
+          text: 'Unable to reach the Python Medical Assistant service. Please check your connection.',
+          urgencyLevel: 'YELLOW',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Human-in-the-Loop Confirmation: Execute Real Action in MedVeda Database
+  const handleExecuteAction = async (msgId, actionCard, confirmChoice) => {
+    if (!confirmChoice) {
+      // User cancelled proposal
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== msgId) return m;
+          return {
+            ...m,
+            actionCards: (m.actionCards || []).map((c) =>
+              c === actionCard ? { ...c, status: 'CANCELLED' } : c
+            )
+          };
+        })
+      );
+      return;
+    }
+
+    const actionKey = `${msgId}-${actionCard.type}`;
+    setActionInProgress(actionKey);
+
+    try {
+      let reqBody = {};
+      if (actionCard.type === 'CONFIRMATION_CARD') {
+        reqBody = {
+          actionType: 'CONFIRM_BOOKING',
+          patientId: 'PAT-2026-1024',
+          params: {
+            doctorId: actionCard.doctor.id,
+            slotTime: actionCard.slot.time,
+            patientName: actionCard.patient?.name || 'Ramesh Mahto',
+            urgencyTier: actionCard.urgencyTier || 'ROUTINE',
+            mode: actionCard.mode || 'teleconsult',
+            reasonNote: `Confirmed teleconsultation with ${actionCard.doctor.name}`
+          },
+          language: selectedLanguage === 'auto' ? (actionCard.doctor.detectedLang || 'en') : selectedLanguage
+        };
+      } else if (actionCard.type === 'PROPOSE_REMINDER') {
+        reqBody = {
+          actionType: 'SET_REMINDER',
+          patientId: 'PAT-2026-1024',
+          params: {
+            medicineName: actionCard.medicineName,
+            dosage: actionCard.dosage,
+            time: actionCard.time,
+            instruction: actionCard.instruction
+          },
+          language: selectedLanguage === 'auto' ? 'en' : selectedLanguage
+        };
+      }
+
+      const res = await fetch('/api/agent/action/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+      });
+      const data = await res.json();
+
+      if (data.success && data.data) {
+        // Update the action card state in message to CONFIRMED
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== msgId) return m;
+            return {
+              ...m,
+              actionCards: (m.actionCards || []).map((c) => {
+                if (c === actionCard) {
+                  return {
+                    ...c,
+                    status: 'CONFIRMED',
+                    executedResult: data.data
+                  };
+                }
+                return c;
+              })
+            };
+          })
+        );
+
+        // Auto play audio confirmation if available
+        if (autoVoice && data.data.audioBase64) {
+          playBase64Audio(data.data.audioBase64, `action-res-${Date.now()}`);
+        }
+
+        // Refresh stores
+        fetchLiveStores();
+      } else {
+        alert(data.error || 'Failed to execute action. Please try again.');
+      }
+    } catch (e) {
+      console.error('Action execution failed:', e);
+      alert('Error communicating with server to confirm action.');
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const getUrgencyBadge = (level) => {
+    switch (level) {
+      case 'RED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse">
+            <span>🚨</span>
+            <span>EMERGENCY 108</span>
+          </span>
+        );
+      case 'ORANGE':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+            <span>⚠️</span>
+            <span>URGENT TRIAGE</span>
+          </span>
+        );
+      case 'YELLOW':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            <span>ℹ️</span>
+            <span>G-NAD HEALTH GUIDANCE</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <span>🛡️</span>
+            <span>VERIFIED MEDVEDA BOUNDS</span>
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-70px)] bg-slate-50 flex flex-col">
+      {/* TOP HEADER STRIP */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-xs">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0b2b82] to-teal-500 text-white flex items-center justify-center text-xl shadow-sm">
+              🤖
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                  Medical AI Assistant Agent
+                </h1>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+                  MOD 10 &bull; AUTONOMOUS
+                </span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  G-NAD & G-HON Safe
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Action-capable multilingual health agent: book consults, find beds, set reminders, voice guidance
+              </p>
+            </div>
+          </div>
+
+          {/* CONTROLS: TABS, LANGUAGE & AUDIO */}
+          <div className="flex items-center flex-wrap gap-2">
+            {/* View Tabs */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'chat'
+                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                💬 Agent Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('doctors')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'doctors'
+                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                👨‍⚕️ Doctors ({doctorsList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('facilities')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'facilities'
+                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🏥 Beds ({facilitiesList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('appointments')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'appointments'
+                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📅 My Bookings ({appointmentsList.length})
+              </button>
+            </div>
+
+            {/* Language Selector */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setSelectedLanguage('auto')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  selectedLanguage === 'auto'
+                    ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Detect automatically from message"
+              >
+                ⚡ Auto
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLanguage('hi')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  selectedLanguage === 'hi'
+                    ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🇮🇳 हिन्दी
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLanguage('en')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  selectedLanguage === 'en'
+                    ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🇬🇧 English
+              </button>
+            </div>
+
+            {/* Auto Voice Toggle */}
+            <button
+              type="button"
+              onClick={() => setAutoVoice(!autoVoice)}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
+                autoVoice
+                  ? 'bg-teal-50 text-teal-800 border-teal-200'
+                  : 'bg-white text-slate-500 border-slate-200'
+              }`}
+              title="Toggle automatic TTS voice playback"
+            >
+              <span>{autoVoice ? '🔊' : '🔇'}</span>
+              <span className="hidden sm:inline">Voice: {autoVoice ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CONTAINER */}
+      <div className="max-w-7xl w-full mx-auto p-4 sm:p-6 flex-1 flex flex-col">
+        {/* TAB 1: CHAT & AGENT INTERACTION */}
+        {activeTab === 'chat' && (
+          <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            {/* Quick Prompt Pill Chips */}
+            <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center gap-2 overflow-x-auto text-xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                <span>💡</span> Try Actions:
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Book an appointment with Dr. Rajesh Verma (Cardiologist)')}
+                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
+              >
+                👨‍⚕️ Book Cardiologist (कार्डियोलॉजिस्ट)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('डॉ. प्रिया शर्मा (न्यूरोलॉजिस्ट) से अपॉइंटमेंट बुक करें')}
+                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
+              >
+                🧠 Book Neurologist (हिन्दी में बुकिंग)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Show nearby hospitals and emergency beds in Hazaribagh')}
+                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
+              >
+                🏥 Check ICU & Emergency Beds
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Remind me to take Telmisartan 40mg at 08:00 AM')}
+                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
+              >
+                💊 Remind Telmisartan 40mg at 8 AM
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Take me to Feature 06 medicine stock')}
+                className="shrink-0 px-3 py-1 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-[#0b2b82] font-medium transition-all"
+              >
+                🚀 Jump to Medicine Stocks
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('I have severe crushing chest pain and sweating')}
+                className="shrink-0 px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 font-semibold transition-all"
+              >
+                🚨 Emergency 108 Red-Flag Test
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Order pizza and pay online with credit card')}
+                className="shrink-0 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold transition-all"
+              >
+                🛡️ Out of Bounds Test (G-HON)
+              </button>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[62vh] min-h-[420px] bg-slate-50/30">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    msg.sender === 'user' ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-3xl w-full rounded-2xl p-4 shadow-2xs transition-all ${
+                      msg.sender === 'user'
+                        ? 'bg-[#0b2b82] text-white ml-auto max-w-xl'
+                        : 'bg-white border border-slate-200/90 text-slate-800'
+                    }`}
+                  >
+                    {/* Header meta for Assistant */}
+                    {msg.sender === 'agent' && (
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xs font-bold border border-blue-100">
+                            🤖
+                          </div>
+                          <span className="text-xs font-bold text-slate-900">
+                            MedVeda Assistant Agent
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {msg.detectedLanguage === 'hi' ? '🇮🇳 हिन्दी' : '🇬🇧 English'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getUrgencyBadge(msg.urgencyLevel)}
+                          {msg.audioBase64 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (playingMessageId === msg.id) {
+                                  stopAudio();
+                                } else {
+                                  playBase64Audio(msg.audioBase64, msg.id);
+                                }
+                              }}
+                              className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                                playingMessageId === msg.id
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
+                                  : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border border-slate-200'
+                              }`}
+                              title={playingMessageId === msg.id ? 'Stop Voice' : 'Play TTS Voice'}
+                            >
+                              <span>{playingMessageId === msg.id ? '⏹️' : '🔊'}</span>
+                              <span className="text-[10px]">
+                                {playingMessageId === msg.id ? 'Stop' : 'Voice'}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Message Body Text */}
+                    <div className="text-sm leading-relaxed whitespace-pre-line font-normal">
+                      {msg.text}
+                    </div>
+
+                    {/* ACTION CARDS (Human-in-the-Loop Booking, Lists, Navigation) */}
+                    {msg.actionCards && msg.actionCards.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                        {msg.actionCards.map((card, cIdx) => (
+                          <div key={cIdx}>
+                            {/* 1. CONFIRMATION CARD (Human-in-the-Loop - Section 12.3 & D4) */}
+                            {card.type === 'CONFIRMATION_CARD' && (
+                              <div className="bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white rounded-xl border-2 border-blue-300 p-4 shadow-xs">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">📅</span>
+                                    <div>
+                                      <h4 className="text-xs font-black text-[#0b2b82] uppercase tracking-wider">
+                                        Action Proposal: Confirm Appointment Booking
+                                      </h4>
+                                      <p className="text-[11px] text-slate-600">
+                                        प्रस्तावित बुकिंग की समीक्षा करें और पुष्टि करें
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-[#0b2b82]">
+                                    TELECONSULT OPD
+                                  </span>
+                                </div>
+
+                                <div className="bg-white rounded-lg p-3 border border-blue-100 mb-3 space-y-1.5 text-xs text-slate-700">
+                                  <div className="flex justify-between">
+                                    <span className="font-semibold text-slate-500">Doctor:</span>
+                                    <span className="font-bold text-slate-900">{card.doctor.name} ({card.doctor.qualification})</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="font-semibold text-slate-500">Specialty:</span>
+                                    <span className="font-bold text-teal-700">{card.doctor.specialty}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="font-semibold text-slate-500">Hospital:</span>
+                                    <span className="font-medium text-slate-800">{card.doctor.facilityName}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="font-semibold text-slate-500">Slot Time:</span>
+                                    <span className="font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                      {card.slot.time}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="font-semibold text-slate-500">Patient:</span>
+                                    <span className="font-medium text-slate-800">{card.patient.name} ({card.patient.phone})</span>
+                                  </div>
+                                </div>
+
+                                {card.status === 'CONFIRMED' ? (
+                                  <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-3 text-xs text-emerald-900 space-y-1">
+                                    <div className="flex items-center justify-between font-bold text-emerald-800">
+                                      <span className="flex items-center gap-1.5">
+                                        <span>✅</span> Booking Confirmed (अपॉइंटमेंट पक्का हो गया)
+                                      </span>
+                                      <span className="font-mono bg-emerald-200/80 px-2 py-0.5 rounded">
+                                        {card.executedResult?.appointment?.id}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-emerald-700">
+                                      {card.executedResult?.smsNotification?.text}
+                                    </p>
+                                    <div className="pt-2 flex items-center justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (onNavigate) onNavigate('#feature2');
+                                          else window.location.hash = '#feature2';
+                                        }}
+                                        className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-xs flex items-center gap-1"
+                                      >
+                                        <span>🚀 Open Teleconsult OPD (Feature 02)</span>
+                                        <span>&rarr;</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : card.status === 'CANCELLED' ? (
+                                  <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-600 flex items-center gap-1.5 font-medium">
+                                    <span>❌</span> Booking proposal cancelled by user.
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      disabled={actionInProgress !== null}
+                                      onClick={() => handleExecuteAction(msg.id, card, false)}
+                                      className="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-all"
+                                    >
+                                      Cancel (रद्द करें)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={actionInProgress !== null}
+                                      onClick={() => handleExecuteAction(msg.id, card, true)}
+                                      className="px-4 py-1.5 rounded-lg bg-[#0b2b82] hover:bg-blue-800 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                                    >
+                                      {actionInProgress === `${msg.id}-${card.type}` ? (
+                                        <span>⏳ Booking Slot...</span>
+                                      ) : (
+                                        <>
+                                          <span>✅ Confirm Booking (पुष्टि करें)</span>
+                                          <span>&rarr;</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 2. DOCTORS LIST CARD */}
+                            {card.type === 'DOCTORS_LIST' && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                  <span>👨‍⚕️</span> Available Specialists in Network:
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                  {(card.doctors || []).map((doc) => (
+                                    <div
+                                      key={doc.id}
+                                      className="p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-300 shadow-2xs flex flex-col justify-between"
+                                    >
+                                      <div>
+                                        <div className="flex items-center justify-between">
+                                          <h5 className="font-bold text-xs text-slate-900">{doc.name}</h5>
+                                          <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
+                                            {doc.specialty}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">{doc.facilityName}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                                          Next: {doc.slots?.[0]?.time || 'Today'}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendMessage(`Book appointment with ${doc.name}`)}
+                                        className="mt-2.5 w-full py-1.5 px-3 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-blue-200"
+                                      >
+                                        <span>📅 Book Slot with Doctor</span>
+                                        <span>&rarr;</span>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 3. FACILITIES LIST CARD */}
+                            {card.type === 'FACILITIES_LIST' && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                  <span>🏥</span> Verified District Facilities:
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                  {(card.facilities || []).map((fac) => (
+                                    <div
+                                      key={fac.id}
+                                      className="p-3 rounded-xl bg-white border border-slate-200 hover:border-teal-300 shadow-2xs flex flex-col justify-between"
+                                    >
+                                      <div>
+                                        <div className="flex items-start justify-between gap-1">
+                                          <h5 className="font-bold text-xs text-slate-900 leading-snug">{fac.name}</h5>
+                                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded shrink-0">
+                                            {fac.type}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 mt-1">{fac.address}</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                            🛏️ {fac.emergencyBeds} Beds Ready
+                                          </span>
+                                          <span className="text-[10px] text-slate-500">
+                                            📞 {fac.contactPhone}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (onNavigate) onNavigate('#feature1');
+                                          else window.location.hash = '#feature1';
+                                        }}
+                                        className="mt-2.5 w-full py-1.5 px-3 bg-teal-50 hover:bg-teal-700 text-teal-800 hover:text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-teal-200"
+                                      >
+                                        <span>📍 View in Care Navigator</span>
+                                        <span>&rarr;</span>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 4. PROPOSE REMINDER CARD */}
+                            {card.type === 'PROPOSE_REMINDER' && (
+                              <div className="bg-amber-50/70 border border-amber-300 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">⏰</span>
+                                    <div>
+                                      <h4 className="text-xs font-bold text-amber-900">
+                                        Dosage Reminder: {card.medicineName}
+                                      </h4>
+                                      <p className="text-[11px] text-amber-700">
+                                        Schedule: {card.time} &bull; {card.instruction}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {card.status === 'CONFIRMED' ? (
+                                  <div className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs text-emerald-800 font-bold flex items-center gap-1.5">
+                                    <span>✅ Reminder Active: Alert set for {card.time}</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end gap-2 mt-2">
+                                    <button
+                                      type="button"
+                                      disabled={actionInProgress !== null}
+                                      onClick={() => handleExecuteAction(msg.id, card, true)}
+                                      className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1"
+                                    >
+                                      <span>⏰ Save & Activate Reminder</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 5. APPOINTMENTS LIST CARD */}
+                            {card.type === 'APPOINTMENTS_LIST' && (
+                              <div className="space-y-2">
+                                {(card.appointments || []).length === 0 ? (
+                                  <p className="text-xs text-slate-500 italic">No booked appointments found.</p>
+                                ) : (
+                                  card.appointments.map((apt) => (
+                                    <div key={apt.id} className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-xs text-slate-900">{apt.doctorName}</span>
+                                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-50 text-[#0b2b82]">
+                                            {apt.id}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500">{apt.facilityName} &bull; {apt.scheduledTime}</p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (onNavigate) onNavigate('#feature2');
+                                          else window.location.hash = '#feature2';
+                                        }}
+                                        className="px-2.5 py-1 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white rounded text-xs font-bold transition-all"
+                                      >
+                                        Open OPD &rarr;
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+
+                            {/* 6. NAVIGATE ACTION CARD */}
+                            {card.type === 'NAVIGATE_ACTION' && (
+                              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-xs font-bold text-[#0b2b82]">{card.title}</h4>
+                                  <p className="text-[11px] text-slate-600 font-mono">{card.route}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (onNavigate) onNavigate(card.route);
+                                    else window.location.hash = card.route;
+                                  }}
+                                  className="px-3 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                                >
+                                  <span>{card.buttonLabel || 'Open Feature'}</span>
+                                  <span>&rarr;</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* EMERGENCY 108 ACTION CARD */}
+                            {card.type === 'EMERGENCY_ACTIONS' && (
+                              <div className="bg-rose-50 border-2 border-rose-400 rounded-xl p-4 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-2xl animate-bounce">🚨</span>
+                                  <div>
+                                    <h4 className="text-xs font-black text-rose-900 uppercase tracking-wider">
+                                      {card.title || 'Immediate Emergency Contacts'}
+                                    </h4>
+                                    <p className="text-[11px] text-rose-700 font-semibold">
+                                      Nearest ER: {card.nearestHospital?.name} ({card.nearestHospital?.emergencyBeds} Beds)
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 mt-3">
+                                  <a
+                                    href="tel:108"
+                                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-black shadow-xs flex items-center gap-1.5 animate-pulse"
+                                  >
+                                    <span>📞 Call 108 Ambulance</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (onNavigate) onNavigate('#feature1');
+                                      else window.location.hash = '#feature1';
+                                    }}
+                                    className="px-3 py-2 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-lg text-xs font-bold transition-all"
+                                  >
+                                    🏥 Emergency Navigation &rarr;
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* CAPABILITY FALLBACK (G-HON BOUNDS) */}
+                            {card.type === 'CAPABILITY_FALLBACK' && (
+                              <div className="bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">🛡️</span>
+                                    <h4 className="text-xs font-bold text-amber-900">
+                                      {card.title || 'MedVeda Supported Alternatives'}
+                                    </h4>
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                                    G-HON SECURE
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {(card.options || []).map((opt, oIdx) => (
+                                    <button
+                                      key={oIdx}
+                                      type="button"
+                                      onClick={() => {
+                                        if (onNavigate) onNavigate(opt.route);
+                                        else window.location.hash = opt.route;
+                                      }}
+                                      className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold transition-all shadow-2xs"
+                                    >
+                                      {opt.label} &rarr;
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* HEALTH GUIDANCE ACTIONS */}
+                            {card.type === 'HEALTH_GUIDANCE_ACTIONS' && (
+                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs">
+                                <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                                  <span>ℹ️</span> Recommended Next Steps:
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {(card.options || []).map((opt, oIdx) => (
+                                    <button
+                                      key={oIdx}
+                                      type="button"
+                                      onClick={() => {
+                                        if (opt.doctorId) {
+                                          handleSendMessage(`Book appointment with Dr.`);
+                                        } else if (opt.route) {
+                                          if (onNavigate) onNavigate(opt.route);
+                                          else window.location.hash = opt.route;
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-white hover:bg-blue-50 text-[#0b2b82] border border-blue-200 rounded-lg text-xs font-bold transition-all shadow-2xs"
+                                    >
+                                      {opt.label} &rarr;
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 7. QUICK ACTIONS PILLS */}
+                            {card.type === 'QUICK_ACTIONS' && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {(card.options || []).map((opt, oIdx) => (
+                                  <button
+                                    key={oIdx}
+                                    type="button"
+                                    onClick={() => {
+                                      if (opt.query) {
+                                        handleSendMessage(opt.query);
+                                      } else if (opt.route) {
+                                        if (onNavigate) onNavigate(opt.route);
+                                        else window.location.hash = opt.route;
+                                      }
+                                    }}
+                                    className="px-3 py-1 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] rounded-lg text-xs font-semibold border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="text-[10px] text-slate-400 mt-1 px-1">
+                    {msg.timestamp}
+                  </span>
+                </div>
+              ))}
+
+              {/* Typing indicator */}
+              {isLoading && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2.5 w-fit shadow-2xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-bounce"></span>
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]"></span>
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"></span>
+                  </div>
+                  <span className="font-medium text-slate-600">
+                    Agent reasoning & preparing action proposal...
+                  </span>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Footer Area */}
+            <div className="p-3 sm:p-4 bg-white border-t border-slate-200">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage();
+                }}
+                className="flex items-center gap-2"
+              >
+                {/* Voice Input Microphone Button */}
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceInput}
+                  className={`p-3 rounded-xl border text-base flex items-center justify-center transition-all shrink-0 ${
+                    isListening
+                      ? 'bg-rose-500 text-white border-rose-600 animate-pulse shadow-md'
+                      : 'bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] border-slate-200'
+                  }`}
+                  title={isListening ? 'Listening... click to stop' : 'Click to speak via Microphone'}
+                >
+                  <span>{isListening ? '🔴' : '🎙️'}</span>
+                </button>
+
+                {/* Text Input Box */}
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={
+                    selectedLanguage === 'hi'
+                      ? 'अपनी समस्या बताएं, डॉक्टर बुक करें, या दवा रिमाइंडर सेट करें...'
+                      : 'Ask to book a doctor, check emergency beds, or set a medicine reminder...'
+                  }
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0b2b82] focus:bg-white transition-all"
+                  disabled={isLoading}
+                />
+
+                {/* Send Button */}
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() || isLoading}
+                  className="px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-800 disabled:opacity-50 text-white text-sm font-black transition-all flex items-center gap-1.5 shadow-sm shrink-0"
+                >
+                  <span>Send</span>
+                  <span>&rarr;</span>
+                </button>
+              </form>
+
+              <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400">
+                <span>
+                  🛡️ Strictly within MedVeda bounds. G-NAD Non-diagnostic guidance.
+                </span>
+                <span className="hidden sm:inline">
+                  ⚡ Port 8001 Python AI & Voice Engine
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: REGISTERED DOCTORS ROSTER */}
+        {activeTab === 'doctors' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Registered Specialist Doctors Database
+                </h3>
+                <p className="text-xs text-slate-500">
+                  5 specialists available for direct appointment proposals & teleconsultation
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"
+              >
+                &larr; Back to Chat
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {doctorsList.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0b2b82] flex items-center justify-center text-xl font-bold border border-blue-100">
+                        👨‍⚕️
+                      </div>
+                      <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                        {doc.specialty}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900">{doc.name}</h4>
+                    <p className="text-xs text-slate-500">{doc.qualification}</p>
+                    <p className="text-xs text-slate-700 font-medium mt-2">{doc.facilityName}</p>
+
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase">Available Slots:</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {(doc.slots || []).map((s, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                          >
+                            {s.time}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('chat');
+                      handleSendMessage(`Book appointment with ${doc.name}`);
+                    }}
+                    className="mt-4 w-full py-2 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <span>📅 Book Appointment Proposal</span>
+                    <span>&rarr;</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: DISTRICT FACILITIES & EMERGENCY BEDS */}
+        {activeTab === 'facilities' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Hazaribagh District Facilities & Emergency Capacity
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Verified network hospitals with real-time bed & ICU availability
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"
+              >
+                &larr; Back to Chat
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {facilitiesList.map((fac) => (
+                <div
+                  key={fac.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="text-2xl">🏥</span>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200">
+                        {fac.type}
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-slate-900">{fac.name}</h4>
+                    <p className="text-xs text-slate-600 mt-1">{fac.address}</p>
+
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Emergency Beds</span>
+                        <div className="text-lg font-black text-emerald-900">{fac.emergencyBeds} Available</div>
+                      </div>
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                        <span className="text-[10px] font-bold text-blue-700 uppercase">Direct Helpline</span>
+                        <div className="text-xs font-mono font-bold text-blue-900 mt-1">{fac.contactPhone}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onNavigate) onNavigate('#feature1');
+                        else window.location.hash = '#feature1';
+                      }}
+                      className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                    >
+                      <span>📍 View in Care Navigator</span>
+                      <span>&rarr;</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('chat');
+                        handleSendMessage(`Show doctors available at ${fac.name}`);
+                      }}
+                      className="text-xs font-bold text-[#0b2b82] hover:underline"
+                    >
+                      Find Doctors &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ACTIVE BOOKED APPOINTMENTS */}
+        {activeTab === 'appointments' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Confirmed Patient Appointments
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Real-time appointments store synchronized with Feature 02 Teleconsultation OPD
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200"
+              >
+                &larr; Back to Chat
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {appointmentsList.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">
+                  <span className="text-3xl block mb-2">📅</span>
+                  <p className="text-sm font-semibold">No appointments booked yet.</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Ask the assistant "Book an appointment with Dr. Rajesh Verma" to schedule one now.
+                  </p>
+                </div>
+              ) : (
+                appointmentsList.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-lg shrink-0">
+                        [OK]
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-black text-slate-900">{apt.doctorName}</h4>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                            {apt.id}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          {apt.specialty} &bull; {apt.facilityName}
+                        </p>
+                        <p className="text-xs text-[#0b2b82] font-semibold mt-1">
+                          ⏰ Scheduled: {apt.scheduledTime} ({apt.mode || 'Teleconsult'})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onNavigate) onNavigate('#feature2');
+                          else window.location.hash = '#feature2';
+                        }}
+                        className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                      >
+                        <span>🚀 Launch Teleconsult OPD</span>
+                        <span>&rarr;</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // --- FEATURES WORKSPACE: SIDE NAVBAR ---
 // ==========================================
 
@@ -21091,6 +22968,17 @@ const FEATURE_NAV_MODULES = [
     description: 'Pan-India surveillance & forecasts',
     badge: 'MV-DAC',
     badgeClass: 'bg-sky-50 text-sky-700 border-sky-200'
+  },
+  {
+    id: 'feature10',
+    code: 'MOD 10',
+    shortCode: '10',
+    icon: '🤖',
+    label: 'Medical AI Assistant Agent',
+    shortLabel: 'AI Agent',
+    description: 'Autonomous action agent, voice & booking',
+    badge: 'Actions',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200'
   }
 ];
 
@@ -21710,6 +23598,14 @@ function App() {
     ) {
       setViewState('feature9');
     } else if (
+      hash === '#feature10' ||
+      hash === '#assistant' ||
+      hash === '#medical-assistant' ||
+      hash === '#medical-agent' ||
+      hash === '#agent'
+    ) {
+      setViewState('feature10');
+    } else if (
       hash === '#feature8' ||
       hash === '#schemes' ||
       hash === '#scheme-finder' ||
@@ -21815,7 +23711,8 @@ function App() {
     'feature6',
     'feature7',
     'feature8',
-    'feature9'
+    'feature9',
+    'feature10'
   ].includes(view);
 
   return (
@@ -21862,6 +23759,9 @@ function App() {
             onLaunchFeature9={() => {
               setView('feature9');
             }}
+            onLaunchFeature10={() => {
+              setView('feature10');
+            }}
             onLaunchAbout={() => {
               setView('about');
             }}
@@ -21904,6 +23804,9 @@ function App() {
             }}
             onLaunchFeature9={() => {
               setView('feature9');
+            }}
+            onLaunchFeature10={() => {
+              setView('feature10');
             }}
           />
         </main>
@@ -22216,6 +24119,28 @@ function App() {
             onBackToHome={() => setView('home')}
             onNavigateToFacilityDashboard={() => setView('feature7')}
             onNavigateToSchemeFinder={() => setView('feature8')}
+          />
+        )}
+
+        {/* VIEW 11: FEATURE 10 — STANDALONE MEDICAL AI ASSISTANT AGENT (ACTIONS & GUIDE) */}
+        {view === 'feature10' && (
+          <ScreenMedicalAssistantAgent
+            actorRole={actorRole}
+            setActorRole={setActorRole}
+            onBackToHome={() => setView('home')}
+            onNavigate={(route) => {
+              if (route === '#feature1') { setView('feature1'); setScreen(1); }
+              else if (route === '#feature2') { setView('feature2'); setTeleconsultScreen('entry'); }
+              else if (route === '#feature3') { setView('feature3'); }
+              else if (route === '#feature4') { setView('feature4'); }
+              else if (route === '#feature5') { setView('feature5'); }
+              else if (route === '#feature6') { setView('feature6'); }
+              else if (route === '#feature7') { setView('feature7'); }
+              else if (route === '#feature8') { setView('feature8'); }
+              else if (route === '#feature9') { setView('feature9'); }
+              else if (route === '#feature10' || route === '#assistant' || route === '#medical-agent') { setView('feature10'); }
+              else { window.location.hash = route; }
+            }}
           />
         )}
       </main>
