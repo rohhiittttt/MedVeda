@@ -8971,12 +8971,22 @@ function ScreenInteroperableRecords({
     {
       internalMedicalId: 'MV-MED-2026-1024',
       abhaId: '91-2890-1423-8891@sbx',
-      name: 'Ramesh Mahto',
-      age: 48,
-      sex: 'male',
-      phone: '+91-94311-28901',
-      location: 'Katkamsandi, Hazaribagh',
+      name: 'SANJANA KUMARI',
+      role: 'Patient',
+      status: 'Active',
+      age: 34,
+      sex: 'Female',
+      email: 'helenroizhicki@gmail.com',
+      birthDate: '02/20/1987',
+      phone: '+7 (291) 255 58 43',
       bloodGroup: 'O+',
+      address: '1 Main Street, Austin, TX, 78730',
+      location: '1 Main Street, Austin, TX, 78730',
+      patientSince: '03/02/2019',
+      medicalInsurance: 'None',
+      visionInsurance: 'Yes',
+      dentalInsurance: 'Yes',
+      photoUrl: 'patient-sanjana.jpg',
       emergencyContact: {
         name: 'Anita Devi (Spouse)',
         relation: 'Spouse',
@@ -8987,11 +8997,21 @@ function ScreenInteroperableRecords({
       internalMedicalId: 'MV-MED-2026-2048',
       abhaId: null,
       name: 'Sunita Soren',
+      role: 'Patient',
+      status: 'Active',
       age: 32,
-      sex: 'female',
+      sex: 'Female',
+      email: 'sunita.soren@medveda.in',
+      birthDate: '10/14/1993',
       phone: '+91-94311-58291',
       location: 'Barkagaon, Hazaribagh',
+      address: 'Barkagaon, Hazaribagh, Jharkhand',
       bloodGroup: 'B+',
+      patientSince: '11/12/2021',
+      medicalInsurance: 'Yes',
+      visionInsurance: 'None',
+      dentalInsurance: 'Yes',
+      photoUrl: null,
       emergencyContact: {
         name: 'Babulal Soren (Brother)',
         relation: 'Brother',
@@ -9003,12 +9023,22 @@ function ScreenInteroperableRecords({
   const [patient, setPatient] = useState({
     internalMedicalId: 'MV-MED-2026-1024',
     abhaId: '91-2890-1423-8891@sbx',
-    name: 'Ramesh Mahto',
-    age: 48,
-    sex: 'male',
-    phone: '+91-94311-28901',
-    location: 'Katkamsandi, Hazaribagh',
+    name: 'SANJANA KUMARI',
+    role: 'Patient',
+    status: 'Active',
+    age: 34,
+    sex: 'Female',
+    email: 'helenroizhicki@gmail.com',
+    birthDate: '02/20/1987',
+    phone: '+7 (291) 255 58 43',
     bloodGroup: 'O+',
+    address: '1 Main Street, Austin, TX, 78730',
+    location: '1 Main Street, Austin, TX, 78730',
+    patientSince: '03/02/2019',
+    medicalInsurance: 'None',
+    visionInsurance: 'Yes',
+    dentalInsurance: 'Yes',
+    photoUrl: 'patient-sanjana.jpg',
     emergencyContact: {
       name: 'Anita Devi (Spouse)',
       relation: 'Spouse',
@@ -9034,6 +9064,21 @@ function ScreenInteroperableRecords({
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showOpenIdModal, setShowOpenIdModal] = useState(false);
+  const [searchIdInput, setSearchIdInput] = useState('');
+  const [searchIdError, setSearchIdError] = useState(null);
+
+  // Available Languages for MedVeda Assistant
+  const availableLanguages = [
+    { code: 'en', name: 'English', native: 'English', flag: '🇬🇧' },
+    { code: 'hi', name: 'Hindi', native: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'bn', name: 'Bengali', native: 'বাংলা', flag: '🇮🇳' },
+    { code: 'te', name: 'Telugu', native: 'తెలుగు', flag: '🇮🇳' },
+    { code: 'mr', name: 'Marathi', native: 'मराठी', flag: '🇮🇳' },
+    { code: 'ta', name: 'Tamil', native: 'தமிழ்', flag: '🇮🇳' },
+    { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી', flag: '🇮🇳' }
+  ];
 
   // ==========================================
   // OCR STUDIO STATE (Multimodal Vision AI)
@@ -9064,10 +9109,10 @@ function ScreenInteroperableRecords({
     {
       id: 'msg_welcome',
       sender: 'assistant',
-      text: 'Hello Ramesh! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (discharge summaries, prescriptions, and lab tests). You can ask by voice or text in both Hindi and English.\n\nनमस्ते रमेश जी! मैं आपका मेदवेद रिकॉर्ड्स एआई सहायक हूँ। आपके सत्यापित मेडिकल रिकॉर्ड्स तैयार हैं। आप मुझसे बोलकर या लिखकर हिन्दी अथवा English में अपनी दवाइयों, खुराक और रिपोर्ट के बारे में पूछ सकते हैं।',
-      detectedLanguage: 'hi',
+      text: 'Hello Sanjana! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including prescriptions, lab reports, and hospital records). You can ask by voice or text in both English and Hindi.',
+      detectedLanguage: 'en',
       confidence: 'HIGH',
-      timestamp: 'Just now',
+      timestamp: '09:08 pm',
       citations: []
     }
   ]);
@@ -9143,7 +9188,30 @@ function ScreenInteroperableRecords({
       const data = await res.json();
       if (data.data) {
         if (data.data.patient) {
-          setPatient(data.data.patient);
+          if (patId === 'MV-MED-2026-1024') {
+            setPatient((prev) => ({
+              ...prev,
+              ...data.data.patient,
+              name: 'SANJANA KUMARI',
+              role: 'Patient',
+              status: 'Active',
+              age: 34,
+              sex: 'Female',
+              email: 'helenroizhicki@gmail.com',
+              birthDate: '02/20/1987',
+              phone: '+7 (291) 255 58 43',
+              bloodGroup: 'O+',
+              address: '1 Main Street, Austin, TX, 78730',
+              location: '1 Main Street, Austin, TX, 78730',
+              patientSince: '03/02/2019',
+              medicalInsurance: 'None',
+              visionInsurance: 'Yes',
+              dentalInsurance: 'Yes',
+              photoUrl: 'patient-sanjana.jpg'
+            }));
+          } else {
+            setPatient(data.data.patient);
+          }
           setAbdmInputAbha(data.data.patient.abhaId || '');
         }
         if (data.data.records) setRecords(data.data.records);
@@ -9172,13 +9240,14 @@ function ScreenInteroperableRecords({
   // Update welcome message when patient changes
   useEffect(() => {
     if (patient && patient.name) {
+      const displayName = patient.name === 'SANJANA KUMARI' ? 'Sanjana' : patient.name;
       setChatMessages([
         {
           id: 'msg_welcome_' + patient.internalMedicalId,
           sender: 'assistant',
-          text: `Hello ${patient.name}! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including hospital discharges, prescriptions, lab reports, and vaccinations). Ask me any question about your medications, dosages, lab tests, or clinical history.`,
+          text: `Hello ${displayName}! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including hospital discharges, prescriptions, lab reports, and vaccinations). Ask me any question about your medications, dosages, lab tests, or clinical history.`,
           confidence: 'HIGH',
-          timestamp: 'Just now',
+          timestamp: '09:08 pm',
           citations: []
         }
       ]);
@@ -9818,15 +9887,20 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
   // Ask AI about a specific record card from timeline
   const handleAskAboutRecord = (rec) => {
-    setActiveSubView('chat');
     setChatScopedDoc({ id: rec.id, title: rec.title });
     const prompt = `Summarize the key findings, diagnosis, medications, and advice from ${rec.title}.`;
     handleSendChatMessage(prompt, rec.id);
+    const chatEl = document.getElementById('chat-input-box');
+    if (chatEl) {
+      chatEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      chatEl.focus();
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Jump to citation in timeline
   const handleViewCitationInTimeline = (documentId) => {
-    setActiveSubView('timeline');
     setHighlightedRecordId(documentId);
     setTimeout(() => {
       const el = document.getElementById('record-' + documentId);
@@ -10008,6 +10082,71 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
     }
   };
 
+  // Open Health ID by MedVeda ID or ABHA ID
+  const handleOpenHealthId = (targetId) => {
+    const query = (targetId || searchIdInput || '').trim();
+    if (!query) {
+      setSearchIdError('Please enter a valid MedVeda ID or ABHA ID.');
+      return;
+    }
+
+    setSearchIdError(null);
+    const cleaned = query.toLowerCase();
+
+    // Check existing patients list
+    const found = patientsList.find(
+      (p) =>
+        (p.internalMedicalId && p.internalMedicalId.toLowerCase() === cleaned) ||
+        (p.abhaId && p.abhaId.toLowerCase() === cleaned) ||
+        (p.name && p.name.toLowerCase() === cleaned)
+    );
+
+    if (found) {
+      setSelectedPatientId(found.internalMedicalId);
+      setPatient(found);
+      setShowOpenIdModal(false);
+      setSearchIdInput('');
+      showToast(`✓ Opened Health ID for ${found.name} (${found.internalMedicalId})`);
+      return;
+    }
+
+    // If query looks like an ABHA ID (e.g. has @ or dashes) or new MedVeda ID
+    const isAbha = query.includes('@') || query.includes('sbx');
+    const newId = isAbha
+      ? `MV-MED-2026-${Math.floor(1000 + Math.random() * 9000)}`
+      : query.toUpperCase().startsWith('MV-')
+      ? query.toUpperCase()
+      : `MV-MED-2026-${query}`;
+
+    const newPat = {
+      internalMedicalId: newId,
+      abhaId: isAbha ? query : null,
+      name: isAbha ? query.split('@')[0].replace(/[._-]/g, ' ').toUpperCase() : `Patient (${query})`,
+      role: 'Patient',
+      status: 'Active',
+      age: 35,
+      sex: 'Female',
+      email: `${query.toLowerCase()}@medveda.in`,
+      birthDate: '01/15/1991',
+      phone: '+91-94311-00000',
+      bloodGroup: 'O+',
+      location: 'Jharkhand, India',
+      address: 'Jharkhand, India',
+      patientSince: '01/01/2026',
+      medicalInsurance: 'Yes',
+      visionInsurance: 'None',
+      dentalInsurance: 'Yes',
+      photoUrl: null
+    };
+
+    setPatientsList((prev) => [newPat, ...prev]);
+    setSelectedPatientId(newId);
+    setPatient(newPat);
+    setShowOpenIdModal(false);
+    setSearchIdInput('');
+    showToast(`✓ Opened & Linked Health ID: ${newId}`);
+  };
+
   // Copy ID to Clipboard
   const handleCopyId = () => {
     if (navigator.clipboard) {
@@ -10033,1123 +10172,796 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   }, [records, sourceFilter, typeFilter, searchQuery]);
 
   return (
-    <div className="space-y-6">
-      {/* Toast Notification Alert */}
-      {notificationToast && (
-        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
-          <span>🔔</span>
-          <span>{notificationToast}</span>
-        </div>
-      )}
-
-      {/* Top Header Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-xs font-black text-sky-800 uppercase mb-2">
-            <span className="w-2 h-2 rounded-full bg-sky-600 animate-pulse"></span>
-            Feature Map 05 &bull; Interoperable Health Records &amp; Grounded RAG
+    <div className="min-h-full bg-[#f8fafc] px-5 sm:px-6 lg:px-8 xl:px-10 pt-4 sm:pt-5 lg:pt-6 pb-12">
+      <div className="max-w-[1560px] mx-auto space-y-3.5 sm:space-y-4">
+        {/* Toast Notification Alert */}
+        {notificationToast && (
+          <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
+            <span>🔔</span>
+            <span>{notificationToast}</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Patient Medical ID &amp; Grounded EHR AI Assistant
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1 max-w-2xl leading-relaxed">
-            Unified Longitudinal Health Records with Gemini Multimodal Document OCR Studio, ABDM ABHA Sync, and Zero-Hallucination EHR-Grounded RAG Chatbot.
-          </p>
-        </div>
+        )}
 
-        <div className="flex items-center gap-3 flex-wrap shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveSubView(activeSubView === 'chat' ? 'timeline' : 'chat')}
-            className={`px-5 py-3 font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 ${
-              activeSubView === 'chat'
-                ? 'bg-slate-900 text-white shadow-slate-900/30'
-                : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
-            }`}
-          >
-            <span>{activeSubView === 'chat' ? '📋 View Timeline' : '🤖 Open Records AI Chatbot'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowRegisterModal(true)}
-            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
-          >
-            <span>➕ Generate Health ID</span>
-          </button>
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
-          >
-            <span>🏠 Home</span>
-          </button>
-        </div>
-      </div>
+        {/* Page Title & Subtitle Matching Image + Top-Right Action Buttons */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl lg:text-[32px] font-black text-slate-900 tracking-tight leading-tight">
+              Health Records ID &amp; AI Health Assistant
+            </h1>
+            <p className="text-xs sm:text-[13px] text-slate-600 font-medium mt-1 max-w-4xl leading-relaxed">
+              All your health records in one place, with AI that reads medical documents and answers questions using only your real health information
+            </p>
+          </div>
 
-      {/* Role Navigation Bar & Patient Selector */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
-          {[
-            { id: 'patient', label: 'Patient (Self Access)', icon: '👤' },
-            { id: 'doctor', label: 'Doctor (Consent Required)', icon: '👨‍⚕️' },
-            { id: 'worker', label: 'ASHA Worker', icon: '👩‍⚕️' }
-          ].map((tab) => (
+          {/* Top-Right Action Buttons: Create Health ID & Open Health ID */}
+          <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
             <button
-              key={tab.id}
               type="button"
-              onClick={() => {
-                setActiveRole(tab.id);
-                setActorRole(tab.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeRole === tab.id
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              onClick={() => setShowRegisterModal(true)}
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-900 text-white text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
             >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span className="text-sm">➕</span>
+              <span>Create Health ID</span>
             </button>
-          ))}
-        </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 uppercase">Select Active Patient:</span>
-          <select
-            value={selectedPatientId}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSelectedPatientId(val);
-              const found = patientsList.find((p) => p.internalMedicalId === val);
-              if (found) setPatient(found);
-            }}
-            className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-sky-500 shadow-sm cursor-pointer min-w-[280px]"
-          >
-            {patientsList.map((p) => (
-              <option key={p.internalMedicalId} value={p.internalMedicalId}>
-                {p.name} ({p.internalMedicalId}) {p.abhaId ? `[Linked ABHA]` : `[Standalone]`}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Sub-View Navigation Switcher (Timeline vs Grounded RAG Chatbot) */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-        <button
-          type="button"
-          onClick={() => setActiveSubView('timeline')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-            activeSubView === 'timeline'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <span>📋 Longitudinal Records Timeline</span>
-          <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold">
-            {records.length} Records
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubView('chat')}
-          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-            activeSubView === 'chat'
-              ? 'bg-sky-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-300"></span>
-          </span>
-          <span>🤖 MedVeda Records AI Assistant (Grounded RAG)</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeSubView === 'chat' ? 'bg-sky-500 text-white' : 'bg-emerald-100 text-emerald-800'
-          }`}>
-            Gemini Vision + RAG
-          </span>
-        </button>
-      </div>
-
-      {/* Access Control Status Callout (if viewing as Doctor/Worker) */}
-      {activeRole !== 'patient' && (
-        <div
-          className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-4 ${
-            accessInfo.isAllowed
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-              : 'bg-critical-50 border-critical-300 text-critical-900'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">{accessInfo.isAllowed ? '🛡️' : '🔒'}</span>
-            <div>
-              <div className="font-extrabold text-xs">
-                {accessInfo.isAllowed ? 'Authorized Access' : 'Restricted Health Record Access'}
-              </div>
-              <p className="text-xs mt-0.5">{accessInfo.reason}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {!accessInfo.isAllowed && (
-              <button
-                type="button"
-                onClick={() => setShowEmergencyModal(true)}
-                className="px-3.5 py-1.5 bg-critical-600 hover:bg-critical-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
-              >
-                <span>🚨 Emergency Access Override</span>
-              </button>
-            )}
             <button
               type="button"
-              onClick={() => setShowConsentModal(true)}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+              onClick={() => setShowOpenIdModal(true)}
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#0b2b82] border-2 border-[#0b2b82] text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
             >
-              Manage Consents 📋
+              <span className="text-sm">🔍</span>
+              <span>Open Health ID</span>
             </button>
           </div>
         </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* SUB-VIEW 1: TIMELINE & RECORD INGESTION */}
-      {/* ========================================================================= */}
-      {activeSubView === 'timeline' && (
-        <>
-          {/* Visual Medical ID Card */}
-          <div className="bg-gradient-to-br from-slate-900 via-sky-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-sky-800 relative overflow-hidden">
-            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full bg-sky-500/10 blur-3xl pointer-events-none"></div>
-
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-              <div className="space-y-4 flex-1">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl backdrop-blur-md">
-                      🪪
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-black tracking-widest text-sky-400 block">
-                        Official Health ID Card &bull; Government of India Standards
-                      </span>
-                      <h3 className="text-2xl font-black text-white">{patient.name}</h3>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowCardModal(true)}
-                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5 backdrop-blur-md"
-                    >
-                      <span>🖨️ View / Print Card</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCopyId}
-                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-                    >
-                      <span>📋 Copy ID</span>
-                    </button>
-                  </div>
+        {/* Top Hero Section: Patient Profile + Actions (Left) and MedVeda Assistant Chat (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 xl:gap-6 items-stretch">
+          {/* Left Column: Patient Profile ID Card + 4 Quick Action Cards (7 cols on lg) */}
+          <div className="lg:col-span-7 flex flex-col justify-between gap-3.5 min-h-0">
+            {/* Patient Profile Card (Outlined in black in image) */}
+            <div className="bg-white rounded-2xl border-2 border-slate-900 shadow-sm p-5 relative flex flex-col justify-between flex-1">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                {/* Photo & Insurance Column */}
+                <div className="flex flex-col items-center sm:items-start shrink-0 w-36">
+                  <div
+                    className="relative w-36 h-36 min-w-[144px] min-h-[144px] max-w-[144px] max-h-[144px] aspect-square rounded-full overflow-hidden border-4 border-slate-100 shadow-md shrink-0"
+                    style={{ width: "144px", height: "144px", minWidth: "144px", minHeight: "144px", maxWidth: "144px", maxHeight: "144px", borderRadius: "9999px", aspectRatio: "1 / 1" }}
+                  >
+                    <img
+                      src={patient.photoUrl || "patient-sanjana.jpg"}
+                      alt={patient.name}
+                      className="w-full h-full object-cover aspect-square rounded-full block"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9999px", aspectRatio: "1 / 1" }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "patient-sanjana.jpg";
+                      }}
+                    />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterModal(true)}
+                    title="Edit Patient Profile"
+                    className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-[#06b6d4] hover:bg-[#0891b2] text-white flex items-center justify-center shadow-md transition-transform hover:scale-110 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase">MedVeda Medical ID</span>
-                    <span className="font-mono font-black text-sky-300 text-sm">{patient.internalMedicalId}</span>
-                  </div>
-
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase">Linked ABHA ID</span>
-                    {patient.abhaId ? (
-                      <span className="font-mono font-bold text-emerald-400 text-xs truncate block">{patient.abhaId}</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowAbdmModal(true)}
-                        className="text-amber-400 font-bold text-[11px] block hover:underline text-left"
-                      >
-                        + Link ABHA ID
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase">Demographics</span>
-                    <span className="font-bold text-white text-xs">{patient.age} Yrs &bull; {patient.sex ? patient.sex.toUpperCase() : 'N/A'}</span>
-                  </div>
-
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase">Blood Group</span>
-                    <span className="font-black text-critical-400 text-sm">{patient.bloodGroup || 'O+'}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 text-xs text-slate-300 font-medium flex-wrap">
-                  <span>📍 {patient.location || 'Jharkhand'}</span>
-                  <span>📞 {patient.phone}</span>
-                  {patient.emergencyContact && (
-                    <span>🚨 Contact: {patient.emergencyContact.name} ({patient.emergencyContact.phone})</span>
-                  )}
+                {/* Insurance status under photo */}
+                <div className="mt-3.5 space-y-1 text-xs font-bold text-[#06b6d4] text-center sm:text-left whitespace-nowrap">
+                  <div>Medical Insurance: <span className="font-extrabold">{patient.medicalInsurance || 'None'}</span></div>
+                  <div>Vision Insurance: <span className="font-extrabold">{patient.visionInsurance || 'Yes'}</span></div>
+                  <div>Dental Insurance: <span className="font-extrabold">{patient.dentalInsurance || 'Yes'}</span></div>
                 </div>
               </div>
 
-              {/* Dynamic QR Code Badge */}
-              <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-200 text-slate-900 flex flex-col items-center text-center shrink-0 w-44">
-                <svg viewBox="0 0 100 100" className="w-28 h-28">
-                  <rect width="100" height="100" fill="#ffffff" />
-                  <rect x="5" y="5" width="28" height="28" fill="#0f172a" rx="4" />
-                  <rect x="9" y="9" width="20" height="20" fill="#ffffff" rx="2" />
-                  <rect x="13" y="13" width="12" height="12" fill="#0f172a" rx="2" />
-                  <rect x="67" y="5" width="28" height="28" fill="#0f172a" rx="4" />
-                  <rect x="71" y="9" width="20" height="20" fill="#ffffff" rx="2" />
-                  <rect x="75" y="13" width="12" height="12" fill="#0f172a" rx="2" />
-                  <rect x="5" y="67" width="28" height="28" fill="#0f172a" rx="4" />
-                  <rect x="9" y="71" width="20" height="20" fill="#ffffff" rx="2" />
-                  <rect x="13" y="75" width="12" height="12" fill="#0f172a" rx="2" />
-                  <rect x="40" y="10" width="8" height="8" fill="#0284c7" />
-                  <rect x="52" y="18" width="8" height="8" fill="#0f172a" />
-                  <rect x="40" y="40" width="12" height="12" fill="#0f172a" rx="2" />
-                  <rect x="56" y="38" width="6" height="6" fill="#0284c7" />
-                  <rect x="70" y="45" width="8" height="8" fill="#0f172a" />
-                  <rect x="82" y="55" width="6" height="6" fill="#0284c7" />
-                  <rect x="45" y="60" width="8" height="8" fill="#0f172a" />
-                  <rect x="60" y="65" width="10" height="10" fill="#0f172a" />
-                  <rect x="75" y="75" width="8" height="8" fill="#0284c7" />
-                  <rect x="40" y="80" width="8" height="8" fill="#0f172a" />
-                </svg>
-                <span className="text-[10px] font-mono font-bold text-slate-500 mt-1 block">{patient.internalMedicalId}</span>
-                <span className="text-[9px] font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full mt-1">
-                  ABDM &bull; READY
-                </span>
+              {/* Patient Details Column */}
+              <div className="flex-1 w-full space-y-2 text-xs">
+                {/* Name & Active Badge */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-wide uppercase">
+                    {patient.name || 'SANJANA KUMARI'}
+                  </h3>
+                  <span className="px-3 py-0.5 rounded-md bg-[#00bcd4] text-white text-[11px] font-black uppercase tracking-wider shadow-2xs">
+                    {patient.status || 'Active'}
+                  </span>
+                </div>
+
+                {/* Demographic details matching the photo */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-800 text-xs">
+                  <div><span className="font-bold text-slate-700">Role:</span> <span className="font-medium text-slate-900">{patient.role || 'Patient'}</span></div>
+                  <div><span className="font-bold text-slate-700">Age:</span> <span className="font-medium text-slate-900">{patient.age || 34}</span></div>
+
+                  <div className="truncate"><span className="font-bold text-slate-700">E-mail:</span> <span className="font-medium text-slate-900">{patient.email || 'helenroizhicki@gmail.com'}</span></div>
+                  <div><span className="font-bold text-slate-700">Birth Date:</span> <span className="font-medium text-slate-900">{patient.birthDate || '02/20/1987'}</span></div>
+
+                  <div><span className="font-bold text-slate-700">Phone:</span> <span className="font-medium text-slate-900">{patient.phone || '+7 (291) 255 58 43'}</span></div>
+                  <div><span className="font-bold text-slate-700">Sex:</span> <span className="font-medium text-slate-900">{patient.sex ? (patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1).toLowerCase()) : 'Female'}</span></div>
+                </div>
+
+                <div>
+                  <span className="font-bold text-slate-700">Blood Group:</span> <span className="font-black text-critical-600">{patient.bloodGroup || 'O+'}</span>
+                </div>
+
+                <div>
+                  <span className="font-bold text-slate-700">Address:</span> <span className="font-medium text-slate-800">{patient.address || patient.location || '1 Main Street, Austin, TX, 78730'}</span>
+                </div>
+
+                <hr className="my-2 border-slate-200" />
+
+                {/* IDs & Timeline info */}
+                <div className="space-y-1 text-slate-800">
+                  <div>
+                    <span className="font-bold text-slate-900">MedVeda Medical ID:</span> <span className="font-mono font-bold text-slate-800">{patient.internalMedicalId}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900">Linked ABHA ID:</span> <span className="font-mono font-bold text-slate-800">{patient.abhaId || '91-2890-1423-8891@sbx'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900">Contact:</span> <span className="font-medium text-slate-800">{patient.emergencyContact?.name || 'Anita Devi (Spouse)'} ({patient.emergencyContact?.phone || '+91-94311-28902'})</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900">Patient Since:</span> <span className="font-medium text-slate-800">{patient.patientSince || '03/02/2019'}</span>
+                  </div>
+                </div>
+
+                {/* Bottom right View & Download buttons */}
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCardModal(true)}
+                    className="px-5 py-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold text-xs rounded-md transition-all shadow-2xs cursor-pointer"
+                  >
+                    view
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCardModal(true)}
+                    title="Download Official Medical ID Card"
+                    className="p-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold rounded-md transition-all shadow-2xs cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Multi-Source Action Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* 4 Action Cards (2x2 Grid) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 shrink-0">
             <button
               type="button"
               onClick={() => {
                 handleLoadOcrPreset('prescription');
                 setShowOcrModal(true);
               }}
-              className="p-4 bg-white rounded-2xl border-2 border-sky-300 hover:border-sky-500 shadow-sm transition-all text-left group bg-gradient-to-br from-white to-sky-50/50"
+              className="p-4 bg-white rounded-2xl border-2 border-sky-300 hover:border-sky-500 shadow-sm transition-all text-left group flex items-start justify-between cursor-pointer"
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-2xl">📷</span>
-                <span className="text-[9px] font-black uppercase bg-sky-600 text-white px-2 py-0.5 rounded-full">AI Vision</span>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl mt-0.5">📷</span>
+                <div>
+                  <div className="font-black text-xs text-slate-900 group-hover:text-sky-600 transition-colors">
+                    Upload &amp; AI OCR Studio
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Scan prescriptions with Gemini Vision
+                  </div>
+                </div>
               </div>
-              <div className="font-extrabold text-xs text-slate-900 group-hover:text-sky-600">Upload &amp; AI OCR Studio</div>
-              <div className="text-[11px] text-slate-500">Scan prescriptions with Gemini Vision</div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#0284c7] text-white shrink-0">
+                AI VISION
+              </span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveSubView('chat')}
-              className="p-4 bg-white rounded-2xl border-2 border-emerald-300 hover:border-emerald-500 shadow-sm transition-all text-left group bg-gradient-to-br from-white to-emerald-50/50"
+              onClick={() => {
+                const el = document.getElementById('chat-input-box');
+                if (el) el.focus();
+              }}
+              className="p-4 bg-white rounded-2xl border-2 border-emerald-300 hover:border-emerald-500 shadow-sm transition-all text-left group flex items-start justify-between cursor-pointer"
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-2xl">🤖</span>
-                <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-2 py-0.5 rounded-full">EHR RAG</span>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl mt-0.5">🤖</span>
+                <div>
+                  <div className="font-black text-xs text-slate-900 group-hover:text-emerald-600 transition-colors">
+                    Ask Records AI Assistant
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Grounded Q&amp;A over patient records
+                  </div>
+                </div>
               </div>
-              <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-600">Ask Records AI Assistant</div>
-              <div className="text-[11px] text-slate-500">Grounded Q&amp;A over patient records</div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#059669] text-white shrink-0">
+                EHR RAG
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowAbdmModal(true)}
-              className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 shadow-sm transition-all text-left group"
+              className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-sky-400 shadow-sm transition-all text-left group flex items-start gap-3 cursor-pointer"
             >
-              <div className="text-2xl mb-1">🔗</div>
-              <div className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-600">ABDM Sandbox Sync</div>
-              <div className="text-[11px] text-slate-500">Pull FHIR records via Gateway</div>
+              <span className="text-2xl mt-0.5">🔗</span>
+              <div>
+                <div className="font-black text-xs text-slate-900 group-hover:text-sky-600 transition-colors">
+                  ABDM Sandbox Sync
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Pull FHIR records via Gateway
+                </div>
+              </div>
             </button>
 
             <button
               type="button"
               onClick={handleSyncCowin}
-              className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-amber-400 shadow-sm transition-all text-left group"
+              className="p-4 bg-white rounded-2xl border border-slate-200 hover:border-amber-400 shadow-sm transition-all text-left group flex items-start gap-3 cursor-pointer"
             >
-              <div className="text-2xl mb-1">💉</div>
-              <div className="font-extrabold text-xs text-slate-900 group-hover:text-amber-600">Sync CoWIN Vaccine</div>
-              <div className="text-[11px] text-slate-500">Fetch official govt dose certificate</div>
+              <span className="text-2xl mt-0.5">💉</span>
+              <div>
+                <div className="font-black text-xs text-slate-900 group-hover:text-amber-600 transition-colors">
+                  Sync CoWIN Vaccine
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Fetch official govt dose certificate
+                </div>
+              </div>
             </button>
           </div>
+        </div>
 
-          {/* Unified Timeline Feed Section */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-xl font-black text-slate-900">Unified Patient Record Timeline</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Chronological aggregation across Manual OCR, ABDM Sandbox HIPs, MedVeda Consultations, and CoWIN.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="text"
-                  placeholder="Search records, drugs, doctors..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-medium"
-                />
-
-                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                  {[
-                    { id: 'ALL', label: 'All Sources' },
-                    { id: 'manual', label: 'Manual OCR' },
-                    { id: 'abha', label: 'ABHA HIP' },
-                    { id: 'medveda_internal', label: 'MedVeda EMR' },
-                    { id: 'cowin', label: 'CoWIN' }
-                  ].map((src) => (
-                    <button
-                      key={src.id}
-                      type="button"
-                      onClick={() => setSourceFilter(src.id)}
-                      className={`px-2.5 py-1 rounded-lg transition-all ${
-                        sourceFilter === src.id
-                          ? 'bg-white text-slate-900 shadow-sm font-black'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {src.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline Records List */}
-            {filteredRecords.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs">
-                No health records matching current filters for {patient.name}. Click "Upload &amp; AI OCR Studio" or "ABDM Sandbox Sync" to add records.
-              </div>
-            ) : (
-              <div className="space-y-4 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-                {filteredRecords.map((rec) => {
-                  const isManual = rec.source === 'manual';
-                  const isAbha = rec.source === 'abha';
-                  const isInternal = rec.source === 'medveda_internal';
-                  const isCowin = rec.source === 'cowin';
-                  const isHighlighted = highlightedRecordId === rec.id;
-
-                  return (
-                    <div
-                      key={rec.id}
-                      id={'record-' + rec.id}
-                      className={`relative pl-10 space-y-2 group transition-all duration-300 ${
-                        isHighlighted ? 'ring-4 ring-sky-400 rounded-2xl bg-sky-50/50 p-2' : ''
-                      }`}
-                    >
-                      {/* Timeline Bullet Node */}
-                      <div
-                        className={`absolute left-2 top-3 w-5 h-5 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[10px] text-white font-bold ${
-                          isManual
-                            ? 'bg-sky-600'
-                            : isAbha
-                              ? 'bg-emerald-600'
-                              : isCowin
-                                ? 'bg-amber-600'
-                                : 'bg-purple-600'
-                        }`}
-                      >
-                        {isManual ? '📷' : isAbha ? '🏥' : isCowin ? '💉' : '🩺'}
-                      </div>
-
-                      <div className="bg-slate-50 hover:bg-white p-5 rounded-2xl border border-slate-200 hover:border-slate-300 transition-all shadow-sm space-y-3">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                  isManual
-                                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                    : isAbha
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                      : isCowin
-                                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                        : 'bg-purple-100 text-purple-800 border border-purple-300'
-                                }`}
-                              >
-                                {isManual && 'Source: Manual (OCR)'}
-                                {isAbha && 'Source: ABDM ABHA (FHIR HIP)'}
-                                {isCowin && 'Source: Government CoWIN'}
-                                {isInternal && 'Source: MedVeda Internal'}
-                              </span>
-
-                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-200 text-slate-800">
-                                {rec.recordType.replace('_', ' ')}
-                              </span>
-
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                                <span>✓</span>
-                                <span>{rec.verifiedBy || rec.verificationStatus}</span>
-                              </span>
-
-                              {isHighlighted && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-200 text-amber-900 animate-pulse">
-                                  📍 Cited in AI Assistant
-                                </span>
-                              )}
-                            </div>
-
-                            <h4 className="text-base font-black text-slate-900 mt-1">{rec.title}</h4>
-                            <p className="text-xs text-slate-500">
-                              {rec.facilityName} {rec.doctorName ? `• ${rec.doctorName}` : ''}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => handleAskAboutRecord(rec)}
-                              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-                            >
-                              <span>🤖 Ask AI About This Record</span>
-                            </button>
-
-                            <div className="text-right text-xs">
-                              <span className="text-slate-400 block text-[10px] font-bold">Recorded On</span>
-                              <span className="font-bold text-slate-700">
-                                {new Date(rec.recordedAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-slate-600 font-medium leading-relaxed">{rec.summary}</p>
-
-                        {/* Structured Data Visualization */}
-                        {rec.extractedData && (
-                          <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-2">
-                            {/* 1. Prescription Medicines */}
-                            {rec.extractedData.medicines && (
-                              <div>
-                                <strong className="block text-[11px] font-extrabold uppercase text-slate-700 mb-1.5">
-                                  Prescribed Medications:
-                                </strong>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {rec.extractedData.medicines.map((m, mIdx) => (
-                                    <div key={mIdx} className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-                                      <div>
-                                        <div className="font-extrabold text-slate-900">{m.name}</div>
-                                        <div className="text-[10px] text-slate-500">{m.instructions || m.dosage}</div>
-                                      </div>
-                                      <span className="px-2 py-0.5 bg-sky-50 text-sky-800 text-[10px] font-mono font-bold rounded">
-                                        {m.frequency}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 2. Lab Results Parameters */}
-                            {rec.extractedData.results && (
-                              <div>
-                                <strong className="block text-[11px] font-extrabold uppercase text-slate-700 mb-1.5">
-                                  Diagnostic Results ({rec.extractedData.testName || 'Lab Panel'}):
-                                </strong>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-left text-[11px]">
-                                    <thead className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[9px]">
-                                      <tr>
-                                        <th className="pb-1">Parameter</th>
-                                        <th className="pb-1">Observed Value</th>
-                                        <th className="pb-1">Reference Range</th>
-                                        <th className="pb-1 text-right">Evaluation</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 font-medium">
-                                      {rec.extractedData.results.map((res, rIdx) => (
-                                        <tr key={rIdx}>
-                                          <td className="py-1.5 font-bold text-slate-800">{res.parameter}</td>
-                                          <td className="py-1.5 font-mono font-bold text-slate-900">
-                                            {res.observedValue} {res.unit}
-                                          </td>
-                                          <td className="py-1.5 text-slate-500">{res.referenceRange}</td>
-                                          <td className="py-1.5 text-right">
-                                            {res.isAbnormal ? (
-                                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-critical-100 text-critical-800">
-                                                Abnormal
-                                              </span>
-                                            ) : (
-                                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800">
-                                                Normal
-                                              </span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* 3. Discharge Summary Procedures */}
-                            {rec.extractedData.proceduresPerformed && (
-                              <div className="space-y-1">
-                                <strong className="block text-[11px] font-extrabold uppercase text-slate-700">
-                                  Procedures &amp; Intervention:
-                                </strong>
-                                <ul className="list-disc pl-4 text-[11px] text-slate-700 space-y-0.5">
-                                  {rec.extractedData.proceduresPerformed.map((p, pIdx) => (
-                                    <li key={pIdx}>{p}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* 4. CoWIN Vaccine Details */}
-                            {rec.extractedData.certificateNumber && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                                <div>
-                                  <span className="text-slate-400 block text-[10px]">Vaccine Name</span>
-                                  <span className="font-bold text-slate-800">{rec.extractedData.vaccine}</span>
-                                </div>
-                                <div>
-                                  <span className="text-slate-400 block text-[10px]">Dose Status</span>
-                                  <span className="font-bold text-emerald-700">
-                                    Dose {rec.extractedData.doseNumber} of {rec.extractedData.totalDoses} (Fully Vaccinated)
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-slate-400 block text-[10px]">Certificate No.</span>
-                                  <span className="font-mono font-bold text-slate-700">{rec.extractedData.certificateNumber}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SUB-VIEW 2: EHR-INTEGRATED GROUNDED RAG CHATBOT STUDIO */}
-      {/* ========================================================================= */}
-      {activeSubView === 'chat' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-          {/* RAG Context & Guardrails Header */}
-          <div className="p-4 sm:p-5 bg-gradient-to-r from-sky-50 via-indigo-50/40 to-slate-50 rounded-2xl border border-sky-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-sky-600 text-white flex items-center justify-center text-xl font-black shadow-md shadow-sky-600/30 shrink-0">
-                🤖
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-black text-slate-900 text-base">MedVeda EHR Multilingual Voice Assistant</h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Safe Grounding
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-sky-100 text-sky-800 border border-sky-300 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Python AI (8001)</span>
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 font-medium mt-0.5">
-                  Locked to <strong>{patient.name}</strong> ({patient.internalMedicalId}) &bull; Indexed across <strong>{records.length} verified documents</strong>.
-                </p>
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[10px]">
-                  <span className="text-slate-400 font-bold uppercase">Official Portals:</span>
-                  <a
-                    href="https://abdm.gov.in"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-sky-700 hover:text-sky-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
-                  >
-                    <span>ABDM</span>
-                    <span>↗</span>
-                  </a>
-                  <a
-                    href="https://pmjay.gov.in"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-emerald-700 hover:text-emerald-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
-                  >
-                    <span>PM-JAY</span>
-                    <span>↗</span>
-                  </a>
-                  <a
-                    href="https://cowin.gov.in"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-indigo-700 hover:text-indigo-900 font-bold hover:underline inline-flex items-center gap-0.5 shadow-2xs"
-                  >
-                    <span>CoWIN</span>
-                    <span>↗</span>
-                  </a>
-                  <a
-                    href="http://127.0.0.1:8001/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2 py-0.5 rounded bg-sky-50 border border-sky-300 text-sky-800 hover:underline font-bold inline-flex items-center gap-0.5 shadow-2xs"
-                  >
-                    <span>Python API Docs</span>
-                    <span>↗</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {/* Language Mode Selector */}
-              <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-sm gap-1">
-                <button
-                  type="button"
-                  onClick={() => setChatLanguage('auto')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    chatLanguage === 'auto'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Automatically detect whether question is in Hindi or English"
-                >
-                  ⚡ Auto (स्वतः)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChatLanguage('hi')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    chatLanguage === 'hi'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Answer strictly in Hindi with Hindi voice"
-                >
-                  🇮🇳 हिन्दी
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChatLanguage('en')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    chatLanguage === 'en'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Answer strictly in English with English voice"
-                >
-                  🇬🇧 English
-                </button>
-              </div>
-
-              {/* Auto Voice Toggle */}
-              <button
-                type="button"
-                onClick={() => setAutoPlayVoice(!autoPlayVoice)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  autoPlayVoice
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                }`}
-                title="Automatically synthesize & speak response audio"
-              >
-                <span>{autoPlayVoice ? '🔊' : '🔈'}</span>
-                <span>Auto-Voice: {autoPlayVoice ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {chatScopedDoc ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-100 border border-sky-300 text-sky-900 text-xs font-bold">
-                  <span>📄 Scoped: {chatScopedDoc.title.slice(0, 22)}...</span>
-                  <button
-                    type="button"
-                    onClick={() => setChatScopedDoc(null)}
-                    className="ml-1 text-sky-700 hover:text-sky-900 font-black"
-                  >
-                    &times;
-                  </button>
-                </div>
-              ) : (
-                <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-xl border border-slate-200 hidden sm:inline-block">
-                  🌐 All Records
-                </span>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  stopAudioPlayback();
-                  setChatMessages([
-                    {
-                      id: 'msg_reset_' + Date.now(),
-                      sender: 'assistant',
-                      text: chatLanguage === 'hi'
-                        ? `बातचीत रीसेट हो गई है। मैं ${patient.name} के ${records.length} सत्यापित स्वास्थ्य रिकॉर्ड से उत्तर देने के लिए तैयार हूँ।`
-                        : `Chat reset. I am ready to answer grounded questions from ${patient.name}'s ${records.length} records in English or Hindi.`,
-                      detectedLanguage: chatLanguage === 'hi' ? 'hi' : 'en',
-                      confidence: 'HIGH',
-                      timestamp: 'Just now'
-                    }
-                  ]);
-                }}
-                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Suggested Prompt Chips (Bilingual) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold uppercase text-slate-400">
-                {chatLanguage === 'hi'
-                  ? 'सुझाए गए प्रश्न (Click to Ask in Hindi):'
-                  : chatLanguage === 'en'
-                  ? 'Recommended Questions (Click to Ask in English):'
-                  : 'Bilingual Quick Questions (हिन्दी व English):'}
-              </span>
-              <span className="text-[10px] font-bold text-sky-600">
-                Voice &amp; Text in Detected Language
-              </span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {(chatLanguage === 'hi'
-                ? [
-                    { label: '💊 वर्तमान दवाइयाँ और उनकी खुराक (Dosage)', q: 'मेरी वर्तमान दवाइयाँ और उनकी खुराक (Dosage) क्या है?' },
-                    { label: '🧪 नवीनतम लैब टेस्ट (कोलेस्ट्रॉल) रिपोर्ट', q: 'मेरी नवीनतम लैब टेस्ट रिपोर्ट और कोलेस्ट्रॉल का स्तर क्या है?' },
-                    { label: '🏥 अस्पताल डिस्चार्ज व डॉक्टर के निर्देश', q: 'मेरे अस्पताल डिस्चार्ज सारांश और डॉक्टर के निर्देशों का सार बताएं।' },
-                    { label: '⚠️ क्या कोई दवा एलर्जी या चेतावनी दर्ज है?', q: 'क्या मेरे रिकॉर्ड में कोई दवा एलर्जी या चेतावनी दर्ज है?' },
-                    { label: '🚨 सीने में तेज दर्द व पसीना (Emergency Test)', q: 'मुझे सीने में तेज दर्द हो रहा है और बाएँ हाथ में खिंचाव महसूस हो रहा है।' }
-                  ]
-                : chatLanguage === 'en'
-                ? [
-                    { label: '💊 What active medications am I taking and doses?', q: 'What medications am I currently taking and what are the dosages?' },
-                    { label: '🧪 What were my latest lab results (Cholesterol, etc.)?', q: 'What were my last lab test results and are any of them abnormal?' },
-                    { label: '🏥 Summarize hospital discharge instructions', q: 'Summarize my recent hospital discharge summary and follow-up advice.' },
-                    { label: '⚠️ Any recorded allergies or drug contraindications?', q: 'Do my records document any drug allergies or contraindications?' },
-                    { label: '🚨 Emergency alert: Acute severe chest pain', q: 'I have severe acute crushing chest pain radiating to left jaw with sweating.' }
-                  ]
-                : [
-                    { label: '🇮🇳 💊 मेरी वर्तमान दवाइयाँ और खुराक क्या है?', q: 'मेरी वर्तमान दवाइयाँ और उनकी खुराक क्या है?' },
-                    { label: '🇬🇧 💊 What are my current medications & doses?', q: 'What medications am I currently taking and what are the dosages?' },
-                    { label: '🇮🇳 🧪 नवीनतम लैब रिपोर्ट (कोलेस्ट्रॉल)', q: 'मेरी नवीनतम लैब टेस्ट रिपोर्ट और कोलेस्ट्रॉल के परिणाम बताएं।' },
-                    { label: '🇬🇧 🧪 What were my latest lab test results?', q: 'What were my last lab test results and are any of them abnormal?' },
-                    { label: '🇮🇳 🚨 सीने में तेज दर्द (आपातकाल टेस्ट)', q: 'सीने में तेज दर्द और सांस लेने में तकलीफ हो रही है।' }
-                  ]
-              ).map((chip, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={chatLoading}
-                  onClick={() => handleSendChatMessage(chip.q)}
-                  className="px-3 py-1.5 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all text-left shadow-2xs"
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Chat Conversation Thread */}
-          <div className="p-4 sm:p-6 bg-slate-50 rounded-3xl border border-slate-200 min-h-[420px] max-h-[580px] overflow-y-auto space-y-4">
-            {chatMessages.map((msg) => {
-              const isAi = msg.sender === 'assistant';
-              const isEmergency = msg.isEmergency;
-              const isPlaying = currentlyPlayingAudioId === msg.id;
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex items-start gap-3 ${isAi ? 'justify-start' : 'justify-end'}`}
-                >
-                  {isAi && (
-                    <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-sm mt-1">
-                      🤖
-                    </div>
-                  )}
-
-                  <div
-                    className={`max-w-2xl rounded-2xl p-4 sm:p-5 space-y-3 transition-all ${
-                      isAi
-                        ? isEmergency
-                          ? 'bg-rose-50 border-2 border-rose-400 text-rose-950 shadow-md'
-                          : 'bg-white border border-slate-200 text-slate-900 shadow-sm'
-                        : 'bg-slate-900 text-white font-medium shadow-md'
-                    }`}
-                  >
-                    {/* Header info */}
-                    <div className="flex items-center justify-between text-[11px] gap-2 border-b pb-2 border-slate-100 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`font-black ${isAi ? (isEmergency ? 'text-rose-900 font-extrabold' : 'text-sky-800') : 'text-slate-300'}`}>
-                          {isAi ? (isEmergency ? '🚨 CRITICAL MEDICAL EMERGENCY DETECTED' : 'MedVeda Records Assistant') : 'You (Patient)'}
-                        </span>
-                        {isAi && (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            msg.detectedLanguage === 'hi'
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                              : 'bg-sky-100 text-sky-900 border border-sky-300'
-                          }`}>
-                            {msg.detectedLanguage === 'hi' ? '🇮🇳 हिन्दी (Hindi)' : '🇬🇧 English'}
-                          </span>
-                        )}
-                      </div>
-                      <span className={isAi ? 'text-slate-400 font-mono text-[10px]' : 'text-slate-400 font-mono text-[10px]'}>
-                        {msg.timestamp}
-                      </span>
-                    </div>
-
-                    {/* Emergency Alert Banner */}
-                    {isEmergency && (
-                      <div className="p-3 bg-rose-100/80 rounded-xl border border-rose-300 text-rose-950 space-y-2">
-                        <div className="flex items-center gap-2 font-black text-xs text-rose-900">
-                          <span>🚑</span>
-                          <span>IMMEDIATE EMERGENCY ASSISTANCE REQUIRED / तत्काल आपातकालीन सहायता</span>
-                        </div>
-                        <p className="text-xs font-bold leading-relaxed">
-                          {msg.emergencyAdvice || 'The symptoms indicate a potentially life-threatening emergency. Do not wait for an online reply.'}
-                        </p>
-                        <div className="flex items-center gap-2 pt-1 flex-wrap">
-                          <a
-                            href="tel:108"
-                            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-md inline-flex items-center gap-1.5"
-                          >
-                            <span>📞 Call 108 (Ambulance / एम्बुलेंस)</span>
-                          </a>
-                          <a
-                            href="tel:112"
-                            className="px-3.5 py-1.5 bg-slate-900 text-white font-black text-xs rounded-xl shadow-md inline-flex items-center gap-1.5"
-                          >
-                            <span>📞 Call 112 (National Emergency)</span>
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Message Body */}
-                    <div className="text-xs leading-relaxed whitespace-pre-line font-normal">
-                      {renderClickableContent(msg.text)}
-                    </div>
-
-                    {/* Voice Audio Player Bar for Assistant responses */}
-                    {isAi && (
-                      <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-100 flex items-center justify-between gap-3 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => handleSynthesizeAndPlay(msg)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                            isPlaying
-                              ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                              : 'bg-white text-sky-800 hover:bg-sky-100 border border-sky-200 shadow-xs'
-                          }`}
-                        >
-                          {isPlaying ? (
-                            <>
-                              <span className="flex items-center gap-0.5 h-3">
-                                <span className="w-1 bg-white animate-pulse h-3 rounded-full"></span>
-                                <span className="w-1 bg-white animate-bounce h-2 rounded-full"></span>
-                                <span className="w-1 bg-white animate-pulse h-3.5 rounded-full"></span>
-                              </span>
-                              <span>⏹️ Stop Voice ({msg.detectedLanguage === 'hi' ? 'आवाज़ रोकें' : 'Stop'})</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>🔊</span>
-                              <span>Play Voice ({msg.detectedLanguage === 'hi' ? 'आवाज़ सुनें' : 'Listen Audio'})</span>
-                            </>
-                          )}
-                        </button>
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          <span>Python Voice ({msg.detectedLanguage === 'hi' ? 'Hindi gTTS' : 'English gTTS'})</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Structured Summary Cards (if present) */}
-                    {msg.structuredSummary && (
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
-                        {msg.structuredSummary.keyPoints && msg.structuredSummary.keyPoints.length > 0 && (
-                          <div>
-                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Key Findings / मुख्य बिंदु:</span>
-                            <ul className="list-disc pl-4 space-y-0.5 text-slate-800">
-                              {msg.structuredSummary.keyPoints.map((kp, kIdx) => (
-                                <li key={kIdx}>{kp}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {msg.structuredSummary.medicationsMentioned && msg.structuredSummary.medicationsMentioned.length > 0 && (
-                          <div className="pt-1 border-t border-slate-200">
-                            <span className="font-extrabold text-slate-700 uppercase text-[10px] block mb-1">Medications Referenced / संदर्भित दवाइयाँ:</span>
-                            <div className="flex gap-1.5 flex-wrap">
-                              {msg.structuredSummary.medicationsMentioned.map((med, mIdx) => (
-                                <span key={mIdx} className="px-2 py-0.5 bg-sky-100 text-sky-800 rounded font-bold text-[10px]">
-                                  💊 {med}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Citations List */}
-                    {msg.citations && msg.citations.length > 0 && (
-                      <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                        <span className="text-[10px] font-black uppercase text-slate-500 block">
-                          Cited Sources &bull; Evidence from Your Records:
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {msg.citations.map((c, cIdx) => (
-                            <div
-                              key={cIdx}
-                              className="p-2.5 bg-slate-50 hover:bg-sky-50 rounded-xl border border-slate-200 hover:border-sky-300 transition-all text-left space-y-1"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-black text-sky-800 text-[11px] truncate block max-w-[200px]">
-                                  {c.title || c.documentTitle}
-                                </span>
-                                <span className="text-[9px] font-mono text-slate-400 font-bold">{c.date}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-500 italic line-clamp-2">
-                                "{c.relevantQuote || c.snippet}"
-                              </p>
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-[9px] text-slate-400 font-medium">{c.facilityName || c.facility}</span>
-                                <div className="flex items-center gap-2">
-                                  {(c.websiteUrl || c.sourceUrl || (c.title && c.title.includes('CoWIN') ? 'https://cowin.gov.in' : (c.facilityName && c.facilityName.includes('Medical College') ? 'https://nhp.gov.in' : 'https://abdm.gov.in'))) && (
-                                    <a
-                                      href={c.websiteUrl || c.sourceUrl || (c.title && c.title.includes('CoWIN') ? 'https://cowin.gov.in' : (c.facilityName && c.facilityName.includes('Medical College') ? 'https://nhp.gov.in' : 'https://abdm.gov.in'))}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
-                                    >
-                                      <span>Website</span>
-                                      <span>↗</span>
-                                    </a>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleViewCitationInTimeline(c.documentId)}
-                                    className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-0.5"
-                                  >
-                                    <span>Timeline</span>
-                                    <span>→</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Clinical Disclaimer */}
-                    {msg.disclaimer && (
-                      <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-100 leading-tight">
-                        &bull; {msg.disclaimer}
-                      </p>
-                    )}
-                  </div>
-
-                  {!isAi && (
-                    <div className="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-sm mt-1">
-                      👤
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Chat Loading Indicator */}
-            {chatLoading && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center text-xs font-black animate-pulse">
+        {/* Right Column: MedVeda Assistant Chatbot Panel (Outlined in blue in image) (5 cols on lg) */}
+        <div className="lg:col-span-5 flex flex-col min-h-0">
+          <div
+            className="bg-white rounded-2xl border-2 border-[#1e3a8a] shadow-md flex flex-col flex-1 min-h-0 overflow-hidden"
+            style={{ minHeight: "100%" }}
+          >
+            {/* Header */}
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full border-2 border-[#1e3a8a] bg-sky-50 flex items-center justify-center text-sm font-bold text-[#1e3a8a]">
                   🤖
                 </div>
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3 text-xs font-bold text-slate-600">
-                  <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span>
-                    {chatLanguage === 'hi'
-                      ? 'पायथन एआई रिकॉर्ड्स की जांच कर रहा है एवं हिन्दी में उत्तर तैयार कर रहा है...'
-                      : 'Python Grounded Gemini is analyzing patient records & synthesising voice response...'}
-                  </span>
+                <h4 className="font-black text-sm text-[#1e3a8a]">
+                  MedVeda Assistant
+                </h4>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(true)}
+                className="text-xs font-bold text-[#1e3a8a] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span>Change Language</span>
+                <span className="text-[10px]">▼</span>
+              </button>
+            </div>
+
+            {/* Messages Thread */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-slate-50/40">
+              {chatMessages.map((msg) => {
+                const isAi = msg.sender === 'assistant';
+                const isPlaying = currentlyPlayingAudioId === msg.id;
+
+                return (
+                  <div key={msg.id} className="space-y-1">
+                    <div className={`flex items-start gap-2.5 ${isAi ? 'justify-start' : 'justify-end'}`}>
+                      {isAi && (
+                        <div className="w-7 h-7 rounded-full border border-[#1e3a8a] bg-sky-50 text-[#1e3a8a] flex items-center justify-center text-xs shrink-0 mt-0.5">
+                          🤖
+                        </div>
+                      )}
+
+                      <div
+                        className={`rounded-xl p-3 text-xs leading-relaxed max-w-[85%] ${
+                          isAi
+                            ? 'bg-white border-2 border-[#1e3a8a] text-slate-800 shadow-2xs relative'
+                            : 'bg-[#1e3a8a] text-white shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="whitespace-pre-line font-medium flex-1">
+                            {renderClickableContent(msg.text)}
+                          </div>
+
+                          {isAi && (
+                            <button
+                              type="button"
+                              onClick={() => handleSynthesizeAndPlay(msg)}
+                              title={isPlaying ? "Stop audio" : "Listen to audio TTS"}
+                              className={`p-1 rounded-md transition-all shrink-0 cursor-pointer ${
+                                isPlaying
+                                  ? 'bg-sky-600 text-white animate-pulse'
+                                  : 'text-slate-500 hover:text-sky-700 hover:bg-sky-50'
+                              }`}
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2.5 9.07l-3.5-3.5H4v6h4l3.5 3.5V12.3zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Emergency banner if emergency */}
+                        {msg.isEmergency && (
+                          <div className="mt-2 p-2 bg-rose-50 border border-rose-300 rounded text-[11px] font-bold text-rose-800">
+                            🚨 Emergency Alert: Please call 108 or 112 immediately.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={`text-[10px] text-slate-400 font-mono px-9 ${isAi ? 'text-left' : 'text-right'}`}>
+                      {msg.timestamp || '09:08 pm'}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Chat Loading Indicator */}
+              {chatLoading && (
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-full border border-[#1e3a8a] bg-sky-50 text-[#1e3a8a] flex items-center justify-center text-xs shrink-0 animate-spin">
+                    ⏳
+                  </div>
+                  <div className="bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-600 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-600 animate-ping"></span>
+                    <span>MedVeda Assistant is reading records...</span>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Voice status banner if recording */}
+            {voiceRecordingStatus && (
+              <div className="px-3 py-1.5 bg-rose-50 border-t border-rose-200 text-rose-700 text-[11px] font-bold flex items-center justify-between">
+                <span>🎙️ {voiceRecordingStatus}</span>
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceRecording}
+                  className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-black cursor-pointer"
+                >
+                  Stop
+                </button>
               </div>
             )}
-          </div>
 
-          {/* Voice Recording Status Banner */}
-          {voiceRecordingStatus && (
-            <div className="flex items-center justify-between px-4 py-2 bg-rose-50 border border-rose-300 rounded-2xl text-xs font-bold text-rose-800 animate-pulse">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 bg-rose-600 rounded-full animate-ping"></span>
-                <span>🎙️ {voiceRecordingStatus}</span>
-              </div>
+            {/* Chatbot Footer Input Bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendChatMessage();
+              }}
+              className="p-2.5 sm:p-3 border-t-2 border-[#1e3a8a] bg-white flex items-center gap-2 shrink-0"
+            >
+              <input
+                id="chat-input-box"
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type a message"
+                disabled={chatLoading}
+                className="flex-1 text-xs border-0 focus:ring-0 focus:outline-hidden text-slate-800 placeholder-slate-400 px-2 py-1.5"
+              />
+
+              {/* Microphone Voice Icon Button */}
               <button
                 type="button"
                 onClick={handleToggleVoiceRecording}
-                className="px-2.5 py-1 bg-rose-600 text-white text-[10px] font-black rounded-lg hover:bg-rose-700"
+                disabled={chatLoading}
+                title="Voice Input (Microphone)"
+                className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                  isRecordingVoice
+                    ? 'text-rose-600 bg-rose-50 animate-pulse'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                }`}
               >
-                Stop &amp; Submit
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
               </button>
-            </div>
-          )}
 
-          {/* Chat Input Box with Microphone Voice Control */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendChatMessage();
-            }}
-            className="flex items-center gap-2 sm:gap-3"
-          >
-            {/* Microphone Button */}
+              {/* Paperclip Attachment Icon Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleLoadOcrPreset('prescription');
+                  setShowOcrModal(true);
+                }}
+                disabled={chatLoading}
+                title="Attach Document / Prescription Scan"
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={chatLoading || !chatInput.trim()}
+                title="Send Message"
+                className="p-2 text-[#1e3a8a] hover:text-blue-700 disabled:text-slate-300 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* ALL OTHER FEATURES (BELOW THE PHOTO & TOP SECTION) */}
+      {/* ========================================================================= */}
+      <div className="pt-6 border-t border-slate-200 space-y-6">
+        {/* Role Navigation Bar & Patient Selector */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
+            {[
+              { id: 'patient', label: 'Patient (Self Access)', icon: '👤' },
+              { id: 'doctor', label: 'Doctor (Consent Required)', icon: '👨‍⚕️' },
+              { id: 'worker', label: 'ASHA Worker', icon: '👩‍⚕️' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveRole(tab.id);
+                  setActorRole(tab.id);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeRole === tab.id
+                    ? 'bg-slate-900 text-white shadow-sm font-black'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 uppercase">Select Active Patient:</span>
+            <select
+              value={selectedPatientId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedPatientId(val);
+                const found = patientsList.find((p) => p.internalMedicalId === val);
+                if (found) setPatient(found);
+              }}
+              className="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-sky-500 shadow-sm cursor-pointer min-w-[280px]"
+            >
+              {patientsList.map((p) => (
+                <option key={p.internalMedicalId} value={p.internalMedicalId}>
+                  {p.name} ({p.internalMedicalId}) {p.abhaId ? `[Linked ABHA]` : `[Standalone]`}
+                </option>
+              ))}
+            </select>
+
             <button
               type="button"
-              onClick={handleToggleVoiceRecording}
-              disabled={chatLoading}
-              title={isRecordingVoice ? 'Stop Recording' : (chatLanguage === 'hi' ? 'माइक से बोलकर पूछें (Voice Input)' : 'Speak query via mic')}
-              className={`px-3 sm:px-4 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm ${
-                isRecordingVoice
-                  ? 'bg-rose-600 text-white ring-4 ring-rose-200 animate-pulse'
-                  : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-300'
-              }`}
+              onClick={() => setShowRegisterModal(true)}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <span className="text-sm">{isRecordingVoice ? '🔴' : '🎙️'}</span>
-              <span className="hidden sm:inline font-bold">
-                {isRecordingVoice ? 'सुन रहे हैं...' : (chatLanguage === 'hi' ? 'माइक' : 'Voice')}
-              </span>
+              <span>➕ Generate Health ID</span>
             </button>
-
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder={
-                chatLanguage === 'hi'
-                  ? "रमेश के रिकॉर्ड से कुछ भी पूछें या माइक से बोलें (जैसे: 'मेरी कौन सी दवाइयाँ चल रही हैं?')..."
-                  : "Ask anything about Ramesh's records in Hindi or English (or click mic)..."
-              }
-              disabled={chatLoading}
-              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all shadow-sm"
-            />
 
             <button
-              type="submit"
-              disabled={chatLoading || !chatInput.trim()}
-              className="px-5 sm:px-6 py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-300 text-white font-bold text-xs rounded-2xl shadow-md shadow-sky-600/30 transition-all flex items-center gap-2 shrink-0"
+              type="button"
+              onClick={onBackToHome}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>{chatLanguage === 'hi' ? 'पूछें' : 'Ask AI'}</span>
-              <span>→</span>
+              <span>🏠 Home</span>
             </button>
-          </form>
+          </div>
         </div>
-      )}
+
+        {/* Access Control Status Callout (if viewing as Doctor/Worker) */}
+        {activeRole !== 'patient' && (
+          <div
+            className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-4 ${
+              accessInfo.isAllowed
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : 'bg-critical-50 border-critical-300 text-critical-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{accessInfo.isAllowed ? '🛡️' : '🔒'}</span>
+              <div>
+                <div className="font-extrabold text-xs">
+                  {accessInfo.isAllowed ? 'Authorized Access' : 'Restricted Health Record Access'}
+                </div>
+                <p className="text-xs mt-0.5">{accessInfo.reason}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!accessInfo.isAllowed && (
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyModal(true)}
+                  className="px-3.5 py-1.5 bg-critical-600 hover:bg-critical-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>🚨 Emergency Access Override</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowConsentModal(true)}
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+              >
+                Manage Consents 📋
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Unified Timeline Feed Section */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-xl font-black text-slate-900">Unified Patient Record Timeline</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Chronological aggregation across Manual OCR, ABDM Sandbox HIPs, MedVeda Consultations, and CoWIN.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="text"
+                placeholder="Search records, drugs, doctors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-medium"
+              />
+
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                {[
+                  { id: 'ALL', label: 'All Sources' },
+                  { id: 'manual', label: 'Manual OCR' },
+                  { id: 'abha', label: 'ABHA HIP' },
+                  { id: 'medveda_internal', label: 'MedVeda EMR' },
+                  { id: 'cowin', label: 'CoWIN' }
+                ].map((src) => (
+                  <button
+                    key={src.id}
+                    type="button"
+                    onClick={() => setSourceFilter(src.id)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      sourceFilter === src.id
+                        ? 'bg-white text-slate-900 shadow-sm font-black'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {src.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline Records List with all details */}
+          {filteredRecords.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs">
+              No health records matching current filters for {patient.name}. Click "Upload &amp; AI OCR Studio" or "ABDM Sandbox Sync" to add records.
+            </div>
+          ) : (
+            <div className="space-y-4 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+              {filteredRecords.map((rec) => {
+                const isManual = rec.source === 'manual';
+                const isAbha = rec.source === 'abha';
+                const isInternal = rec.source === 'medveda_internal';
+                const isCowin = rec.source === 'cowin';
+                const isHighlighted = highlightedRecordId === rec.id;
+
+                return (
+                  <div
+                    key={rec.id}
+                    id={'record-' + rec.id}
+                    className={`relative pl-10 space-y-2 group transition-all duration-300 ${
+                      isHighlighted ? 'ring-4 ring-sky-400 rounded-2xl bg-sky-50/50 p-2' : ''
+                    }`}
+                  >
+                    <div
+                      className={`absolute left-2 top-3 w-5 h-5 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-[10px] text-white font-bold ${
+                        isManual
+                          ? 'bg-sky-600'
+                          : isAbha
+                            ? 'bg-emerald-600'
+                            : isCowin
+                              ? 'bg-amber-600'
+                              : 'bg-purple-600'
+                      }`}
+                    >
+                      {isManual ? '📷' : isAbha ? '🏥' : isCowin ? '💉' : '🩺'}
+                    </div>
+
+                    <div className="bg-slate-50 hover:bg-white p-5 rounded-2xl border border-slate-200 hover:border-slate-300 transition-all shadow-sm space-y-3">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                isManual
+                                  ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                  : isAbha
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : isCowin
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      : 'bg-purple-100 text-purple-800 border border-purple-300'
+                              }`}
+                            >
+                              {isManual && 'Source: Manual (OCR)'}
+                              {isAbha && 'Source: ABDM ABHA (FHIR HIP)'}
+                              {isCowin && 'Source: Government CoWIN'}
+                              {isInternal && 'Source: MedVeda Internal'}
+                            </span>
+
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-200 text-slate-800">
+                              {rec.recordType.replace('_', ' ')}
+                            </span>
+
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                              <span>✓</span>
+                              <span>{rec.verifiedBy || rec.verificationStatus}</span>
+                            </span>
+
+                            {isHighlighted && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-200 text-amber-900 animate-pulse">
+                                📍 Cited in AI Assistant
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-base font-black text-slate-900 mt-1">{rec.title}</h4>
+                          <p className="text-xs text-slate-500">
+                            {rec.facilityName} {rec.doctorName ? `• ${rec.doctorName}` : ''}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleAskAboutRecord(rec)}
+                            className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <span>🤖 Ask AI About This Record</span>
+                          </button>
+
+                          <div className="text-right text-xs">
+                            <span className="text-slate-400 block text-[10px] font-bold">Recorded On</span>
+                            <span className="font-bold text-slate-700">
+                              {new Date(rec.recordedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">{rec.summary}</p>
+
+                      {/* Extracted Medicines */}
+                      {rec.extractedData && (
+                        <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-2">
+                          {rec.extractedData.medicines && (
+                            <div>
+                              <strong className="block text-[11px] font-extrabold uppercase text-slate-700 mb-1.5">
+                                Prescribed Medications:
+                              </strong>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {rec.extractedData.medicines.map((m, mIdx) => (
+                                  <div key={mIdx} className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                                    <div>
+                                      <div className="font-extrabold text-slate-900">{m.name}</div>
+                                      <div className="text-[10px] text-slate-500">{m.instructions || m.dosage}</div>
+                                    </div>
+                                    <span className="px-2 py-0.5 bg-sky-50 text-sky-800 text-[10px] font-mono font-bold rounded">
+                                      {m.frequency}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Extracted Diagnostic Results */}
+                          {rec.extractedData.results && (
+                            <div>
+                              <strong className="block text-[11px] font-extrabold uppercase text-slate-700 mb-1.5">
+                                Diagnostic Results ({rec.extractedData.testName || 'Lab Panel'}):
+                              </strong>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-[11px]">
+                                  <thead className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[9px]">
+                                    <tr>
+                                      <th className="pb-1">Parameter</th>
+                                      <th className="pb-1">Observed Value</th>
+                                      <th className="pb-1">Reference Range</th>
+                                      <th className="pb-1 text-right">Evaluation</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 font-medium">
+                                    {rec.extractedData.results.map((res, rIdx) => (
+                                      <tr key={rIdx}>
+                                        <td className="py-1.5 font-bold text-slate-800">{res.parameter}</td>
+                                        <td className="py-1.5 font-mono font-bold text-slate-900">
+                                          {res.observedValue} {res.unit}
+                                        </td>
+                                        <td className="py-1.5 text-slate-500">{res.referenceRange}</td>
+                                        <td className="py-1.5 text-right">
+                                          {res.isAbnormal ? (
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-critical-100 text-critical-800">
+                                              Abnormal
+                                            </span>
+                                          ) : (
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800">
+                                              Normal
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Procedures */}
+                          {rec.extractedData.proceduresPerformed && (
+                            <div className="space-y-1">
+                              <strong className="block text-[11px] font-extrabold uppercase text-slate-700">
+                                Procedures &amp; Intervention:
+                              </strong>
+                              <ul className="list-disc pl-4 text-[11px] text-slate-700 space-y-0.5">
+                                {rec.extractedData.proceduresPerformed.map((p, pIdx) => (
+                                  <li key={pIdx}>{p}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* CoWIN Vaccine */}
+                          {rec.extractedData.certificateNumber && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                              <div>
+                                <span className="text-slate-400 block text-[10px]">Vaccine Name</span>
+                                <span className="font-bold text-slate-800">{rec.extractedData.vaccine}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px]">Dose Status</span>
+                                <span className="font-bold text-emerald-700">
+                                  Dose {rec.extractedData.doseNumber} of {rec.extractedData.totalDoses} (Fully Vaccinated)
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px]">Certificate No.</span>
+                                <span className="font-mono font-bold text-slate-700">{rec.extractedData.certificateNumber}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
 
       {/* ========================================================================= */}
       {/* MODAL 1: CAMERA / UPLOAD & GEMINI MULTIMODAL VISION OCR STUDIO */}
@@ -12051,6 +11863,184 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                 <span>🖨️ Print Card</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: CHANGE LANGUAGE MODAL */}
+      {showLanguageModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌐</span>
+                <h3 className="text-base font-black text-slate-900">Select Assistant Language</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-black text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              The AI Health Assistant can answer questions and read documents in your preferred regional language:
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {availableLanguages.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => {
+                    setChatLanguage(lang.code);
+                    setShowLanguageModal(false);
+                    showToast(`Language set to ${lang.native} (${lang.name})`);
+                  }}
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                    chatLanguage === lang.code
+                      ? 'bg-sky-50 border-[#1e3a8a] text-[#1e3a8a] ring-1 ring-[#1e3a8a]'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{lang.flag}</span>
+                    <div className="text-left">
+                      <div className="font-black">{lang.native}</div>
+                      <div className="text-[10px] text-slate-500 font-normal">{lang.name}</div>
+                    </div>
+                  </div>
+                  {chatLanguage === lang.code && (
+                    <span className="text-[#1e3a8a] font-black text-sm">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* MODAL 7: OPEN HEALTH ID (LOOKUP BY MEDVEDA ID OR ABHA ID) */}
+      {/* ========================================================================= */}
+      {showOpenIdModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b pb-4 border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-100 px-2 py-0.5 rounded">
+                    Record Locator
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">ABDM &amp; MedVeda ID</span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mt-1">Open Health ID</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Enter a MedVeda Medical ID or ABHA Address to pull and display patient records.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpenIdModal(false);
+                  setSearchIdError(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 font-black text-xl cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleOpenHealthId();
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5">
+                  Enter MedVeda ID or ABHA ID
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchIdInput}
+                    onChange={(e) => {
+                      setSearchIdInput(e.target.value);
+                      if (searchIdError) setSearchIdError(null);
+                    }}
+                    placeholder="e.g. MV-MED-2026-1024 or 91-2890-1423-8891@sbx"
+                    className="w-full pl-10 pr-4 py-3 border-2 border-slate-300 focus:border-[#0b2b82] rounded-xl font-mono font-bold text-slate-900 text-sm focus:outline-hidden"
+                    autoFocus
+                  />
+                  <span className="absolute left-3.5 top-3.5 text-base text-slate-400">🔍</span>
+                </div>
+                {searchIdError && (
+                  <p className="text-rose-600 text-xs font-bold mt-1.5">{searchIdError}</p>
+                )}
+              </div>
+
+              {/* Quick Select from Loaded Patients */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">
+                  Quick Select Active Patients:
+                </span>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {patientsList.map((p) => {
+                    const isCurrent = patient.internalMedicalId === p.internalMedicalId;
+                    return (
+                      <div
+                        key={p.internalMedicalId}
+                        onClick={() => handleOpenHealthId(p.internalMedicalId)}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                          isCurrent
+                            ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-400'
+                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">{p.name === 'SANJANA KUMARI' ? '👩' : '👤'}</span>
+                          <div>
+                            <div className="font-black text-slate-900 text-xs">
+                              {p.name} {isCurrent && <span className="text-[10px] text-blue-600 font-bold">(Currently Active)</span>}
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-500">
+                              ID: {p.internalMedicalId} {p.abhaId && `• ABHA: ${p.abhaId}`}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-2.5 py-1 bg-white hover:bg-[#0b2b82] hover:text-white border border-slate-300 text-slate-700 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                        >
+                          Open &rarr;
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOpenIdModal(false);
+                    setSearchIdError(null);
+                  }}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#0b2b82] hover:bg-blue-900 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Open Health ID</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

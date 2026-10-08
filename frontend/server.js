@@ -47,20 +47,16 @@ function resolvePythonPath() {
   if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
     return process.env.PYTHON_PATH;
   }
-  const possiblePaths = [
-    process.env.PYTHON_PATH,
-    'C:\\Users\\rohit das\\AppData\\Local\\Programs\\Python\\Python312\\python.exe',
-    'python3',
-    'python',
-    'py'
-  ].filter(Boolean);
-
-  for (const p of possiblePaths) {
-    if (p.includes(path.sep) && fs.existsSync(p)) {
+  const explicitPaths = [
+    'C:\\Python314\\python.exe',
+    'C:\\Users\\rohit das\\AppData\\Local\\Programs\\Python\\Python312\\python.exe'
+  ];
+  for (const p of explicitPaths) {
+    if (fs.existsSync(p)) {
       return p;
     }
   }
-  return possiblePaths[0] || 'python';
+  return 'python';
 }
 
 async function isPythonRunning() {
