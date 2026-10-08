@@ -628,37 +628,98 @@ function getRoleBadgeLabel(role) {
     worker: 'ASHA Worker',
     patient: 'Patient',
     doctor: 'Doctor',
-    shop_owner: 'Pharmacy',
+    shop_owner: 'Medicine Shop',
+    medicine_shop: 'Medicine Shop',
     lab_staff: 'Diagnostic Lab',
-    facility: 'Facility Admin',
-    admin: 'Coordinator'
+    diagnostic_lab: 'Diagnostic Lab',
+    facility: 'Hospital Facility',
+    hospital: 'Hospital Facility',
+    officer: 'District Health Officer',
+    dho: 'District Health Officer',
+    admin: 'District Health Officer'
   };
   return map[role] || 'User';
 }
 
-function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdentifier = '', onClose, onAuthSuccess }) {
+function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess }) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [loginForm, setLoginForm] = useState({ identifier: initialIdentifier || '', password: '', role: initialRole || 'worker' });
-  const [signUpForm, setSignUpForm] = useState({ name: '', mobile: '', abhaId: '', role: initialRole === 'doctor' ? 'doctor' : initialRole === 'facility' ? 'facility' : 'patient', district: 'Hazaribagh', password: '' });
+  // 6 Logins: 'patient', 'doctor', 'worker', 'facility', 'officer' (with facility having 3 subtypes: 'hospital', 'medicine', 'lab')
+  const [selectedRole, setSelectedRole] = useState(
+    ['patient', 'doctor', 'worker', 'facility', 'officer'].includes(initialRole) ? initialRole : 'patient'
+  );
+  const [facilitySubtype, setFacilitySubtype] = useState('hospital'); // 'hospital' | 'medicine' | 'lab'
+
+  const [loginForm, setLoginForm] = useState({
+    identifier: initialIdentifier || '',
+    password: ''
+  });
+
+  const [signUpForm, setSignUpForm] = useState({
+    name: '',
+    mobile: '',
+    abhaId: '',
+    role: 'patient',
+    district: 'Hazaribagh',
+    password: ''
+  });
+
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
-  const handleQuickLogin = (name, role, abhaId) => {
-    setAuthSuccessMsg(`Logged in as ${name}`);
+  const handleQuickLogin = (name, role, abhaId, extraLabel) => {
+    const label = extraLabel || getRoleBadgeLabel(role);
+    setAuthSuccessMsg(`Logged in as ${name} (${label})`);
     setTimeout(() => {
-      onAuthSuccess({ name, role, abhaId, roleLabel: getRoleBadgeLabel(role) });
+      onAuthSuccess({ name, role, abhaId, roleLabel: label });
     }, 400);
   };
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    const name = loginForm.identifier ? loginForm.identifier.split('@')[0] : 'Dr. Priya Sharma';
-    setAuthSuccessMsg(`Welcome back, ${name}!`);
+    let effectiveRole = selectedRole;
+    let label = getRoleBadgeLabel(selectedRole);
+
+    if (selectedRole === 'facility') {
+      if (facilitySubtype === 'medicine') {
+        effectiveRole = 'shop_owner';
+        label = 'Medicine Shop';
+      } else if (facilitySubtype === 'lab') {
+        effectiveRole = 'lab_staff';
+        label = 'Diagnostic Lab';
+      } else {
+        effectiveRole = 'facility';
+        label = 'Hospital Facility';
+      }
+    } else if (selectedRole === 'officer') {
+      effectiveRole = 'admin';
+      label = 'District Health Officer';
+    }
+
+    const defaultNames = {
+      patient: 'Ramesh Mahto',
+      doctor: 'Dr. Priya Sharma',
+      worker: 'Anita Devi (ASHA)',
+      facility: 'SBMC&H Referral Desk',
+      shop_owner: 'Katkamsandi Jan Aushadhi',
+      lab_staff: 'District Diagnostic Lab',
+      admin: 'Dr. S. K. Verma (DHO)'
+    };
+
+    const rawId = loginForm.identifier.trim();
+    const name = rawId
+      ? (rawId.split('@')[0].charAt(0).toUpperCase() + rawId.split('@')[0].slice(1))
+      : defaultNames[effectiveRole] || 'Ramesh Mahto';
+
+    const abhaId = rawId
+      ? (rawId.includes('@') ? rawId : `${rawId}@abdm`)
+      : `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`;
+
+    setAuthSuccessMsg(`Welcome, ${name}! (${label})`);
     setTimeout(() => {
       onAuthSuccess({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        role: loginForm.role,
-        abhaId: loginForm.identifier.includes('@') ? loginForm.identifier : `${loginForm.identifier}@abdm`,
-        roleLabel: getRoleBadgeLabel(loginForm.role)
+        name,
+        role: effectiveRole,
+        abhaId,
+        roleLabel: label
       });
     }, 400);
   };
@@ -676,23 +737,65 @@ function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdenti
     }, 400);
   };
 
+  const LOGIN_PORTALS = [
+    {
+      id: 'patient',
+      icon: '👤',
+      title: '1. Patient',
+      tagline: 'Self-Service Health Portal',
+      isWorkable: true
+    },
+    {
+      id: 'doctor',
+      icon: '👨‍⚕️',
+      title: '2. Doctor',
+      tagline: 'Consulting & Specialist EMR',
+      isWorkable: true
+    },
+    {
+      id: 'worker',
+      icon: '👩‍⚕️',
+      title: '3. ASHA Worker',
+      tagline: 'Frontline Community Field Tasks',
+      isWorkable: true
+    },
+    {
+      id: 'facility',
+      icon: '🏥',
+      title: '4. Facility',
+      tagline: 'Hospital, Pharmacy & Diagnostic Lab',
+      isWorkable: true
+    },
+    {
+      id: 'officer',
+      icon: '🏛️',
+      title: '5. District Health Officer',
+      tagline: 'Public Health Admin & MV-DAC',
+      isWorkable: true
+    }
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl max-w-xl sm:max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-200 space-y-4 my-6">
         {/* Modal Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
-            <MedVedaLogo className="h-9 w-9" />
+            <MedVedaLogo className="h-10 w-10" />
             <div>
-              <h3 className="text-lg font-black text-slate-900 leading-tight">MedVeda Portal Access</h3>
-              <p className="text-[11px] text-slate-500 font-medium">National Digital Health Mission &bull; ABDM Integrated</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-black text-slate-900 leading-tight">MedVeda Portal Access</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+                  6 Role Portals
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">National Digital Health Mission &bull; ABDM Integrated Multi-Role Security</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-2xl font-black leading-none p-1"
+            className="text-slate-400 hover:text-slate-600 text-2xl font-black leading-none p-1 cursor-pointer"
             aria-label="Close"
           >
             &times;
@@ -704,148 +807,404 @@ function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdenti
           <button
             type="button"
             onClick={() => setActiveTab('login')}
-            className={`py-2 rounded-lg transition-all ${activeTab === 'login'
-              ? 'bg-[#0b2b82] text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`py-2 rounded-lg transition-all ${
+              activeTab === 'login'
+                ? 'bg-[#0b2b82] text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            🔐 Log In
+            🔐 Log In to Portal
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('signup')}
-            className={`py-2 rounded-lg transition-all ${activeTab === 'signup'
-              ? 'bg-[#0b2b82] text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`py-2 rounded-lg transition-all ${
+              activeTab === 'signup'
+                ? 'bg-[#0b2b82] text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            ✨ Sign Up (ABDM)
+            ✨ Register New ABHA Account
           </button>
         </div>
 
         {authSuccessMsg ? (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2 animate-in zoom-in-95">
-            <div className="w-10 h-10 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold">
+          <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2 animate-in zoom-in-95 my-4">
+            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold shadow-md">
               ✓
             </div>
-            <p className="text-xs font-bold text-emerald-900">{authSuccessMsg}</p>
-            <p className="text-[11px] text-emerald-700">Connecting role session...</p>
+            <p className="text-sm font-black text-emerald-900">{authSuccessMsg}</p>
+            <p className="text-xs text-emerald-700">Connecting authenticated session...</p>
           </div>
         ) : activeTab === 'login' ? (
-          /* ================= LOGIN FORM ================= */
+          /* ================= LOGIN SECTION: 6 LOGINS ================= */
           <div className="space-y-4">
-            {/* Quick Demo Login Personas */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                Quick 1-Click Simulation Login
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('Anita Devi', 'worker', '9876543210@abdm')}
-                  className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-left transition-all cursor-pointer"
-                >
-                  <span className="text-sm block">👩‍⚕️</span>
-                  <span className="text-[11px] font-extrabold text-purple-900 block truncate">Anita Devi</span>
-                  <span className="text-[9px] text-purple-700 font-semibold block">ASHA Worker</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm')}
-                  className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition-all cursor-pointer"
-                >
-                  <span className="text-sm block">👨‍⚕️</span>
-                  <span className="text-[11px] font-extrabold text-[#0b2b82] block truncate">Dr. Priya</span>
-                  <span className="text-[9px] text-blue-700 font-semibold block">Doctor</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('SBMC&H Referral Desk', 'facility', 'admin.sbmch@abdm')}
-                  className="p-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-left transition-all cursor-pointer"
-                >
-                  <span className="text-sm block">🏥</span>
-                  <span className="text-[11px] font-extrabold text-sky-900 block truncate">SBMC&H Desk</span>
-                  <span className="text-[9px] text-sky-700 font-semibold block">Facility Admin</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm')}
-                  className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all cursor-pointer"
-                >
-                  <span className="text-sm block">👤</span>
-                  <span className="text-[11px] font-extrabold text-emerald-900 block truncate">Ramesh M.</span>
-                  <span className="text-[9px] text-emerald-700 font-semibold block">Patient</span>
-                </button>
+            {/* 1. SELECT LOGIN PORTAL (5 Buttons, with Facility having 3 Subtypes) */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+                Select Login Portal Category
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {LOGIN_PORTALS.map((portal) => {
+                  const isSelected = selectedRole === portal.id;
+                  return (
+                    <button
+                      key={portal.id}
+                      type="button"
+                      onClick={() => setSelectedRole(portal.id)}
+                      className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                        isSelected
+                          ? 'border-[#0b2b82] bg-blue-50/80 shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      {portal.id === 'patient' && (
+                        <span className="absolute top-2 right-2 text-[8px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          LIVE
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{portal.icon}</span>
+                        <div className="min-w-0">
+                          <span className={`text-xs font-black block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
+                            {portal.title}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block truncate leading-tight">
+                            {portal.tagline}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-slate-200"></div>
-              <span className="flex-shrink mx-2 text-[10px] font-bold uppercase text-slate-400">or enter credentials</span>
-              <div className="flex-grow border-t border-slate-200"></div>
-            </div>
+            {/* IF FACILITY SELECTED: SHOW THE 3 TYPES (HOSPITALS, MEDICINE SHOPS, DIAGNOSTIC LABS) */}
+            {selectedRole === 'facility' && (
+              <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-2xl space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🏥</span> Select Facility Type (3 Categories)
+                  </span>
+                  <span className="text-[10px] text-teal-700 font-bold">Facility Grid</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  {[
+                    { id: 'hospital', icon: '🏥', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
+                    { id: 'medicine', icon: '💊', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
+                    { id: 'lab', icon: '🔬', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
+                  ].map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setFacilitySubtype(sub.id)}
+                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                        facilitySubtype === sub.id
+                          ? 'bg-teal-700 text-white border-teal-800 shadow-xs'
+                          : 'bg-white text-slate-700 border-teal-200 hover:bg-teal-100/50'
+                      }`}
+                    >
+                      <div className="text-base">{sub.icon}</div>
+                      <div className="font-extrabold text-[11px] leading-tight truncate">{sub.label}</div>
+                      <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-teal-200' : 'text-slate-500'}`}>{sub.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">ABHA ID / Mobile Number / Email</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 9876543210 or name@abdm"
-                  value={loginForm.identifier}
-                  onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
-                />
+            {/* DEDICATED PORTAL LOGIN WINDOW FOR SELECTED ROLE */}
+            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3.5">
+              {/* Portal Info Banner */}
+              {selectedRole === 'patient' && (
+                <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-200">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">👤</span>
+                      <h4 className="text-sm font-black text-slate-900">Patient Login Window</h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        🟢 Active &amp; Workable
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      Unique self-service view: Care Navigator triage, teleconsultation queue, referral pass, recovery follow-ups, and health records.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedRole === 'doctor' && (
+                <div className="pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">👨‍⚕️</span>
+                    <h4 className="text-sm font-black text-slate-900">Doctor Portal Login</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200">
+                      Clinical Provider
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Access consulting doctor queues, teleconsult video rooms, digital prescription pad, and outbound hospital referrals.
+                  </p>
+                </div>
+              )}
+
+              {selectedRole === 'worker' && (
+                <div className="pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">👩‍⚕️</span>
+                    <h4 className="text-sm font-black text-slate-900">ASHA Worker Portal Login</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                      Frontline Health
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Door-to-door high-risk tracking, home visit observations, maternal care checklists, and emergency facility escalation.
+                  </p>
+                </div>
+              )}
+
+              {selectedRole === 'facility' && (
+                <div className="pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">🏥</span>
+                    <h4 className="text-sm font-black text-slate-900">
+                      Facility Login Window &bull; {facilitySubtype === 'hospital' ? 'Hospital Inpatient & ICU' : facilitySubtype === 'medicine' ? 'Pharmacy & Medicine Shop' : 'Diagnostic Pathology Lab'}
+                    </h4>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {facilitySubtype === 'hospital'
+                      ? 'Inbound emergency referral intake, bed allotment, ICU occupancy, and surgical availability status.'
+                      : facilitySubtype === 'medicine'
+                      ? 'Jan Aushadhi pharmacy stock inventory, real-time medicine reservations, and batch dispensing.'
+                      : 'Diagnostic pathology test catalog, sample accessioning, scanner queues, and signed reports.'}
+                  </p>
+                </div>
+              )}
+
+              {selectedRole === 'officer' && (
+                <div className="pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">🏛️</span>
+                    <h4 className="text-sm font-black text-slate-900">District Health Officer (DHO) Login</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                      Administration
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Pan-district epidemiological surveillance, outbreak early warnings, ICU readiness matrix, and MV-DAC Command Center.
+                  </p>
+                </div>
+              )}
+
+              {/* Quick 1-Click Simulation Buttons */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Quick 1-Click Persona Login
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {selectedRole === 'patient' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm', 'Patient')}
+                        className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all cursor-pointer flex items-center justify-between"
+                      >
+                        <div className="min-w-0">
+                          <span className="text-xs font-black text-emerald-900 block truncate">👤 Ramesh Mahto</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold block truncate">ramesh.mahto@abdm</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white shrink-0">Log In &rarr;</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin('Sunita Hansda', 'patient', 'sunita.hansda@abdm', 'Patient')}
+                        className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all cursor-pointer flex items-center justify-between"
+                      >
+                        <div className="min-w-0">
+                          <span className="text-xs font-black text-emerald-900 block truncate">👤 Sunita Hansda</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold block truncate">sunita.hansda@abdm (Rural)</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white shrink-0">Log In &rarr;</span>
+                      </button>
+                    </>
+                  )}
+
+                  {selectedRole === 'doctor' && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm', 'Doctor')}
+                      className="p-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-black text-blue-900 block truncate">👨‍⚕️ Dr. Priya Sharma (Specialist Doctor)</span>
+                        <span className="text-[10px] text-blue-700 font-semibold block truncate">priya.sharma@abdm &bull; PHC Katkamsandi</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-700 text-white shrink-0">Log In &rarr;</span>
+                    </button>
+                  )}
+
+                  {selectedRole === 'worker' && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('Anita Devi', 'worker', '9876543210@abdm', 'ASHA Worker')}
+                      className="p-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-black text-purple-900 block truncate">👩‍⚕️ Anita Devi (Frontline ASHA Worker)</span>
+                        <span className="text-[10px] text-purple-700 font-semibold block truncate">9876543210@abdm &bull; Sub-Center Katkamsandi</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-700 text-white shrink-0">Log In &rarr;</span>
+                    </button>
+                  )}
+
+                  {selectedRole === 'facility' && (
+                    <>
+                      {facilitySubtype === 'hospital' && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickLogin('SBMC&H Referral Desk', 'facility', 'admin.sbmch@abdm', 'Hospital Facility')}
+                          className="p-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                        >
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-teal-900 block truncate">🏥 SBMC&H Emergency Desk</span>
+                            <span className="text-[10px] text-teal-700 font-semibold block truncate">admin.sbmch@abdm &bull; Sheikh Bhikhari Medical College</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-700 text-white shrink-0">Log In &rarr;</span>
+                        </button>
+                      )}
+                      {facilitySubtype === 'medicine' && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickLogin('Katkamsandi Jan Aushadhi', 'shop_owner', 'pharmacy.katkamsandi@abdm', 'Medicine Shop')}
+                          className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                        >
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-amber-900 block truncate">💊 Katkamsandi Jan Aushadhi Pharmacy</span>
+                            <span className="text-[10px] text-amber-700 font-semibold block truncate">pharmacy.katkamsandi@abdm &bull; Licensed Chemist</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-700 text-white shrink-0">Log In &rarr;</span>
+                        </button>
+                      )}
+                      {facilitySubtype === 'lab' && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickLogin('District Diagnostic Lab', 'lab_staff', 'lab.pathology@abdm', 'Diagnostic Lab')}
+                          className="p-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                        >
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-cyan-900 block truncate">🔬 District Diagnostic Pathology Lab</span>
+                            <span className="text-[10px] text-cyan-700 font-semibold block truncate">lab.pathology@abdm &bull; NABL Accredited</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-700 text-white shrink-0">Log In &rarr;</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {selectedRole === 'officer' && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('Dr. S. K. Verma', 'admin', 'dho.hazaribagh@gov.in', 'District Health Officer')}
+                      className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-black text-amber-900 block truncate">🏛️ Dr. S. K. Verma, DHO Hazaribagh</span>
+                        <span className="text-[10px] text-amber-700 font-semibold block truncate">dho.hazaribagh@gov.in &bull; District Surveillance Officer</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-700 text-white shrink-0">Log In &rarr;</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Password or OTP</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
-                />
+              {/* Manual Credentials Form */}
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-200"></div>
+                <span className="flex-shrink mx-2 text-[10px] font-bold uppercase text-slate-400">or enter credentials</span>
+                <div className="flex-grow border-t border-slate-200"></div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Select Portal Role</label>
-                <select
-                  value={loginForm.role}
-                  onChange={(e) => setLoginForm({ ...loginForm, role: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
+              <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    {selectedRole === 'patient'
+                      ? 'ABHA ID / Mobile Number'
+                      : selectedRole === 'doctor'
+                      ? 'Doctor ABHA ID / Medical Registration No.'
+                      : selectedRole === 'worker'
+                      ? 'ASHA Worker ID / Mobile'
+                      : selectedRole === 'facility'
+                      ? 'Facility HFR ID / Portal Email'
+                      : 'Govt Officer Email / Employee ID'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={
+                      selectedRole === 'patient'
+                        ? 'e.g. 9876543210 or ramesh.mahto@abdm'
+                        : selectedRole === 'doctor'
+                        ? 'e.g. priya.sharma@abdm'
+                        : selectedRole === 'worker'
+                        ? 'e.g. 9876543210@abdm'
+                        : selectedRole === 'facility'
+                        ? 'e.g. admin.sbmch@abdm'
+                        : 'e.g. dho.hazaribagh@gov.in'
+                    }
+                    value={loginForm.identifier}
+                    onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Password / Secure OTP</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className={`w-full py-2.5 text-white font-extrabold text-xs rounded-xl shadow-md transition-all mt-2 cursor-pointer ${
+                    selectedRole === 'patient'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : selectedRole === 'doctor'
+                      ? 'bg-[#0b2b82] hover:bg-[#061d5c]'
+                      : selectedRole === 'worker'
+                      ? 'bg-purple-700 hover:bg-purple-800'
+                      : selectedRole === 'facility'
+                      ? 'bg-teal-700 hover:bg-teal-800'
+                      : 'bg-amber-700 hover:bg-amber-800'
+                  }`}
                 >
-                  <option value="worker">Frontline Health Worker (ASHA)</option>
-                  <option value="patient">Self-Service Patient</option>
-                  <option value="doctor">Consulting / Referring Doctor</option>
-                  <option value="shop_owner">Medical Shop Owner</option>
-                  <option value="lab_staff">Diagnostic Lab Staff</option>
-                  <option value="facility">Receiving Facility Administrator</option>
-                  <option value="admin">Facility Coordinator / Admin</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-extrabold text-xs rounded-xl shadow-md transition-all mt-2 cursor-pointer"
-              >
-                Log In to MedVeda Portal &rarr;
-              </button>
-            </form>
+                  {selectedRole === 'patient'
+                    ? 'Log In to Patient Health Portal &rarr;'
+                    : selectedRole === 'doctor'
+                    ? 'Log In to Doctor Clinical Portal &rarr;'
+                    : selectedRole === 'worker'
+                    ? 'Log In to ASHA Field Portal &rarr;'
+                    : selectedRole === 'facility'
+                    ? `Log In to Facility Portal (${facilitySubtype === 'hospital' ? 'Hospital' : facilitySubtype === 'medicine' ? 'Medicine Shop' : 'Diagnostic Lab'}) &rarr;`
+                    : 'Log In to District Command Center &rarr;'}
+                </button>
+              </form>
+            </div>
 
             <p className="text-center text-[11px] text-slate-500 pt-1">
-              New to MedVeda?{' '}
+              New patient or clinician?{' '}
               <button
                 type="button"
                 onClick={() => setActiveTab('signup')}
                 className="text-[#0b2b82] font-bold hover:underline cursor-pointer"
               >
-                Create an Account
+                Create New ABHA Account
               </button>
             </p>
           </div>
@@ -858,7 +1217,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdenti
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Dr. Rajesh Kumar or Sunita Devi"
+                  placeholder="e.g. Ramesh Mahto or Sunita Devi"
                   value={signUpForm.name}
                   onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
                   className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
@@ -898,12 +1257,13 @@ function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdenti
                     onChange={(e) => setSignUpForm({ ...signUpForm, role: e.target.value })}
                     className="w-full border border-slate-300 rounded-xl p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
                   >
-                    <option value="patient">Patient</option>
-                    <option value="worker">ASHA Worker</option>
-                    <option value="doctor">Specialist Doctor</option>
-                    <option value="shop_owner">Pharmacy</option>
-                    <option value="lab_staff">Diagnostic Lab</option>
-                    <option value="facility">Facility Admin</option>
+                    <option value="patient">1. Patient (Self-Service)</option>
+                    <option value="doctor">2. Doctor (Specialist)</option>
+                    <option value="worker">3. ASHA Worker</option>
+                    <option value="facility">4. Facility (Hospital)</option>
+                    <option value="shop_owner">4. Facility (Medicine Shop)</option>
+                    <option value="lab_staff">4. Facility (Diagnostic Lab)</option>
+                    <option value="admin">5. District Health Officer</option>
                   </select>
                 </div>
 
@@ -1216,7 +1576,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Login & Sign Up Option Buttons / User Profile Chip */}
           {currentUser ? (
-            <div className="flex items-center gap-2 bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1 shadow-xs">
+            <div className="flex items-center gap-2 bg-blue-50/80 border border-blue-200/80 rounded-xl px-2.5 py-1 shadow-xs">
               <div className="w-6 h-6 rounded-full bg-[#0b2b82] text-white text-[11px] font-black flex items-center justify-center">
                 {currentUser.name.charAt(0)}
               </div>
@@ -1228,6 +1588,25 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
                   {currentUser.roleLabel || getRoleBadgeLabel(actorRole)}
                 </span>
               </div>
+
+              {currentUser.role === 'patient' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextRole = actorRole === 'patient' ? 'doctor' : 'patient';
+                    setActorRole(nextRole);
+                  }}
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                    actorRole === 'patient'
+                      ? 'bg-white border-blue-200 text-[#0b2b82] hover:bg-blue-100 shadow-2xs'
+                      : 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
+                  }`}
+                  title={actorRole === 'patient' ? "Preview Doctor's Clinical View" : "Return to Patient View"}
+                >
+                  <span>{actorRole === 'patient' ? "👁️ View Doctor" : "👤 View Patient"}</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setCurrentUser(null)}
@@ -1279,6 +1658,9 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
             setCurrentUser(user);
             setActorRole(user.role);
             setAuthModalOpen(false);
+            if (user.role === 'patient') {
+              setView('overview');
+            }
           }}
         />
       )}
@@ -1615,7 +1997,7 @@ function ScreenHomepage({
     if (isHeroPaused) return;
     const timer = setInterval(() => {
       setActiveHeroSlide((prev) => (prev + 1) % 4);
-    }, 6500);
+    }, 4000);
     return () => clearInterval(timer);
   }, [isHeroPaused]);
 
@@ -1733,10 +2115,10 @@ function ScreenHomepage({
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Interactive Hero Carousel (Preserves Smart Care Navigator & adds AI Govt Health Scheme Finder) */}
+    <div className="w-full">
+      {/* Interactive Hero Carousel (Full Width) */}
       <div
-        className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-white via-slate-50/40 to-blue-50/30 border border-slate-200/80 shadow-[0_12px_40px_rgba(8,35,95,0.06)] hover:shadow-[0_20px_50px_rgba(8,35,95,0.1)] transition-all duration-500 group"
+        className="relative w-full overflow-hidden bg-gradient-to-r from-white via-slate-50/50 to-blue-50/40 border-b border-slate-200/80 shadow-[0_12px_40px_rgba(8,35,95,0.04)] transition-all duration-500 group"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
@@ -1744,43 +2126,11 @@ function ScreenHomepage({
         <div className="absolute -top-24 -left-24 w-96 h-96 bg-sky-200/25 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-24 right-1/4 w-80 h-80 bg-blue-100/30 rounded-full blur-3xl pointer-events-none"></div>
 
-        {/* Carousel Arrow Navigation: Previous */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveHeroSlide((prev) => (prev === 0 ? 3 : prev - 1));
-          }}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/85 hover:bg-white border border-slate-200/90 shadow-md hover:shadow-lg text-slate-700 hover:text-[#0b2b82] flex items-center justify-center transition-all opacity-70 group-hover:opacity-100 active:scale-90 cursor-pointer backdrop-blur-sm"
-          aria-label="Previous Slide"
-          title="Previous Slide"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
-
-        {/* Carousel Arrow Navigation: Next */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveHeroSlide((prev) => (prev + 1) % 4);
-          }}
-          className="absolute right-3.5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/85 hover:bg-white border border-slate-200/90 shadow-md hover:shadow-lg text-slate-700 hover:text-[#0b2b82] flex items-center justify-center transition-all opacity-70 group-hover:opacity-100 active:scale-90 cursor-pointer backdrop-blur-sm"
-          aria-label="Next Slide"
-          title="Next Slide"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-
         {/* Slide 0: Smart Care Navigator (Strictly Preserved) */}
         <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[420px]">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="p-8 sm:p-12 lg:py-14 lg:pl-16 lg:pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
+            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
               {/* Pill Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0b2b82] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
                 <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
@@ -1881,9 +2231,9 @@ function ScreenHomepage({
 
         {/* Slide 1: AI Govt Health Scheme Finder (Added from User Upload) */}
         <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[420px]">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="p-8 sm:p-12 lg:py-14 lg:pl-16 lg:pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
+            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
               {/* Pill Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0284c7] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
                 <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
@@ -1984,9 +2334,9 @@ function ScreenHomepage({
 
         {/* Slide 2: Smart Teleconsultation (Added from User Upload) */}
         <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[420px]">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="p-8 sm:p-12 lg:py-14 lg:pl-16 lg:pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
+            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
               {/* Pill Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0284c7] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
                 <svg className="w-3.5 h-3.5 text-[#0284c7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -2090,9 +2440,9 @@ function ScreenHomepage({
 
         {/* Slide 3: AI-Assisted Medical Record (Added from User Upload) */}
         <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[420px]">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="p-8 sm:p-12 lg:py-14 lg:pl-16 lg:pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
+            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
               {/* Pill Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50/90 border border-teal-200/80 text-teal-700 text-xs font-bold shadow-2xs hover:bg-teal-100/80 transition-colors">
                 <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
@@ -2236,9 +2586,10 @@ function ScreenHomepage({
         </div>
       </div>
 
-
-      {/* System Modules Grid */}
-      <div className="space-y-6">
+      {/* Main Content Container (Bounded width for modules & impact) */}
+      <div className="max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-8">
+        {/* System Modules Grid */}
+        <div className="space-y-6">
         <div className="space-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0284c7] block mb-1">
             PLATFORM
@@ -2309,6 +2660,7 @@ function ScreenHomepage({
         onLaunchFeature4={onLaunchFeature4}
         onLaunchFeature7={onLaunchFeature7}
       />
+      </div>
     </div>
   );
 }
@@ -6396,7 +6748,11 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
 
   useEffect(() => {
     if (!currentUser) {
-      setActiveTabRole('login');
+      if (actorRole === 'patient') {
+        setActiveTabRole('patient');
+      } else {
+        setActiveTabRole('login');
+      }
     } else {
       const targetRole = currentUser.role || actorRole;
       setActiveTabRole(getRoleTab(targetRole));
@@ -6972,6 +7328,25 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-6xl mx-auto">
+          {actorRole === 'patient' && (
+            <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👤</span>
+                <div>
+                  <span className="text-xs font-black text-slate-900 block">Patient Referral Pass View (Active)</span>
+                  <span className="text-[11px] text-slate-500">Displaying your personal digital referral pass, QR admission pass &amp; specialist facility</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTabRole(activeTabRole === 'patient' ? 'doctor' : 'patient')}
+                className="px-3.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>{activeTabRole === 'patient' ? "👁️ Preview Doctor's Referral Board" : "👤 Back to Patient Referral Pass"}</span>
+              </button>
+            </div>
+          )}
+
           {activeTabRole === 'login' && renderLoginView()}
           {activeTabRole === 'doctor' && renderDoctorView()}
           {activeTabRole === 'facility' && renderFacilityView()}
@@ -7269,7 +7644,7 @@ function ScreenHighRiskFollowUp({
   onNavigateToCareNavigator,
   onNavigateToReferrals
 }) {
-  const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
+  const [activeTabRole, setActiveTabRole] = useState(actorRole === 'patient' ? 'patient' : (actorRole || 'doctor'));
 
   // Multi-Tenant Isolation Filter States
   const [selectedDoctor, setSelectedDoctor] = useState('ALL');
@@ -7646,31 +8021,52 @@ function ScreenHighRiskFollowUp({
       {/* Role Navigation Bar with Multi-Tenant Profile Switchers */}
       <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
         {/* Role Tabs */}
-        <div className="flex gap-1.5 flex-wrap">
-          {[
-            { id: 'doctor', label: 'Doctor Monitoring Center', icon: '👨‍⚕️' },
-            { id: 'worker', label: 'ASHA Worker Task Board', icon: '👩‍⚕️' },
-            { id: 'facility', label: 'Facility Alert Desk', icon: '🏥' },
-            { id: 'patient', label: 'Patient Care View', icon: '👤' }
-          ].map((tab) => (
+        {actorRole === 'patient' ? (
+          <div className="flex items-center justify-between w-full flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
+              <span className="text-xs font-black text-slate-900">
+                {activeTabRole === 'patient' ? '👤 Patient Care & Recovery View (Active)' : "👁️ Previewing Doctor's Monitoring Center"}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                {activeTabRole === 'patient' ? 'Your prescribed medicines, daily adherence checklist & ASHA home visits' : 'Clinical doctor case review'}
+              </span>
+            </div>
             <button
-              key={tab.id}
               type="button"
-              onClick={() => {
-                setActiveTabRole(tab.id);
-                setActorRole && setActorRole(tab.id);
-              }}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
-                activeTabRole === tab.id
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              onClick={() => setActiveTabRole(activeTabRole === 'patient' ? 'doctor' : 'patient')}
+              className="px-3.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span>{activeTabRole === 'patient' ? "👁️ Preview Doctor Monitoring Center" : "👤 Back to Patient Care View"}</span>
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="flex gap-1.5 flex-wrap">
+            {[
+              { id: 'doctor', label: 'Doctor Monitoring Center', icon: '👨‍⚕️' },
+              { id: 'worker', label: 'ASHA Worker Task Board', icon: '👩‍⚕️' },
+              { id: 'facility', label: 'Facility Alert Desk', icon: '🏥' },
+              { id: 'patient', label: 'Patient Care View', icon: '👤' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTabRole(tab.id);
+                  setActorRole && setActorRole(tab.id);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+                  activeTabRole === tab.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Multi-Tenant Profile Dropdown Switchers */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -10088,31 +10484,47 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
       {/* Role Navigation Bar & Patient Selector */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
-          {[
-            { id: 'patient', label: 'Patient (Self Access)', icon: '👤' },
-            { id: 'doctor', label: 'Doctor (Consent Required)', icon: '👨‍⚕️' },
-            { id: 'worker', label: 'ASHA Worker', icon: '👩‍⚕️' }
-          ].map((tab) => (
+        {actorRole === 'patient' ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+            <span className="text-xs font-black text-slate-900">
+              {activeRole === 'patient' ? '👤 Personal Health Records (Self-Access Mode)' : "👁️ Previewing Doctor's Clinical Review"}
+            </span>
             <button
-              key={tab.id}
               type="button"
-              onClick={() => {
-                setActiveRole(tab.id);
-                setActorRole(tab.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeRole === tab.id
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              onClick={() => setActiveRole(activeRole === 'patient' ? 'doctor' : 'patient')}
+              className="px-3.5 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ml-2"
             >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span>{activeRole === 'patient' ? "👁️ Preview Doctor's Clinical Review" : "👤 Back to Patient Health Records"}</span>
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
+            {[
+              { id: 'patient', label: 'Patient (Self Access)', icon: '👤' },
+              { id: 'doctor', label: 'Doctor (Consent Required)', icon: '👨‍⚕️' },
+              { id: 'worker', label: 'ASHA Worker', icon: '👩‍⚕️' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveRole(tab.id);
+                  setActorRole(tab.id);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeRole === tab.id
+                    ? 'bg-slate-900 text-white shadow-sm font-black'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold text-slate-500 uppercase">Select Active Patient:</span>
@@ -23664,9 +24076,8 @@ const FEATURE_NAV_MODULES = [
     icon: '🧭',
     label: 'Care Navigator',
     shortLabel: 'Care Nav',
-    description: 'Autonomous AI symptom triage',
-    badge: 'AI Triage',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    badge: 'Patient Only',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-extrabold'
   },
   {
     id: 'feature2',
@@ -24096,9 +24507,17 @@ function FeaturesSideNavbar({
 
 // Upgraded ScreenOverview — Comprehensive Platform Hub & Directory
 function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen }) {
-  const [activeTab, setActiveTab] = useState(
-    ['doctor', 'facility', 'admin'].includes(actorRole) ? 'doctor' : 'hub'
-  );
+  const [activeTab, setActiveTab] = useState(() => {
+    if (actorRole === 'patient') return 'patient';
+    if (['doctor', 'facility', 'admin'].includes(actorRole)) return 'doctor';
+    return 'hub';
+  });
+
+  useEffect(() => {
+    if (actorRole === 'patient') {
+      setActiveTab('patient');
+    }
+  }, [actorRole]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
@@ -24339,7 +24758,7 @@ function App() {
         if (u && u.role) return u.role;
       }
     } catch (e) {}
-    return 'worker';
+    return 'patient';
   });
 
   const handleSetCurrentUser = (user) => {
@@ -24352,6 +24771,7 @@ function App() {
         localStorage.setItem('medveda_auth_user', JSON.stringify(user));
       } catch (e) {}
     } else {
+      setActorRole('patient');
       try {
         localStorage.removeItem('medveda_auth_user');
       } catch (e) {}
@@ -24552,7 +24972,7 @@ function App() {
 
       {/* HOMEPAGE VIEW */}
       {view === 'home' && (
-        <main className="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
+        <main className="flex-1 w-full">
           <ScreenHomepage
             onLaunchFeature1={() => {
               setView('feature1');
@@ -24662,8 +25082,45 @@ function App() {
               />
             )}
 
-            {/* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR */}
+            {/* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR (PATIENT EXCLUSIVE) */}
         {view === 'feature1' && (
+          actorRole !== 'patient' ? (
+            <div className="max-w-2xl mx-auto p-6 sm:p-10 my-10 bg-white rounded-3xl border-2 border-amber-200 shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center text-3xl">
+                🔒
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 uppercase tracking-wider font-mono">
+                Patient Portal Only &bull; Access Restricted
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                Smart Care Navigator is Restricted to Patient View
+              </h2>
+              <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                The 3-Agent Symptom Triage &amp; Emergency Hospital Discovery engine is strictly dedicated to self-service patient assessments. Clinicians and facility administrators cannot submit assessments through this channel.
+              </p>
+              <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActorRole('patient');
+                    if (currentUser) {
+                      handleSetCurrentUser({ ...currentUser, role: 'patient', roleLabel: 'Patient' });
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span>👤 Switch to Patient View</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('overview')}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Return to Platform Overview
+                </button>
+              </div>
+            </div>
+          ) : (
           <div>
             {feature1Screen === 1 && (
               <Screen1PatientInfo
@@ -24755,7 +25212,7 @@ function App() {
               />
             )}
           </div>
-        )}
+        ) )}
 
         {/* VIEW 3: FEATURE 02 — TELECONSULTATION & QUEUE MANAGEMENT */}
         {view === 'feature2' && (
