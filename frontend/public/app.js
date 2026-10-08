@@ -641,7 +641,7 @@ function getRoleBadgeLabel(role) {
   return map[role] || 'User';
 }
 
-function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess }) {
+function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess, isPage = false }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   // 6 Logins: 'patient', 'doctor', 'worker', 'facility', 'officer' (with facility having 3 subtypes: 'hospital', 'medicine', 'lab')
   const [selectedRole, setSelectedRole] = useState(
@@ -740,35 +740,30 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
   const LOGIN_PORTALS = [
     {
       id: 'patient',
-      icon: '👤',
       title: '1. Patient',
       tagline: 'Self-Service Health Portal',
       isWorkable: true
     },
     {
       id: 'doctor',
-      icon: '👨‍⚕️',
       title: '2. Doctor',
       tagline: 'Consulting & Specialist EMR',
       isWorkable: true
     },
     {
       id: 'worker',
-      icon: '👩‍⚕️',
       title: '3. ASHA Worker',
       tagline: 'Frontline Community Field Tasks',
       isWorkable: true
     },
     {
       id: 'facility',
-      icon: '🏥',
       title: '4. Facility',
       tagline: 'Hospital, Pharmacy & Diagnostic Lab',
       isWorkable: true
     },
     {
       id: 'officer',
-      icon: '🏛️',
       title: '5. District Health Officer',
       tagline: 'Public Health Admin & MV-DAC',
       isWorkable: true
@@ -776,65 +771,73 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-xl sm:max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-200 space-y-4 my-6">
+    <div className={isPage ? "w-full max-w-xl sm:max-w-2xl mx-auto my-2" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"}>
+      <div className={`bg-white rounded-xl w-full p-5 sm:p-7 border border-slate-200 space-y-4 my-4 ${isPage ? 'shadow-xs' : 'max-w-xl sm:max-w-2xl shadow-xs'}`}>
         {/* Modal Header */}
         <div className="flex items-start justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <MedVedaLogo className="h-10 w-10" />
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-slate-900 leading-tight">MedVeda Portal Access</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+                <h3 className="text-lg font-bold text-slate-900 leading-tight">MedVeda Portal Access</h3>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded text-slate-600 bg-slate-100 border border-slate-200" title="Available access pathways for all health system stakeholders">
                   6 Role Portals
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">National Digital Health Mission &bull; ABDM Integrated Multi-Role Security</p>
+              <p className="text-[11px] text-slate-500 font-normal">National Digital Health Mission &bull; ABDM Integrated Multi-Role Security</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-2xl font-black leading-none p-1 cursor-pointer"
-            aria-label="Close"
-          >
-            &times;
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 text-sm font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label={isPage ? "Back to Home" : "Close"}
+            >
+              {isPage ? (
+                <span>Back to Home</span>
+              ) : (
+                <span className="text-2xl font-normal leading-none">&times;</span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Tab Switcher: Log In vs Sign Up */}
-        <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl gap-1 text-xs font-bold">
+        <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setActiveTab('login')}
-            className={`py-2 rounded-lg transition-all ${
+            className={`py-2 rounded-md transition-all ${
               activeTab === 'login'
                 ? 'bg-[#0b2b82] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🔐 Log In to Portal
+            Log In to Portal
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('signup')}
-            className={`py-2 rounded-lg transition-all ${
+            className={`py-2 rounded-md transition-all ${
               activeTab === 'signup'
                 ? 'bg-[#0b2b82] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            ✨ Register New ABHA Account
+            Register New ABHA Account
           </button>
         </div>
 
         {authSuccessMsg ? (
-          <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2 animate-in zoom-in-95 my-4">
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold shadow-md">
-              ✓
+          <div className="p-6 rounded-lg bg-slate-50 border border-slate-200 text-center space-y-2 animate-in zoom-in-95 my-4">
+            <div className="w-10 h-10 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
             </div>
-            <p className="text-sm font-black text-emerald-900">{authSuccessMsg}</p>
-            <p className="text-xs text-emerald-700">Connecting authenticated session...</p>
+            <p className="text-sm font-bold text-slate-900">{authSuccessMsg}</p>
+            <p className="text-xs text-slate-500">Connecting authenticated session...</p>
           </div>
         ) : activeTab === 'login' ? (
           /* ================= LOGIN SECTION: 6 LOGINS ================= */
@@ -852,21 +855,18 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                       key={portal.id}
                       type="button"
                       onClick={() => setSelectedRole(portal.id)}
-                      className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer relative ${
                         isSelected
-                          ? 'border-[#0b2b82] bg-blue-50/80 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                          ? 'border-[#0b2b82] bg-slate-50 shadow-2xs'
+                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
                       }`}
                     >
-                      {portal.id === 'patient' && (
-                        <span className="absolute top-2 right-2 text-[8px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          LIVE
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{portal.icon}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          <ModuleIcon id={portal.id} className="w-3.5 h-3.5" />
+                        </div>
                         <div className="min-w-0">
-                          <span className={`text-xs font-black block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
+                          <span className={`text-xs font-bold block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
                             {portal.title}
                           </span>
                           <span className="text-[10px] text-slate-500 block truncate leading-tight">
@@ -882,32 +882,33 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
             {/* IF FACILITY SELECTED: SHOW THE 3 TYPES (HOSPITALS, MEDICINE SHOPS, DIAGNOSTIC LABS) */}
             {selectedRole === 'facility' && (
-              <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-2xl space-y-2 animate-in fade-in duration-150">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>🏥</span> Select Facility Type (3 Categories)
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <ModuleIcon id="facility" className="w-3.5 h-3.5 text-[#0b2b82]" />
+                    <span>Select Facility Type (3 Categories)</span>
                   </span>
-                  <span className="text-[10px] text-teal-700 font-bold">Facility Grid</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">Facility Grid</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   {[
-                    { id: 'hospital', icon: '🏥', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
-                    { id: 'medicine', icon: '💊', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
-                    { id: 'lab', icon: '🔬', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
+                    { id: 'hospital', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
+                    { id: 'medicine', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
+                    { id: 'lab', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
                   ].map((sub) => (
                     <button
                       key={sub.id}
                       type="button"
                       onClick={() => setFacilitySubtype(sub.id)}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                      className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
                         facilitySubtype === sub.id
-                          ? 'bg-teal-700 text-white border-teal-800 shadow-xs'
-                          : 'bg-white text-slate-700 border-teal-200 hover:bg-teal-100/50'
+                          ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="text-base">{sub.icon}</div>
-                      <div className="font-extrabold text-[11px] leading-tight truncate">{sub.label}</div>
-                      <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-teal-200' : 'text-slate-500'}`}>{sub.sub}</div>
+                      <div className="mb-1"><ModuleIcon id={sub.id} className="w-3.5 h-3.5" /></div>
+                      <div className="font-bold text-[11px] leading-tight truncate">{sub.label}</div>
+                      <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-slate-200' : 'text-slate-500'}`}>{sub.sub}</div>
                     </button>
                   ))}
                 </div>
@@ -915,16 +916,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
             )}
 
             {/* DEDICATED PORTAL LOGIN WINDOW FOR SELECTED ROLE */}
-            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3.5">
+            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3">
               {/* Portal Info Banner */}
               {selectedRole === 'patient' && (
                 <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-200">
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">👤</span>
-                      <h4 className="text-sm font-black text-slate-900">Patient Login Window</h4>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        🟢 Active &amp; Workable
+                    <div className="flex items-center gap-2">
+                      <ModuleIcon id="patient" className="w-4 h-4 text-[#0b2b82]" />
+                      <h4 className="text-sm font-bold text-slate-900">Patient Login Window</h4>
+                      <span className="text-[10px] font-semibold text-slate-500" title="Full self-service access enabled">
+                        Active Portal
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 mt-0.5">
@@ -936,10 +937,10 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
               {selectedRole === 'doctor' && (
                 <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">👨‍⚕️</span>
-                    <h4 className="text-sm font-black text-slate-900">Doctor Portal Login</h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200">
+                  <div className="flex items-center gap-2">
+                    <ModuleIcon id="doctor" className="w-4 h-4 text-[#0b2b82]" />
+                    <h4 className="text-sm font-bold text-slate-900">Doctor Portal Login</h4>
+                    <span className="text-[10px] font-semibold text-slate-500" title="Clinical provider credentials required">
                       Clinical Provider
                     </span>
                   </div>
@@ -951,10 +952,10 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
               {selectedRole === 'worker' && (
                 <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">👩‍⚕️</span>
-                    <h4 className="text-sm font-black text-slate-900">ASHA Worker Portal Login</h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                  <div className="flex items-center gap-2">
+                    <ModuleIcon id="worker" className="w-4 h-4 text-[#0b2b82]" />
+                    <h4 className="text-sm font-bold text-slate-900">ASHA Worker Portal Login</h4>
+                    <span className="text-[10px] font-semibold text-slate-500" title="Frontline community health access">
                       Frontline Health
                     </span>
                   </div>
@@ -966,10 +967,10 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
               {selectedRole === 'facility' && (
                 <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">🏥</span>
-                    <h4 className="text-sm font-black text-slate-900">
-                      Facility Login Window &bull; {facilitySubtype === 'hospital' ? 'Hospital Inpatient & ICU' : facilitySubtype === 'medicine' ? 'Pharmacy & Medicine Shop' : 'Diagnostic Pathology Lab'}
+                  <div className="flex items-center gap-2">
+                    <ModuleIcon id={facilitySubtype} className="w-4 h-4 text-[#0b2b82]" />
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Facility Login Window: {facilitySubtype === 'hospital' ? 'Hospital Inpatient & ICU' : facilitySubtype === 'medicine' ? 'Pharmacy & Medicine Shop' : 'Diagnostic Pathology Lab'}
                     </h4>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-0.5">
@@ -984,10 +985,10 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
               {selectedRole === 'officer' && (
                 <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">🏛️</span>
-                    <h4 className="text-sm font-black text-slate-900">District Health Officer (DHO) Login</h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                  <div className="flex items-center gap-2">
+                    <ModuleIcon id="officer" className="w-4 h-4 text-[#0b2b82]" />
+                    <h4 className="text-sm font-bold text-slate-900">District Health Officer (DHO) Login</h4>
+                    <span className="text-[10px] font-semibold text-slate-500" title="District administration authority">
                       Administration
                     </span>
                   </div>
@@ -999,7 +1000,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
               {/* Quick 1-Click Simulation Buttons */}
               <div className="space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                   Quick 1-Click Persona Login
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1008,24 +1009,30 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                       <button
                         type="button"
                         onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm', 'Patient')}
-                        className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all cursor-pointer flex items-center justify-between"
+                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0">
-                          <span className="text-xs font-black text-emerald-900 block truncate">👤 Ramesh Mahto</span>
-                          <span className="text-[10px] text-emerald-700 font-semibold block truncate">ramesh.mahto@abdm</span>
+                        <div className="min-w-0 flex items-center gap-2">
+                          <ModuleIcon id="patient" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Ramesh Mahto</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">ramesh.mahto@abdm</span>
+                          </div>
                         </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickLogin('Sunita Hansda', 'patient', 'sunita.hansda@abdm', 'Patient')}
-                        className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all cursor-pointer flex items-center justify-between"
+                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0">
-                          <span className="text-xs font-black text-emerald-900 block truncate">👤 Sunita Hansda</span>
-                          <span className="text-[10px] text-emerald-700 font-semibold block truncate">sunita.hansda@abdm (Rural)</span>
+                        <div className="min-w-0 flex items-center gap-2">
+                          <ModuleIcon id="patient" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Sunita Hansda</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">sunita.hansda@abdm (Rural)</span>
+                          </div>
                         </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                       </button>
                     </>
                   )}
@@ -1034,13 +1041,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     <button
                       type="button"
                       onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm', 'Doctor')}
-                      className="p-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                      className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-black text-blue-900 block truncate">👨‍⚕️ Dr. Priya Sharma (Specialist Doctor)</span>
-                        <span className="text-[10px] text-blue-700 font-semibold block truncate">priya.sharma@abdm &bull; PHC Katkamsandi</span>
+                      <div className="min-w-0 flex items-center gap-2">
+                        <ModuleIcon id="doctor" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. Priya Sharma (Specialist Doctor)</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">priya.sharma@abdm &bull; PHC Katkamsandi</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-700 text-white shrink-0">Log In &rarr;</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                     </button>
                   )}
 
@@ -1048,13 +1058,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     <button
                       type="button"
                       onClick={() => handleQuickLogin('Anita Devi', 'worker', '9876543210@abdm', 'ASHA Worker')}
-                      className="p-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                      className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-black text-purple-900 block truncate">👩‍⚕️ Anita Devi (Frontline ASHA Worker)</span>
-                        <span className="text-[10px] text-purple-700 font-semibold block truncate">9876543210@abdm &bull; Sub-Center Katkamsandi</span>
+                      <div className="min-w-0 flex items-center gap-2">
+                        <ModuleIcon id="worker" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Anita Devi (Frontline ASHA Worker)</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">9876543210@abdm &bull; Sub-Center Katkamsandi</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-700 text-white shrink-0">Log In &rarr;</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                     </button>
                   )}
 
@@ -1064,39 +1077,48 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                         <button
                           type="button"
                           onClick={() => handleQuickLogin('SBMC&H Referral Desk', 'facility', 'admin.sbmch@abdm', 'Hospital Facility')}
-                          className="p-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                          className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                         >
-                          <div className="min-w-0">
-                            <span className="text-xs font-black text-teal-900 block truncate">🏥 SBMC&H Emergency Desk</span>
-                            <span className="text-[10px] text-teal-700 font-semibold block truncate">admin.sbmch@abdm &bull; Sheikh Bhikhari Medical College</span>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <ModuleIcon id="hospital" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                            <div>
+                              <span className="text-xs font-bold text-slate-900 block truncate">SBMC&H Emergency Desk</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">admin.sbmch@abdm &bull; Sheikh Bhikhari Medical College</span>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-700 text-white shrink-0">Log In &rarr;</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                         </button>
                       )}
                       {facilitySubtype === 'medicine' && (
                         <button
                           type="button"
                           onClick={() => handleQuickLogin('Katkamsandi Jan Aushadhi', 'shop_owner', 'pharmacy.katkamsandi@abdm', 'Medicine Shop')}
-                          className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                          className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                         >
-                          <div className="min-w-0">
-                            <span className="text-xs font-black text-amber-900 block truncate">💊 Katkamsandi Jan Aushadhi Pharmacy</span>
-                            <span className="text-[10px] text-amber-700 font-semibold block truncate">pharmacy.katkamsandi@abdm &bull; Licensed Chemist</span>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <ModuleIcon id="medicine" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                            <div>
+                              <span className="text-xs font-bold text-slate-900 block truncate">Katkamsandi Jan Aushadhi Pharmacy</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">pharmacy.katkamsandi@abdm &bull; Licensed Chemist</span>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-700 text-white shrink-0">Log In &rarr;</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                         </button>
                       )}
                       {facilitySubtype === 'lab' && (
                         <button
                           type="button"
                           onClick={() => handleQuickLogin('District Diagnostic Lab', 'lab_staff', 'lab.pathology@abdm', 'Diagnostic Lab')}
-                          className="p-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                          className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                         >
-                          <div className="min-w-0">
-                            <span className="text-xs font-black text-cyan-900 block truncate">🔬 District Diagnostic Pathology Lab</span>
-                            <span className="text-[10px] text-cyan-700 font-semibold block truncate">lab.pathology@abdm &bull; NABL Accredited</span>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <ModuleIcon id="lab" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                            <div>
+                              <span className="text-xs font-bold text-slate-900 block truncate">District Diagnostic Pathology Lab</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; NABL Accredited</span>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-700 text-white shrink-0">Log In &rarr;</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                         </button>
                       )}
                     </>
@@ -1106,13 +1128,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     <button
                       type="button"
                       onClick={() => handleQuickLogin('Dr. S. K. Verma', 'admin', 'dho.hazaribagh@gov.in', 'District Health Officer')}
-                      className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                      className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-black text-amber-900 block truncate">🏛️ Dr. S. K. Verma, DHO Hazaribagh</span>
-                        <span className="text-[10px] text-amber-700 font-semibold block truncate">dho.hazaribagh@gov.in &bull; District Surveillance Officer</span>
+                      <div className="min-w-0 flex items-center gap-2">
+                        <ModuleIcon id="officer" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, DHO Hazaribagh</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; District Surveillance Officer</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-700 text-white shrink-0">Log In &rarr;</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
                     </button>
                   )}
                 </div>
@@ -1154,7 +1179,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     }
                     value={loginForm.identifier}
                     onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
                   />
                 </div>
 
@@ -1166,23 +1191,13 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     placeholder="••••••••"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className={`w-full py-2.5 text-white font-extrabold text-xs rounded-xl shadow-md transition-all mt-2 cursor-pointer ${
-                    selectedRole === 'patient'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : selectedRole === 'doctor'
-                      ? 'bg-[#0b2b82] hover:bg-[#061d5c]'
-                      : selectedRole === 'worker'
-                      ? 'bg-purple-700 hover:bg-purple-800'
-                      : selectedRole === 'facility'
-                      ? 'bg-teal-700 hover:bg-teal-800'
-                      : 'bg-amber-700 hover:bg-amber-800'
-                  }`}
+                  className="w-full py-2.5 text-white font-bold text-xs rounded-lg shadow-xs bg-[#0b2b82] hover:bg-[#082060] transition-colors mt-2 cursor-pointer"
                 >
                   {selectedRole === 'patient'
                     ? 'Log In to Patient Health Portal &rarr;'
@@ -1220,7 +1235,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   placeholder="e.g. Ramesh Mahto or Sunita Devi"
                   value={signUpForm.name}
                   onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                  className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
                 />
               </div>
 
@@ -1233,7 +1248,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     placeholder="9876543210"
                     value={signUpForm.mobile}
                     onChange={(e) => setSignUpForm({ ...signUpForm, mobile: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
                   />
                 </div>
 
@@ -1244,7 +1259,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     placeholder="username@abdm"
                     value={signUpForm.abhaId}
                     onChange={(e) => setSignUpForm({ ...signUpForm, abhaId: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-[11px] focus:ring-2 focus:ring-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] focus:ring-2 focus:ring-[#0b2b82]"
                   />
                 </div>
               </div>
@@ -1255,7 +1270,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   <select
                     value={signUpForm.role}
                     onChange={(e) => setSignUpForm({ ...signUpForm, role: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
                   >
                     <option value="patient">1. Patient (Self-Service)</option>
                     <option value="doctor">2. Doctor (Specialist)</option>
@@ -1272,7 +1287,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   <select
                     value={signUpForm.district}
                     onChange={(e) => setSignUpForm({ ...signUpForm, district: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
+                    className="w-full border border-slate-300 rounded-lg p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
                   >
                     <option value="Hazaribagh">Hazaribagh</option>
                     <option value="Ranchi">Ranchi</option>
@@ -1291,13 +1306,13 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   placeholder="At least 6 characters"
                   value={signUpForm.password}
                   onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                  className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-extrabold text-xs rounded-xl shadow-md transition-all mt-1 cursor-pointer"
+                className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-xs rounded-lg shadow-xs transition-colors mt-1 cursor-pointer"
               >
                 Register ABDM Account &rarr;
               </button>
@@ -1318,6 +1333,198 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
       </div>
     </div>
   );
+}
+
+function ModuleIcon({ id, className = "w-4 h-4", strokeWidth = 2 }) {
+  switch (id) {
+    case 'overview':
+    case 'Module 00':
+    case 'MOD 00':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      );
+    case 'feature1':
+    case 'Module 01':
+    case 'MOD 01':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+        </svg>
+      );
+    case 'feature2':
+    case 'Module 02':
+    case 'MOD 02':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="14" height="14" rx="2" />
+          <polygon points="22 7 16 12 22 17 22 7" />
+        </svg>
+      );
+    case 'feature3':
+    case 'Module 03':
+    case 'MOD 03':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="17 1 21 5 17 9" />
+          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+          <polyline points="7 23 3 19 7 15" />
+          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </svg>
+      );
+    case 'feature4':
+    case 'Module 04':
+    case 'MOD 04':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          <rect x="8" y="2" width="8" height="4" rx="1" />
+          <path d="M9 14l2 2 4-4" />
+        </svg>
+      );
+    case 'feature5':
+    case 'Module 05':
+    case 'MOD 05':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      );
+    case 'feature6':
+    case 'Module 06':
+    case 'MOD 06':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+          <line x1="8.5" y1="8.5" x2="15.5" y2="15.5" />
+        </svg>
+      );
+    case 'feature7':
+    case 'Module 07':
+    case 'MOD 07':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="12" y1="7" x2="12" y2="13" />
+          <line x1="9" y1="10" x2="15" y2="10" />
+          <line x1="9" y1="17" x2="15" y2="17" />
+        </svg>
+      );
+    case 'feature8':
+    case 'Module 08':
+    case 'MOD 08':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="21" x2="21" y2="21" />
+          <line x1="6" y1="18" x2="6" y2="10" />
+          <line x1="10" y1="18" x2="10" y2="10" />
+          <line x1="14" y1="18" x2="14" y2="10" />
+          <line x1="18" y1="18" x2="18" y2="10" />
+          <polygon points="12 2 3 7 21 7 12 2" />
+        </svg>
+      );
+    case 'feature9':
+    case 'Module 09':
+    case 'MOD 09':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
+    case 'feature10':
+    case 'Module 10':
+    case 'MOD 10':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="3" />
+          <circle cx="9" cy="10" r="1.5" />
+          <circle cx="15" cy="10" r="1.5" />
+          <path d="M9 15h6" />
+        </svg>
+      );
+    case 'patient':
+    case 'user':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      );
+    case 'doctor':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4.5 3h15v4a6 6 0 0 1-6 6h-3a6 6 0 0 1-6-6V3z" />
+          <path d="M12 13v5" />
+          <path d="M9 21h6" />
+        </svg>
+      );
+    case 'worker':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case 'facility':
+    case 'hospital':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 21h18" />
+          <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+          <line x1="12" y1="7" x2="12" y2="11" />
+          <line x1="10" y1="9" x2="14" y2="9" />
+        </svg>
+      );
+    case 'officer':
+    case 'admin':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="21" x2="21" y2="21" />
+          <line x1="6" y1="18" x2="6" y2="10" />
+          <line x1="10" y1="18" x2="10" y2="10" />
+          <line x1="14" y1="18" x2="14" y2="10" />
+          <line x1="18" y1="18" x2="18" y2="10" />
+          <polygon points="12 2 3 7 21 7 12 2" />
+        </svg>
+      );
+    case 'medicine':
+    case 'pharmacy':
+    case 'shop_owner':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+          <line x1="8.5" y1="8.5" x2="15.5" y2="15.5" />
+        </svg>
+      );
+    case 'lab':
+    case 'lab_staff':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 2v7.31L4.35 19.5A2 2 0 0 0 6.09 22h11.82a2 2 0 0 0 1.74-2.5L14 9.31V2" />
+          <line x1="8.5" y1="2" x2="15.5" y2="2" />
+          <line x1="7" y1="15" x2="17" y2="15" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      );
+  }
 }
 
 function Header({ currentView, setView, currentScreen, setScreen, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser }) {
@@ -1348,7 +1555,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
     };
   }, []);
 
-  const featureItems = [
+  const allFeatureItems = [
     {
       id: 'overview',
       code: 'Module 00',
@@ -1439,6 +1646,10 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
     }
   ];
 
+  const featureItems = actorRole === 'patient'
+    ? allFeatureItems.filter(item => item.id !== 'feature9')
+    : allFeatureItems;
+
   const isFeatureActive = currentView.startsWith('feature') || currentView === 'overview';
 
   return (
@@ -1503,13 +1714,13 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
 
             {/* Dropdown Menu with all Feature Map options */}
             {featuresOpen && (
-              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1">
+              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-md border border-slate-200 p-2 z-50">
                 <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    Platform Feature Modules
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Platform Workspaces
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-100">
-                    10 Modules
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {featureItems.length} Available
                   </span>
                 </div>
 
@@ -1524,24 +1735,22 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
                           item.onSelect();
                           setFeaturesOpen(false);
                         }}
-                        className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-3 group ${isActive
-                          ? 'bg-blue-50/90 border border-blue-200 text-[#0b2b82]'
-                          : 'hover:bg-slate-50 border border-transparent text-slate-800'
+                        title={`${item.code}: ${item.label}  -  ${item.description}`}
+                        className={`w-full text-left p-2.5 rounded-lg transition-all flex items-start gap-3 group ${isActive
+                          ? 'bg-slate-100 text-[#0b2b82]'
+                          : 'hover:bg-slate-50 text-slate-800'
                           }`}
                       >
                         <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'bg-[#0b2b82] text-white shadow-xs' : 'bg-slate-100'
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-[#0b2b82]'
                             }`}
                         >
-                          {item.icon}
+                          <ModuleIcon id={item.id} className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-xs font-bold leading-tight group-hover:text-[#0b2b82]">
                               {item.label}
-                            </span>
-                            <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                              {item.code}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-snug font-normal mt-0.5 line-clamp-1">
@@ -1621,8 +1830,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
               <button
                 type="button"
                 onClick={() => {
-                  setAuthTab('login');
-                  setAuthModalOpen(true);
+                  setView('login');
                 }}
                 className="px-3 py-1.5 text-xs font-bold text-[#0b2b82] hover:bg-blue-50 rounded-lg transition-all border border-blue-200/80 cursor-pointer"
               >
@@ -1658,9 +1866,7 @@ function Header({ currentView, setView, currentScreen, setScreen, actorRole, set
             setCurrentUser(user);
             setActorRole(user.role);
             setAuthModalOpen(false);
-            if (user.role === 'patient') {
-              setView('overview');
-            }
+            setView('overview');
           }}
         />
       )}
@@ -1862,96 +2068,47 @@ function HealthcareImpactSection({
   ];
 
   return (
-    <div
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="relative rounded-[36px] bg-gradient-to-b from-white via-sky-50/30 to-blue-50/40 border border-slate-200/90 shadow-[0_12px_40px_rgba(2,132,199,0.06)] hover:shadow-[0_18px_50px_rgba(2,132,199,0.12)] p-6 sm:p-10 lg:p-12 overflow-hidden transition-all duration-500 group select-none"
+    <section
+      className="relative w-full bg-slate-50/80 border-t border-slate-200 py-10 sm:py-14 select-none mt-4"
+      aria-label="Healthcare Impact at a Glance"
     >
-      {/* Interactive Blueprint Medical Grid */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-500"
-        style={{
-          backgroundImage:
-            'linear-gradient(to right, rgba(2, 132, 199, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(2, 132, 199, 0.08) 1px, transparent 1px)',
-          backgroundSize: '44px 44px',
-          opacity: isHovered ? 0.95 : 0.65
-        }}
-      />
+      <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        {/* Section Header */}
+        <div className="max-w-3xl space-y-1.5 mb-6 sm:mb-8">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#0b2b82]">
+            Performance Overview
+          </div>
 
-      {/* Dynamic Cursor Spotlight Radial Glow */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(650px circle at ${mousePos.x}px ${mousePos.y}px, rgba(56, 189, 248, 0.18), rgba(2, 132, 199, 0.04) 40%, transparent 70%)`
-        }}
-      />
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+            Healthcare Impact at a Glance
+          </h2>
 
-      {/* Ambient ECG Heartbeat Waveform SVG traversing across background */}
-      <div className="absolute inset-x-0 top-[38%] -translate-y-1/2 pointer-events-none h-40 overflow-hidden opacity-35">
-        <svg className="w-full h-full min-w-[1000px]" preserveAspectRatio="none" viewBox="0 0 1200 120" fill="none">
-          <path
-            d="M0,60 L200,60 L220,40 L235,80 L255,10 L275,108 L295,45 L310,65 L325,60 L560,60 L580,40 L595,80 L615,10 L635,108 L655,45 L670,65 L685,60 L920,60 L940,40 L955,80 L975,10 L995,108 L1015,45 L1030,65 L1045,60 L1200,60"
-            stroke="#0284c7"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="pulse-ring"
-          />
-        </svg>
-      </div>
-
-      {/* Section Header */}
-      <div className="relative z-10 max-w-3xl space-y-2 mb-8 sm:mb-10">
-        {/* Eyebrow */}
-        <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0284c7]">
-          <span className="w-2 h-2 rounded-full bg-[#0284c7] animate-pulse"></span>
-          <span>PERFORMANCE OVERVIEW</span>
+          <p className="text-sm sm:text-base text-slate-600 font-normal max-w-2xl leading-relaxed">
+            Connecting patients, healthcare facilities and doctors for better access to care.
+          </p>
         </div>
 
-        {/* Title with signature cyan underline under "Impact at a Glance" */}
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-          Healthcare{' '}
-          <span className="relative inline-block pb-1">
-            <span className="relative z-10 text-slate-900">Impact at a Glance</span>
-            <span className="absolute bottom-0 left-0 w-full h-1.5 bg-[#38bdf8] rounded-full"></span>
-          </span>
-        </h2>
-
-        {/* Subtitle */}
-        <p className="text-sm sm:text-base text-slate-600 font-normal mt-2 max-w-2xl leading-relaxed">
-          Connecting patients, healthcare facilities and doctors for better access to care.
-        </p>
-      </div>
-
-      {/* 4 Cards with Staggered Offset & Slight Text/Card Overflow */}
-      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 pb-2 sm:pb-6 overflow-visible">
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            onClick={card.action}
-            title={`Click to open ${card.title}`}
-            className={`group/card relative rounded-[28px] overflow-hidden bg-slate-900 border border-slate-200/90 shadow-[0_12px_36px_rgba(2,132,199,0.12)] hover:shadow-[0_24px_48px_rgba(2,132,199,0.22)] cursor-pointer transition-all duration-500 ease-out transform ${card.offset ? 'sm:translate-y-6 lg:translate-y-8' : 'sm:translate-y-0'
-              } hover:-translate-y-2 active:scale-[0.98]`}
-          >
-            <div className="relative aspect-[4/5] w-full overflow-hidden">
-              <img
-                src={card.img}
-                alt={card.alt}
-                className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover/card:scale-105 select-none"
-              />
-
-              {/* Ambient glass reflection */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-white/10 pointer-events-none"></div>
-
-              {/* Card interactive hover highlight ring */}
-              <div className="absolute inset-0 border-2 border-transparent group-hover/card:border-sky-400/70 rounded-[28px] transition-colors pointer-events-none"></div>
+        {/* 4 Clean Enterprise Impact Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              onClick={card.action}
+              title={`Open ${card.title}`}
+              className="group/card relative rounded-lg overflow-hidden bg-white border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 cursor-pointer transition-all duration-300"
+            >
+              <div className="relative aspect-[4/5] w-full overflow-hidden">
+                <img
+                  src={card.img}
+                  alt={card.alt}
+                  className="w-full h-full object-cover object-center transform transition-transform duration-500 group-hover/card:scale-[1.02] select-none"
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2017,7 +2174,7 @@ function ScreenHomepage({
       code: 'Module 01',
       icon: '🧭',
       title: 'Smart Care Navigator',
-      description: 'Answer a few questions and get routed to the right level of care — self-care, teleconsult, or in-person — in seconds.',
+      description: 'Answer a few questions and get routed to the right level of care  -  self-care, teleconsult, or in-person  -  in seconds.',
       actionLabel: 'Launch Triage',
       action: onLaunchFeature1,
       badge: 'Autonomous Triage'
@@ -2114,38 +2271,33 @@ function ScreenHomepage({
     }
   ];
 
+  const displayModules = actorRole === 'patient'
+    ? modules.filter(m => m.id !== 'feature9')
+    : modules;
+
   return (
     <div className="w-full">
       {/* Interactive Hero Carousel (Full Width) */}
+      {/* Interactive Hero Carousel (Full Width & Laptop Full-Height) */}
       <div
-        className="relative w-full overflow-hidden bg-gradient-to-r from-white via-slate-50/50 to-blue-50/40 border-b border-slate-200/80 shadow-[0_12px_40px_rgba(8,35,95,0.04)] transition-all duration-500 group"
+        className="relative w-full h-[calc(100vh-65px)] min-h-[560px] max-h-[820px] overflow-hidden bg-slate-50/70 border-b border-slate-200 select-none group"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
-        {/* Subtle Ambient Radial Glows */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-sky-200/25 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-24 right-1/4 w-80 h-80 bg-blue-100/30 rounded-full blur-3xl pointer-events-none"></div>
-
-        {/* Slide 0: Smart Care Navigator (Strictly Preserved) */}
-        <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-            {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
-              {/* Pill Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0b2b82] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-                <span>Smart care navigation, powered by your data</span>
-              </div>
-
+        {/* Slide 0: Smart Care Navigator */}
+        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+            {/* Left Column: Interactive Typography and CTA Buttons */}
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[44px] xl:text-[48px] font-black tracking-tight text-slate-900 leading-[1.12]">
-                The right care, <span className="text-[#1a66b8]">at</span><br />
-                <span className="text-[#1a66b8]">the right time.</span>
+              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
+                The right care, <span className="text-[#0b2b82]">at</span><br />
+                <span className="text-[#0b2b82]">the right time.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
-                Meet MedVeda’s Smart Care Navigator. Simply describe the symptoms. MedVeda assesses the urgency, identifies the care required, and guides you to the right nearby facility—especially when every minute matters.
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+                Meet MedVeda’s Smart Care Navigator. Simply describe the symptoms. MedVeda assesses the urgency, identifies the care required, and guides you to the right nearby facility, especially when every minute matters.
               </p>
 
               {/* Interactive Button Group */}
@@ -2153,7 +2305,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature1}
-                  className="px-6 py-3 bg-[#183b7b] hover:bg-[#0b2b82] text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg hover:shadow-blue-900/25 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Get started</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -2162,7 +2314,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature2}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-xl border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Doctor Queue &rarr;</span>
                 </button>
@@ -2183,72 +2335,31 @@ function ScreenHomepage({
               </div>
             </div>
 
-            {/* Right Column: Feathered Seamless Doctors Graphic with Floating Interactive Cards */}
-            <div className="relative lg:w-[46%] xl:w-[48%] self-stretch flex items-center justify-end overflow-hidden">
-              {/* Soft Edge Blending Overlay to eliminate any boxy lines */}
-              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/60 to-transparent z-10 pointer-events-none"></div>
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/60 to-transparent z-10 pointer-events-none"></div>
-
+            {/* Right Column: Clean Graphic */}
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
               <img
                 src="./hero-doctors.png"
                 alt="MedVeda Clinical Care Specialists"
-                className="w-full h-auto max-h-[460px] object-cover object-left sm:object-center transform transition-transform duration-700 group-hover:scale-[1.02] select-none block"
+                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
               />
-
-              {/* Floating Interactive Micro-Badge 1: On-Duty Specialists */}
-              <div
-                onClick={onLaunchFeature2}
-                className="absolute top-6 right-6 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="View on-duty specialist doctors"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-slate-900 group-hover/tag:text-[#0b2b82]">
-                    4 Specialists On-Duty
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Live Teleconsult Roster &rarr;</div>
-                </div>
-              </div>
-
-              {/* Floating Interactive Micro-Badge 2: Autonomous Care Triage */}
-              <div
-                onClick={onLaunchFeature1}
-                className="absolute bottom-6 left-12 lg:left-4 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-blue-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="Launch Smart Care Triage"
-              >
-                <span className="text-base">⚡</span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-[#0b2b82]">
-                    Instant Clinical Triage
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">&lt; 2 min facility matching &rarr;</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Slide 1: AI Govt Health Scheme Finder (Added from User Upload) */}
-        <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-            {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
-              {/* Pill Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0284c7] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-                <span>Government health schemes finder</span>
-              </div>
-
+        {/* Slide 1: AI Govt Health Scheme Finder */}
+        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+            {/* Left Column: Interactive Typography and CTA Buttons */}
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[44px] xl:text-[48px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
                 Right scheme,<br />
-                <span className="text-[#0284c7]">for a healthier tomorrow.</span>
+                <span className="text-[#0b2b82]">for a healthier tomorrow.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
-                We find the best government health schemes for you and your family — based on your needs, income category and location.
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+                We find the best government health schemes for you and your family, based on your needs, income category and location.
               </p>
 
               {/* Interactive Button Group */}
@@ -2256,7 +2367,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature8}
-                  className="px-6 py-3 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg hover:shadow-sky-900/25 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Find suitable schemes</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -2265,7 +2376,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature8}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-xl border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Learn more</span>
                 </button>
@@ -2274,7 +2385,7 @@ function ScreenHomepage({
               {/* Trust Badges Footer */}
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-sky-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>Official schemes</span>
@@ -2286,74 +2397,30 @@ function ScreenHomepage({
               </div>
             </div>
 
-            {/* Right Column: Feathered Seamless Schemes Graphic with Floating Interactive Cards */}
-            <div className="relative lg:w-[46%] xl:w-[48%] self-stretch flex items-center justify-end overflow-hidden">
-              {/* Soft Edge Blending Overlay to eliminate any boxy lines */}
-              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/60 to-transparent z-10 pointer-events-none"></div>
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/60 to-transparent z-10 pointer-events-none"></div>
-
+            {/* Right Column: Graphic */}
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
               <img
                 src="./hero-schemes-art.png"
                 alt="Government Health Schemes Family and Doctor Support"
-                className="w-full h-auto max-h-[460px] object-cover object-left sm:object-center transform transition-transform duration-700 group-hover:scale-[1.02] select-none block"
+                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
               />
-
-              {/* Floating Interactive Micro-Badge 1: Schemes Coverage */}
-              <div
-                onClick={onLaunchFeature8}
-                className="absolute top-6 right-6 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-sky-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="Explore Verified Central & State Schemes"
-              >
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-slate-900 group-hover/tag:text-[#0284c7]">
-                    500+ Verified Schemes
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Ayushman & State Grid &rarr;</div>
-                </div>
-              </div>
-
-              {/* Floating Interactive Micro-Badge 2: Instant Eligibility Check */}
-              <div
-                onClick={onLaunchFeature8}
-                className="absolute bottom-6 left-12 lg:left-4 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-sky-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="Launch Scheme Eligibility Engine"
-              >
-                <span className="text-base">🏛️</span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-[#0284c7]">
-                    Instant Eligibility Check
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Zero out-of-pocket &rarr;</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Slide 2: Smart Teleconsultation (Added from User Upload) */}
-        <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-            {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
-              {/* Pill Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50/90 border border-sky-200/80 text-[#0284c7] text-xs font-bold shadow-2xs hover:bg-sky-100/80 transition-colors">
-                <svg className="w-3.5 h-3.5 text-[#0284c7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 7l-7 5 7 5V7z" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-                <span>Smart Teleconsultation</span>
-              </div>
-
+        {/* Slide 2: Smart Teleconsultation */}
+        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+            {/* Left Column: Interactive Typography and CTA Buttons */}
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[44px] xl:text-[48px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
                 Quality healthcare,<br />
-                <span className="text-[#0284c7]">from wherever you are.</span>
+                <span className="text-[#0b2b82]">from wherever you are.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
                 Connect with experienced doctors through secure video consultations, even when distance or access becomes a challenge.
               </p>
 
@@ -2362,7 +2429,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature2}
-                  className="px-6 py-3 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg hover:shadow-sky-900/25 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Start Consultation</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -2371,7 +2438,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchAbout}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-xl border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Learn More</span>
                 </button>
@@ -2380,7 +2447,7 @@ function ScreenHomepage({
               {/* Trust Badges Footer */}
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-sky-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>Secure</span>
@@ -2392,71 +2459,30 @@ function ScreenHomepage({
               </div>
             </div>
 
-            {/* Right Column: Feathered Teleconsult Graphic with Floating Interactive Cards */}
-            <div className="relative lg:w-[46%] xl:w-[48%] self-stretch flex items-center justify-end overflow-hidden">
-              {/* Soft Edge Blending Overlay */}
-              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/60 to-transparent z-10 pointer-events-none"></div>
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/60 to-transparent z-10 pointer-events-none"></div>
-
+            {/* Right Column: Graphic */}
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
               <img
                 src="./hero-teleconsult-art.png"
                 alt="MedVeda Teleconsultation doctor with patient on laptop"
-                className="w-full h-auto max-h-[460px] object-cover object-left sm:object-center transform transition-transform duration-700 group-hover:scale-[1.02] select-none block"
+                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
               />
-
-              {/* Floating Interactive Micro-Badge 1: Doctor Consultation */}
-              <div
-                onClick={onLaunchFeature2}
-                className="absolute top-6 right-6 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-sky-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="Live Doctor Consultation in progress"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-slate-900 group-hover/tag:text-[#0284c7]">
-                    Dr. R. Sharma &bull; General Physician
-                  </div>
-                  <div className="text-[9px] text-emerald-600 font-semibold">Consultation in progress &rarr;</div>
-                </div>
-              </div>
-
-              {/* Floating Interactive Micro-Badge 2: Health Records */}
-              <div
-                onClick={onLaunchFeature5}
-                className="absolute bottom-6 left-12 lg:left-4 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-sky-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="View Synced Health Records"
-              >
-                <span className="text-base">📄</span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-[#0284c7]">
-                    Your Health Records
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Synced in real-time &rarr;</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Slide 3: AI-Assisted Medical Record (Added from User Upload) */}
-        <div className={`transition-opacity duration-500 ease-in-out ${activeHeroSlide === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between min-h-[440px] max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-            {/* Left Column: Interactive Typography, CTA Buttons, and Badges */}
-            <div className="py-8 sm:py-12 lg:py-14 pl-2 sm:pl-4 pr-6 lg:w-[54%] xl:w-[52%] space-y-6">
-              {/* Pill Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50/90 border border-teal-200/80 text-teal-700 text-xs font-bold shadow-2xs hover:bg-teal-100/80 transition-colors">
-                <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                <span>ABDM FHIR-Compliant Health Cloud</span>
-              </div>
-
+        {/* Slide 3: AI-Assisted Medical Record */}
+        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+            {/* Left Column: Interactive Typography and CTA Buttons */}
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[44px] xl:text-[48px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
                 AI-Assisted<br />
-                <span className="text-teal-600">Medical Record</span>
+                <span className="text-[#0b2b82]">Medical Record</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
                 Transform complex patient information into clear, organized, and actionable medical insights with intelligent AI assistance.
               </p>
 
@@ -2465,7 +2491,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature5}
-                  className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg hover:shadow-teal-900/25 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Explore Medical Records</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -2474,7 +2500,7 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature1}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-xl border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Care Triage &rarr;</span>
                 </button>
@@ -2483,7 +2509,7 @@ function ScreenHomepage({
               {/* Trust Badges Footer */}
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-teal-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>ABDM FHIR R4</span>
@@ -2495,48 +2521,13 @@ function ScreenHomepage({
               </div>
             </div>
 
-            {/* Right Column: Feathered AI Medical Record Graphic with Floating Interactive Cards */}
-            <div className="relative lg:w-[46%] xl:w-[48%] self-stretch flex items-center justify-end overflow-hidden">
-              {/* Soft Edge Blending Overlay */}
-              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/60 to-transparent z-10 pointer-events-none"></div>
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/60 to-transparent z-10 pointer-events-none"></div>
-
+            {/* Right Column: Graphic */}
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
               <img
                 src="./hero-ai-records-art.png"
-                alt="AI-Assisted Medical Record holographic dashboard with intelligent insights"
-                className="w-full h-auto max-h-[460px] object-cover object-left sm:object-center transform transition-transform duration-700 group-hover:scale-[1.02] select-none block"
+                alt="AI-Assisted Medical Record dashboard"
+                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
               />
-
-              {/* Floating Interactive Micro-Badge 1: AI Generated Summary */}
-              <div
-                onClick={onLaunchFeature5}
-                className="absolute top-6 right-6 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-teal-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="View AI Generated Medical Summary"
-              >
-                <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping"></span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-slate-900 group-hover/tag:text-teal-700">
-                    AI Generated Summary
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Instant timeline synthesis &rarr;</div>
-                </div>
-              </div>
-
-              {/* Floating Interactive Micro-Badge 2: Longitudinal History */}
-              <div
-                onClick={onLaunchFeature5}
-                className="absolute bottom-6 left-12 lg:left-4 z-20 bg-white/90 hover:bg-white backdrop-blur-md px-3.5 py-2 rounded-2xl border border-teal-200/80 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group/tag"
-                title="Explore Patient Longitudinal History"
-              >
-                <span className="text-base">📊</span>
-                <div className="text-left">
-                  <div className="text-[11px] font-black text-teal-700">
-                    Longitudinal Insights
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-semibold">Vitals, Labs &amp; History &rarr;</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -2591,43 +2582,39 @@ function ScreenHomepage({
         {/* System Modules Grid */}
         <div className="space-y-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0284c7] block mb-1">
-            PLATFORM
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82] block mb-1">
+            Platform
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             One connected system for the whole care journey
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1 max-w-2xl">
-            MedVeda brings navigation, care delivery, and records together — so patients move forward and clinicians stay in the loop.
+            MedVeda brings navigation, care delivery, and records together so patients move forward and clinicians stay in the loop.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {modules.map((m) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
+          {displayModules.map((m) => (
             <div
               key={m.id}
               onClick={m.action}
-              className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between space-y-5 group cursor-pointer"
+              title={`${m.title} (${m.code}) - ${m.badge}: ${m.description}`}
+              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all duration-200 flex flex-col justify-between space-y-4 group cursor-pointer"
             >
-              <div className="space-y-4">
-                {/* Top Row: Soft-Blue Squircle Icon Container + Module Code & Badge */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50/90 text-[#0284c7] border border-blue-100 flex items-center justify-center text-xl shrink-0 shadow-xs group-hover:bg-[#0b2b82] group-hover:text-white group-hover:scale-105 transition-all duration-300">
-                    {m.icon}
+              <div className="space-y-3">
+                {/* Top Row: Icon Container and Module Code */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                    <ModuleIcon id={m.id} className="w-5 h-5" />
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                      {m.code}
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f0f7ff] text-[#0b2b82] border border-blue-100/80">
-                      {m.badge}
-                    </span>
-                  </div>
+                  <span className="text-[11px] font-mono font-semibold text-slate-400">
+                    {m.code}
+                  </span>
                 </div>
 
                 {/* Title & Description */}
-                <div className="space-y-1.5">
-                  <h4 className="text-base sm:text-lg font-extrabold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
                     {m.title}
                   </h4>
                   <p className="text-xs text-slate-500 leading-relaxed font-normal">
@@ -2643,7 +2630,7 @@ function ScreenHomepage({
                   e.stopPropagation();
                   m.action();
                 }}
-                className="w-full py-2.5 px-4 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-100 group-hover:border-[#0b2b82] shadow-2xs group-hover:shadow-sm"
+                className="w-full py-2 px-3.5 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-2 border border-slate-200/80 group-hover:border-[#0b2b82]"
               >
                 <span>{m.actionLabel}</span>
                 <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
@@ -2652,15 +2639,15 @@ function ScreenHomepage({
           ))}
         </div>
       </div>
+    </div>
 
-      {/* Healthcare Impact at a Glance Section (Replaces Network Telemetry) */}
+      {/* Healthcare Impact at a Glance Section (Full Width, matches carousel) */}
       <HealthcareImpactSection
         onLaunchFeature1={onLaunchFeature1}
         onLaunchFeature2={onLaunchFeature2}
         onLaunchFeature4={onLaunchFeature4}
         onLaunchFeature7={onLaunchFeature7}
       />
-      </div>
     </div>
   );
 }
@@ -3942,9 +3929,9 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
       <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
         <div className="mb-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2 text-xs font-bold text-brand-700 uppercase mb-1">
-            <span>Feature Map 02 &bull; Teleconsultation Entry</span>
+            <span>Module 02 &bull; Teleconsultation Entry</span>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Select Teleconsultation Path</h2>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Select Teleconsultation Path</h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Both entry paths converge into the exact same booking, priority queue, and consultation engine.
           </p>
@@ -3954,32 +3941,27 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
           {/* Path 1: Assisted Path */}
           <div
             onClick={() => setShowWorkerLogin(true)}
-            className={`p-6 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between hover:shadow-md ${actorRole === 'worker'
-              ? 'border-brand-600 bg-brand-50/30 ring-2 ring-brand-500/20 shadow-sm'
-              : 'border-slate-200 bg-white hover:border-brand-300'
-              }`}
+            title="Frontline ASHA/ANM Assisted Teleconsultation"
+            className="p-6 rounded-xl border border-slate-200 bg-white hover:border-[#0b2b82]/40 hover:shadow-xs cursor-pointer transition-all flex flex-col justify-between"
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center text-2xl mb-4 font-bold">
-                👩‍⚕️
+              <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center mb-4">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
               </div>
               <div className="flex items-center gap-2 mb-1.5">
-                <h3 className="font-extrabold text-slate-900 text-lg">Assisted Path</h3>
-                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
-                  ASHA / ANM
-                </span>
+                <h3 className="font-bold text-slate-900 text-base">Assisted Path (Frontline Worker)</h3>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium mb-4">
+              <p className="text-xs text-slate-600 leading-relaxed font-normal mb-4">
                 A frontline health worker operates the device on behalf of the patient. The worker records physical vitals, translates local dialects, and coordinates consent.
               </p>
 
-              <div className="space-y-1.5 text-xs text-slate-700 font-semibold mb-6">
-                <div className="flex items-center gap-2 text-emerald-700">
-                  <span>✓</span>
+              <div className="space-y-1.5 text-xs text-slate-600 font-medium mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">&bull;</span>
                   <span>Vitals tagged as <strong>worker_verified</strong> (High Confidence)</span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-600">
-                  <span>✓</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">&bull;</span>
                   <span>Worker presence on video/audio for clinical exam</span>
                 </div>
               </div>
@@ -3991,7 +3973,7 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
                 e.stopPropagation();
                 setShowWorkerLogin(true);
               }}
-              className="w-full py-3 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
+              className="w-full py-2.5 bg-[#0b2b82] text-white font-semibold text-xs rounded-lg shadow-2xs hover:bg-[#082060] transition-colors cursor-pointer"
             >
               Continue as Frontline Worker &rarr;
             </button>
@@ -4000,32 +3982,27 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
           {/* Path 2: Self-Service Path */}
           <div
             onClick={() => onSelectPath('self')}
-            className={`p-6 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between hover:shadow-md ${actorRole === 'patient'
-              ? 'border-brand-600 bg-brand-50/30 ring-2 ring-brand-500/20 shadow-sm'
-              : 'border-slate-200 bg-white hover:border-brand-300'
-              }`}
+            title="Self-Service Patient Video/Audio Consultation"
+            className="p-6 rounded-xl border border-slate-200 bg-white hover:border-[#0b2b82]/40 hover:shadow-xs cursor-pointer transition-all flex flex-col justify-between"
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-2xl mb-4 font-bold">
-                👤
+              <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center mb-4">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </div>
               <div className="flex items-center gap-2 mb-1.5">
-                <h3 className="font-extrabold text-slate-900 text-lg">Self-Service Path</h3>
-                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-purple-100 text-purple-800 rounded">
-                  Direct Patient
-                </span>
+                <h3 className="font-bold text-slate-900 text-base">Self-Service Path</h3>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium mb-4">
-                A literate patient navigates the application independently. The patient self-reports complaints and vitals from home.
+              <p className="text-xs text-slate-600 leading-relaxed font-normal mb-4">
+                A patient navigates the application independently. The patient self-reports complaints and vitals from home.
               </p>
 
-              <div className="space-y-1.5 text-xs text-slate-700 font-semibold mb-6">
-                <div className="flex items-center gap-2 text-amber-700">
-                  <span>⚠️</span>
+              <div className="space-y-1.5 text-xs text-slate-600 font-medium mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">&bull;</span>
                   <span>Vitals tagged as <strong>self_reported</strong> (Layperson)</span>
                 </div>
-                <div className="flex items-center gap-2 text-critical-700">
-                  <span>🚨</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">&bull;</span>
                   <span>Emergency red-flag guardrail intercept active</span>
                 </div>
               </div>
@@ -4033,7 +4010,7 @@ function ScreenTeleconsultEntry({ actorRole, onSelectPath, onBackToHome }) {
 
             <button
               type="button"
-              className="w-full py-3 bg-slate-900 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-slate-800 transition-colors"
+              className="w-full py-2.5 bg-slate-900 text-white font-semibold text-xs rounded-lg shadow-2xs hover:bg-slate-800 transition-colors"
             >
               Continue as Self-Service Patient &rarr;
             </button>
@@ -6482,7 +6459,7 @@ function ReferralLoginForm({ onOpenAuthModal }) {
             placeholder="e.g. 9431158201 or doc@abdm"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] outline-none"
+            className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] outline-none"
           />
         </div>
         <div>
@@ -6490,26 +6467,25 @@ function ReferralLoginForm({ onOpenAuthModal }) {
           <select
             value={loginRole}
             onChange={(e) => setLoginRole(e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#0b2b82] outline-none bg-white"
+            className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-[#0b2b82] outline-none bg-white"
           >
-            <option value="doctor">👨‍⚕️ Consulting / Referring Doctor (Doctor View)</option>
-            <option value="facility">🏥 Receiving Facility Administrator (Facility View)</option>
-            <option value="patient">👤 Self-Service Patient / Family (Patient View)</option>
-            <option value="worker">👩‍⚕️ Frontline Health Worker / ASHA (Referring Pipeline)</option>
+            <option value="doctor">Consulting / Referring Doctor</option>
+            <option value="facility">Receiving Facility Administrator</option>
+            <option value="patient">Self-Service Patient / Family</option>
+            <option value="worker">Frontline Health Worker / ASHA</option>
           </select>
         </div>
       </div>
 
       <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
         <p className="text-[11px] text-slate-500">
-          🔒 Secure ABDM M1/M2/M3 cryptographic authentication handshake.
+          Secure ABDM M1/M2/M3 cryptographic authentication handshake.
         </p>
         <button
           type="submit"
-          className="w-full sm:w-auto px-6 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-6 py-2.5 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-xs rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer flex items-center justify-center gap-2"
         >
-          <span>🔐</span>
-          <span>Open Main Login / Sign Up &rarr;</span>
+          <span>Open Portal Access &rarr;</span>
         </button>
       </div>
     </form>
@@ -7038,161 +7014,178 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
         </div>
       </div>
 
-      {/* Quick Role Selection - 3 Primary Frame of Reference Cards */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
+      {/* Role Selection - 4 Primary Frame of Reference Cards in 2x2 Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black text-slate-900">Select Role Frame of Reference</h3>
-            <p className="text-xs text-slate-500 font-medium">Select a role to open the official ABDM login & credentials verification portal</p>
+            <h3 className="text-base font-bold text-slate-900">Select Role Frame of Reference</h3>
+            <p className="text-xs text-slate-500 font-normal">Select a role to verify credentials and access the ABDM referral network</p>
           </div>
-          <span className="text-[11px] font-bold text-[#0b2b82] bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
-            🔐 Secure ABDM Portal
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md" title="National Health Authority ABDM M1/M2/M3 Security Framework">
+            ABDM Verified
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* DOCTOR CARD */}
           <div 
             onClick={() => openLoginForRole('doctor', 'priya.sharma@abdm')}
-            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-[#0b2b82] p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+            title="Dr. Priya Sharma - PHC Katkamsandi (priya.sharma@abdm)"
+            className="group bg-white rounded-xl border border-slate-200 hover:border-[#0b2b82] p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4"
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                  👨‍⚕️
+                <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                  <ModuleIcon id="doctor" className="w-5 h-5" />
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-blue-100 text-[#0b2b82]">
-                  Referring Doctor
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Doctor Profile
                 </span>
               </div>
               <div>
-                <h4 className="text-lg font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors">
-                  Doctor Frame of Reference
+                <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                  Referring Doctor
                 </h4>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   Initiate ABDM referrals, manage GPS clinic matching, emergency transfers, and doctor referral logs.
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
-                <div className="font-bold text-slate-800">Verified Profile:</div>
-                <div>Dr. Priya Sharma (PHC Katkamsandi)</div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                <div className="font-semibold text-slate-800">Dr. Priya Sharma (PHC Katkamsandi)</div>
                 <div className="text-slate-400 font-mono text-[10px]">priya.sharma@abdm</div>
               </div>
             </div>
             <button 
               type="button"
               onClick={(e) => { e.stopPropagation(); openLoginForRole('doctor', 'priya.sharma@abdm'); }}
-              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-[#0b2b82] group-hover:bg-[#061d5c] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3.5 rounded-lg bg-slate-50 group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold text-xs border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>Login as Doctor &rarr;</span>
+              <span>Login as Doctor</span>
+              <span>&rarr;</span>
             </button>
           </div>
 
           {/* FACILITY CARD */}
           <div 
             onClick={() => openLoginForRole('facility', 'admin.sbmch@abdm')}
-            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-emerald-600 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+            title="Sheikh Bhikhari Medical College (admin.sbmch@abdm)"
+            className="group bg-white rounded-xl border border-slate-200 hover:border-[#0b2b82] p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4"
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                  🏥
+                <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                  <ModuleIcon id="facility" className="w-5 h-5" />
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800">
-                  Receiving Facility
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Facility Admin
                 </span>
               </div>
               <div>
-                <h4 className="text-lg font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
-                  Facility Frame of Reference
+                <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                  Receiving Facility
                 </h4>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   Manage inbound queues, triage incoming ambulance referrals, reserve ICU beds, and assign attending consultants.
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
-                <div className="font-bold text-slate-800">Verified Facility:</div>
-                <div>Sheikh Bhikhari Medical College (SBMC&H)</div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                <div className="font-semibold text-slate-800">Sheikh Bhikhari Medical College (SBMC&H)</div>
                 <div className="text-slate-400 font-mono text-[10px]">admin.sbmch@abdm</div>
               </div>
             </div>
             <button 
               type="button"
               onClick={(e) => { e.stopPropagation(); openLoginForRole('facility', 'admin.sbmch@abdm'); }}
-              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3.5 rounded-lg bg-slate-50 group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold text-xs border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>Login as Facility &rarr;</span>
+              <span>Login as Facility</span>
+              <span>&rarr;</span>
             </button>
           </div>
 
           {/* PATIENT CARD */}
           <div 
             onClick={() => openLoginForRole('patient', 'anita.devi@abdm')}
-            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-purple-600 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+            title="Anita Devi - UHID: PAT-1024 (anita.devi@abdm)"
+            className="group bg-white rounded-xl border border-slate-200 hover:border-[#0b2b82] p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4"
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                  👤
+                <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                  <ModuleIcon id="patient" className="w-5 h-5" />
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-800">
-                  Patient / Family
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Citizen
                 </span>
               </div>
               <div>
-                <h4 className="text-lg font-black text-slate-900 group-hover:text-purple-700 transition-colors">
-                  Patient Frame of Reference
+                <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                  Patient / Family
                 </h4>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   Access digital referral pass, QR admissions token, hospital directions, and real-time bed confirmation.
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
-                <div className="font-bold text-slate-800">Verified Citizen:</div>
-                <div>Anita Devi (UHID: PAT-1024)</div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                <div className="font-semibold text-slate-800">Anita Devi (UHID: PAT-1024)</div>
                 <div className="text-slate-400 font-mono text-[10px]">anita.devi@abdm</div>
               </div>
             </div>
             <button 
               type="button"
               onClick={(e) => { e.stopPropagation(); openLoginForRole('patient', 'anita.devi@abdm'); }}
-              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-purple-600 group-hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3.5 rounded-lg bg-slate-50 group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold text-xs border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>Login as Patient &rarr;</span>
+              <span>Login as Patient</span>
+              <span>&rarr;</span>
+            </button>
+          </div>
+
+          {/* FRONTLINE WORKER CARD */}
+          <div 
+            onClick={() => openLoginForRole('worker', '9876543210@abdm')}
+            title="Anita Devi - ASHA Katkamsandi (9876543210@abdm)"
+            className="group bg-white rounded-xl border border-slate-200 hover:border-[#0b2b82] p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                  <ModuleIcon id="worker" className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Frontline
+                </span>
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                  Frontline ASHA Worker
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Health workers referring community members to tertiary institutions and tracking inbound follow-ups.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                <div className="font-semibold text-slate-800">Anita Devi (ASHA Katkamsandi)</div>
+                <div className="text-slate-400 font-mono text-[10px]">9876543210@abdm</div>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openLoginForRole('worker', '9876543210@abdm'); }}
+              className="w-full py-2 px-3.5 rounded-lg bg-slate-50 group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold text-xs border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>Login as ASHA</span>
+              <span>&rarr;</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Frontline Worker option + Manual Form Login */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2.5 mb-3">
-              <span className="text-2xl">👩‍⚕️</span>
-              <div>
-                <h4 className="text-sm font-black text-slate-900">Frontline Worker Access</h4>
-                <p className="text-[11px] text-slate-500">ASHA / ANM Village Health Post</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed mb-4">
-              Health workers referring community members to tertiary health institutions. Opens referring provider pipeline.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => openLoginForRole('worker', '9876543210@abdm')}
-            className="w-full py-2.5 px-4 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>Login as ASHA (Anita Devi) &rarr;</span>
-          </button>
-        </div>
-
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h4 className="text-sm font-black text-slate-900 mb-1">Enter Credentials (ABDM / UHID)</h4>
-          <p className="text-xs text-slate-500 mb-4">Sign in with an existing National Digital Health account or password</p>
-          <ReferralLoginForm onOpenAuthModal={openLoginForRole} />
-        </div>
+      {/* Manual Form Login */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-2xs">
+        <h4 className="text-sm font-bold text-slate-900 mb-1">Enter Credentials (ABDM / UHID)</h4>
+        <p className="text-xs text-slate-500 mb-4">Sign in with an existing National Digital Health account or password</p>
+        <ReferralLoginForm onOpenAuthModal={openLoginForRole} />
       </div>
     </div>
   );
@@ -7233,14 +7226,14 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
         <div className="flex items-center gap-3 flex-wrap">
           {/* MULTI-TENANT SWITCHER DROPDOWN */}
           {activeTabRole === 'facility' && (
-            <div className="flex items-center gap-2 bg-blue-50/80 border border-blue-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-[#0b2b82] tracking-wider whitespace-nowrap">🏥 Hospital Queue:</span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">Hospital:</span>
               <select
                 value={selectedHospital}
                 onChange={e => setSelectedHospital(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-md px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All Hospitals (Combined)</option>
+                <option value="ALL">All Hospitals (Combined)</option>
                 {Array.from(new Set(referrals.flatMap(r => [r.receivingFacilityName, r.referringFacilityName]).filter(Boolean))).map(fac => (
                   <option key={fac} value={fac}>{fac}</option>
                 ))}
@@ -7249,14 +7242,14 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
           )}
 
           {activeTabRole === 'doctor' && (
-            <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider whitespace-nowrap">👨‍⚕️ Doctor Account:</span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-semibold text-slate-700 tracking-wider whitespace-nowrap">Doctor Account:</span>
               <select
                 value={selectedDoctor}
                 onChange={e => setSelectedDoctor(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-600"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-md px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All Referring Doctors</option>
+                <option value="ALL">All Referring Doctors</option>
                 {Array.from(new Set(referrals.map(r => r.referringDoctorName).filter(Boolean))).map(doc => (
                   <option key={doc} value={doc}>{doc}</option>
                 ))}
@@ -7265,14 +7258,14 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
           )}
 
           {activeTabRole === 'patient' && actorRole !== 'patient' && (
-            <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-purple-800 tracking-wider whitespace-nowrap">👤 Patient Profile:</span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-semibold text-slate-700 tracking-wider whitespace-nowrap">Patient Profile:</span>
               <select
                 value={selectedPatient}
                 onChange={e => setSelectedPatient(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-purple-600"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-md px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All Patients</option>
+                <option value="ALL">All Patients</option>
                 {Array.from(new Set(referrals.map(r => r.patientName).filter(Boolean))).map(pat => (
                   <option key={pat} value={pat}>{pat}</option>
                 ))}
@@ -7282,13 +7275,13 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
 
           {/* User Profile / Authentication Header Actions */}
           {currentUser ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs font-black text-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200" title={`Active: ${currentUser.name} (${getRoleBadgeLabel(currentUser.role)})`}>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span className="text-xs font-semibold text-slate-800">
                   {currentUser.name}
                 </span>
-                <span className="text-[10px] font-extrabold text-[#0b2b82] bg-blue-100/80 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
                   {getRoleBadgeLabel(currentUser.role)}
                 </span>
               </div>
@@ -7298,10 +7291,9 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
                   if (setCurrentUser) setCurrentUser(null);
                   setActiveTabRole('login');
                 }}
-                className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200 flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200"
                 title="Switch user or log out"
               >
-                <span>🚪</span>
                 <span>Log Out</span>
               </button>
             </div>
@@ -7310,16 +7302,15 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
               <button
                 type="button"
                 onClick={() => openLoginForRole('doctor')}
-                className="px-4 py-2 bg-[#0b2b82] hover:bg-[#061d5c] text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-[#0b2b82] hover:bg-[#082060] text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
               >
-                <span>🔐</span>
                 <span>ABDM Login Portal</span>
               </button>
             </div>
           )}
 
           {activeTabRole === 'doctor' && (
-            <button onClick={() => setShowCreateWizard(true)} className="px-5 py-2.5 bg-[#0b2b82] text-white font-bold text-xs rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all whitespace-nowrap">
+            <button onClick={() => setShowCreateWizard(true)} className="px-4 py-2 bg-[#0b2b82] text-white font-semibold text-xs rounded-lg hover:bg-[#082060] shadow-xs transition-colors whitespace-nowrap">
               + Create Referral
             </button>
           )}
@@ -7328,25 +7319,6 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-6xl mx-auto">
-          {actorRole === 'patient' && (
-            <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">👤</span>
-                <div>
-                  <span className="text-xs font-black text-slate-900 block">Patient Referral Pass View (Active)</span>
-                  <span className="text-[11px] text-slate-500">Displaying your personal digital referral pass, QR admission pass &amp; specialist facility</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveTabRole(activeTabRole === 'patient' ? 'doctor' : 'patient')}
-                className="px-3.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <span>{activeTabRole === 'patient' ? "👁️ Preview Doctor's Referral Board" : "👤 Back to Patient Referral Pass"}</span>
-              </button>
-            </div>
-          )}
-
           {activeTabRole === 'login' && renderLoginView()}
           {activeTabRole === 'doctor' && renderDoctorView()}
           {activeTabRole === 'facility' && renderFacilityView()}
@@ -8011,76 +7983,55 @@ function ScreenHighRiskFollowUp({
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5"
           >
-            <span>🏠 Home</span>
+            <span>&larr; Return to Home</span>
           </button>
         </div>
       </div>
 
       {/* Role Navigation Bar with Multi-Tenant Profile Switchers */}
-      <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+      {actorRole !== 'patient' && (
+      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between flex-wrap gap-3">
         {/* Role Tabs */}
-        {actorRole === 'patient' ? (
-          <div className="flex items-center justify-between w-full flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
-              <span className="text-xs font-black text-slate-900">
-                {activeTabRole === 'patient' ? '👤 Patient Care & Recovery View (Active)' : "👁️ Previewing Doctor's Monitoring Center"}
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                {activeTabRole === 'patient' ? 'Your prescribed medicines, daily adherence checklist & ASHA home visits' : 'Clinical doctor case review'}
-              </span>
-            </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { id: 'doctor', label: 'Doctor Monitoring Center' },
+            { id: 'worker', label: 'ASHA Worker Task Board' },
+            { id: 'facility', label: 'Facility Alert Desk' },
+            { id: 'patient', label: 'Patient Care View' }
+          ].map((tab) => (
             <button
+              key={tab.id}
               type="button"
-              onClick={() => setActiveTabRole(activeTabRole === 'patient' ? 'doctor' : 'patient')}
-              className="px-3.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              onClick={() => {
+                setActiveTabRole(tab.id);
+                setActorRole && setActorRole(tab.id);
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTabRole === tab.id
+                  ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
             >
-              <span>{activeTabRole === 'patient' ? "👁️ Preview Doctor Monitoring Center" : "👤 Back to Patient Care View"}</span>
+              <span>{tab.label}</span>
             </button>
-          </div>
-        ) : (
-          <div className="flex gap-1.5 flex-wrap">
-            {[
-              { id: 'doctor', label: 'Doctor Monitoring Center', icon: '👨‍⚕️' },
-              { id: 'worker', label: 'ASHA Worker Task Board', icon: '👩‍⚕️' },
-              { id: 'facility', label: 'Facility Alert Desk', icon: '🏥' },
-              { id: 'patient', label: 'Patient Care View', icon: '👤' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveTabRole(tab.id);
-                  setActorRole && setActorRole(tab.id);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
-                  activeTabRole === tab.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Multi-Tenant Profile Dropdown Switchers */}
         <div className="flex items-center gap-2 flex-wrap">
           {activeTabRole === 'doctor' && (
-            <div className="flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider whitespace-nowrap">
-                👨‍⚕️ Doctor Profile:
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-bold uppercase text-slate-700 tracking-wider whitespace-nowrap">
+                Doctor Profile:
               </span>
               <select
                 value={selectedDoctor}
                 onChange={(e) => setSelectedDoctor(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-600"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1 focus:ring-1 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All Doctors (Combined)</option>
+                <option value="ALL">All Doctors (Combined)</option>
                 {filterOptions.doctors.map((doc) => (
                   <option key={doc.id} value={doc.name}>
                     {doc.name} ({doc.facilityName ? doc.facilityName.split('(')[0].trim() : 'Hospital'})
@@ -8091,16 +8042,16 @@ function ScreenHighRiskFollowUp({
           )}
 
           {activeTabRole === 'worker' && (
-            <div className="flex items-center gap-2 bg-amber-50/90 border border-amber-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-amber-800 tracking-wider whitespace-nowrap">
-                👩‍⚕️ ASHA Worker Profile:
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-bold uppercase text-slate-700 tracking-wider whitespace-nowrap">
+                ASHA Worker Profile:
               </span>
               <select
                 value={selectedWorker}
                 onChange={(e) => setSelectedWorker(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-amber-600"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1 focus:ring-1 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All ASHA Workers (Combined)</option>
+                <option value="ALL">All ASHA Workers (Combined)</option>
                 {filterOptions.workers.map((w) => (
                   <option key={w.id} value={w.name}>
                     {w.name}
@@ -8111,16 +8062,16 @@ function ScreenHighRiskFollowUp({
           )}
 
           {activeTabRole === 'facility' && (
-            <div className="flex items-center gap-2 bg-blue-50/90 border border-blue-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-[#0b2b82] tracking-wider whitespace-nowrap">
-                🏥 Hospital Queue:
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-bold uppercase text-slate-700 tracking-wider whitespace-nowrap">
+                Hospital Queue:
               </span>
               <select
                 value={selectedFacility}
                 onChange={(e) => setSelectedFacility(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-[#0b2b82]"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1 focus:ring-1 focus:ring-[#0b2b82]"
               >
-                <option value="ALL">🌐 All Facilities (Combined)</option>
+                <option value="ALL">All Facilities (Combined)</option>
                 {filterOptions.facilities.map((fac) => (
                   <option key={fac.id} value={fac.name}>
                     {fac.name}
@@ -8131,14 +8082,14 @@ function ScreenHighRiskFollowUp({
           )}
 
           {activeTabRole === 'patient' && (
-            <div className="flex items-center gap-2 bg-purple-50/90 border border-purple-200 px-3 py-1.5 rounded-xl shadow-sm">
-              <span className="text-[11px] font-black uppercase text-purple-800 tracking-wider whitespace-nowrap">
-                👤 Patient Profile:
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+              <span className="text-[11px] font-bold uppercase text-slate-700 tracking-wider whitespace-nowrap">
+                Patient Profile:
               </span>
               <select
                 value={selectedPatient}
                 onChange={(e) => setSelectedPatient(e.target.value)}
-                className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-purple-600"
+                className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2.5 py-1 focus:ring-1 focus:ring-[#0b2b82]"
               >
                 {filterOptions.patients.map((pat) => (
                   <option key={pat.id} value={pat.id}>
@@ -8148,14 +8099,12 @@ function ScreenHighRiskFollowUp({
               </select>
             </div>
           )}
-
-          <div className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-lg text-xs font-mono font-bold border border-purple-200 whitespace-nowrap">
-            Active Role: {activeTabRole.toUpperCase()}
-          </div>
         </div>
       </div>
+      )}
 
       {/* KPI Metric Summary Cards */}
+      {actorRole !== 'patient' && (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Monitored</div>
@@ -8186,6 +8135,7 @@ function ScreenHighRiskFollowUp({
           <div className="text-[11px] text-emerald-700 mt-0.5">ASHA visit completion rate</div>
         </div>
       </div>
+      )}
 
       {/* ==================================================== */}
       {/* 1. DOCTOR MONITORING VIEW */}
@@ -10342,7 +10292,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         })
       });
       setShowEmergencyModal(false);
-      showToast('🚨 Emergency Override Active — Audit Trail Logged');
+      showToast('🚨 Emergency Override Active  -  Audit Trail Logged');
       const res = await fetch(
         getApiUrl(
           `/api/patient/${patient.internalMedicalId}/records/timeline?requester_id=doc_er_99&requester_role=doctor&emergency=true&emergency_reason=${encodeURIComponent(emergencyReason)}`
@@ -10475,56 +10425,40 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5"
           >
-            <span>🏠 Home</span>
+            <span>&larr; Return to Home</span>
           </button>
         </div>
       </div>
 
       {/* Role Navigation Bar & Patient Selector */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {actorRole === 'patient' ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
-            <span className="text-xs font-black text-slate-900">
-              {activeRole === 'patient' ? '👤 Personal Health Records (Self-Access Mode)' : "👁️ Previewing Doctor's Clinical Review"}
-            </span>
+      {actorRole !== 'patient' && (
+      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
+          {[
+            { id: 'patient', label: 'Patient (Self Access)' },
+            { id: 'doctor', label: 'Doctor (Consent Required)' },
+            { id: 'worker', label: 'ASHA Worker' }
+          ].map((tab) => (
             <button
+              key={tab.id}
               type="button"
-              onClick={() => setActiveRole(activeRole === 'patient' ? 'doctor' : 'patient')}
-              className="px-3.5 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ml-2"
+              onClick={() => {
+                setActiveRole(tab.id);
+                setActorRole(tab.id);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeRole === tab.id
+                  ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
             >
-              <span>{activeRole === 'patient' ? "👁️ Preview Doctor's Clinical Review" : "👤 Back to Patient Health Records"}</span>
+              <span>{tab.label}</span>
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
-            {[
-              { id: 'patient', label: 'Patient (Self Access)', icon: '👤' },
-              { id: 'doctor', label: 'Doctor (Consent Required)', icon: '👨‍⚕️' },
-              { id: 'worker', label: 'ASHA Worker', icon: '👩‍⚕️' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveRole(tab.id);
-                  setActorRole(tab.id);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  activeRole === tab.id
-                    ? 'bg-slate-900 text-white shadow-sm font-black'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold text-slate-500 uppercase">Select Active Patient:</span>
@@ -10546,6 +10480,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           </select>
         </div>
       </div>
+      )}
 
       {/* Sub-View Navigation Switcher (Timeline vs Grounded RAG Chatbot) */}
       <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
@@ -13089,19 +13024,18 @@ function ScreenMedicineDiagnostics({
       )}
 
       {/* Feature Header Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-              FEATURE MAP 06 &bull; MEDICINE AVAILABILITY &amp; DIAGNOSTIC COORDINATION
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82]" title="District Medicine & Diagnostic Logistics Grid">
+              Module 06 &bull; Medicine &amp; Diagnostic Network
             </span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Medicine Availability &amp; Diagnostic Grid
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-2xl leading-relaxed">
-            Live GPS nearby pharmacy stock search, 24x7 chemist locator, Jan Aushadhi generic substitution savings, zero-payment counter reservations, and diagnostic coordination.
+          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1 max-w-2xl leading-relaxed">
+            Live GPS nearby pharmacy stock search, 24x7 chemist locator, Jan Aushadhi generic substitution savings, counter reservations, and diagnostic coordination.
           </p>
         </div>
 
@@ -13109,72 +13043,72 @@ function ScreenMedicineDiagnostics({
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <span>🏠 Home</span>
+            <span>Home</span>
           </button>
         </div>
       </div>
 
       {/* Primary Module Navigation Tabs */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1 overflow-x-auto text-xs font-bold">
+      <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-2xs flex items-center gap-1 overflow-x-auto text-xs font-semibold">
         <button
           type="button"
           onClick={() => setActiveTab('medicine_search')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'medicine_search'
-            ? 'bg-teal-600 text-white shadow-md font-black'
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'medicine_search'
+            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
         >
-          <span>💊</span>
+          <ModuleIcon id="medicine" className="w-4 h-4" />
           <span>Medicine Stock &amp; Nearby Shops</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('shop_owner')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'shop_owner'
-            ? 'bg-slate-900 text-white shadow-md font-black'
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'shop_owner'
+            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
         >
-          <span>🏪</span>
-          <span>Medical Shop Dashboard (Owner CRUD)</span>
+          <ModuleIcon id="facility" className="w-4 h-4" />
+          <span>Medical Shop Dashboard</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('diagnostic_search')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'diagnostic_search'
-            ? 'bg-purple-600 text-white shadow-md font-black'
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'diagnostic_search'
+            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
         >
-          <span>🔬</span>
-          <span>Diagnostic Test Search (Direct Booking)</span>
+          <ModuleIcon id="lab" className="w-4 h-4" />
+          <span>Diagnostic Test Search</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('lab_dashboard')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'lab_dashboard'
-            ? 'bg-indigo-600 text-white shadow-md font-black'
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'lab_dashboard'
+            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
         >
-          <span>🧪</span>
-          <span>Diagnostic Center Staff Dashboard</span>
+          <ModuleIcon id="facility" className="w-4 h-4" />
+          <span>Diagnostic Center Staff</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('doctor_orders')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${activeTab === 'doctor_orders'
-            ? 'bg-emerald-600 text-white shadow-md font-black'
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'doctor_orders'
+            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
         >
-          <span>📋</span>
+          <ModuleIcon id="doctor" className="w-4 h-4" />
           <span>Doctor-Ordered Lab Tracker</span>
         </button>
       </div>
@@ -13185,21 +13119,20 @@ function ScreenMedicineDiagnostics({
       {activeTab === 'medicine_search' && (
         <div className="space-y-6">
           {/* Live GPS & Location Selector Hub */}
-          <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-teal-700/40 space-y-4">
+          <div className="bg-white rounded-xl p-5 sm:p-6 shadow-2xs border border-slate-200 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-300">
-                    LIVE GPS LOCATION ENGINE &bull; ALL-INDIA RADIUS
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Live GPS Location Engine &bull; Nearby Radius
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                  <span>📍</span>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
                   <span>{userLocation.label}</span>
                 </h3>
-                <p className="text-xs text-teal-200/80 font-medium">
-                  Lat: <span className="font-mono">{userLocation.lat.toFixed(4)}</span> &bull; Lng: <span className="font-mono">{userLocation.lng.toFixed(4)}</span> &bull; {userLocation.isLiveGPS ? '🟢 Active Device GPS' : '⚪ Preset Location Hub'}
+                <p className="text-xs text-slate-500 font-normal">
+                  Lat: <span className="font-mono text-slate-700">{userLocation.lat.toFixed(4)}</span> &bull; Lng: <span className="font-mono text-slate-700">{userLocation.lng.toFixed(4)}</span> &bull; {userLocation.isLiveGPS ? 'Active Device GPS' : 'Preset Location Hub'}
                 </p>
               </div>
 
@@ -13208,9 +13141,8 @@ function ScreenMedicineDiagnostics({
                   type="button"
                   onClick={handleGetLiveGPS}
                   disabled={gpsLoading}
-                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#082060] text-white font-semibold rounded-lg text-xs shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  <span>{gpsLoading ? '⏳' : '🎯'}</span>
                   <span>{gpsLoading ? 'Detecting GPS...' : 'Use My Live GPS'}</span>
                 </button>
 
@@ -13221,7 +13153,7 @@ function ScreenMedicineDiagnostics({
                       if (sel) handleSelectPresetLocation(sel);
                     }}
                     value={locationPresets.find((p) => p.lat === userLocation.lat && p.lng === userLocation.lng)?.label || ''}
-                    className="bg-slate-800 text-white border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-teal-400"
+                    className="bg-white text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-[#0b2b82]"
                   >
                     <option value="" disabled>Switch Location Hub...</option>
                     {locationPresets.map((p) => (
@@ -13235,17 +13167,17 @@ function ScreenMedicineDiagnostics({
             </div>
 
             {/* Sub-View Switcher inside Medicine Discovery */}
-            <div className="pt-3 border-t border-teal-700/50 flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-[10px] font-black uppercase text-teal-300 tracking-wider">BROWSE MODE:</span>
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Browse Mode:</span>
               <button
                 type="button"
                 onClick={() => setMedSubView('stock_search')}
-                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'stock_search'
-                  ? 'bg-white text-teal-900 shadow-md font-black'
-                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'stock_search'
+                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
               >
-                🔍 Live Medicine Stock Search
+                Live Medicine Stock Search
               </button>
               <button
                 type="button"
@@ -13253,12 +13185,12 @@ function ScreenMedicineDiagnostics({
                   setMedSubView('nearby_shops');
                   loadNearbyPharmacies(userLocation.lat, userLocation.lng, medRadius);
                 }}
-                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'nearby_shops'
-                  ? 'bg-white text-teal-900 shadow-md font-black'
-                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'nearby_shops'
+                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
               >
-                🏪 Top Nearby Medicine Shops ({nearbyPharmacies.length})
+                Top Nearby Medicine Shops ({nearbyPharmacies.length})
               </button>
               <button
                 type="button"
@@ -13266,12 +13198,12 @@ function ScreenMedicineDiagnostics({
                   setMedSubView('master_catalog');
                   loadMasterCatalog('', selectedCategory);
                 }}
-                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${medSubView === 'master_catalog'
-                  ? 'bg-white text-teal-900 shadow-md font-black'
-                  : 'bg-teal-950/60 text-teal-200 hover:bg-teal-900'
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'master_catalog'
+                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
               >
-                📖 Master Essential Catalog &amp; Jan Aushadhi Savings
+                Master Essential Catalog &amp; Jan Aushadhi Savings
               </button>
             </div>
           </div>
@@ -15238,30 +15170,29 @@ function ScreenFacilityDashboard({
       )}
 
       {/* Feature Header Banner with Facility Switcher */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-              FEATURE MAP 07 &bull; FACILITY DASHBOARD AGGREGATION LAYER
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82]" title="Multi-source aggregation layer across Features 01-06">
+              Module 07 &bull; Facility Operations &amp; Resource Control
             </span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Facility Operations &amp; Resource Control
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-2xl leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1 max-w-2xl leading-relaxed">
             Real-time unified aggregation across Features 01–06: Care Continuity index, priority queue load, live bed/ICU status, footfall trends, and severity-tagged alerts.
           </p>
         </div>
 
         {/* Facility Selector & Action Buttons */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2">
-            <span className="text-sm">🏥</span>
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            <span className="text-xs font-semibold text-slate-500">Facility:</span>
             <select
               value={activeFacilityId}
               onChange={(e) => setActiveFacilityId(e.target.value)}
-              className="bg-transparent text-xs font-black text-slate-900 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
             >
               {facilities.map((f) => (
                 <option key={f.facilityId} value={f.facilityId}>
@@ -15275,41 +15206,40 @@ function ScreenFacilityDashboard({
             type="button"
             onClick={() => refreshAll(activeFacilityId)}
             disabled={isRefreshing}
-            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-sm"
-            title="Poll latest updates from Features 01–06"
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Poll latest updates from Features 01-06"
           >
-            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
             <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
           </button>
 
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <span>🏠 Home</span>
+            <span>Home</span>
           </button>
         </div>
       </div>
 
       {/* Role Context & Switcher Bar */}
-      <div className="bg-gradient-to-r from-[#061d5c] via-[#0b2b82] to-[#123eab] text-white p-4 sm:p-5 rounded-2xl flex items-center justify-between flex-wrap gap-4 text-xs shadow-md border border-blue-900/40">
-        <div className="flex items-center gap-3">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+      <div className="bg-slate-50 text-slate-800 p-4 rounded-xl border border-slate-200 flex items-center justify-between flex-wrap gap-4 text-xs shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           <div>
-            <span className="text-sky-200 font-medium">Active Facility:</span>{' '}
-            <strong className="text-white font-bold">{activeFacilityObj.name}</strong> &bull;{' '}
-            <span className="text-amber-300 font-bold">{activeFacilityObj.type || 'District Hospital'}</span>
+            <span className="text-slate-500 font-medium">Active Facility:</span>{' '}
+            <strong className="text-slate-900 font-bold">{activeFacilityObj.name}</strong> &bull;{' '}
+            <span className="text-slate-600 font-semibold">{activeFacilityObj.type || 'District Hospital'}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="text-sky-200 font-medium">Role Perspective:</span>
-          <div className="inline-flex bg-white/10 p-1 rounded-xl border border-white/20 backdrop-blur-sm">
+          <span className="text-slate-500 font-medium">Role Perspective:</span>
+          <div className="inline-flex bg-white p-0.5 rounded-lg border border-slate-200">
             {[
-              { id: 'admin', label: '👑 Administrator' },
-              { id: 'doctor', label: '🩺 Medical Officer' },
-              { id: 'worker', label: '📋 Operations Desk' }
+              { id: 'admin', label: 'Administrator' },
+              { id: 'doctor', label: 'Medical Officer' },
+              { id: 'worker', label: 'Operations Desk' }
             ].map((role) => (
               <button
                 key={role.id}
@@ -15319,10 +15249,10 @@ function ScreenFacilityDashboard({
                   if (setActorRole) setActorRole(role.id);
                   showToast(`Switched view to ${role.label}`);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   dashboardRole === role.id
-                    ? 'bg-white text-slate-900 shadow-sm font-black'
-                    : 'text-sky-100 hover:text-white hover:bg-white/10'
+                    ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 {role.label}
@@ -15333,33 +15263,33 @@ function ScreenFacilityDashboard({
       </div>
 
       {/* 6 Section Module Navigation Tabs - Visible to all roles */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1 overflow-x-auto text-xs font-bold">
+      <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-2xs flex items-center gap-1 overflow-x-auto text-xs font-semibold">
         <button
           type="button"
           onClick={() => setActiveSection('overview')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'overview'
-              ? 'bg-slate-900 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>📊</span>
+          <ModuleIcon id="overview" className="w-3.5 h-3.5" />
           <span>1. Overview Summary</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSection('patient_care')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'patient_care'
-              ? 'bg-brand-600 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>👥</span>
+          <ModuleIcon id="patient" className="w-3.5 h-3.5" />
           <span>2. Patient &amp; Care Mgmt</span>
           {patientCareData?.highRiskPatientsCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-brand-200 text-brand-900 rounded-full font-black text-[10px]">
+            <span className="px-1.5 py-0.2 bg-slate-200 text-slate-800 rounded font-bold text-[10px]" title="High-Risk Patients">
               {patientCareData.highRiskPatientsCount}
             </span>
           )}
@@ -15368,16 +15298,16 @@ function ScreenFacilityDashboard({
         <button
           type="button"
           onClick={() => setActiveSection('appointments_queue')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'appointments_queue'
-              ? 'bg-purple-600 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>⏱️</span>
+          <ModuleIcon id="feature2" className="w-3.5 h-3.5" />
           <span>3. Appointments &amp; Queue</span>
           {queueData?.waitingCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-purple-200 text-purple-900 rounded-full font-black text-[10px]">
+            <span className="px-1.5 py-0.2 bg-slate-200 text-slate-800 rounded font-bold text-[10px]" title="Waiting in Queue">
               {queueData.waitingCount}
             </span>
           )}
@@ -15386,16 +15316,16 @@ function ScreenFacilityDashboard({
         <button
           type="button"
           onClick={() => setActiveSection('service_resource')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'service_resource'
-              ? 'bg-teal-600 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>🏥</span>
+          <ModuleIcon id="facility" className="w-3.5 h-3.5" />
           <span>4. Service &amp; Resources</span>
           {serviceResourceData?.emergencyReadinessScore && (
-            <span className="px-1.5 py-0.5 bg-teal-200 text-teal-900 rounded-full font-black text-[10px]">
+            <span className="px-1.5 py-0.2 bg-slate-200 text-slate-800 rounded font-bold text-[10px]" title="Emergency Readiness Score">
               {serviceResourceData.emergencyReadinessScore}%
             </span>
           )}
@@ -15404,29 +15334,29 @@ function ScreenFacilityDashboard({
         <button
           type="button"
           onClick={() => setActiveSection('analytics')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'analytics'
-              ? 'bg-emerald-600 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>📈</span>
+          <ModuleIcon id="feature7" className="w-3.5 h-3.5" />
           <span>5. Analytics &amp; Reports</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSection('alerts')}
-          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${
             activeSection === 'alerts'
-              ? 'bg-critical-600 text-white shadow-md font-black'
+              ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span>🚨</span>
+          <ModuleIcon id="feature9" className="w-3.5 h-3.5" />
           <span>6. Alerts &amp; Notifications</span>
           {criticalCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-critical-100 text-critical-800 rounded-full font-black text-[10px]">
+            <span className="px-1.5 py-0.2 bg-rose-100 text-rose-800 rounded font-bold text-[10px]" title="Critical Alerts">
               {criticalCount}
             </span>
           )}
@@ -17042,6 +16972,80 @@ function ScreenFacilityDashboard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ==========================================
+// --- LOGIN PAGE COMPONENT ---
+// ==========================================
+function ScreenLogin({
+  currentUser,
+  setCurrentUser,
+  setActorRole,
+  onLoginSuccess,
+  onBackToHome
+}) {
+  if (currentUser) {
+    return (
+      <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-12 px-4 bg-gradient-to-b from-slate-50 via-blue-50/20 to-white">
+        <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-xl border border-slate-200 text-center space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-3xl shadow-xs">
+            👤
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Authenticated Session</span>
+            <h3 className="text-xl font-black text-slate-900 mt-1">{currentUser.name}</h3>
+            <p className="text-xs text-[#0b2b82] font-bold uppercase tracking-wide mt-0.5">{currentUser.roleLabel || currentUser.role}</p>
+            <p className="text-xs text-slate-500 font-mono mt-1">{currentUser.abhaId}</p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={() => onLoginSuccess(currentUser)}
+              className="w-full py-3.5 px-4 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-black text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Continue to Platform Overview</span>
+              <span>&rarr;</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (setCurrentUser) setCurrentUser(null);
+                if (setActorRole) setActorRole('patient');
+              }}
+              className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+            >
+              Switch Account / Log Out
+            </button>
+          </div>
+          <div className="pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            >
+              &larr; Return to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-8 px-4 bg-gradient-to-b from-slate-50 via-blue-50/20 to-white">
+      <AuthModal
+        initialTab="login"
+        initialRole="patient"
+        isPage={true}
+        onClose={onBackToHome}
+        onAuthSuccess={(user) => {
+          if (setCurrentUser) setCurrentUser(user);
+          if (setActorRole) setActorRole(user.role);
+          onLoginSuccess(user);
+        }}
+      />
     </div>
   );
 }
@@ -18873,15 +18877,13 @@ function ScreenSchemeFinder({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide uppercase bg-sky-100 text-[#0b2b82] border border-sky-200">
-
-            </span>
-            <span className="text-xs font-mono font-bold text-slate-400">
-              Deterministic RAG Matching
+            <span className="text-xs font-mono font-semibold text-slate-400">
+              Module 08 &bull; Deterministic RAG Matching
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
-            <span>🏛️ AI Government Health Scheme Finder</span>
+            <ModuleIcon id="feature8" className="w-6 h-6 text-[#0b2b82]" />
+            <span>AI Government Health Scheme Finder</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
             Instant affordability discovery: deterministic eligibility rules engine (Income, Age, Location, Medical Need), single-document gap filling, and verified benefit ranking.
@@ -18892,57 +18894,58 @@ function ScreenSchemeFinder({
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>←</span>
             <span>Home</span>
           </button>
           <button
             type="button"
             onClick={onNavigateToCareNavigator}
-            className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-[#0b2b82] font-bold rounded-xl text-xs border border-sky-200 flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-[#0b2b82] font-semibold rounded-lg text-xs border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>🩺 Triage (Mod 01)</span>
+            <ModuleIcon id="feature1" className="w-3.5 h-3.5" />
+            <span>Triage (Mod 01)</span>
           </button>
           <button
             type="button"
             onClick={onNavigateToTeleconsult}
-            className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-[#0b2b82] font-bold rounded-xl text-xs border border-indigo-200 flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-[#0b2b82] font-semibold rounded-lg text-xs border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>📞 Consult (Mod 02)</span>
+            <ModuleIcon id="feature2" className="w-3.5 h-3.5" />
+            <span>Consult (Mod 02)</span>
           </button>
         </div>
       </div>
 
       {/* 2. Platform Positioning & Governance Strip */}
-      <div className="bg-gradient-to-r from-sky-900 via-[#0b2b82] to-[#071a4f] text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-blue-900/50">
+      <div className="bg-slate-50 text-slate-800 rounded-xl p-4 sm:p-5 border border-slate-200 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-300 font-black flex items-center justify-center text-sm shrink-0 border border-sky-400/30">
+            <span className="w-7 h-7 rounded-md bg-[#0b2b82] text-white font-bold flex items-center justify-center text-xs shrink-0">
               §
             </span>
             <div>
-              <span className="font-bold text-sky-200 uppercase tracking-wider text-[10px] block">
+              <span className="font-bold text-[#0b2b82] uppercase tracking-wider text-[10px] block">
                 Platform Architecture Rule
               </span>
-              <p className="text-slate-200 font-medium leading-relaxed">
-                Smart Care Navigator (What care is needed?) &rarr; <strong className="text-sky-300 underline">Scheme Finder (How to afford it?)</strong> &rarr; Referral Grid (Where to go?).
-                The LLM acts strictly as a retriever &amp; explainer — eligibility is decided 100% deterministically by the Rules Engine.
+              <p className="text-slate-600 font-normal leading-relaxed">
+                Smart Care Navigator (What care is needed?) &rarr; <strong className="text-[#0b2b82]">Scheme Finder (How to afford it?)</strong> &rarr; Referral Grid (Where to go?).
+                The LLM acts strictly as a retriever and explainer. Eligibility is decided 100% deterministically by the Rules Engine.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-start lg:self-auto shrink-0 font-mono text-[11px] text-sky-200 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <div className="flex items-center gap-2 self-start lg:self-auto shrink-0 font-mono text-[11px] text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span>16 Official Schemes Seeded</span>
           </div>
         </div>
       </div>
 
       {/* 3. Quick-Fill Persona Presets */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-2.5">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-2.5">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <span>⚡ Quick-Fill Patient Presets (Test Real Personas)</span>
+          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <span>Patient Persona Presets (Test Real Personas)</span>
           </span>
           <span className="text-[11px] text-slate-500">
             Auto-loads diagnosis, income tier, ration card, and documents
@@ -18956,9 +18959,9 @@ function ScreenSchemeFinder({
                 key={key}
                 type="button"
                 onClick={() => handleSelectPreset(key)}
-                className={`p-2.5 rounded-xl text-left text-xs transition-all border ${isActive
-                  ? 'bg-sky-50 border-sky-400 text-[#0b2b82] font-black shadow-xs ring-1 ring-sky-300'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 font-medium'
+                className={`p-2.5 rounded-lg text-left text-xs transition-all border cursor-pointer ${isActive
+                  ? 'bg-slate-100 border-[#0b2b82] text-[#0b2b82] font-bold shadow-2xs'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-medium'
                   }`}
               >
                 <div className="font-bold truncate">{p.name.split('(')[0]}</div>
@@ -19315,7 +19318,7 @@ function ScreenSchemeFinder({
                                 : 'bg-slate-100 text-slate-700'
                               }`}
                           >
-                            #{rec.rank} &bull; {rec.match_tier} — {rec.match_score_pct}% Match
+                            #{rec.rank} &bull; {rec.match_tier}  -  {rec.match_score_pct}% Match
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPassed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -19617,7 +19620,7 @@ function ScreenSchemeFinder({
                       <div key={k} className="flex items-center justify-between gap-2 border-b border-slate-200/50 pb-1">
                         <span className="font-bold uppercase text-slate-600">{k}:</span>
                         <span className={v.passed ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
-                          {v.passed ? '✓ PASS' : '⚠️ FAIL'} — {v.details}
+                          {v.passed ? '✓ PASS' : '⚠️ FAIL'}  -  {v.details}
                         </span>
                       </div>
                     ))}
@@ -21381,7 +21384,7 @@ function ScreenCommandCenter({
 // ==========================================
 // --- HOMEPAGE PRE-FOOTER BEATS BANNER ---
 // ==========================================
-function HomepageBeatsBanner({ onLaunchFeature1, onLaunchFeature2, onLaunchFeature8 }) {
+function HomepageBeatsBanner({ onExploreMore }) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -21547,25 +21550,6 @@ function HomepageBeatsBanner({ onLaunchFeature1, onLaunchFeature2, onLaunchFeatu
       {/* 5. Main Center Content Container */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-16 sm:py-20 text-center flex flex-col items-center justify-center">
 
-        {/* Interactive Heartbeat Monitor Pill */}
-        <button
-          type="button"
-          onClick={handleHeartbeatClick}
-          title="Click to pulse rhythm"
-          className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-900/80 border border-sky-400/40 backdrop-blur-md text-sky-300 text-xs font-semibold shadow-lg shadow-black/40 mb-6 hover:border-sky-300 hover:bg-slate-900 transition-all cursor-pointer group"
-        >
-          <span className="relative flex h-3 w-3">
-            <span className={`absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75 ${isBeating ? 'animate-ping' : ''}`}></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400"></span>
-          </span>
-          <span className="font-mono tracking-wider font-bold text-white">{bpm} BPM</span>
-          <span className="text-slate-400">&bull;</span>
-          <span className="text-sky-200">Active Care Beat</span>
-          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-200 group-hover:bg-sky-400 group-hover:text-slate-950 transition-colors">
-            Tap Beat
-          </span>
-        </button>
-
         {/* Slow-Mo Scrolling Text: Heading from User's Note */}
         <div style={slowMoHeadlineStyle} className="space-y-3">
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15] drop-shadow-md">
@@ -21583,31 +21567,15 @@ function HomepageBeatsBanner({ onLaunchFeature1, onLaunchFeature2, onLaunchFeatu
           </p>
         </div>
 
-        {/* Interactive Action CTAs */}
-        <div style={slowMoCtaStyle} className="mt-8 flex flex-wrap items-center justify-center gap-3.5 sm:gap-4">
+        {/* Interactive Action CTA: Explore More */}
+        <div style={slowMoCtaStyle} className="mt-8 flex items-center justify-center">
           <button
             type="button"
-            onClick={onLaunchFeature1}
-            className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-sky-500/25 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] flex items-center gap-2 group cursor-pointer"
+            onClick={onExploreMore}
+            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-600 to-[#0b2b82] hover:from-sky-400 hover:to-blue-600 text-white font-extrabold text-base shadow-xl shadow-sky-500/30 hover:shadow-sky-500/50 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] flex items-center gap-3 group cursor-pointer"
           >
-            <span>Start Care Navigator</span>
-            <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onLaunchFeature2}
-            className="px-5 py-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 text-white font-semibold text-sm border border-white/20 backdrop-blur-md shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 cursor-pointer"
-          >
-            <span>👨‍⚕️ Consult a Doctor</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onLaunchFeature8}
-            className="px-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-sky-200 hover:text-white font-semibold text-sm border border-sky-400/20 backdrop-blur-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 cursor-pointer"
-          >
-            <span>🏛️ Health Schemes</span>
+            <span>Explore More</span>
+            <span className="transition-transform duration-300 group-hover:translate-x-1.5 text-lg">&rarr;</span>
           </button>
         </div>
 
@@ -22135,61 +22103,70 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
 function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Patient Overview</h2>
+      <h2 className="text-xl font-bold text-slate-900 mb-6">Patient Overview</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">⚡</span> Quick Actions</h3>
-          <div className="space-y-3">
-            <button onClick={() => { setView('feature2'); setTeleconsultScreen('entry'); }} className="w-full text-left p-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold transition-colors">Book Teleconsult</button>
-            <button onClick={() => { setView('feature1'); setScreen(1); }} className="w-full text-left p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors">Symptom Checker</button>
-            <button onClick={() => setView('feature8')} className="w-full text-left p-3 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-semibold transition-colors">Find Gov Schemes</button>
+        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200">
+          <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Quick Actions</span>
+          </h3>
+          <div className="space-y-2.5">
+            <button onClick={() => { setView('feature2'); setTeleconsultScreen('entry'); }} className="w-full text-left p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold text-xs transition-colors">Book Teleconsult</button>
+            <button onClick={() => { setView('feature1'); setScreen(1); }} className="w-full text-left p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold text-xs transition-colors">Symptom Checker</button>
+            <button onClick={() => setView('feature8')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold text-xs transition-colors">Find Govt Health Schemes</button>
           </div>
         </div>
 
         {/* Health Summary */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">❤️</span> Health Summary</h3>
+        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200 lg:col-span-2">
+          <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <span>Health Summary</span>
+          </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Latest BP</p>
-              <p className="text-xl font-black text-slate-800">120/80 <span className="text-sm font-medium text-slate-500">mmHg</span></p>
+            <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Latest BP</p>
+              <p className="text-xl font-black text-slate-900">120/80 <span className="text-xs font-normal text-slate-500">mmHg</span></p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Blood Sugar</p>
-              <p className="text-xl font-black text-slate-800">95 <span className="text-sm font-medium text-slate-500">mg/dL</span></p>
+            <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Blood Sugar</p>
+              <p className="text-xl font-black text-slate-900">95 <span className="text-xs font-normal text-slate-500">mg/dL</span></p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Last Visit</p>
-              <p className="text-sm font-black text-slate-800">12 Oct 2026</p>
+            <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Last Visit</p>
+              <p className="text-sm font-bold text-slate-900">12 Oct 2026</p>
               <p className="text-xs text-slate-500 mt-0.5">Dr. Sharma (Cardiology)</p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Active Prescriptions</p>
-              <button onClick={() => setView('feature6')} className="text-sm font-bold text-teal-600 hover:text-teal-700 self-start">View 2 Medicines &rarr;</button>
+            <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 flex flex-col justify-between">
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Active Prescriptions</p>
+              <button onClick={() => setView('feature6')} className="text-xs font-semibold text-[#0b2b82] hover:underline self-start">View 2 Medicines &rarr;</button>
             </div>
           </div>
         </div>
 
         {/* Upcoming Appointments */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-3">
+        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200 lg:col-span-3">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="text-2xl">📅</span> Upcoming Appointments</h3>
-            <button onClick={() => setView('feature2')} className="text-xs font-bold text-[#0b2b82] hover:underline">View All</button>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Upcoming Appointments</span>
+            </h3>
+            <button onClick={() => setView('feature2')} className="text-xs font-semibold text-[#0b2b82] hover:underline">View All</button>
           </div>
-          <div className="flex items-center justify-between bg-amber-50 p-4 rounded-xl border border-amber-100">
+          <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div className="flex items-center gap-4">
-              <div className="bg-amber-100 text-amber-800 font-bold w-12 h-12 rounded-full flex flex-col items-center justify-center leading-none">
-                <span className="text-lg">15</span>
-                <span className="text-[10px] uppercase">Oct</span>
+              <div className="bg-slate-200 text-slate-800 font-bold w-12 h-12 rounded-lg flex flex-col items-center justify-center leading-none">
+                <span className="text-base">15</span>
+                <span className="text-[10px] uppercase text-slate-600">Oct</span>
               </div>
               <div>
-                <h4 className="font-bold text-slate-800 text-sm">Teleconsult with Dr. Verma</h4>
-                <p className="text-xs text-slate-600">Neurology Department • 10:30 AM</p>
+                <h4 className="font-bold text-slate-900 text-sm">Teleconsult with Dr. Verma</h4>
+                <p className="text-xs text-slate-600">Neurology Department &bull; 10:30 AM</p>
               </div>
             </div>
-            <button onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }} className="px-4 py-2 bg-[#0b2b82] text-white text-xs font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-sm">Join Call</button>
+            <button onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }} className="px-4 py-2 bg-[#0b2b82] text-white text-xs font-semibold rounded-lg hover:bg-[#082060] transition-colors shadow-2xs">Join Call</button>
           </div>
         </div>
       </div>
@@ -22200,54 +22177,57 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
 function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Doctor Overview</h2>
+      <h2 className="text-xl font-bold text-slate-900 mb-6">Doctor Overview</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Key Metrics */}
-        <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-sm md:col-span-3 flex justify-around items-center">
+        <div className="bg-[#0b2b82] text-white p-6 rounded-xl border border-blue-900 shadow-2xs md:col-span-3 flex justify-around items-center">
           <div className="text-center">
-            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Today's Patients</p>
+            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Today's Patients</p>
             <p className="text-3xl font-black">12</p>
           </div>
-          <div className="w-px h-12 bg-blue-500"></div>
+          <div className="w-px h-12 bg-blue-700"></div>
           <div className="text-center">
-            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Pending Referrals</p>
+            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Pending Referrals</p>
             <p className="text-3xl font-black">3</p>
           </div>
-          <div className="w-px h-12 bg-blue-500"></div>
+          <div className="w-px h-12 bg-blue-700"></div>
           <div className="text-center">
-            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">Critical Follow-ups</p>
-            <p className="text-3xl font-black text-amber-300">2</p>
+            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Critical Follow-ups</p>
+            <p className="text-3xl font-black text-amber-200">2</p>
           </div>
         </div>
 
         {/* Schedule */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 md:col-span-2">
+        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200 md:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><span className="text-2xl">📋</span> Today's Schedule</h3>
-            <button onClick={() => setView('feature2')} className="text-xs font-bold text-[#0b2b82] hover:underline">Manage Queue</button>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M9 14l2 2 4-4" /></svg>
+              <span>Today's Schedule</span>
+            </h3>
+            <button onClick={() => setView('feature2')} className="text-xs font-semibold text-[#0b2b82] hover:underline">Manage Queue</button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[
               { time: '09:00 AM', name: 'Ravi Kumar', type: 'Follow-up', status: 'Completed' },
               { time: '10:30 AM', name: 'Anita Devi', type: 'Teleconsult', status: 'Next' },
               { time: '11:15 AM', name: 'Suresh Singh', type: 'New Patient', status: 'Waiting' }
             ].map((pt, i) => (
-              <div key={i} className={`flex items-center justify-between p-3 rounded-xl border ${pt.status === 'Next' ? 'border-[#0b2b82] bg-blue-50' : 'border-slate-100 bg-slate-50'}`}>
+              <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${pt.status === 'Next' ? 'border-[#0b2b82] bg-slate-50' : 'border-slate-200 bg-white'}`}>
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-bold text-slate-500 w-16">{pt.time}</div>
+                  <div className="text-xs font-semibold text-slate-500 w-16">{pt.time}</div>
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{pt.name}</h4>
+                    <h4 className="font-bold text-slate-900 text-sm">{pt.name}</h4>
                     <p className="text-[11px] text-slate-500">{pt.type}</p>
                   </div>
                 </div>
                 <div>
                   {pt.status === 'Next' ? (
-                    <button onClick={() => { setView('feature2'); setTeleconsultScreen('doctor'); }} className="px-3 py-1.5 bg-[#0b2b82] text-white text-[10px] font-bold rounded shadow-sm">Start Consult</button>
+                    <button onClick={() => { setView('feature2'); setTeleconsultScreen('doctor'); }} className="px-3 py-1.5 bg-[#0b2b82] text-white text-[11px] font-semibold rounded-lg shadow-2xs">Start Consult</button>
                   ) : pt.status === 'Completed' ? (
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Completed</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Completed</span>
                   ) : (
-                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">Waiting</span>
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Waiting</span>
                   )}
                 </div>
               </div>
@@ -22256,17 +22236,20 @@ function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="text-2xl">⚙️</span> Actions</h3>
-          <div className="space-y-3">
-            <button onClick={() => setView('feature5')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
-              Patient Records <span>→</span>
+        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200">
+          <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Actions</span>
+          </h3>
+          <div className="space-y-2.5">
+            <button onClick={() => setView('feature5')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
+              Patient Records <span>&rarr;</span>
             </button>
-            <button onClick={() => setView('feature3')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
-              Manage Referrals <span>→</span>
+            <button onClick={() => setView('feature3')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
+              Manage Referrals <span>&rarr;</span>
             </button>
-            <button onClick={() => setView('feature4')} className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold transition-colors flex items-center justify-between">
-              High-Risk Follow-ups <span>→</span>
+            <button onClick={() => setView('feature4')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
+              High-Risk Follow-ups <span>&rarr;</span>
             </button>
           </div>
         </div>
@@ -22297,11 +22280,11 @@ function ScreenMedicalAssistantAgent({
         {
           type: 'QUICK_ACTIONS',
           options: [
-            { label: '💊 Dolo 650 Alternatives (समान दवाएं)', query: 'What is Dolo 650 and what are its same composition alternatives?' },
-            { label: '🌡️ Mild Fever & Body Ache (हल्का बुखार)', query: 'I have mild fever and body ache since morning' },
-            { label: '🍋 Acidity & Indigestion (एसिडिटी राहत)', query: 'मुझे पेट में हल्की गैस और एसिडिटी हो रही है' },
-            { label: '👨‍⚕️ Book Cardiologist (हृदय रोग डॉक्टर)', query: 'Book an appointment with a cardiologist' },
-            { label: '🏥 Nearby Hospitals & ICU Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' }
+            { label: 'Dolo 650 Alternatives (समान दवाएं)', query: 'What is Dolo 650 and what are its same composition alternatives?' },
+            { label: 'Mild Fever & Body Ache (हल्का बुखार)', query: 'I have mild fever and body ache since morning' },
+            { label: 'Acidity & Indigestion (एसिडिटी राहत)', query: 'मुझे पेट में हल्की गैस और एसिडिटी हो रही है' },
+            { label: 'Book Cardiologist (हृदय रोग डॉक्टर)', query: 'Book an appointment with a cardiologist' },
+            { label: 'Nearby Hospitals & ICU Beds', query: 'Show nearby hospitals and emergency beds in Hazaribagh' }
           ]
         }
       ]
@@ -22666,30 +22649,26 @@ function ScreenMedicalAssistantAgent({
     switch (level) {
       case 'RED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse">
-            <span>🚨</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-bold bg-rose-600 text-white" title="Immediate medical intervention required">
             <span>EMERGENCY 108</span>
           </span>
         );
       case 'ORANGE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white">
-            <span>🛑</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-600 text-white" title="Clinical assessment strongly advised">
             <span>DOCTOR CONSULT REQUIRED</span>
           </span>
         );
       case 'YELLOW':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            <span>ℹ️</span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
             <span>CALIBRATED HEALTH GUIDANCE</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <span>🛡️</span>
-            <span>VERIFIED MEDVEDA BOUNDS</span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            <span>VERIFIED CLINICAL BOUNDS</span>
           </span>
         );
     }
@@ -22698,26 +22677,26 @@ function ScreenMedicalAssistantAgent({
   return (
     <div className="min-h-[calc(100vh-70px)] bg-slate-50 flex flex-col">
       {/* TOP HEADER STRIP */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-xs">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-2xs">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0b2b82] to-teal-500 text-white flex items-center justify-center text-xl shadow-sm">
-              🤖
+            <div className="w-9 h-9 rounded-lg bg-[#0b2b82] text-white flex items-center justify-center shrink-0">
+              <ModuleIcon id="feature10" className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Medical AI Assistant Agent
                 </h1>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
-                  MOD 10 &bull; AUTONOMOUS
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200" title="Module 10 Autonomous Clinical Action Agent">
+                  MOD 10
                 </span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                   OTC-Safe & Multimodal
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 font-normal">
                 Action-capable multilingual health agent: basic symptom triage, OTC guidance, report review & same-composition alternatives
               </p>
             </div>
@@ -22726,50 +22705,50 @@ function ScreenMedicalAssistantAgent({
           {/* CONTROLS: TABS, LANGUAGE & AUDIO */}
           <div className="flex items-center flex-wrap gap-2">
             {/* View Tabs */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                   activeTab === 'chat'
-                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                💬 Agent Chat
+                Agent Chat
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('doctors')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                   activeTab === 'doctors'
-                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                👨‍⚕️ Doctors ({doctorsList.length})
+                Doctors ({doctorsList.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('facilities')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                   activeTab === 'facilities'
-                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                🏥 Beds ({facilitiesList.length})
+                Beds ({facilitiesList.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('appointments')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
                   activeTab === 'appointments'
-                    ? 'bg-white text-[#0b2b82] shadow-xs font-bold'
+                    ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                📅 My Bookings ({appointmentsList.length})
+                My Bookings ({appointmentsList.length})
               </button>
             </div>
 
@@ -24213,9 +24192,13 @@ function FeaturesSideNavbar({
     setMobileDrawerOpen(false);
   };
 
-  const currentModule = FEATURE_NAV_MODULES.find(m => m.id === currentView) || FEATURE_NAV_MODULES[0];
+  const availableModules = actorRole === 'patient'
+    ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
+    : FEATURE_NAV_MODULES;
 
-  const filteredModules = FEATURE_NAV_MODULES.filter(m => {
+  const currentModule = availableModules.find(m => m.id === currentView) || availableModules[0] || FEATURE_NAV_MODULES[0];
+
+  const filteredModules = availableModules.filter(m => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -24231,13 +24214,13 @@ function FeaturesSideNavbar({
       <div className="md:hidden bg-white border-b border-slate-200 sticky top-[60px] z-30 shadow-xs">
         <div className="flex items-center justify-between px-3 py-2.5">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xl shrink-0">{currentModule.icon}</span>
+            <ModuleIcon id={currentModule.id} className="w-5 h-5 text-[#0b2b82] shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold font-mono text-[#0b2b82] bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                <span className="text-[10px] font-bold font-mono text-[#0b2b82] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                   {currentModule.code}
                 </span>
-                <span className="text-xs font-black text-slate-800 truncate">
+                <span className="text-xs font-bold text-slate-800 truncate">
                   {currentModule.label}
                 </span>
               </div>
@@ -24246,29 +24229,29 @@ function FeaturesSideNavbar({
           <button
             type="button"
             onClick={() => setMobileDrawerOpen(true)}
-            className="shrink-0 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] rounded-lg text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-colors"
+            className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#0b2b82] rounded-lg text-xs font-bold border border-slate-200 flex items-center gap-1.5 transition-colors"
           >
             <span>Modules</span>
-            <span className="bg-[#0b2b82] text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">10</span>
+            <span className="bg-[#0b2b82] text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">{availableModules.length}</span>
           </button>
         </div>
 
         {/* Quick Horizontal Scrollable Pill Bar */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto no-scrollbar border-t border-slate-100 bg-slate-50/70">
-          {FEATURE_NAV_MODULES.map((m) => {
+          {availableModules.map((m) => {
             const isActive = currentView === m.id;
             return (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => handleSelectModule(m.id)}
-                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                   isActive
-                    ? 'bg-[#0b2b82] text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:text-[#0b2b82] border border-slate-200 hover:border-blue-200'
+                    ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
+                    : 'bg-white text-slate-700 hover:text-[#0b2b82] border border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <span>{m.icon}</span>
+                <ModuleIcon id={m.id} className="w-3.5 h-3.5" />
                 <span>{m.shortLabel}</span>
               </button>
             );
@@ -24278,12 +24261,12 @@ function FeaturesSideNavbar({
 
       {/* MOBILE DRAWER OVERLAY */}
       {mobileDrawerOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex">
-          <div className="w-80 max-w-[85%] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-900/40 flex">
+          <div className="w-80 max-w-[85%] bg-white h-full shadow-lg flex flex-col animate-in slide-in-from-left duration-200">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#0b2b82]"></span>
-                <span className="text-xs font-black tracking-wider uppercase text-slate-800">MedVeda Features</span>
+                <span className="text-xs font-bold tracking-wider uppercase text-slate-800">MedVeda Features</span>
               </div>
               <button
                 type="button"
@@ -24312,17 +24295,20 @@ function FeaturesSideNavbar({
                     key={m.id}
                     type="button"
                     onClick={() => handleSelectModule(m.id)}
-                    className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-3 ${
+                    title={`${m.code}: ${m.label} - ${m.description} (${m.badge})`}
+                    className={`w-full text-left p-2.5 rounded-lg transition-all flex items-start gap-3 ${
                       isActive
-                        ? 'bg-blue-50 border border-blue-200 text-[#0b2b82]'
-                        : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+                        ? 'bg-slate-100 text-[#0b2b82] font-bold'
+                        : 'hover:bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <span className="text-xl shrink-0 p-1 bg-white rounded-lg border border-slate-100 shadow-2xs">{m.icon}</span>
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[#0b2b82] shrink-0">
+                      <ModuleIcon id={m.id} className="w-4 h-4" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-bold truncate">{m.label}</span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold shrink-0">{m.code}</span>
+                        <span className="text-[10px] font-mono text-slate-400 font-semibold shrink-0">{m.code}</span>
                       </div>
                       <p className="text-[11px] text-slate-500 font-normal line-clamp-1 mt-0.5">{m.description}</p>
                     </div>
@@ -24339,7 +24325,6 @@ function FeaturesSideNavbar({
               >
                 ← Back to Home
               </button>
-              <span className="text-[10px] text-slate-400 font-mono">v2.4 Ready</span>
             </div>
           </div>
           <div className="flex-1" onClick={() => setMobileDrawerOpen(false)}></div>
@@ -24357,19 +24342,21 @@ function FeaturesSideNavbar({
           {!collapsed ? (
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Features Suite</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Features Suite</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium">10 Integrated Systems</p>
+              <p className="text-[10px] text-slate-500 font-medium">{availableModules.length} Integrated Systems</p>
             </div>
           ) : (
-            <span className="text-base" title="MedVeda Features Suite">🧭</span>
+            <div title="MedVeda Features Suite">
+              <ModuleIcon id="overview" className="w-5 h-5 text-[#0b2b82]" />
+            </div>
           )}
 
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0b2b82] hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0b2b82] hover:bg-slate-100 transition-colors"
             title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar to Icons'}
           >
             <svg
@@ -24416,29 +24403,29 @@ function FeaturesSideNavbar({
                 ref={isActive ? activeItemRef : null}
                 type="button"
                 onClick={() => handleSelectModule(m.id)}
-                title={collapsed ? `${m.code}: ${m.label} - ${m.description}` : undefined}
-                className={`w-full text-left rounded-xl transition-all flex items-center group relative ${
+                title={`${m.code}: ${m.label} - ${m.description} (${m.badge})`}
+                className={`w-full text-left rounded-lg transition-all flex items-center group relative ${
                   collapsed
                     ? 'p-2 justify-center'
                     : 'py-2 px-2.5 gap-2.5'
                 } ${
                   isActive
-                    ? 'bg-blue-50/90 text-[#0b2b82] border-l-4 border-[#0b2b82] shadow-2xs font-bold'
-                    : 'text-slate-600 hover:text-[#0b2b82] hover:bg-slate-50/80 border-l-4 border-transparent'
+                    ? 'bg-slate-100 text-[#0b2b82] font-bold'
+                    : 'text-slate-600 hover:text-[#0b2b82] hover:bg-slate-50 font-medium'
                 }`}
               >
                 <div
-                  className={`rounded-lg flex items-center justify-center text-base shrink-0 transition-all ${
+                  className={`rounded-lg flex items-center justify-center shrink-0 transition-all ${
                     collapsed
-                      ? 'w-10 h-10 text-xl'
+                      ? 'w-10 h-10'
                       : 'w-8 h-8'
                   } ${
                     isActive
-                      ? 'bg-white shadow-xs border border-blue-200 text-[#0b2b82]'
-                      : 'bg-slate-100 group-hover:bg-white group-hover:shadow-2xs group-hover:border group-hover:border-slate-200'
+                      ? 'bg-white shadow-2xs border border-slate-200 text-[#0b2b82]'
+                      : 'bg-slate-50 text-slate-600 group-hover:text-[#0b2b82]'
                   }`}
                 >
-                  {m.icon}
+                  <ModuleIcon id={m.id} className="w-4 h-4" />
                 </div>
 
                 {!collapsed && (
@@ -24447,48 +24434,28 @@ function FeaturesSideNavbar({
                       <span className={`text-xs leading-tight truncate ${isActive ? 'font-black text-[#0b2b82]' : 'font-bold group-hover:text-[#0b2b82]'}`}>
                         {m.label}
                       </span>
-                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
-                        isActive
-                          ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
-                          : m.badgeClass
-                      }`}>
-                        {m.badge}
-                      </span>
                     </div>
                     <p className="text-[11px] text-slate-500 font-normal leading-snug line-clamp-1 mt-0.5">
                       {m.description}
                     </p>
                   </div>
                 )}
-
-                {/* Collapsed Active Indicator Dot */}
-                {collapsed && isActive && (
-                  <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#0b2b82] rounded-r"></span>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Bottom Section */}
+        {/* Bottom Section: Clean Navigation */}
         <div className={`border-t border-slate-200 bg-slate-50/80 p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`}>
           {!collapsed ? (
-            <>
-              <div className="flex items-center justify-between text-[11px] px-1 text-slate-500">
-                <span className="font-semibold">Active Role:</span>
-                <span className="font-mono uppercase font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                  {actorRole || 'patient'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setView('home')}
-                className="w-full text-center py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-1.5"
-              >
-                <span>←</span>
-                <span>Return to Home</span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setView('home')}
+              className="w-full text-center py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-2"
+            >
+              <span>&larr;</span>
+              <span>Return to Home</span>
+            </button>
           ) : (
             <button
               type="button"
@@ -24496,7 +24463,10 @@ function FeaturesSideNavbar({
               className="w-10 h-10 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#0b2b82] transition-colors"
               title="Return to Home"
             >
-              🏠
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
             </button>
           )}
         </div>
@@ -24505,7 +24475,7 @@ function FeaturesSideNavbar({
   );
 }
 
-// Upgraded ScreenOverview — Comprehensive Platform Hub & Directory
+// Upgraded ScreenOverview  -  Comprehensive Platform Hub & Directory
 function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen }) {
   const [activeTab, setActiveTab] = useState(() => {
     if (actorRole === 'patient') return 'patient';
@@ -24522,17 +24492,12 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-50 via-sky-50/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none"></div>
-
+      <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8 relative">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200 font-mono">
-                Module 00 &bull; Platform Overview Hub
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                 All Systems Operational
               </span>
             </div>
@@ -24545,17 +24510,16 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           </div>
 
           {/* Perspective View Switcher Tabs */}
-          <div className="shrink-0 bg-slate-100 p-1.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-1 self-start md:self-center">
+          <div className="shrink-0 bg-slate-100 p-1.5 rounded-lg border border-slate-200 flex flex-col sm:flex-row gap-1 self-start md:self-center">
             <button
               type="button"
               onClick={() => setActiveTab('hub')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'hub'
-                  ? 'bg-[#0b2b82] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+                  ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white'
               }`}
             >
-              <span>📊</span>
               <span>Platform Hub</span>
             </button>
             <button
@@ -24564,13 +24528,12 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                 setActiveTab('doctor');
                 if (setActorRole) setActorRole('doctor');
               }}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'doctor'
-                  ? 'bg-[#0b2b82] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+                  ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white'
               }`}
             >
-              <span>👨‍⚕️</span>
               <span>Clinical / Doctor View</span>
             </button>
             <button
@@ -24579,13 +24542,12 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                 setActiveTab('patient');
                 if (setActorRole) setActorRole('patient');
               }}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 activeTab === 'patient'
-                  ? 'bg-[#0b2b82] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white/60'
+                  ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-white'
               }`}
             >
-              <span>🧑</span>
               <span>Patient &amp; Family View</span>
             </button>
           </div>
@@ -24593,22 +24555,22 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
 
         {/* Live Metrics Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
-          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Features Suite</p>
-            <p className="text-xl font-black text-[#0b2b82] mt-0.5">10 Modules</p>
+            <p className="text-xl font-black text-[#0b2b82] mt-0.5">{actorRole === 'patient' ? '9 Modules' : '10 Modules'}</p>
             <p className="text-[10px] text-slate-500">Autonomous &amp; interconnected</p>
           </div>
-          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Geographic Reach</p>
             <p className="text-xl font-black text-slate-800 mt-0.5">28 States + 8 UTs</p>
             <p className="text-[10px] text-slate-500">All India districts mapped</p>
           </div>
-          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Interoperability</p>
-            <p className="text-xl font-black text-indigo-700 mt-0.5">ABDM M1-M3</p>
+            <p className="text-xl font-black text-[#0b2b82] mt-0.5">ABDM M1-M3</p>
             <p className="text-[10px] text-slate-500">FHIR R4 digital health records</p>
           </div>
-          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Intelligence</p>
             <p className="text-xl font-black text-emerald-700 mt-0.5">Gemini 2.5 Flash</p>
             <p className="text-[10px] text-slate-500">Deterministic clinical safety</p>
@@ -24622,8 +24584,8 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <span>🚀</span> Platform Feature Directory
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                  Platform Feature Directory
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Select any module below or use the side navigation bar to switch workspaces.
@@ -24631,23 +24593,24 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {FEATURE_NAV_MODULES.filter(m => m.id !== 'overview').map((mod) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {FEATURE_NAV_MODULES.filter(m => m.id !== 'overview' && (actorRole !== 'patient' || m.id !== 'feature9')).map((mod) => (
                 <div
                   key={mod.id}
-                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group"
+                  title={`${mod.code}: ${mod.label} - ${mod.badge}. ${mod.description}`}
+                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all duration-200 flex flex-col justify-between group"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                        {mod.icon}
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-[#0b2b82] group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                        <ModuleIcon id={mod.id} className="w-5 h-5" />
                       </div>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${mod.badgeClass}`}>
-                        {mod.code} &bull; {mod.badge}
+                      <span className="text-[11px] font-mono font-semibold text-slate-400">
+                        {mod.code}
                       </span>
                     </div>
 
-                    <h3 className="text-base font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors">
                       {mod.label}
                     </h3>
                     <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
@@ -24655,9 +24618,9 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                     </p>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-400">
-                      Production Ready
+                  <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Enterprise Ready
                     </span>
                     <button
                       type="button"
@@ -24672,7 +24635,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
                           setView(mod.id);
                         }
                       }}
-                      className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"
+                      className="px-3.5 py-1.5 bg-slate-50 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 border border-slate-200 hover:border-[#0b2b82]"
                     >
                       <span>Launch</span>
                       <span>&rarr;</span>
@@ -24684,30 +24647,30 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           </div>
 
           {/* Architecture & Compliance Strip */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 text-[#0b2b82]">
-              <span>🛡️</span> Architecture &amp; Clinical Safety Standards
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-2xs">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 text-[#0b2b82]">
+              Architecture &amp; Clinical Safety Standards
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-                  <span>🏛️</span> ABDM / NDHM Compliant
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1">
+                  ABDM / NDHM Compliant
                 </h4>
                 <p className="text-slate-600 leading-relaxed">
                   Full FHIR R4 interoperability for ABHA addresses, health facility registry (HFR), and cryptographic consent management.
                 </p>
               </div>
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-                  <span>🔒</span> Zero PII Exposure
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1">
+                  Zero PII Exposure
                 </h4>
                 <p className="text-slate-600 leading-relaxed">
                   Deterministic redaction of sensitive identifiers before AI model reasoning. End-to-end TLS 1.3 in-transit and AES-256 at rest.
                 </p>
               </div>
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-                  <span>⚡</span> Offline-Resilient Telemetry
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-1">
+                  Offline-Resilient Telemetry
                 </h4>
                 <p className="text-slate-600 leading-relaxed">
                   Optimized for low-bandwidth rural networks with local queue persistence and automatic synchronization for ASHA field operations.
@@ -24800,6 +24763,8 @@ function App() {
     const hash = window.location.hash || '#home';
     if (hash === '#overview' || hash === '#features') {
       setViewState('overview');
+    } else if (hash === '#login' || hash === '#signin') {
+      setViewState('login');
     } else if (hash.startsWith('#screen=')) {
       const num = Number(hash.replace('#screen=', '')) || 1;
       setViewState('feature1');
@@ -25015,6 +24980,22 @@ function App() {
         </main>
       )}
 
+      {/* LOGIN PAGE VIEW */}
+      {view === 'login' && (
+        <main className="flex-1 w-full">
+          <ScreenLogin
+            currentUser={currentUser}
+            setCurrentUser={handleSetCurrentUser}
+            setActorRole={setActorRole}
+            onLoginSuccess={(user) => {
+              handleSetCurrentUser(user);
+              setView('overview');
+            }}
+            onBackToHome={() => setView('home')}
+          />
+        </main>
+      )}
+
       {/* ABOUT US PAGE */}
       {view === 'about' && (
         <main className="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
@@ -25082,45 +25063,8 @@ function App() {
               />
             )}
 
-            {/* VIEW 2: FEATURE 01 — SMART CARE NAVIGATOR (PATIENT EXCLUSIVE) */}
+            {/* VIEW 2: FEATURE 01  -  SMART CARE NAVIGATOR (PATIENT EXCLUSIVE) */}
         {view === 'feature1' && (
-          actorRole !== 'patient' ? (
-            <div className="max-w-2xl mx-auto p-6 sm:p-10 my-10 bg-white rounded-3xl border-2 border-amber-200 shadow-xl text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center text-3xl">
-                🔒
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 uppercase tracking-wider font-mono">
-                Patient Portal Only &bull; Access Restricted
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Smart Care Navigator is Restricted to Patient View
-              </h2>
-              <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-                The 3-Agent Symptom Triage &amp; Emergency Hospital Discovery engine is strictly dedicated to self-service patient assessments. Clinicians and facility administrators cannot submit assessments through this channel.
-              </p>
-              <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActorRole('patient');
-                    if (currentUser) {
-                      handleSetCurrentUser({ ...currentUser, role: 'patient', roleLabel: 'Patient' });
-                    }
-                  }}
-                  className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>👤 Switch to Patient View</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView('overview')}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
-                >
-                  Return to Platform Overview
-                </button>
-              </div>
-            </div>
-          ) : (
           <div>
             {feature1Screen === 1 && (
               <Screen1PatientInfo
@@ -25212,9 +25156,9 @@ function App() {
               />
             )}
           </div>
-        ) )}
+        )}
 
-        {/* VIEW 3: FEATURE 02 — TELECONSULTATION & QUEUE MANAGEMENT */}
+        {/* VIEW 3: FEATURE 02  -  TELECONSULTATION & QUEUE MANAGEMENT */}
         {view === 'feature2' && (
           <div>
             {teleconsultScreen === 'entry' && (
@@ -25283,7 +25227,7 @@ function App() {
           </div>
         )}
 
-        {/* VIEW 4: FEATURE 03 — SMART REFERRAL MANAGEMENT SYSTEM */}
+        {/* VIEW 4: FEATURE 03  -  SMART REFERRAL MANAGEMENT SYSTEM */}
         {view === 'feature3' && (
           <ScreenReferralManagement
             actorRole={actorRole}
@@ -25299,7 +25243,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 5: FEATURE 04 — HIGH-RISK PATIENT FOLLOW-UP SYSTEM */}
+        {/* VIEW 5: FEATURE 04  -  HIGH-RISK PATIENT FOLLOW-UP SYSTEM */}
         {view === 'feature4' && (
           <ScreenHighRiskFollowUp
             actorRole={actorRole}
@@ -25313,7 +25257,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 6: FEATURE 05 — INTEROPERABLE HEALTH RECORDS */}
+        {/* VIEW 6: FEATURE 05  -  INTEROPERABLE HEALTH RECORDS */}
         {view === 'feature5' && (
           <ScreenInteroperableRecords
             actorRole={actorRole}
@@ -25332,7 +25276,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 7: FEATURE 06 — MEDICINE AVAILABILITY & DIAGNOSTIC COORDINATION */}
+        {/* VIEW 7: FEATURE 06  -  MEDICINE AVAILABILITY & DIAGNOSTIC COORDINATION */}
         {view === 'feature6' && (
           <ScreenMedicineDiagnostics
             actorRole={actorRole}
@@ -25352,7 +25296,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 8: FEATURE 07 — FACILITY DASHBOARD & MULTI-SOURCE AGGREGATION LAYER */}
+        {/* VIEW 8: FEATURE 07  -  FACILITY DASHBOARD & MULTI-SOURCE AGGREGATION LAYER */}
         {view === 'feature7' && (
           <ScreenFacilityDashboard
             actorRole={actorRole}
@@ -25373,7 +25317,7 @@ function App() {
           />
         )}
 
-                {/* VIEW 9: FEATURE 08 — AI GOVERNMENT HEALTH SCHEME FINDER */}
+                {/* VIEW 9: FEATURE 08  -  AI GOVERNMENT HEALTH SCHEME FINDER */}
         {view === 'feature8' && (
           <ScreenSchemeFinder
             actorRole={actorRole}
@@ -25394,18 +25338,46 @@ function App() {
           />
         )}
 
-        {/* VIEW 10: FEATURE 09 — DISTRICT ADMIN COMMAND CENTER (MV-DAC) */}
+        {/* VIEW 10: FEATURE 09  -  DISTRICT ADMIN COMMAND CENTER (MV-DAC) */}
         {view === 'feature9' && (
-          <ScreenCommandCenter
-            actorRole={actorRole}
-            setActorRole={setActorRole}
-            onBackToHome={() => setView('home')}
-            onNavigateToFacilityDashboard={() => setView('feature7')}
-            onNavigateToSchemeFinder={() => setView('feature8')}
-          />
+          actorRole === 'patient' ? (
+            <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
+              <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-3xl mx-auto">
+                  🔒
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 uppercase tracking-wider font-mono">
+                  Administrative Access Only
+                </div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                  District Command Center is Not Accessible to Patients
+                </h2>
+                <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                  The District Command Center is reserved for District Health Officers, Chief Medical Officers, and Health Administrators for epidemiological surveillance and resource logistics.
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setView('overview')}
+                    className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    Return to Platform Overview
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ScreenCommandCenter
+              actorRole={actorRole}
+              setActorRole={setActorRole}
+              onBackToHome={() => setView('home')}
+              onNavigateToFacilityDashboard={() => setView('feature7')}
+              onNavigateToSchemeFinder={() => setView('feature8')}
+            />
+          )
         )}
 
-        {/* VIEW 11: FEATURE 10 — STANDALONE MEDICAL AI ASSISTANT AGENT (ACTIONS & GUIDE) */}
+        {/* VIEW 11: FEATURE 10  -  STANDALONE MEDICAL AI ASSISTANT AGENT (ACTIONS & GUIDE) */}
         {view === 'feature10' && (
           <ScreenMedicalAssistantAgent
             actorRole={actorRole}
@@ -25433,17 +25405,7 @@ function App() {
       {/* HOMEPAGE ONLY: Pre-Footer Interactive Beats Banner */}
       {view === 'home' && (
         <HomepageBeatsBanner
-          onLaunchFeature1={() => {
-            setView('feature1');
-            setScreen(1);
-          }}
-          onLaunchFeature2={() => {
-            setView('feature2');
-            setTeleconsultScreen('entry');
-          }}
-          onLaunchFeature8={() => {
-            setView('feature8');
-          }}
+          onExploreMore={() => setView('login')}
         />
       )}
 
