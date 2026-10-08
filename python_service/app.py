@@ -215,21 +215,29 @@ def synthesize_speech_base64(text: str, lang: str = "en") -> Optional[str]:
     """
     Generates natural text-to-speech audio using gTTS in Hindi or English,
     returning base64 encoded MP3 bytes.
-    Optimized for rapid clinical executive voice summaries.
+    Synthesizes the complete response naturally without arbitrary 2-sentence cuts.
     """
     try:
-        # Strip markdown syntax, citations brackets, asterisks and bullets
+        # Strip markdown syntax, citations brackets, asterisks, bullets, links, and emojis
         clean_text = re.sub(r'\[REC-[^\]]+\]', '', text)
-        clean_text = re.sub(r'[*#_`•]+', ' ', clean_text).strip()
-        clean_text = re.sub(r'\s+', ' ', clean_text)
+        clean_text = re.sub(r'\[[^\]]+\]\([^)]+\)', '', clean_text)
+        clean_text = re.sub(r'[*#_`•]+', ' ', clean_text)
+        # Strip non-speech emojis
+        clean_text = re.sub(r'[🚨🛑⚠️🟢🔴👨‍⚕️🏥💊🚀🍋🌡️📋🔍📅⏰✨]+', ' ', clean_text)
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
 
-        # Extract top 2 concise sentences for speech audio clarity
-        sentences = [s.strip() for s in re.split(r'[।.\n]+', clean_text) if s.strip()]
-        if len(sentences) >= 2:
-            punct = "।" if lang == "hi" else "."
-            clean_text = f"{sentences[0]}{punct} {sentences[1]}{punct}"
-        elif len(clean_text) > 250:
-            clean_text = clean_text[:250] + "..."
+        # If text is exceptionally huge (>2800 characters), safely cap at a sentence boundary
+        if len(clean_text) > 2800:
+            punct_marks = ['।', '.', '!', '?']
+            cut_idx = -1
+            for p in punct_marks:
+                pos = clean_text.rfind(p, 0, 2800)
+                if pos > cut_idx:
+                    cut_idx = pos
+            if cut_idx > 1200:
+                clean_text = clean_text[:cut_idx + 1]
+            else:
+                clean_text = clean_text[:2800]
 
         target_lang = "hi" if lang == "hi" else "en"
         tts = gTTS(text=clean_text, lang=target_lang, slow=False)
@@ -244,6 +252,10 @@ def synthesize_speech_base64(text: str, lang: str = "en") -> Optional[str]:
 # -------------------------------------------------------------
 # Pydantic Request / Response Models
 # -------------------------------------------------------------
+# Global in-memory conversation session stores
+RECORDS_SESSION_HISTORIES: Dict[str, List[Dict[str, Any]]] = {}
+AGENT_SESSION_HISTORIES: Dict[str, List[Dict[str, Any]]] = {}
+
 class ChatRequest(BaseModel):
     internalMedicalId: str
     question: str
@@ -251,6 +263,8 @@ class ChatRequest(BaseModel):
     language: Optional[str] = "auto"  # 'auto' | 'en' | 'hi'
     audioBase64: Optional[str] = None
     requesterRole: Optional[str] = "patient"
+    sessionId: Optional[str] = None
+    conversationHistory: Optional[List[Dict[str, Any]]] = None
 
 class VoiceTranscribeRequest(BaseModel):
     audioBase64: str
@@ -498,6 +512,7 @@ def chat_patient_records(req: ChatRequest):
         }
 
     # 3. Patient Isolation & Retrieval
+    # 3. Patient Isolation & Retrieval
     patient_data = MOCK_PATIENTS_EHR.get(req.internalMedicalId)
     if not patient_data:
         patient_data = {
@@ -511,6 +526,23 @@ def chat_patient_records(req: ChatRequest):
     # Filter / prioritize scoped document if specified
     if req.scopedDocumentId:
         records = sorted(records, key=lambda r: 0 if r["id"] == req.scopedDocumentId else 1)
+
+    # Resolve multi-turn conversation memory
+    session_id = req.sessionId or f"records_{req.internalMedicalId}"
+    conv_hist = req.conversationHistory
+    if conv_hist is None:
+        conv_hist = RECORDS_SESSION_HISTORIES.get(session_id, [])
+
+    history_str = ""
+    if conv_hist:
+        h_lines = []
+        for turn in conv_hist[-8:]:
+            r = "Patient" if turn.get("role") in ["user", "patient"] else "Clinical Assistant"
+            txt = (turn.get("text") or turn.get("content") or "").strip()
+            if txt:
+                h_lines.append(f"{r}: {txt}")
+        if h_lines:
+            history_str = "\n".join(h_lines)
 
     # 4. Multilingual Grounded Generation via Gemini
     if GEMINI_API_KEY:
@@ -536,17 +568,21 @@ Name: {patient.get('name')} | ID: {patient.get('internalMedicalId')} | Age: {pat
 VERIFIED HEALTH RECORDS:
 {json.dumps(records, indent=2, ensure_ascii=False)}
 
-USER QUESTION: "{question}"
+RECENT CONVERSATION HISTORY (MULTI-TURN MEMORY):
+{history_str if history_str else "None (Start of consultation)"}
+
+CURRENT USER QUESTION: "{question}"
 TARGET LANGUAGE: {"Hindi (हिन्दी)" if detected_lang == "hi" else "English"}
 
 LANGUAGE REQUIREMENT:
 {lang_instruction}
 
-STRICT GROUNDING INVARIANTS:
+STRICT GROUNDING & MULTI-TURN INVARIANTS:
 1. Ground every statement strictly in the VERIFIED HEALTH RECORDS provided above.
-2. NEVER hallucinate or guess. If information is not present, set "notInRecords": true and state clearly that it is not documented in the records.
-3. For every claim, provide citations with document title, facility, date, and a brief relevantQuote.
-4. Do NOT prescribe new medications or alter existing doses.
+2. Use RECENT CONVERSATION HISTORY to resolve pronouns and references (e.g. 'the first one', 'that medicine', 'why was it given', 'how often').
+3. NEVER hallucinate or guess. If information is not present, set "notInRecords": true and state clearly that it is not documented in the records.
+4. For every claim, provide citations with document title, facility, date, and a brief relevantQuote.
+5. Do NOT prescribe new medications or alter existing doses.
 
 Return ONLY JSON matching this schema:
 {{
@@ -587,6 +623,14 @@ Return ONLY JSON matching this schema:
             # Voice Output: Generate audio in the detected language
             audio_b64 = synthesize_speech_base64(answer, detected_lang)
 
+            # Update session memory
+            if session_id not in RECORDS_SESSION_HISTORIES:
+                RECORDS_SESSION_HISTORIES[session_id] = []
+            RECORDS_SESSION_HISTORIES[session_id].append({"role": "user", "text": question})
+            RECORDS_SESSION_HISTORIES[session_id].append({"role": "assistant", "text": answer})
+            if len(RECORDS_SESSION_HISTORIES[session_id]) > 20:
+                RECORDS_SESSION_HISTORIES[session_id] = RECORDS_SESSION_HISTORIES[session_id][-20:]
+
             return {
                 "success": True,
                 "data": {
@@ -606,7 +650,25 @@ Return ONLY JSON matching this schema:
             print(f"Error calling Gemini in Python RAG service: {e}")
 
     # 5. Deterministic Multilingual Fallback
-    if detected_lang == "hi":
+    q_low = question.lower()
+    if any(k in q_low for k in ["first", "first one", "breakfast", "before breakfast", "नाश्ते से पहले", "पहली दवा", "पहला"]):
+        if detected_lang == "hi":
+            fallback_ans = (
+                f"आपके रिकॉर्ड ({patient.get('name')}) के अनुसार पहली दवा **Telmisartan 40mg (टेल्मीसार्टन)** है।\n\n"
+                "• **निर्देश:** इसे **सुबह नाश्ते के बाद** (1-0-0) पानी के साथ लेने का निर्देश है, खाली पेट या नाश्ते से पहले नहीं।\n"
+                "• **उद्देश्य:** यह रक्तचाप (Hypertension) को नियंत्रित रखने के लिए डॉक्टर राजेश वर्मा द्वारा निर्धारित की गई है।\n"
+                "• **सत्यापित संदर्भ:** शेख भिखारी मेडिकल कॉलेज कार्डियोलॉजी ओपीडी प्रिस्क्रिप्शन।"
+            )
+            fallback_disc = "यह जानकारी आपके सत्यापित ईएचआर रिकॉर्ड से है। हमेशा अपने डॉक्टर के निर्देशों का पालन करें।"
+        else:
+            fallback_ans = (
+                f"According to your verified health records ({patient.get('name')}), the first medication is **Telmisartan 40mg**.\n\n"
+                "• **Administration:** Prescribed to be taken **in the morning AFTER breakfast** (1-0-0) with water, not before meals.\n"
+                "• **Clinical Purpose:** Prescribed for hypertension management by Dr. Rajesh Verma.\n"
+                "• **Verified Source:** Sheikh Bhikhari Medical College Cardiology OPD record."
+            )
+            fallback_disc = "Informational assistance based on verified EHR records. Always adhere to your doctor's instructions."
+    elif detected_lang == "hi":
         fallback_ans = (
             f"आपके सत्यापित स्वास्थ्य रिकॉर्ड ({patient.get('name')}) के अनुसार:\n\n"
             "• Telmisartan 40mg (टेल्मीसार्टन): 1-0-0 (सुबह नाश्ते के बाद)\n"
@@ -630,6 +692,14 @@ Return ONLY JSON matching this schema:
         fallback_disc = "Informational review of your EHR. Consult your doctor before making any changes."
 
     audio_b64 = synthesize_speech_base64(fallback_ans, detected_lang)
+
+    # Update session memory
+    if session_id not in RECORDS_SESSION_HISTORIES:
+        RECORDS_SESSION_HISTORIES[session_id] = []
+    RECORDS_SESSION_HISTORIES[session_id].append({"role": "user", "text": question})
+    RECORDS_SESSION_HISTORIES[session_id].append({"role": "assistant", "text": fallback_ans})
+    if len(RECORDS_SESSION_HISTORIES[session_id]) > 20:
+        RECORDS_SESSION_HISTORIES[session_id] = RECORDS_SESSION_HISTORIES[session_id][-20:]
 
     return {
         "success": True,
@@ -1299,6 +1369,141 @@ def check_basic_condition(text: str) -> Tuple[Optional[str], Optional[Dict[str, 
                 return cond_key, cfg
     return None, None
 
+def resolve_conversation_memory_context(raw_query: str, conv_history: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """
+    Analyzes conversation memory to extract:
+    - Active condition from recent turns (fever, headache, cold, acidity, dehydration)
+    - Whether the previous turn asked clarifying questions
+    - Whether user's current query answers those clarifying questions
+    - Whether user reported red flags (requiring escalation) or confirmed straightforward symptoms
+    - Active medicine discussed in recent turns
+    - Active doctor discussed in recent turns
+    """
+    if not conv_history:
+        return {
+            "activeCondition": None,
+            "conditionConfig": None,
+            "wasClarifyingAsked": False,
+            "isAnsweringClarification": False,
+            "hasRedFlags": False,
+            "redFlagReason": "",
+            "activeMedicine": None,
+            "activeDoctor": None,
+            "recentTurnsSummary": ""
+        }
+
+    # Find the most recent assistant message and user messages
+    last_assistant_msg = ""
+    last_user_msg = ""
+    for msg in reversed(conv_history):
+        role = msg.get("role", "")
+        txt = msg.get("text") or msg.get("content") or ""
+        if role in ["agent", "assistant"] and not last_assistant_msg:
+            last_assistant_msg = txt
+        elif role in ["user", "patient"] and not last_user_msg:
+            last_user_msg = txt
+        if last_assistant_msg and last_user_msg:
+            break
+
+    # 1. Detect active condition in history
+    active_cond_key = None
+    active_cond_cfg = None
+    combined_hist_text = f"{last_user_msg} {last_assistant_msg}"
+    
+    for c_key, cfg in BASIC_CONDITIONS_CONFIG.items():
+        if c_key in combined_hist_text.lower() or cfg["diagnosisEn"].lower() in combined_hist_text.lower() or cfg["diagnosisHi"] in combined_hist_text:
+            active_cond_key = c_key
+            active_cond_cfg = cfg
+            break
+        for pat in cfg["patterns"]:
+            if re.search(pat, combined_hist_text, re.IGNORECASE):
+                active_cond_key = c_key
+                active_cond_cfg = cfg
+                break
+        if active_cond_key:
+            break
+
+    # 2. Check if previous assistant message asked clarifying questions
+    was_clarifying_asked = False
+    if last_assistant_msg and any(term in last_assistant_msg.lower() for term in [
+        "clarifying questions", "rule out red flags", "confirm if this is truly straightforward",
+        "स्पष्टीकरण प्रश्न", "ताकि पक्का हो सके कि यह सामान्य है", "लक्षण कितने दिनों से हैं", "red-flag"
+    ]):
+        was_clarifying_asked = True
+    elif active_cond_cfg and any(q.lower() in last_assistant_msg.lower() for q in active_cond_cfg["questionsEn"] + active_cond_cfg["questionsHi"]):
+        was_clarifying_asked = True
+
+    # 3. Check if user's current query is answering the clarifying questions
+    is_answering_clarification = False
+    has_red_flags = False
+    red_flag_reason = ""
+
+    if was_clarifying_asked and active_cond_cfg:
+        q_low = raw_query.lower()
+        # Answer signals: duration indicators, symptom denials, quick replies, short replies
+        quick_replies_low = [qr.lower() for qr in active_cond_cfg.get("quickReplies", [])]
+        matched_quick = any(qr in q_low or q_low in qr for qr in quick_replies_low if len(q_low) >= 3)
+        
+        duration_match = bool(re.search(r'\b(?:\d+|one|two|three|few|1-2|2-3|3\+)\s*(?:days?|hours?|दिन|घंटे)\b', q_low) or
+                              re.search(r'(?:since|from)\s*(?:morning|yesterday|today|last\s*night)', q_low) or
+                              re.search(r'(?:कल|आज|सुबह|रात)\s*से', raw_query))
+        
+        clarification_signals = [
+            r'\b(?:no|none|no\s*other|no\s*rash|no\s*stiff|no\s*blood|no\s*vomit|mild|clear\s*runny|screen\s*strain|spicy\s*food|empty\s*stomach)\b',
+            r'(?:कोई\s*नहीं|दाने\s*नहीं|गर्दन\s*अकड़न\s*नहीं|खून\s*नहीं|उल्टी\s*नहीं|हल्का|स्क्रीन|तला-भुना)',
+            r'^(?:yes|no|yeah|nope|हाँ|नहीं|जी\s*हाँ|जी\s*नहीं)\b'
+        ]
+        has_signal = any(re.search(p, raw_query, re.IGNORECASE) for p in clarification_signals)
+
+        if matched_quick or duration_match or has_signal or (len(raw_query.split()) <= 12 and not is_emergency_query(raw_query)):
+            is_answering_clarification = True
+
+            # Check for red flags in the user's answer:
+            # A) Prolonged duration (> 3 days)
+            if re.search(r'\b(?:3\+|[3-9]|\d{2,})\s*days\b', q_low) or "3 से ज्यादा" in raw_query or "3 दिन से अधिक" in raw_query:
+                has_red_flags = True
+                red_flag_reason = "Symptoms persistent for more than 3 days require in-person doctor examination"
+            
+            # B) Severe red flags: rash, stiff neck, blood, high temperature > 102
+            severe_negations = [r'\bno\s+rash\b', r'\bno\s+stiff\b', r'\bno\s+blood\b', r'\bno\s+vomit\b', r'दाने\s*नहीं', r'अकड़न\s*नहीं', r'खून\s*नहीं']
+            has_explicit_negation = any(re.search(neg, raw_query, re.I) for neg in severe_negations)
+            
+            if not has_explicit_negation:
+                if re.search(r'\b(?:rash|stiff\s*neck|severe\s*shivering|breath\w*|blood|black\s*stool|10[2-5])\b', q_low):
+                    has_red_flags = True
+                    red_flag_reason = "Presence of red-flag symptoms (severe rash, neck stiffness, bleeding, or breathing distress)"
+                elif re.search(r'(?:दाने|चकत्ते|गर्दन\s*अकड़|खून|सांस\s*फूल|103|104)', raw_query):
+                    has_red_flags = True
+                    red_flag_reason = "गंभीर लाल झंडे वाले लक्षण (शरीर पर चकत्ते, गर्दन में अकड़न या सांस फूलना) मौजूद हैं"
+
+    # 4. Check active medicine in history
+    active_medicine = None
+    for med in SAME_COMPOSITION_MEDS_DB:
+        for kw in med["keywords"]:
+            if kw in combined_hist_text.lower():
+                active_medicine = med
+                break
+        if active_medicine:
+            break
+
+    # 5. Check active doctor in history
+    active_doctor = None
+    for doc in DOCTORS_DB:
+        if doc["name"].lower() in combined_hist_text.lower() or doc["specialty"].lower() in combined_hist_text.lower():
+            active_doctor = doc
+            break
+
+    return {
+        "activeCondition": active_cond_key,
+        "conditionConfig": active_cond_cfg,
+        "wasClarifyingAsked": was_clarifying_asked,
+        "isAnsweringClarification": is_answering_clarification,
+        "hasRedFlags": has_red_flags,
+        "redFlagReason": red_flag_reason,
+        "activeMedicine": active_medicine,
+        "activeDoctor": active_doctor
+    }
+
 def analyze_multimodal_document(
     file_b64: Optional[str] = None,
     mime_type: Optional[str] = "image/jpeg",
@@ -1446,6 +1651,8 @@ class AgentChatRequest(BaseModel):
     fileBase64: Optional[str] = None
     fileMimeType: Optional[str] = None
     fileName: Optional[str] = None
+    sessionId: Optional[str] = None
+    conversationHistory: Optional[List[Dict[str, Any]]] = None
 
 class AgentActionExecuteRequest(BaseModel):
     actionType: str
@@ -1597,6 +1804,17 @@ def execute_agent_action(req: AgentActionExecuteRequest):
 
     return {"success": False, "error": "Unknown action type"}
 
+def record_agent_session_turn(session_id: str, user_text: str, agent_text: str):
+    """Stores conversation turns in session cache for multi-turn coherence."""
+    if not session_id:
+        return
+    if session_id not in AGENT_SESSION_HISTORIES:
+        AGENT_SESSION_HISTORIES[session_id] = []
+    AGENT_SESSION_HISTORIES[session_id].append({"role": "user", "text": user_text})
+    AGENT_SESSION_HISTORIES[session_id].append({"role": "assistant", "text": agent_text})
+    if len(AGENT_SESSION_HISTORIES[session_id]) > 24:
+        AGENT_SESSION_HISTORIES[session_id] = AGENT_SESSION_HISTORIES[session_id][-24:]
+
 @app.post("/api/agent/chat")
 def chat_medical_assistant_agent(req: AgentChatRequest):
     """
@@ -1608,12 +1826,21 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
        - Lab Reports: parameter breakdown, normal vs abnormal, insights grounded strictly in report findings.
        - Medications: active salt extraction, OTC status, alternatives with the EXACT SAME chemical composition only.
     3. Action capabilities: appointment booking, facility locator, medicine reminders, navigation.
-    4. Voice audio synthesis via gTTS in Hindi & English.
+    4. Voice audio synthesis via gTTS in Hindi & English (full speech without arbitrary truncation).
+    5. Multi-turn conversation memory & context retention across diagnostic steps.
     """
     raw_query = (req.query or req.message or "").strip()
     detected_lang = detect_language(raw_query, req.language)
     patient_id = req.patientId or "MV-MED-2026-1024"
     patient_info = req.patientInfo or MOCK_PATIENTS_EHR.get(patient_id, {}).get("patient", {"name": "Ramesh Mahto"})
+
+    session_id = req.sessionId or f"agent_{patient_id}"
+    conv_history = req.conversationHistory
+    if conv_history is None:
+        conv_history = AGENT_SESSION_HISTORIES.get(session_id, [])
+
+    # Extract conversational memory context across prior dialogue turns
+    mem_context = resolve_conversation_memory_context(raw_query, conv_history)
 
     # 1. EMERGENCY GUARDRAIL CHECK (G1 Immediate Bypass)
     if is_emergency_query(raw_query):
@@ -1631,6 +1858,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             )
         
         audio_b64 = synthesize_speech_base64(emergency_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, emergency_text)
         return {
             "success": True,
             "data": {
@@ -1666,6 +1894,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 f"Analysis of {doc_analysis.get('primaryName', 'medication')}: Active Composition is {doc_analysis.get('activeComposition')}. Suggested alternatives have the exact same chemical composition."
             )
             audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+            record_agent_session_turn(session_id, raw_query or f"Uploaded medication: {doc_analysis.get('primaryName')}", ans_text)
             return {
                 "success": True,
                 "data": {
@@ -1696,6 +1925,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 f"Diagnostic Report Analysis for {doc_analysis.get('title', 'Lab Test')}: Grounded summary strictly based on reported values."
             )
             audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+            record_agent_session_turn(session_id, raw_query or f"Uploaded lab report: {doc_analysis.get('title')}", ans_text)
             return {
                 "success": True,
                 "data": {
@@ -1729,6 +1959,10 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     # If the user asks to prescribe medicines that require a doctor's permission (antibiotics, steroids, BP/heart meds),
     # or mentions a non-straightforward/complex condition (high fever >3 days, dengue, typhoid, severe pain):
     is_complex, complex_reason = check_complex_or_prescription(raw_query)
+    if not is_complex and mem_context.get("hasRedFlags"):
+        is_complex = True
+        complex_reason = mem_context.get("redFlagReason", "Reported symptoms require certified physician diagnosis")
+
     if is_complex:
         if detected_lang == "hi":
             ans_text = (
@@ -1747,6 +1981,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "Please consult a certified physician immediately for an accurate diagnosis and treatment plan. You can book a direct consultation with our network specialists below."
             )
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans_text)
         return {
             "success": True,
             "data": {
@@ -1768,6 +2003,61 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             }
         }
 
+    # 3.5. CLARIFYING QUESTIONS CONFIRMED STRAIGHTFORWARD (MULTI-TURN MEMORY RESOLUTION)
+    # If the user is answering clarifying questions from prior turn and red flags are ruled out:
+    if mem_context.get("isAnsweringClarification") and not mem_context.get("hasRedFlags") and mem_context.get("conditionConfig"):
+        cond_cfg = mem_context["conditionConfig"]
+        otc_hi_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesHi']}" for m in cond_cfg["otcMedicines"]])
+        otc_en_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesEn']}" for m in cond_cfg["otcMedicines"]])
+
+        if detected_lang == "hi":
+            ans_text = (
+                f"**संभावित प्राथमिक मूल्यांकन (सामान्य स्थिति की पुष्टि):**\n\n"
+                f"स्पष्टीकरण देने के लिए धन्यवाद। 1-2 दिन से हल्के लक्षण और कोई गंभीर संकेत (जैसे शरीर पर दाने या तेज दर्द) न होने से यह सामान्य **{cond_cfg['diagnosisHi']}** की पुष्टि करता है।\n\n"
+                f"⚠️ **चिकित्सीय अस्वीकरण:** AI कोई डॉक्टर नहीं है, इसलिए पूरी तरह AI के कहे पर भरोसा न करें। पक्के और सटीक निदान के लिए प्रमाणित डॉक्टर से जांच अवश्य कराएं।\n\n"
+                f"**सुरक्षित ओवर-द-काउंटर (OTC) दवाइयां (बिना पर्चे के मेडिकल स्टोर पर आसानी से उपलब्ध):**\n"
+                f"{otc_hi_lines}\n\n"
+                f"• **घरेलू देखभाल:** {cond_cfg['homeCareHi']}\n\n"
+                f"*सख्त सुरक्षा नियम: ये बिना पर्चे वाली सामान्य राहतकारी दवाइयां हैं। यदि लक्षण 48-72 घंटे में ठीक न हों या गंभीर लगें, तो कृपया नीचे दिए गए डॉक्टर से तुरंत परामर्श लें।*"
+            )
+        else:
+            ans_text = (
+                f"**Provisional Health Assessment (Confirmed Straightforward):**\n\n"
+                f"Thank you for clarifying. With mild symptoms lasting only 1-2 days and no red flags (no skin rash, severe pain, or stiffness), this confirms an uncomplicated **{cond_cfg['diagnosisEn']}**.\n\n"
+                f"⚠️ **Medical Disclaimer:** I am an AI medical assistant, not a doctor, so please do not solely rely on what AI says. For an official and accurate medical diagnosis, please consult a certified doctor.\n\n"
+                f"**Safe Over-The-Counter (OTC) Guidance (Easily available at medical stores without prescription):**\n"
+                f"{otc_en_lines}\n\n"
+                f"• **Home Care:** {cond_cfg['homeCareEn']}\n\n"
+                f"*Safety Rule: These are non-prescription OTC medications for temporary symptomatic relief. If symptoms persist beyond 48 hours, worsen, or red flags appear, please consult a doctor below.*"
+            )
+
+        audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans_text)
+        return {
+            "success": True,
+            "data": {
+                "answer": ans_text,
+                "detectedLanguage": detected_lang,
+                "audioBase64": audio_b64,
+                "urgencyLevel": "YELLOW",
+                "actionCards": [
+                    {
+                        "type": "OTC_MEDICATION_CARD",
+                        "title": "Safe OTC Relief (No Prescription Required)",
+                        "medicines": cond_cfg["otcMedicines"]
+                    },
+                    {
+                        "type": "HEALTH_GUIDANCE_ACTIONS",
+                        "urgency": "YELLOW",
+                        "options": [
+                            {"label": "👨‍⚕️ Book Routine Doctor Consult", "doctorId": "doc_2", "route": "#feature2"},
+                            {"label": "🏥 Find Nearest Hospital Facility", "route": "#feature1"}
+                        ]
+                    }
+                ]
+            }
+        }
+
     # 4. DIRECT MEDICINE INQUIRY & ALTERNATIVES (Text query about medicine & same-composition alternatives)
     med_lookup = lookup_medicine(raw_query)
     is_asking_med = bool(med_lookup) or any(
@@ -1779,6 +2069,8 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     if is_asking_med and not any(bk in raw_query.lower() for bk in ["book appointment", "अपॉइंटमेंट बुक", "डॉक्टर बुक"]):
         if med_lookup:
             med_info = med_lookup
+        elif mem_context.get("activeMedicine"):
+            med_info = mem_context["activeMedicine"]
         else:
             gen_res = analyze_multimodal_document(None, None, raw_query, detected_lang)
             if gen_res.get("documentType") == "medication":
@@ -1808,6 +2100,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             )
 
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans_text)
         return {
             "success": True,
             "data": {
@@ -1839,6 +2132,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
         report_res = analyze_multimodal_document(None, None, raw_query, detected_lang)
         ans_text = report_res.get("explanationHi" if detected_lang == "hi" else "explanationEn") or "Report parameter analysis grounded strictly in the observed values."
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans_text)
         return {
             "success": True,
             "data": {
@@ -1893,6 +2187,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             )
         
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans)
         return {
             "success": True,
             "data": {
@@ -1940,6 +2235,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             else f"Certainly! Navigating you to **{matched_nav['title']}**. You can also tap the button below."
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans)
         return {
             "success": True,
             "data": {
@@ -1967,6 +2263,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             ans = f"Ramesh, you have {len(patient_apts)} confirmed appointment(s) in your records:"
         
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans)
         return {
             "success": True,
             "data": {
@@ -2001,6 +2298,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             else f"I have prepared a dosage reminder for **{med_target}** at {time_target}. Please confirm below to activate it."
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans)
         return {
             "success": True,
             "data": {
@@ -2030,6 +2328,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             else "Here are the verified nearby healthcare facilities and emergency centers in Hazaribagh district:"
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans)
         return {
             "success": True,
             "data": {
@@ -2062,6 +2361,9 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
         elif any(w in raw_query.lower() for w in ["women", "pregnant", "gynec", "महिला", "सुनीता", "patel"]):
             matched_doc = DOCTORS_DB[4]  # Dr. Sunita Patel
 
+        if not matched_doc and mem_context.get("activeDoctor"):
+            matched_doc = mem_context["activeDoctor"]
+
         if matched_doc:
             chosen_slot = matched_doc["slots"][0]
             ans = (
@@ -2076,6 +2378,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 )
             )
             audio_b64 = synthesize_speech_base64(ans, detected_lang)
+            record_agent_session_turn(session_id, raw_query, ans)
             return {
                 "success": True,
                 "data": {
@@ -2107,6 +2410,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 else "Here are the registered specialist doctors available in Hazaribagh. Tap 'Book Doctor' to prepare a booking confirmation:"
             )
             audio_b64 = synthesize_speech_base64(ans, detected_lang)
+            record_agent_session_turn(session_id, raw_query, ans)
             return {
                 "success": True,
                 "data": {
@@ -2161,6 +2465,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             )
 
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+        record_agent_session_turn(session_id, raw_query, ans_text)
         return {
             "success": True,
             "data": {
@@ -2199,6 +2504,17 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
         for r in records_list[:3]
     ])
 
+    hist_context_str = ""
+    if conv_history:
+        h_turns = []
+        for h in conv_history[-8:]:
+            r = "User" if h.get("role") in ["user", "patient"] else "Assistant"
+            txt = (h.get("text") or h.get("content") or "").strip()
+            if txt:
+                h_turns.append(f"{r}: {txt}")
+        if h_turns:
+            hist_context_str = "\n".join(h_turns)
+
     prompt = f"""You are the MedVeda Autonomous Medical Assistant Agent.
 You are NOT a doctor. Follow G-NAD (Not a doctor disclaimer) and G-HON (Honesty about MedVeda bounds).
 Patient: {patient_info.get('name')} ({patient_id})
@@ -2216,12 +2532,15 @@ Available In-Website Features:
 - Feature 08: Govt Health Schemes (PM-JAY)
 - Feature 09: District Command Center
 
+CONVERSATION HISTORY (RECENT MULTI-TURN CONTEXT):
+{hist_context_str if hist_context_str else "None (Start of conversation)"}
+
 User Query: "{raw_query}"
 Language: {"Hindi (Devanagari script)" if detected_lang == "hi" else "English"}
 
 Rules:
 1. Answer strictly in the requested language ({"Hindi" if detected_lang == "hi" else "English"}).
-2. Do not hallucinate external doctors, websites or capabilities. Keep everything within MedVeda.
+2. Ground all advice in the conversation context and MedVeda capabilities. Do not hallucinate external doctors or capabilities.
 3. Suggest appropriate MedVeda features if relevant.
 4. If asked about medication, advise ONLY safe OTC medicines and suggest doctor consultation for prescription drugs.
 """
@@ -2249,6 +2568,7 @@ Rules:
         )
 
     audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
+    record_agent_session_turn(session_id, raw_query, ans_text)
     return {
         "success": True,
         "data": {

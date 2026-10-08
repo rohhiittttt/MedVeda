@@ -9734,6 +9734,12 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
     const targetDocId = docScope !== undefined ? docScope : (chatScopedDoc?.id || undefined);
     const chosenLang = chatLanguage === 'auto' ? undefined : chatLanguage;
 
+    // Send rolling conversation memory history
+    const conversationHistory = chatMessages.slice(-10).map((m) => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      text: m.text
+    }));
+
     try {
       const res = await fetch(getApiUrl('/api/records/chat'), {
         method: 'POST',
@@ -9743,7 +9749,9 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           question: q,
           scopedDocumentId: targetDocId,
           requesterRole: activeRole,
-          language: chosenLang
+          language: chosenLang,
+          sessionId: `records_${patient.internalMedicalId}`,
+          conversationHistory: conversationHistory
         })
       });
       const data = await res.json();
@@ -22070,6 +22078,12 @@ function ScreenMedicalAssistantAgent({
     setSelectedFile(null);
     setIsLoading(true);
 
+    // Rolling conversation memory history
+    const conversationHistory = messages.slice(-10).map((m) => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      text: m.text
+    }));
+
     try {
       const res = await fetch('/api/agent/chat', {
         method: 'POST',
@@ -22084,6 +22098,8 @@ function ScreenMedicalAssistantAgent({
             gender: 'male',
             location: 'Katkamsandi, Hazaribagh'
           },
+          sessionId: 'agent_session_ramesh',
+          conversationHistory: conversationHistory,
           fileBase64: fileToUpload ? fileToUpload.base64 : undefined,
           fileMimeType: fileToUpload ? fileToUpload.mimeType : undefined,
           fileName: fileToUpload ? fileToUpload.name : undefined
