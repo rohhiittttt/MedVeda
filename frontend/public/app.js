@@ -636,16 +636,16 @@ function getRoleBadgeLabel(role) {
   return map[role] || 'User';
 }
 
-function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
+function AuthModal({ initialTab = 'login', initialRole = 'worker', initialIdentifier = '', onClose, onAuthSuccess }) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [loginForm, setLoginForm] = useState({ identifier: '', password: '', role: 'worker' });
-  const [signUpForm, setSignUpForm] = useState({ name: '', mobile: '', abhaId: '', role: 'patient', district: 'Hazaribagh', password: '' });
+  const [loginForm, setLoginForm] = useState({ identifier: initialIdentifier || '', password: '', role: initialRole || 'worker' });
+  const [signUpForm, setSignUpForm] = useState({ name: '', mobile: '', abhaId: '', role: initialRole === 'doctor' ? 'doctor' : initialRole === 'facility' ? 'facility' : 'patient', district: 'Hazaribagh', password: '' });
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
   const handleQuickLogin = (name, role, abhaId) => {
     setAuthSuccessMsg(`Logged in as ${name}`);
     setTimeout(() => {
-      onAuthSuccess({ name, role, abhaId });
+      onAuthSuccess({ name, role, abhaId, roleLabel: getRoleBadgeLabel(role) });
     }, 400);
   };
 
@@ -657,7 +657,8 @@ function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
       onAuthSuccess({
         name: name.charAt(0).toUpperCase() + name.slice(1),
         role: loginForm.role,
-        abhaId: loginForm.identifier.includes('@') ? loginForm.identifier : `${loginForm.identifier}@abdm`
+        abhaId: loginForm.identifier.includes('@') ? loginForm.identifier : `${loginForm.identifier}@abdm`,
+        roleLabel: getRoleBadgeLabel(loginForm.role)
       });
     }, 400);
   };
@@ -669,10 +670,12 @@ function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
       onAuthSuccess({
         name: signUpForm.name,
         role: signUpForm.role,
-        abhaId: signUpForm.abhaId || `${signUpForm.mobile}@abdm`
+        abhaId: signUpForm.abhaId || `${signUpForm.mobile}@abdm`,
+        roleLabel: getRoleBadgeLabel(signUpForm.role)
       });
     }, 400);
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
@@ -736,7 +739,7 @@ function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                 Quick 1-Click Simulation Login
               </span>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('Anita Devi', 'worker', '9876543210@abdm')}
@@ -755,6 +758,16 @@ function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
                   <span className="text-sm block">👨‍⚕️</span>
                   <span className="text-[11px] font-extrabold text-[#0b2b82] block truncate">Dr. Priya</span>
                   <span className="text-[9px] text-blue-700 font-semibold block">Doctor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('SBMC&H Referral Desk', 'facility', 'admin.sbmch@abdm')}
+                  className="p-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-left transition-all cursor-pointer"
+                >
+                  <span className="text-sm block">🏥</span>
+                  <span className="text-[11px] font-extrabold text-sky-900 block truncate">SBMC&H Desk</span>
+                  <span className="text-[9px] text-sky-700 font-semibold block">Facility Admin</span>
                 </button>
 
                 <button
@@ -947,11 +960,13 @@ function AuthModal({ initialTab = 'login', onClose, onAuthSuccess }) {
   );
 }
 
-function Header({ currentView, setView, currentScreen, setScreen, actorRole, setActorRole }) {
+function Header({ currentView, setView, currentScreen, setScreen, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser }) {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [localUser, setLocalUser] = useState(null);
+  const currentUser = propCurrentUser !== undefined ? propCurrentUser : localUser;
+  const setCurrentUser = propSetCurrentUser || setLocalUser;
   const featuresRef = useRef(null);
 
   useEffect(() => {
@@ -6094,8 +6109,78 @@ function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
   );
 }
 
-function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHome, onNavigateToCareNavigator }) {
-  const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
+function ReferralLoginForm({ onOpenAuthModal }) {
+  const [loginRole, setLoginRole] = useState('doctor');
+  const [identifier, setIdentifier] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (onOpenAuthModal) {
+      onOpenAuthModal(loginRole, identifier);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">ABHA ID / Mobile / UHID</label>
+          <input
+            type="text"
+            placeholder="e.g. 9431158201 or doc@abdm"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82] outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">Role Frame of Reference</label>
+          <select
+            value={loginRole}
+            onChange={(e) => setLoginRole(e.target.value)}
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#0b2b82] outline-none bg-white"
+          >
+            <option value="doctor">👨‍⚕️ Consulting / Referring Doctor (Doctor View)</option>
+            <option value="facility">🏥 Receiving Facility Administrator (Facility View)</option>
+            <option value="patient">👤 Self-Service Patient / Family (Patient View)</option>
+            <option value="worker">👩‍⚕️ Frontline Health Worker / ASHA (Referring Pipeline)</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p className="text-[11px] text-slate-500">
+          🔒 Secure ABDM M1/M2/M3 cryptographic authentication handshake.
+        </p>
+        <button
+          type="submit"
+          className="w-full sm:w-auto px-6 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <span>🔐</span>
+          <span>Open Main Login / Sign Up &rarr;</span>
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCurrentUser, onBack, onBackToHome, onNavigateToCareNavigator }) {
+  const getRoleTab = (role) => {
+    if (role === 'patient') return 'patient';
+    if (role === 'facility' || role === 'admin') return 'facility';
+    return 'doctor'; // doctor, worker, shop_owner, etc.
+  };
+
+  const getInitialTab = () => {
+    if (!currentUser) return 'login';
+    const hash = window.location.hash || '';
+    if (hash === '#referrals-patient') return 'patient';
+    if (hash === '#referrals-facility') return 'facility';
+    if (hash === '#referrals-doctor') return 'doctor';
+    return getRoleTab(currentUser.role || actorRole);
+  };
+
+  const [activeTabRole, setActiveTabRole] = useState(getInitialTab);
   const [referrals, setReferrals] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, rejected: 0, completed: 0 });
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -6105,6 +6190,33 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
   const [selectedHospital, setSelectedHospital] = useState('ALL');
   const [selectedDoctor, setSelectedDoctor] = useState('ALL');
   const [selectedPatient, setSelectedPatient] = useState('ALL');
+
+  // Modal for website's default authentication
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalRole, setAuthModalRole] = useState('doctor');
+  const [authModalIdentifier, setAuthModalIdentifier] = useState('');
+
+  const openLoginForRole = (role, identifier = '') => {
+    setAuthModalRole(role);
+    setAuthModalIdentifier(identifier);
+    setShowAuthModal(true);
+  };
+
+  const handlePerformLogin = (user) => {
+    if (setCurrentUser) {
+      setCurrentUser(user);
+    }
+    if (setActorRole && user.role) {
+      setActorRole(user.role);
+    }
+    const tab = getRoleTab(user.role);
+    setActiveTabRole(tab);
+    if (user.role === 'patient') {
+      setSelectedPatient(user.name);
+    } else if (user.role === 'doctor') {
+      setSelectedDoctor(user.name);
+    }
+  };
   
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
@@ -6283,10 +6395,18 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
   };
 
   useEffect(() => {
-    if (actorRole && ['doctor', 'facility', 'patient'].includes(actorRole)) {
-      setActiveTabRole(actorRole);
+    if (!currentUser) {
+      setActiveTabRole('login');
+    } else {
+      const targetRole = currentUser.role || actorRole;
+      setActiveTabRole(getRoleTab(targetRole));
+      if (currentUser.role === 'patient') {
+        setSelectedPatient(currentUser.name || 'ALL');
+      } else if (currentUser.role === 'doctor') {
+        setSelectedDoctor(currentUser.name || 'ALL');
+      }
     }
-  }, [actorRole]);
+  }, [currentUser, actorRole]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -6543,6 +6663,184 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
     );
   };
 
+  const renderLoginView = () => (
+    <div className="py-4 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
+      {/* Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0b2b82] via-[#103a9f] to-[#1e40af] text-white p-8 sm:p-10 shadow-xl border border-blue-800/40">
+        <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-blue-100 text-xs font-bold mb-4 backdrop-blur-sm border border-white/20">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            ABDM National Health Network &bull; Role Authentication
+          </div>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight">
+            Smart Referral Access Portal
+          </h2>
+          <p className="mt-3 text-xs sm:text-sm md:text-base text-blue-100/90 leading-relaxed">
+            Please authenticate with your verified healthcare credentials to access ABDM-linked referral tokens, real-time bed allocations, and multi-specialty patient transfers.
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Role Selection - 3 Primary Frame of Reference Cards */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Select Role Frame of Reference</h3>
+            <p className="text-xs text-slate-500 font-medium">Select a role to open the official ABDM login & credentials verification portal</p>
+          </div>
+          <span className="text-[11px] font-bold text-[#0b2b82] bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
+            🔐 Secure ABDM Portal
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* DOCTOR CARD */}
+          <div 
+            onClick={() => openLoginForRole('doctor', 'priya.sharma@abdm')}
+            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-[#0b2b82] p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                  👨‍⚕️
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-blue-100 text-[#0b2b82]">
+                  Referring Doctor
+                </span>
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-slate-900 group-hover:text-[#0b2b82] transition-colors">
+                  Doctor Frame of Reference
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Initiate ABDM referrals, manage GPS clinic matching, emergency transfers, and doctor referral logs.
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
+                <div className="font-bold text-slate-800">Verified Profile:</div>
+                <div>Dr. Priya Sharma (PHC Katkamsandi)</div>
+                <div className="text-slate-400 font-mono text-[10px]">priya.sharma@abdm</div>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openLoginForRole('doctor', 'priya.sharma@abdm'); }}
+              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-[#0b2b82] group-hover:bg-[#061d5c] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Login as Doctor &rarr;</span>
+            </button>
+          </div>
+
+          {/* FACILITY CARD */}
+          <div 
+            onClick={() => openLoginForRole('facility', 'admin.sbmch@abdm')}
+            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-emerald-600 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                  🏥
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800">
+                  Receiving Facility
+                </span>
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
+                  Facility Frame of Reference
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Manage inbound queues, triage incoming ambulance referrals, reserve ICU beds, and assign attending consultants.
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
+                <div className="font-bold text-slate-800">Verified Facility:</div>
+                <div>Sheikh Bhikhari Medical College (SBMC&H)</div>
+                <div className="text-slate-400 font-mono text-[10px]">admin.sbmch@abdm</div>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openLoginForRole('facility', 'admin.sbmch@abdm'); }}
+              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Login as Facility &rarr;</span>
+            </button>
+          </div>
+
+          {/* PATIENT CARD */}
+          <div 
+            onClick={() => openLoginForRole('patient', 'anita.devi@abdm')}
+            className="group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-purple-600 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                  👤
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-800">
+                  Patient / Family
+                </span>
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-slate-900 group-hover:text-purple-700 transition-colors">
+                  Patient Frame of Reference
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Access digital referral pass, QR admissions token, hospital directions, and real-time bed confirmation.
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
+                <div className="font-bold text-slate-800">Verified Citizen:</div>
+                <div>Anita Devi (UHID: PAT-1024)</div>
+                <div className="text-slate-400 font-mono text-[10px]">anita.devi@abdm</div>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openLoginForRole('patient', 'anita.devi@abdm'); }}
+              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-purple-600 group-hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Login as Patient &rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Frontline Worker option + Manual Form Login */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="text-2xl">👩‍⚕️</span>
+              <div>
+                <h4 className="text-sm font-black text-slate-900">Frontline Worker Access</h4>
+                <p className="text-[11px] text-slate-500">ASHA / ANM Village Health Post</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Health workers referring community members to tertiary health institutions. Opens referring provider pipeline.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openLoginForRole('worker', '9876543210@abdm')}
+            className="w-full py-2.5 px-4 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Login as ASHA (Anita Devi) &rarr;</span>
+          </button>
+        </div>
+
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h4 className="text-sm font-black text-slate-900 mb-1">Enter Credentials (ABDM / UHID)</h4>
+          <p className="text-xs text-slate-500 mb-4">Sign in with an existing National Digital Health account or password</p>
+          <ReferralLoginForm onOpenAuthModal={openLoginForRole} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full bg-[#f8fafc]">
       {/* Header */}
@@ -6566,7 +6864,14 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
               </svg>
             </button>
-            {activeTabRole === 'patient' ? 'My Referrals' : 'NexusMind Referral Network'} {activeTabRole !== 'patient' && <span className="text-blue-500 font-bold text-lg">v2</span>}
+            {activeTabRole === 'patient'
+              ? 'My Referrals'
+              : activeTabRole === 'login'
+              ? 'Referral Portal Authentication'
+              : 'NexusMind Referral Network'}{' '}
+            {activeTabRole !== 'patient' && activeTabRole !== 'login' && (
+              <span className="text-blue-500 font-bold text-lg">v2</span>
+            )}
           </h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -6619,16 +6924,44 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
             </div>
           )}
 
-          {actorRole !== 'patient' && (
-            <div className="flex bg-slate-100 rounded-xl p-1">
-              {['doctor', 'facility', 'patient'].map((r) => (
-                <button key={r} onClick={() => { setActiveTabRole(r); setActorRole && setActorRole(r); }}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                  {r} View
-                </button>
-              ))}
+          {/* User Profile / Authentication Header Actions */}
+          {currentUser ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-black text-slate-800">
+                  {currentUser.name}
+                </span>
+                <span className="text-[10px] font-extrabold text-[#0b2b82] bg-blue-100/80 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  {getRoleBadgeLabel(currentUser.role)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (setCurrentUser) setCurrentUser(null);
+                  setActiveTabRole('login');
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200 flex items-center gap-1.5"
+                title="Switch user or log out"
+              >
+                <span>🚪</span>
+                <span>Log Out</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openLoginForRole('doctor')}
+                className="px-4 py-2 bg-[#0b2b82] hover:bg-[#061d5c] text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <span>🔐</span>
+                <span>ABDM Login Portal</span>
+              </button>
             </div>
           )}
+
           {activeTabRole === 'doctor' && (
             <button onClick={() => setShowCreateWizard(true)} className="px-5 py-2.5 bg-[#0b2b82] text-white font-bold text-xs rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all whitespace-nowrap">
               + Create Referral
@@ -6639,9 +6972,13 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-6xl mx-auto">
+          {activeTabRole === 'login' && renderLoginView()}
           {activeTabRole === 'doctor' && renderDoctorView()}
           {activeTabRole === 'facility' && renderFacilityView()}
           {activeTabRole === 'patient' && renderPatientView()}
+          {!['login', 'doctor', 'facility', 'patient'].includes(activeTabRole) && (
+            currentUser ? renderDoctorView() : renderLoginView()
+          )}
         </div>
       </div>
 
@@ -6897,6 +7234,20 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBack, onBackToHom
              <button onClick={() => setShowAllotModal(false)} className="w-full py-3 text-slate-500 font-bold rounded-xl mt-2">Cancel</button>
           </div>
         </div>
+      )}
+
+      {/* Official Website ABDM Authentication Modal */}
+      {showAuthModal && (
+        <AuthModal
+          initialTab="login"
+          initialRole={authModalRole}
+          initialIdentifier={authModalIdentifier}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={(user) => {
+            setShowAuthModal(false);
+            handlePerformLogin(user);
+          }}
+        />
       )}
     </div>
   );
@@ -23955,10 +24306,45 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
 // --- MAIN APPLICATION ROOT (ROUTER & STATE) ---
 // ==========================================
 function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medveda_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [actorRole, setActorRole] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medveda_auth_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u && u.role) return u.role;
+      }
+    } catch (e) {}
+    return 'worker';
+  });
+
+  const handleSetCurrentUser = (user) => {
+    setCurrentUser(user);
+    if (user) {
+      if (user.role) {
+        setActorRole(user.role);
+      }
+      try {
+        localStorage.setItem('medveda_auth_user', JSON.stringify(user));
+      } catch (e) {}
+    } else {
+      try {
+        localStorage.removeItem('medveda_auth_user');
+      } catch (e) {}
+    }
+  };
+
   const [view, setViewState] = useState('home'); // 'home' | 'overview' | 'feature1' | 'feature2' | 'feature3' | 'feature4' | 'feature5' | 'feature6' | 'feature7' | 'feature8' | 'feature9'
   const [feature1Screen, setFeature1Screen] = useState(1);
   const [teleconsultScreen, setTeleconsultScreen] = useState('entry'); // 'entry' | 'booking' | 'queue' | 'call' | 'doctor' | 'summary'
-  const [actorRole, setActorRole] = useState('worker'); // 'worker' | 'patient' | 'doctor' | 'shop_owner' | 'lab_staff' | 'facility' | 'admin'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Feature 01 States
@@ -24144,6 +24530,8 @@ function App() {
         setScreen={setScreen}
         actorRole={actorRole}
         setActorRole={setActorRole}
+        currentUser={currentUser}
+        setCurrentUser={handleSetCurrentUser}
       />
 
       {/* HOMEPAGE VIEW */}
@@ -24427,6 +24815,8 @@ function App() {
           <ScreenReferralManagement
             actorRole={actorRole}
             setActorRole={setActorRole}
+            currentUser={currentUser}
+            setCurrentUser={handleSetCurrentUser}
             onBack={handleBackFromReferrals}
             onBackToHome={() => setView('home')}
             onNavigateToCareNavigator={() => {
