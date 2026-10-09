@@ -2710,6 +2710,30 @@ function ScreenHomepage({
 function Screen1PatientInfo({ patient, setPatient, onNext }) {
   const [historyInput, setHistoryInput] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [hubSearchQuery, setHubSearchQuery] = useState('');
+  const [selectedHubIdx, setSelectedHubIdx] = useState(0);
+
+  const handleAddToCart = (item) => {
+    setCart((prev) => [...prev, item]);
+    showToast(`🎉 Added '${item.brandName || item.medicine?.medicineName || item.name || 'Medicine'}' to Cart!`);
+  };
+
+  const displayMedicines = useMemo(() => {
+    const q = (medSearchQuery || '').trim().toLowerCase();
+    if (!q || q === 'paracetamol') {
+      return CORE_MEDICINES_CATALOG;
+    }
+    const filtered = CORE_MEDICINES_CATALOG.filter(
+      (m) =>
+        m.key.toLowerCase().includes(q) ||
+        m.brandName.toLowerCase().includes(q) ||
+        m.genericName.toLowerCase().includes(q)
+    );
+    if (filtered.length > 0) return filtered;
+    return CORE_MEDICINES_CATALOG;
+  }, [medSearchQuery]);
   const [gpsError, setGpsError] = useState(null);
 
   const handleDetectLocation = () => {
@@ -12730,6 +12754,672 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 // --- FEATURE 06: MEDICINE AVAILABILITY & DIAGNOSTIC COORDINATION ---
 // ==========================================
 
+// ==========================================
+// --- CORE CURATED MEDICINE REPOSITORY & PACKAGING ASSETS ---
+// ==========================================
+
+const CORE_MEDICINES_CATALOG = [
+  {
+    id: 'med_paracetamol',
+    key: 'Paracetamol',
+    brandName: 'Dolo 650 Tablet',
+    genericName: 'Paracetamol (Acetaminophen)',
+    form: 'Tablet',
+    strength: '650mg',
+    packageSubtitle: '15 Tablet(s) in Strip',
+    mrp: 32.28,
+    discountPrice: 24.53,
+    discountPercent: 24,
+    unitPriceText: '₹1.64/tablet (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'MICRO LABS',
+    dosage: 'TABLET',
+    expiry: 'MARCH 2027',
+    quantity: 132,
+    status: 'in_stock',
+    shopName: 'Katkamsandi Jan Aushadhi Pharmacy',
+    shopDistance: '1.2 km',
+    shopAddress: 'Main Market Road, Near Block Chowk, Katkamsandi',
+    janAushadhiSubstitutePrice: 9.50,
+    janAushadhiSavings: 61,
+    packType: 'blister_round',
+    packColor: '#0284c7'
+  },
+  {
+    id: 'med_telmisartan',
+    key: 'Telmisartan',
+    brandName: 'Telma 40 Tablet',
+    genericName: 'Telmisartan (ARB Antihypertensive)',
+    form: 'Tablet',
+    strength: '40mg',
+    packageSubtitle: '15 Tablet(s) in Strip',
+    mrp: 148.00,
+    discountPrice: 112.48,
+    discountPercent: 24,
+    unitPriceText: '₹7.50/tablet (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'GLENMARK PHARMA',
+    dosage: 'TABLET',
+    expiry: 'DECEMBER 2026',
+    quantity: 85,
+    status: 'in_stock',
+    shopName: 'Sadar Medico & 24x7 Emergency Chemist',
+    shopDistance: '2.8 km',
+    shopAddress: 'Hospital Road, Near Sadar Hospital, Hazaribagh',
+    janAushadhiSubstitutePrice: 18.50,
+    janAushadhiSavings: 84,
+    packType: 'blister_round',
+    packColor: '#0ea5e9'
+  },
+  {
+    id: 'med_metformin',
+    key: 'Metformin',
+    brandName: 'Glycomet 500 SR Tablet',
+    genericName: 'Metformin Hydrochloride (Biguanide)',
+    form: 'Tablet',
+    strength: '500mg ER',
+    packageSubtitle: '20 Tablet(s) in Strip',
+    mrp: 52.00,
+    discountPrice: 39.52,
+    discountPercent: 24,
+    unitPriceText: '₹1.98/tablet (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'USV PRIVATE LTD',
+    dosage: 'EXT-RELEASE TABLET',
+    expiry: 'JANUARY 2027',
+    quantity: 110,
+    status: 'in_stock',
+    shopName: 'Katkamsandi Jan Aushadhi Pharmacy',
+    shopDistance: '1.2 km',
+    shopAddress: 'Main Market Road, Near Block Chowk, Katkamsandi',
+    janAushadhiSubstitutePrice: 8.00,
+    janAushadhiSavings: 80,
+    packType: 'blister_round',
+    packColor: '#38bdf8'
+  },
+  {
+    id: 'med_ecosprin',
+    key: 'Ecosprin',
+    brandName: 'Ecosprin 75 Tablet',
+    genericName: 'Acetylsalicylic Acid (Aspirin)',
+    form: 'Enteric Coated Tablet',
+    strength: '75mg',
+    packageSubtitle: '14 Tablet(s) in Strip',
+    mrp: 6.20,
+    discountPrice: 4.96,
+    discountPercent: 20,
+    unitPriceText: '₹0.35/tablet (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'USV PRIVATE LTD',
+    dosage: 'ENTERIC TABLET',
+    expiry: 'AUGUST 2027',
+    quantity: 160,
+    status: 'in_stock',
+    shopName: 'Apollo Pharmacy — Guru Gobind Singh Road',
+    shopDistance: '3.5 km',
+    shopAddress: 'Guru Gobind Singh Road, Hazaribagh',
+    janAushadhiSubstitutePrice: 3.50,
+    janAushadhiSavings: 30,
+    packType: 'blister_round',
+    packColor: '#0284c7'
+  },
+  {
+    id: 'med_amoxicillin',
+    key: 'Amoxicillin',
+    brandName: 'Novamox 500 Capsule',
+    genericName: 'Amoxicillin Trihydrate (Antibiotic)',
+    form: 'Capsule',
+    strength: '500mg',
+    packageSubtitle: '15 Capsule(s) in Strip',
+    mrp: 118.00,
+    discountPrice: 88.50,
+    discountPercent: 25,
+    unitPriceText: '₹5.90/capsule (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'CIPLA LTD',
+    dosage: 'CAPSULE',
+    expiry: 'NOVEMBER 2026',
+    quantity: 94,
+    status: 'in_stock',
+    shopName: 'Katkamsandi Jan Aushadhi Pharmacy',
+    shopDistance: '1.2 km',
+    shopAddress: 'Main Market Road, Near Block Chowk, Katkamsandi',
+    janAushadhiSubstitutePrice: 32.00,
+    janAushadhiSavings: 64,
+    packType: 'blister_capsule',
+    packColor: '#0284c7'
+  },
+  {
+    id: 'med_salbutamol',
+    key: 'Salbutamol Inhaler',
+    brandName: 'Asthalin Inhaler (100mcg)',
+    genericName: 'Salbutamol / Albuterol (Bronchodilator)',
+    form: 'MDI Inhaler',
+    strength: '100mcg',
+    packageSubtitle: '1 Inhaler (200 Metred Doses)',
+    mrp: 168.00,
+    discountPrice: 134.40,
+    discountPercent: 20,
+    unitPriceText: '₹0.67/actuation (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'CIPLA RESPIRATORY',
+    dosage: 'INHALER',
+    expiry: 'FEBRUARY 2027',
+    quantity: 42,
+    status: 'in_stock',
+    shopName: 'Sadar Medico & 24x7 Chemist',
+    shopDistance: '2.8 km',
+    shopAddress: 'Hospital Road, Near Sadar Hospital, Hazaribagh',
+    janAushadhiSubstitutePrice: 65.00,
+    janAushadhiSavings: 52,
+    packType: 'inhaler',
+    packColor: '#0284c7'
+  },
+  {
+    id: 'med_tenecteplase',
+    key: 'Tenecteplase',
+    brandName: 'Elaxim 40mg Injection',
+    genericName: 'Tenecteplase (rt-PA Thrombolytic)',
+    form: 'IV Injection',
+    strength: '40mg / Vial',
+    packageSubtitle: '1 Vial + 10ml Sterile Diluent',
+    mrp: 41200.00,
+    discountPrice: 32960.00,
+    discountPercent: 20,
+    unitPriceText: 'Emergency Single Dose STEMI Thrombolytic',
+    deliveryTime: 'Immediate Express Courier / Counter Pickup',
+    returnPolicy: '15 days return policy',
+    madeBy: 'GENNOVA / BOEHRINGER',
+    dosage: 'IV INJECTION',
+    expiry: 'OCTOBER 2026',
+    quantity: 14,
+    status: 'in_stock',
+    shopName: 'SBMC&H Medical College In-House Dispensary',
+    shopDistance: '4.2 km',
+    shopAddress: 'Sheikh Bhikhari Medical College Campus, Hazaribagh',
+    janAushadhiSubstitutePrice: 0,
+    janAushadhiSavings: 100,
+    packType: 'vial',
+    packColor: '#0284c7'
+  },
+  {
+    id: 'med_pantoprazole',
+    key: 'Pantoprazole',
+    brandName: 'Pan 40 Tablet',
+    genericName: 'Pantoprazole Gastro-resistant (PPI)',
+    form: 'Tablet',
+    strength: '40mg',
+    packageSubtitle: '15 Tablet(s) in Strip',
+    mrp: 165.00,
+    discountPrice: 128.70,
+    discountPercent: 22,
+    unitPriceText: '₹8.58/tablet (Inclusive of all taxes)',
+    deliveryTime: 'Delivery by Tomorrow, 10:00 am - 2:00 pm',
+    returnPolicy: '15 days return policy',
+    madeBy: 'ALKEM LABORATORIES',
+    dosage: 'TABLET',
+    expiry: 'SEPTEMBER 2026',
+    quantity: 156,
+    status: 'in_stock',
+    shopName: 'Katkamsandi Jan Aushadhi Pharmacy',
+    shopDistance: '1.2 km',
+    shopAddress: 'Main Market Road, Near Block Chowk, Katkamsandi',
+    janAushadhiSubstitutePrice: 22.00,
+    janAushadhiSavings: 83,
+    packType: 'blister_round',
+    packColor: '#0284c7'
+  }
+];
+
+function MedicinePackageVisual({ packType = 'blister_round', packColor = '#0284c7', medicineName = '' }) {
+  if (packType === 'inhaler') {
+    return (
+      <svg viewBox="0 0 160 160" className="w-28 h-28 drop-shadow-md select-none shrink-0" aria-label="Aerosol Inhaler">
+        <defs>
+          <linearGradient id="canisterGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#cbd5e1" />
+            <stop offset="35%" stopColor="#f8fafc" />
+            <stop offset="70%" stopColor="#94a3b8" />
+            <stop offset="100%" stopColor="#64748b" />
+          </linearGradient>
+          <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#0284c7" />
+            <stop offset="40%" stopColor="#38bdf8" />
+            <stop offset="85%" stopColor="#0369a1" />
+            <stop offset="100%" stopColor="#075985" />
+          </linearGradient>
+          <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0284c7" />
+          </linearGradient>
+          <filter id="inhalerShadow" x="-10%" y="-10%" width="120%" height="130%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.15" />
+          </filter>
+        </defs>
+        <rect x="62" y="14" width="36" height="34" rx="5" fill="url(#canisterGrad)" filter="url(#inhalerShadow)" />
+        <rect x="68" y="10" width="24" height="6" rx="2" fill="#94a3b8" />
+        <path d="M56 42 L104 42 L104 100 Q104 122 124 124 L124 142 L72 142 Q56 142 56 122 Z" fill="url(#bodyGrad)" filter="url(#inhalerShadow)" />
+        <path d="M102 118 L138 120 Q142 120 142 125 L142 140 Q142 144 138 144 L102 144 Z" fill="url(#capGrad)" />
+        <line x1="104" y1="118" x2="104" y2="144" stroke="#075985" strokeWidth="1.5" />
+        <circle cx="80" cy="74" r="14" fill="#0f172a" />
+        <circle cx="80" cy="74" r="12" fill="#ffffff" />
+        <text x="80" y="78" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#0284c7">200</text>
+        <text x="80" y="106" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#ffffff" letterSpacing="0.5">ASTHALIN</text>
+      </svg>
+    );
+  }
+
+  if (packType === 'vial') {
+    return (
+      <svg viewBox="0 0 160 160" className="w-28 h-28 drop-shadow-md select-none shrink-0" aria-label="Sterile Injection Vial">
+        <defs>
+          <linearGradient id="vialGlass" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#e2e8f0" stopOpacity="0.8" />
+            <stop offset="30%" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="70%" stopColor="#cbd5e1" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#94a3b8" stopOpacity="0.8" />
+          </linearGradient>
+          <linearGradient id="crimpHood" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#0284c7" />
+            <stop offset="50%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0369a1" />
+          </linearGradient>
+          <linearGradient id="fluidGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.6" />
+          </linearGradient>
+        </defs>
+        <rect x="62" y="16" width="36" height="10" rx="3" fill="url(#crimpHood)" />
+        <rect x="66" y="26" width="28" height="10" rx="1" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+        <rect x="70" y="36" width="20" height="12" fill="url(#vialGlass)" />
+        <path d="M70 48 L46 64 Q42 67 42 74 L42 136 Q42 144 50 144 L110 144 Q118 144 118 136 L118 74 Q118 67 114 64 L90 48 Z" fill="url(#vialGlass)" stroke="#cbd5e1" strokeWidth="1.5" />
+        <path d="M44 94 Q44 90 48 90 L112 90 Q116 90 116 94 L116 136 Q116 142 110 142 L50 142 Q44 142 44 136 Z" fill="url(#fluidGrad)" />
+        <rect x="46" y="74" width="68" height="42" rx="3" fill="#ffffff" stroke="#94a3b8" strokeWidth="0.8" />
+        <rect x="46" y="74" width="68" height="8" fill="#dc2626" />
+        <text x="80" y="80" textAnchor="middle" fontSize="6" fontWeight="bold" fill="#ffffff">EMERGENCY STEMI</text>
+        <text x="80" y="93" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#0f172a">ELAXIM 40</text>
+        <text x="80" y="103" textAnchor="middle" fontSize="6" fontWeight="bold" fill="#0284c7">Tenecteplase rt-PA</text>
+        <text x="80" y="112" textAnchor="middle" fontSize="5" fill="#64748b">Single-use IV Vial</text>
+      </svg>
+    );
+  }
+
+  if (packType === 'blister_capsule') {
+    return (
+      <svg viewBox="0 0 160 160" className="w-28 h-28 drop-shadow-md select-none shrink-0" aria-label="Capsule Blister Pack">
+        <defs>
+          <linearGradient id="capsuleFoil" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#bae6fd" />
+            <stop offset="35%" stopColor="#7dd3fc" />
+            <stop offset="70%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0284c7" />
+          </linearGradient>
+          <linearGradient id="capRed" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#f87171" />
+            <stop offset="50%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#b91c1c" />
+          </linearGradient>
+          <linearGradient id="capYellow" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="50%" stopColor="#eab308" />
+            <stop offset="100%" stopColor="#ca8a04" />
+          </linearGradient>
+          <filter id="capDome" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="1" dy="2" stdDeviation="1.5" floodColor="#0369a1" floodOpacity="0.4" />
+          </filter>
+        </defs>
+        <rect x="22" y="18" width="116" height="124" rx="8" fill="url(#capsuleFoil)" stroke="#0369a1" strokeWidth="1.2" />
+        <g opacity="0.18">
+          <line x1="22" y1="40" x2="138" y2="40" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="3 3" />
+          <line x1="22" y1="80" x2="138" y2="80" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="3 3" />
+          <line x1="22" y1="120" x2="138" y2="120" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="3 3" />
+          <line x1="60" y1="18" x2="60" y2="142" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="3 3" />
+          <line x1="100" y1="18" x2="100" y2="142" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="3 3" />
+        </g>
+        {[
+          { x: 42, y: 32 }, { x: 86, y: 32 },
+          { x: 42, y: 68 }, { x: 86, y: 68 },
+          { x: 42, y: 104 }, { x: 86, y: 104 }
+        ].map((pos, idx) => (
+          <g key={idx} filter="url(#capDome)">
+            <rect x={pos.x - 2} y={pos.y - 2} width="36" height="20" rx="10" fill="#e0f2fe" opacity="0.6" stroke="#ffffff" strokeWidth="0.8" />
+            <rect x={pos.x} y={pos.y} width="16" height="16" rx="8" fill="url(#capRed)" />
+            <rect x={pos.x + 16} y={pos.y} width="16" height="16" rx="8" fill="url(#capYellow)" />
+            <path d={`M ${pos.x + 4} ${pos.y + 3} Q ${pos.x + 16} ${pos.y + 1} ${pos.x + 28} ${pos.y + 3}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.8" />
+          </g>
+        ))}
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 160 160" className="w-28 h-28 drop-shadow-md select-none shrink-0" aria-label="15-Tablet Blister Strip">
+      <defs>
+        <linearGradient id="blisterFoilGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="25%" stopColor="#7dd3fc" />
+          <stop offset="55%" stopColor="#38bdf8" />
+          <stop offset="85%" stopColor="#0284c7" />
+          <stop offset="100%" stopColor="#0369a1" />
+        </linearGradient>
+        <radialGradient id="pillDomeGrad" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="40%" stopColor="#e0f2fe" />
+          <stop offset="75%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#0284c7" />
+        </radialGradient>
+        <radialGradient id="domeRim" cx="50%" cy="50%" r="50%">
+          <stop offset="85%" stopColor="#0284c7" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#075985" stopOpacity="0.8" />
+        </radialGradient>
+        <filter id="blisterShadow" x="-15%" y="-15%" width="130%" height="130%">
+          <feDropShadow dx="1" dy="1.5" stdDeviation="1" floodColor="#082f49" floodOpacity="0.35" />
+        </filter>
+      </defs>
+
+      <rect x="24" y="16" width="112" height="128" rx="7" fill="url(#blisterFoilGrad)" stroke="#0284c7" strokeWidth="1" />
+
+      <g opacity="0.15">
+        <line x1="24" y1="41" x2="136" y2="41" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="24" y1="67" x2="136" y2="67" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="24" y1="93" x2="136" y2="93" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="24" y1="119" x2="136" y2="119" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="61" y1="16" x2="61" y2="144" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="99" y1="16" x2="99" y2="144" stroke="#ffffff" strokeWidth="0.8" strokeDasharray="2 2" />
+      </g>
+
+      {[
+        { cx: 43, cy: 29 }, { cx: 80, cy: 29 }, { cx: 117, cy: 29 },
+        { cx: 43, cy: 55 }, { cx: 80, cy: 55 }, { cx: 117, cy: 55 },
+        { cx: 43, cy: 81 }, { cx: 80, cy: 81 }, { cx: 117, cy: 81 },
+        { cx: 43, cy: 107 }, { cx: 80, cy: 107 }, { cx: 117, cy: 107 },
+        { cx: 43, cy: 131 }, { cx: 80, cy: 131 }, { cx: 117, cy: 131 }
+      ].map((pos, idx) => (
+        <g key={idx} filter="url(#blisterShadow)">
+          <circle cx={pos.cx} cy={pos.cy} r="10.5" fill="#bae6fd" stroke="#0284c7" strokeWidth="0.6" opacity="0.7" />
+          <circle cx={pos.cx} cy={pos.cy} r="8.8" fill="url(#pillDomeGrad)" />
+          <circle cx={pos.cx} cy={pos.cy} r="8.8" fill="url(#domeRim)" />
+          <path
+            d={`M ${pos.cx - 5} ${pos.cy - 3} A 6 6 0 0 1 ${pos.cx + 2} ${pos.cy - 6}`}
+            stroke="#ffffff"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            fill="none"
+            opacity="0.9"
+          />
+        </g>
+      ))}
+
+      <rect x="27" y="19" width="106" height="122" rx="5" fill="none" stroke="#ffffff" strokeWidth="0.5" opacity="0.4" />
+    </svg>
+  );
+}
+
+function NearbyLiveRadarMap() {
+  return (
+    <div className="w-full h-full min-h-[350px] bg-[#f8fafc] rounded-2xl border border-slate-200 relative overflow-hidden flex flex-col justify-between shadow-2xs select-none">
+      <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md shadow-xs border border-emerald-200">
+        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span className="text-[11px] font-bold text-slate-800">Live Location</span>
+      </div>
+
+      <div className="absolute top-14 right-3.5 z-20 flex flex-col bg-white rounded-lg shadow-xs border border-slate-200 overflow-hidden text-slate-600 font-bold text-sm">
+        <button type="button" className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hover:text-slate-900 border-b border-slate-100 cursor-pointer">+</button>
+        <button type="button" className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 hover:text-slate-900 cursor-pointer">&minus;</button>
+      </div>
+
+      <button
+        type="button"
+        title="Recenter Map"
+        className="absolute bottom-3.5 left-3.5 z-20 w-8 h-8 bg-white rounded-lg shadow-xs border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors cursor-pointer"
+      >
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2">
+          <circle cx="12" cy="12" r="7" />
+          <line x1="12" y1="2" x2="12" y2="5" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="12" x2="22" y2="12" />
+        </svg>
+      </button>
+
+      <div className="w-full h-full absolute inset-0">
+        <svg viewBox="0 0 500 380" className="w-full h-full object-cover">
+          <defs>
+            <linearGradient id="mapBg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f1f5f9" />
+              <stop offset="100%" stopColor="#e2e8f0" />
+            </linearGradient>
+            <radialGradient id="radarPulse" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#0284c7" stopOpacity="0.25" />
+              <stop offset="70%" stopColor="#38bdf8" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          <rect width="500" height="380" fill="url(#mapBg)" />
+
+          <path d="M -20 80 Q 80 40 180 90 T 360 60 T 520 110 L 520 -20 L -20 -20 Z" fill="#e2e8f0" opacity="0.6" />
+          <path d="M -20 280 Q 90 230 220 270 T 420 250 T 520 290 L 520 400 L -20 400 Z" fill="#e2e8f0" opacity="0.6" />
+
+          <g stroke="#ffffff" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 60 -20 L 140 110 L 250 190 L 370 270 L 440 400" strokeWidth="12" />
+            <path d="M 60 -20 L 140 110 L 250 190 L 370 270 L 440 400" stroke="#fcd34d" strokeWidth="4" />
+
+            <path d="M -20 160 L 180 180 L 250 190 L 410 160 L 520 180" strokeWidth="8" />
+            <path d="M 120 390 L 190 290 L 250 190 L 320 80 L 400 -20" strokeWidth="8" />
+            <path d="M 40 70 L 140 110 L 180 180 L 120 280 L 60 340" strokeWidth="6" />
+            <path d="M 330 380 L 370 270 L 410 160 L 450 70" strokeWidth="6" />
+          </g>
+
+          <rect x="195" y="145" width="22" height="16" rx="4" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
+          <text x="206" y="157" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff">20</text>
+
+          <rect x="365" y="295" width="22" height="16" rx="4" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
+          <text x="376" y="307" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff">20</text>
+
+          <text x="90" y="70" fontSize="13" fontWeight="bold" fill="#64748b" letterSpacing="0.5">Katkamsandi</text>
+          <text x="370" y="90" fontSize="11" fontWeight="600" fill="#94a3b8">Bariatu Sector</text>
+          <text x="70" y="320" fontSize="11" fontWeight="600" fill="#94a3b8">Block West Hub</text>
+
+          <circle cx="250" cy="190" r="115" fill="url(#radarPulse)" stroke="#0284c7" strokeWidth="1.5" strokeDasharray="4 4" />
+          <circle cx="250" cy="190" r="60" fill="none" stroke="#0284c7" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
+
+          <g transform="translate(310, 120)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">1.2 km</text>
+          </g>
+
+          <g transform="translate(100, 130)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">2.8 km</text>
+          </g>
+
+          <g transform="translate(380, 80)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">3.5 km</text>
+          </g>
+
+          <g transform="translate(400, 190)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">1.9 km</text>
+          </g>
+
+          <g transform="translate(290, 290)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">3.1 km</text>
+          </g>
+
+          <g transform="translate(110, 275)" className="cursor-pointer">
+            <rect x="0" y="-8" width="56" height="20" rx="10" fill="#ffffff" stroke="#10b981" strokeWidth="1.5" />
+            <circle cx="8" cy="2" r="5" fill="#10b981" />
+            <text x="8" y="5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">+</text>
+            <text x="30" y="6" fontSize="10" fontWeight="bold" fill="#0f172a">4.2 km</text>
+          </g>
+
+          <g transform="translate(170, 220)">
+            <circle cx="0" cy="0" r="10" fill="#a855f7" stroke="#ffffff" strokeWidth="2" />
+            <circle cx="0" cy="0" r="4" fill="#ffffff" />
+          </g>
+
+          <g transform="translate(360, 250)">
+            <circle cx="0" cy="0" r="10" fill="#a855f7" stroke="#ffffff" strokeWidth="2" />
+            <circle cx="0" cy="0" r="4" fill="#ffffff" />
+          </g>
+
+          <g transform="translate(250, 190)">
+            <circle cx="0" cy="0" r="16" fill="#0284c7" opacity="0.3" className="animate-ping" />
+            <circle cx="0" cy="0" r="12" fill="#0284c7" stroke="#ffffff" strokeWidth="3" />
+            <circle cx="0" cy="0" r="5" fill="#ffffff" />
+            <g transform="translate(-64, 18)">
+              <rect x="0" y="0" width="128" height="24" rx="6" fill="#0f172a" opacity="0.9" />
+              <text x="64" y="16" textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="#ffffff">
+                Katkamsandi Rural PHC
+              </text>
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <div className="absolute bottom-3.5 right-3.5 z-20 bg-white/95 backdrop-blur-md rounded-xl p-2.5 shadow-xs border border-slate-200 text-[10px] font-semibold space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-[9px]">+</span>
+          <span className="text-slate-700">Pharmacy / Chemist</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-full bg-purple-500 text-white font-bold flex items-center justify-center text-[8px]">⚗️</span>
+          <span className="text-slate-700">Diagnostic Center</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-full bg-blue-600 border border-white"></span>
+          <span className="text-slate-700">Your Location</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MedicineCartModal({ cart = [], onClose, onCheckoutItem, onClearCart }) {
+  const totalPrice = cart.reduce((acc, item) => acc + (item.discountPrice || item.price || 0), 0);
+  const totalMrp = cart.reduce((acc, item) => acc + (item.mrp || item.brandMrp || item.price || 0), 0);
+  const totalSavings = Math.max(0, totalMrp - totalPrice);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">🛒</span>
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Your Medicine Cart</h3>
+              <p className="text-xs text-slate-500">{cart.length} item{cart.length === 1 ? '' : 's'} ready for reservation</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-sm font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
+          {cart.length === 0 ? (
+            <div className="text-center py-10 space-y-2">
+              <span className="text-4xl block">🛍️</span>
+              <p className="font-bold text-slate-700 text-sm">Your cart is currently empty</p>
+              <p className="text-xs text-slate-400">Search or click any medicine card to add items.</p>
+            </div>
+          ) : (
+            cart.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                    <MedicinePackageVisual packType={item.packType || 'blister_round'} medicineName={item.brandName} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900">{item.brandName || item.medicineName}</h4>
+                    <p className="text-[10px] text-slate-500">{item.packageSubtitle || item.strength || 'Standard Strip'}</p>
+                    <p className="text-[10px] text-emerald-600 font-bold">📍 {item.shopName || 'Katkamsandi Jan Aushadhi'}</p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <div className="font-extrabold text-xs text-slate-900">₹{(item.discountPrice || item.price || 0).toFixed(2)}</div>
+                  {item.mrp && (
+                    <div className="text-[10px] text-slate-400 line-through">₹{item.mrp.toFixed(2)}</div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onCheckoutItem(item)}
+                    className="mt-1 px-2.5 py-1 rounded bg-[#0f766e] hover:bg-[#115e59] text-white text-[10px] font-bold cursor-pointer block ml-auto"
+                  >
+                    Reserve Now
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {cart.length > 0 && (
+          <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Subtotal MRP:</span>
+              <span className="line-through text-slate-400">₹{totalMrp.toFixed(2)}</span>
+            </div>
+            {totalSavings > 0 && (
+              <div className="flex items-center justify-between text-xs text-emerald-700 font-bold">
+                <span>Savings Discount:</span>
+                <span>-₹{totalSavings.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-sm font-extrabold text-slate-900 pt-1 border-t border-slate-200">
+              <span>Payable at Counter:</span>
+              <span className="text-base text-blue-700">₹{totalPrice.toFixed(2)}</span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onClearCart}
+                className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 cursor-pointer"
+              >
+                Clear Cart
+              </button>
+              <button
+                type="button"
+                onClick={() => onCheckoutItem(cart[0])}
+                className="flex-1 py-2.5 rounded-xl bg-[#0f766e] hover:bg-[#115e59] text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>📦</span>
+                <span>Reserve Counter Pickup for All</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function ScreenMedicineDiagnostics({
   actorRole,
   setActorRole,
@@ -12786,6 +13476,31 @@ function ScreenMedicineDiagnostics({
   const [medMessage, setMedMessage] = useState('');
   const [medIsFallback, setMedIsFallback] = useState(false);
   const [medLoading, setMedLoading] = useState(false);
+
+  const [cart, setCart] = useState([]);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [hubSearchQuery, setHubSearchQuery] = useState('');
+  const [selectedHubIdx, setSelectedHubIdx] = useState(0);
+
+  const handleAddToCart = (item) => {
+    setCart((prev) => [...prev, item]);
+    showToast(`🎉 Added '${item.brandName || item.medicine?.medicineName || item.name || 'Medicine'}' to Cart!`);
+  };
+
+  const displayMedicines = useMemo(() => {
+    const q = (medSearchQuery || '').trim().toLowerCase();
+    if (!q || q === 'paracetamol') {
+      return CORE_MEDICINES_CATALOG;
+    }
+    const filtered = CORE_MEDICINES_CATALOG.filter(
+      (m) =>
+        m.key.toLowerCase().includes(q) ||
+        m.brandName.toLowerCase().includes(q) ||
+        m.genericName.toLowerCase().includes(q)
+    );
+    if (filtered.length > 0) return filtered;
+    return CORE_MEDICINES_CATALOG;
+  }, [medSearchQuery]);
 
   // --- Top Nearby Pharmacies State ---
   const [nearbyPharmacies, setNearbyPharmacies] = useState([]);
@@ -13343,93 +14058,278 @@ function ScreenMedicineDiagnostics({
         </div>
       )}
 
-      {/* Feature Header Banner */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82]" title="District Medicine & Diagnostic Logistics Grid">
-              Module 06 &bull; Medicine &amp; Diagnostic Network
-            </span>
+      {/* 1. Header Banner */}
+      <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/30 to-white rounded-2xl p-4 sm:p-5 border border-blue-100 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-2">
+              <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+              <path d="m8.5 8.5 7 7" />
+            </svg>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Medicine Availability &amp; Diagnostic Grid
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1 max-w-2xl leading-relaxed">
-            Live GPS nearby pharmacy stock search, 24x7 chemist locator, Jan Aushadhi generic substitution savings, counter reservations, and diagnostic coordination.
-          </p>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Medicines &amp; Lab Tests
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              Your healthcare essentials, all in one place.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <span>Home</span>
           </button>
         </div>
       </div>
 
-      {/* Primary Module Navigation Tabs */}
-      <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-2xs flex items-center gap-1 overflow-x-auto text-xs font-semibold">
+      {/* 2. Middle Grid: Live GPS Location Engine & Nearby Radius Radar Map */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Location Engine & Hub Switcher */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-2xs flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-600 text-base">📍</span>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+                Live GPS Location Engine &bull; Nearby Radius
+              </h3>
+            </div>
+
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 flex items-center justify-between gap-3 flex-wrap">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-900">
+                  <span className="text-blue-600">📍</span>
+                  <span>{userLocation.label}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium pl-5">
+                  Lat: <span className="font-mono text-slate-700">{userLocation.lat.toFixed(4)}</span> &bull; Lng: <span className="font-mono text-slate-700">{userLocation.lng.toFixed(4)}</span> &bull; {userLocation.isLiveGPS ? 'Active Device GPS' : 'Preset Location Hub'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGetLiveGPS}
+                disabled={gpsLoading}
+                className="px-3 py-1.5 border border-blue-600 text-blue-600 hover:bg-blue-50 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0"
+              >
+                <span>🎯</span>
+                <span>{gpsLoading ? 'Detecting GPS...' : 'Use My Live GPS'}</span>
+              </button>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <span className="text-blue-600">📍</span>
+                <span>Switch Location Hub</span>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={hubSearchQuery}
+                  onChange={(e) => setHubSearchQuery(e.target.value)}
+                  placeholder="Search to location hub"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 bg-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {locationPresets
+                  .filter((p) => !hubSearchQuery || p.label.toLowerCase().includes(hubSearchQuery.toLowerCase()))
+                  .map((preset, idx) => {
+                    const isSelected = userLocation.lat === preset.lat && userLocation.lng === preset.lng;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHubIdx(idx);
+                          handleSelectPresetLocation(preset);
+                        }}
+                        className={`p-2.5 rounded-xl text-left text-xs font-semibold transition-all flex items-center gap-2 border cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className={isSelected ? 'text-white' : 'text-blue-600'}>📍</span>
+                        <span className="truncate">{preset.label.replace('📍 ', '')}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+            <span className="text-[11px] font-bold text-slate-600 block">Search Radius</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { r: 5, label: 'Within 5 km — Walking / Local' },
+                { r: 15, label: 'Within 15 km — Block Level' },
+                { r: 25, label: 'Within 25 km — District Hub' },
+                { r: 50, label: 'Within 50 km — Regional Corridor' }
+              ].map((rad) => {
+                const isRadActive = medRadius === rad.r;
+                return (
+                  <button
+                    key={rad.r}
+                    type="button"
+                    onClick={() => {
+                      setMedRadius(rad.r);
+                      searchMedicines(medSearchQuery, rad.r, userLocation.lat, userLocation.lng);
+                      loadNearbyPharmacies(userLocation.lat, userLocation.lng, rad.r);
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+                      isRadActive
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {rad.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Live Location Radar Map */}
+        <div className="lg:col-span-5 h-[360px] lg:h-auto">
+          <NearbyLiveRadarMap />
+        </div>
+      </div>
+
+      {/* 3. Five Primary Module Feature Cards (Placed directly under Location & Map) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         <button
           type="button"
           onClick={() => setActiveTab('medicine_search')}
-          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'medicine_search'
-            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`p-3.5 rounded-2xl transition-all flex items-center justify-between border text-left cursor-pointer ${
+            activeTab === 'medicine_search'
+              ? 'bg-blue-50/40 border-2 border-blue-500 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200'
+          }`}
         >
-          <ModuleIcon id="medicine" className="w-4 h-4" />
-          <span>Medicine Stock &amp; Nearby Shops</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+                <path d="m8.5 8.5 7 7" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Medicine Stock &amp;</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Nearby Shops</div>
+            </div>
+          </div>
+          <span className="text-slate-400 font-bold text-sm">&rsaquo;</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('shop_owner')}
-          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'shop_owner'
-            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`p-3.5 rounded-2xl transition-all flex items-center justify-between border text-left cursor-pointer ${
+            activeTab === 'shop_owner'
+              ? 'bg-emerald-50/40 border-2 border-emerald-500 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200'
+          }`}
         >
-          <ModuleIcon id="facility" className="w-4 h-4" />
-          <span>Medical Shop Dashboard</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Medical Shop</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Dashboards</div>
+            </div>
+          </div>
+          <span className="text-slate-400 font-bold text-sm">&rsaquo;</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('diagnostic_search')}
-          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'diagnostic_search'
-            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`p-3.5 rounded-2xl transition-all flex items-center justify-between border text-left cursor-pointer ${
+            activeTab === 'diagnostic_search'
+              ? 'bg-purple-50/40 border-2 border-purple-500 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200'
+          }`}
         >
-          <ModuleIcon id="lab" className="w-4 h-4" />
-          <span>Diagnostic Test Search</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                <path d="M10 2v7.31L4.1 20.3a2 2 0 0 0 1.7 2.7h12.4a2 2 0 0 0 1.7-2.7L14 9.31V2" />
+                <path d="M8.5 2h7" />
+                <path d="M7 16h10" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Diagnostic Test</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Search</div>
+            </div>
+          </div>
+          <span className="text-slate-400 font-bold text-sm">&rsaquo;</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('lab_dashboard')}
-          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'lab_dashboard'
-            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`p-3.5 rounded-2xl transition-all flex items-center justify-between border text-left cursor-pointer ${
+            activeTab === 'lab_dashboard'
+              ? 'bg-teal-50/40 border-2 border-teal-500 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200'
+          }`}
         >
-          <ModuleIcon id="facility" className="w-4 h-4" />
-          <span>Diagnostic Center Staff</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Diagnostic Center</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Staff</div>
+            </div>
+          </div>
+          <span className="text-slate-400 font-bold text-sm">&rsaquo;</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('doctor_orders')}
-          className={`px-3.5 py-2 rounded-md transition-all flex items-center gap-2 shrink-0 ${activeTab === 'doctor_orders'
-            ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+          className={`p-3.5 rounded-2xl transition-all flex items-center justify-between border text-left cursor-pointer ${
+            activeTab === 'doctor_orders'
+              ? 'bg-amber-50/40 border-2 border-amber-500 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200'
+          }`}
         >
-          <ModuleIcon id="doctor" className="w-4 h-4" />
-          <span>Doctor-Ordered Lab Tracker</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                <path d="M9 14h6" />
+                <path d="M9 18h6" />
+                <path d="M9 10h6" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Doctor-Ordered</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">Lab Tracker</div>
+            </div>
+          </div>
+          <span className="text-slate-400 font-bold text-sm">&rsaquo;</span>
         </button>
       </div>
 
@@ -13438,186 +14338,141 @@ function ScreenMedicineDiagnostics({
       {/* ========================================================= */}
       {activeTab === 'medicine_search' && (
         <div className="space-y-6">
-          {/* Live GPS & Location Selector Hub */}
-          <div className="bg-white rounded-xl p-5 sm:p-6 shadow-2xs border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Live GPS Location Engine &bull; Nearby Radius
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <span>{userLocation.label}</span>
-                </h3>
-                <p className="text-xs text-slate-500 font-normal">
-                  Lat: <span className="font-mono text-slate-700">{userLocation.lat.toFixed(4)}</span> &bull; Lng: <span className="font-mono text-slate-700">{userLocation.lng.toFixed(4)}</span> &bull; {userLocation.isLiveGPS ? 'Active Device GPS' : 'Preset Location Hub'}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleGetLiveGPS}
-                  disabled={gpsLoading}
-                  className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#082060] text-white font-semibold rounded-lg text-xs shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  <span>{gpsLoading ? 'Detecting GPS...' : 'Use My Live GPS'}</span>
-                </button>
-
-                <div className="relative inline-block text-left">
-                  <select
-                    onChange={(e) => {
-                      const sel = locationPresets.find((p) => p.label === e.target.value);
-                      if (sel) handleSelectPresetLocation(sel);
-                    }}
-                    value={locationPresets.find((p) => p.lat === userLocation.lat && p.lng === userLocation.lng)?.label || ''}
-                    className="bg-white text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-[#0b2b82]"
-                  >
-                    <option value="" disabled>Switch Location Hub...</option>
-                    {locationPresets.map((p) => (
-                      <option key={p.label} value={p.label}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Sub-View Switcher inside Medicine Discovery */}
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Browse Mode:</span>
-              <button
-                type="button"
-                onClick={() => setMedSubView('stock_search')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'stock_search'
-                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-              >
-                Live Medicine Stock Search
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMedSubView('nearby_shops');
-                  loadNearbyPharmacies(userLocation.lat, userLocation.lng, medRadius);
-                }}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'nearby_shops'
-                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-              >
-                Top Nearby Medicine Shops ({nearbyPharmacies.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMedSubView('master_catalog');
-                  loadMasterCatalog('', selectedCategory);
-                }}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${medSubView === 'master_catalog'
-                  ? 'bg-slate-100 text-[#0b2b82] font-bold border border-slate-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-              >
-                Master Essential Catalog &amp; Jan Aushadhi Savings
-              </button>
-            </div>
+          {/* Sub-View Switcher inside Medicine Discovery (for Secondary Modes) */}
+          <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Discovery Mode:</span>
+            <button
+              type="button"
+              onClick={() => setMedSubView('stock_search')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                medSubView === 'stock_search'
+                  ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Live Medicine Stock Search
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMedSubView('nearby_shops');
+                loadNearbyPharmacies(userLocation.lat, userLocation.lng, medRadius);
+              }}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                medSubView === 'nearby_shops'
+                  ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Top Nearby Medicine Shops ({nearbyPharmacies.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMedSubView('master_catalog');
+                loadMasterCatalog('', selectedCategory);
+              }}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                medSubView === 'master_catalog'
+                  ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Master Essential Catalog &amp; Jan Aushadhi Savings
+            </button>
           </div>
 
-          {/* ===================================================== */}
-          {/* SUB-VIEW 1: LIVE MEDICINE STOCK SEARCH (CHEMISTS)    */}
-          {/* ===================================================== */}
+          {/* 4. Bottom Section: Find nearby medicine and save money (Sub-View 1) */}
           {medSubView === 'stock_search' && (
-            <div className="space-y-6">
-              {/* Search Controls */}
-              <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900">Nearby Stock Discovery &amp; Substitution</h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Real-time inventory lookup across registered chemists in your radius with generic cost comparisons.
-                    </p>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 space-y-6 shadow-xs">
+              {/* Card Header with Pill Icon and Cart Indicator */}
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-2">
+                      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+                      <path d="m8.5 8.5 7 7" />
+                    </svg>
                   </div>
-                  <span className="text-[10px] font-black uppercase text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
-                    Live Chemist Inventory &bull; Real Haversine Proximity
-                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    Find nearby medicine and save money
+                  </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
-                  <div className="sm:col-span-3">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                      Medicine Brand / Generic Molecule
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={medSearchQuery}
-                        onChange={(e) => setMedSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng)}
-                        placeholder="e.g. Paracetamol, Telmisartan, Metformin, Ecosprin, Salbutamol..."
-                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 bg-slate-50/50"
-                      />
-                      <span className="absolute left-3.5 top-3.5 text-slate-400 text-base">🔍</span>
-                    </div>
-                  </div>
+                {/* Cart Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowCartModal(true)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl font-bold text-xs text-slate-800 transition-all flex items-center gap-2 shadow-2xs cursor-pointer"
+                >
+                  <span className="text-base">🛒</span>
+                  <span>Cart</span>
+                  {cart.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold">
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
+              </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                      Search Radius
-                    </label>
-                    <select
-                      value={medRadius}
-                      onChange={(e) => {
-                        const r = Number(e.target.value);
-                        setMedRadius(r);
-                        searchMedicines(medSearchQuery, r, userLocation.lat, userLocation.lng);
-                        loadNearbyPharmacies(userLocation.lat, userLocation.lng, r);
-                      }}
-                      className="w-full py-3 px-3 border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 bg-white"
-                    >
-                      <option value="5">Within 5 km (Walking / Local)</option>
-                      <option value="15">Within 15 km (Block Level)</option>
-                      <option value="25">Within 25 km (District Hub)</option>
-                      <option value="50">Within 50 km (Regional Corridor)</option>
-                      <option value="150">Within 150 km (State Grid)</option>
-                    </select>
-                  </div>
+              {/* Large Search Bar */}
+              <div className="space-y-3">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={medSearchQuery}
+                    onChange={(e) => setMedSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng)}
+                    placeholder="Search for medicines"
+                    className="w-full pl-12 pr-14 py-3.5 border-2 border-blue-500/80 rounded-full text-sm font-semibold text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-100 shadow-2xs"
+                  />
+                  <span className="absolute left-4 text-slate-400 text-base">🔍</span>
+                  <button
+                    type="button"
+                    onClick={() => searchMedicines(medSearchQuery, medRadius, userLocation.lat, userLocation.lng)}
+                    className="absolute right-2 w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2.5">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </button>
                 </div>
 
-                {/* Quick Keyword Chips */}
+                {/* Quick 8 Essential Medicine Chips */}
                 <div className="flex items-center gap-2 flex-wrap pt-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Searches:</span>
-                  {['Paracetamol', 'Telmisartan', 'Metformin', 'Ecosprin', 'Amoxicillin', 'Salbutamol Inhaler', 'Tenecteplase', 'Pantoprazole'].map((q) => (
+                  {CORE_MEDICINES_CATALOG.map((m) => (
                     <button
-                      key={q}
+                      key={m.id}
                       type="button"
                       onClick={() => {
-                        setMedSearchQuery(q);
-                        searchMedicines(q, medRadius, userLocation.lat, userLocation.lng);
+                        setMedSearchQuery(m.key);
+                        searchMedicines(m.key, medRadius, userLocation.lat, userLocation.lng);
                       }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 transition-colors"
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        medSearchQuery.toLowerCase() === m.key.toLowerCase()
+                          ? 'bg-blue-600 text-white shadow-2xs'
+                          : 'bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700'
+                      }`}
                     >
-                      + {q}
+                      + {m.key}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Search Feedback / Non-Empty Fallback Alert */}
+              {/* Search Message / Fallback Notice */}
               {medMessage && (
                 <div
-                  className={`p-4 rounded-2xl border flex items-center justify-between text-xs gap-3 ${medIsFallback
-                    ? 'bg-amber-50 border-amber-300 text-amber-900'
-                    : 'bg-teal-50 border-teal-200 text-teal-900'
-                    }`}
+                  className={`p-3.5 rounded-xl border flex items-center justify-between text-xs gap-3 ${
+                    medIsFallback
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : 'bg-teal-50 border-teal-200 text-teal-900'
+                  }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-lg">{medIsFallback ? '⚠️' : '✓'}</span>
-                    <span className="font-bold">{medMessage}</span>
+                  <div className="flex items-center gap-2 font-bold">
+                    <span>{medIsFallback ? '⚠️' : '✓'}</span>
+                    <span>{medMessage}</span>
                   </div>
                   {medIsFallback && (
                     <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-200 text-amber-800 rounded">
@@ -13627,150 +14482,175 @@ function ScreenMedicineDiagnostics({
                 </div>
               )}
 
-              {/* Medicine Results Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {medResults.map((item, idx) => {
-                  const med = item.medicine;
-                  const shop = item.shop;
-                  const isInStock = med.status === 'in_stock' && med.quantity > 0;
-                  const isLowStock = isInStock && med.quantity <= 10;
-                  const isOutOfStock = !isInStock;
-
+              {/* 2-Column Symmetrical Medicine Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {displayMedicines.map((item, idx) => {
                   return (
                     <div
-                      key={idx}
-                      className={`bg-white rounded-xl p-6 border transition-all flex flex-col justify-between space-y-4 hover:shadow-md ${isInStock ? 'border-slate-200 hover:border-teal-400' : 'border-red-200 bg-red-50/20'
-                        }`}
+                      key={item.id || idx}
+                      className="bg-white rounded-xl border-2 border-blue-600 hover:border-blue-700 p-5 transition-all shadow-xs hover:shadow-md flex flex-col justify-between relative"
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-lg font-black text-slate-900">{med.medicineName}</h4>
-                              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
-                                {med.dosageForm || 'Tablet'} &bull; {med.strength || 'Standard'}
-                              </span>
-                            </div>
-                            {med.genericName && (
-                              <div className="text-xs text-slate-500 font-medium mt-0.5">
-                                Generic Molecule: <strong className="text-slate-800">{med.genericName}</strong>
-                              </div>
-                            )}
-                          </div>
+                      {/* Top: Left Info + Right Visual */}
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Left Column (Approx 65%) */}
+                        <div className="flex-1 pr-2 space-y-1.5">
+                          <h4 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                            {item.brandName || item.medicine?.medicineName || item.name}
+                          </h4>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {item.packageSubtitle || (item.medicine ? `${item.medicine.dosageForm || 'Tablet'} ${item.medicine.strength || ''}` : '15 Tablet(s) in Strip')}
+                          </p>
 
-                          <div className="text-right shrink-0">
-                            {med.price !== undefined && (
-                              <div className="text-base font-black text-slate-900">₹{med.price.toFixed(2)}</div>
-                            )}
-                            <span
-                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full inline-block mt-0.5 ${isLowStock
-                                ? 'bg-amber-100 text-amber-800'
-                                : isInStock
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-red-100 text-red-800'
-                                }`}
-                            >
-                              {isLowStock
-                                ? `⚠️ Low Stock (${med.quantity} left)`
-                                : isInStock
-                                  ? `✓ In Stock (${med.quantity})`
-                                  : '✗ Out of Stock'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Jan Aushadhi Generic Savings Banner */}
-                        {item.genericSavingsPercent && item.genericSavingsPercent > 0 && (
-                          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-900">
-                            <div className="flex items-center gap-2">
-                              <span>💡</span>
-                              <span className="font-bold">
-                                Jan Aushadhi generic available at ₹{item.genericSubstitutePrice}
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-black uppercase bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">
-                              Save {item.genericSavingsPercent}%!
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Out of Stock Alert & Proximity Fallback Notice */}
-                        {isOutOfStock && (
-                          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
-                            <div className="font-bold flex items-center gap-1.5">
-                              <span>⚠️</span>
-                              <span>Not currently in stock at {shop.name}</span>
-                            </div>
-                            <div className="text-[11px] text-red-700">
-                              Try searching with wider radius or reserve at alternate verified chemists shown in the directory.
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Shop Information Card */}
-                        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <strong className="text-slate-900">{shop.name}</strong>
-                              {item.isOpen24_7 && (
-                                <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                                  24x7
+                          {/* Pricing Line */}
+                          <div className="pt-1">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              {item.mrp && (
+                                <span className="text-xs text-slate-400 font-medium line-through">
+                                  MRP ₹{item.mrp.toFixed(2)}
                                 </span>
                               )}
+                              <span className="text-base font-black text-slate-900">
+                                ₹{(item.discountPrice || item.medicine?.price || item.genericPrice || 24.53).toFixed(2)}
+                              </span>
+                              <span className="text-xs font-black text-red-600">
+                                {item.discountPercent || item.genericSavingsPercent || 24}% OFF
+                              </span>
                             </div>
-                            <span className="font-mono font-bold text-teal-700">
-                              📍 {item.distanceKm} km
+                            <span className="text-[11px] text-slate-500 block">
+                              {item.unitPriceText || '(₹1.64/tablet Inclusive of all taxes)'}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500">{shop.location.address}</div>
-                          <div className="text-[10px] text-slate-400 pt-1 flex items-center justify-between border-t border-slate-200/60">
-                            <span>📞 {item.phone || shop.contactNumber}</span>
-                            <span>⭐ {item.rating || 4.5} rating</span>
+
+                          {/* Delivery & Return Policy */}
+                          <div className="pt-1 space-y-0.5 text-xs">
+                            <p className="text-slate-700 font-medium flex items-center gap-1">
+                              <span>{item.deliveryTime || 'Delivery by Tomorrow, 10:00 am - 2:00 pm'}</span>
+                              <span>⚡</span>
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {item.returnPolicy || '15 days return policy'}{' '}
+                              <span className="text-blue-600 font-bold hover:underline cursor-pointer">Read More</span>
+                            </p>
                           </div>
+
+                          {/* 3-Column Metadata Row */}
+                          <div className="border-y border-slate-200/80 py-2 my-2.5 grid grid-cols-3 gap-2 text-center text-xs">
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">MADE BY</span>
+                              <span className="text-[10px] font-bold text-slate-800 uppercase truncate block">
+                                {item.madeBy || item.manufacturer || 'MICRO LABS'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">DOSAGE</span>
+                              <span className="text-[10px] font-bold text-slate-800 uppercase truncate block">
+                                {item.dosage || item.form || 'TABLET'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">EXPIRY</span>
+                              <span className="text-[10px] font-bold text-slate-800 uppercase truncate block">
+                                {item.expiry || 'MARCH 2027'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Add to Cart Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAddToCart(item);
+                              const orderMedItem = {
+                                medicine: {
+                                  inventoryId: item.id || 'inv_01',
+                                  medicineName: item.brandName || item.name,
+                                  quantity: item.quantity || 100,
+                                  price: item.discountPrice || item.price || 24.53
+                                },
+                                shop: {
+                                  shopId: 'shop_01',
+                                  name: item.shopName || 'Katkamsandi Jan Aushadhi Pharmacy',
+                                  contactNumber: '+91-94311-88201',
+                                  location: { address: item.shopAddress || 'Katkamsandi Main Road' }
+                                }
+                              };
+                              setSelectedMedItem(orderMedItem);
+                            }}
+                            className="w-full py-2.5 bg-[#0f766e] hover:bg-[#115e59] text-white font-bold rounded-lg text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
+
+                        {/* Right Column (Approx 35%): Packaging Visual & Chevron Button */}
+                        <div className="flex flex-col items-center justify-center relative pl-1 shrink-0 pt-2">
+                          <MedicinePackageVisual
+                            packType={item.packType || 'blister_round'}
+                            packColor={item.packColor || '#0284c7'}
+                            medicineName={item.brandName}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAddToCart(item);
+                            }}
+                            className="w-6 h-6 rounded-full border border-slate-200 bg-white shadow-2xs flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 text-xs transition-all cursor-pointer mt-2"
+                          >
+                            &rsaquo;
+                          </button>
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                        <button
-                          type="button"
-                          disabled={!isInStock}
-                          onClick={() => {
-                            setSelectedMedItem(item);
-                            setOrderQuantity(Math.min(10, med.quantity || 1));
-                            setShowOrderModal(true);
-                          }}
-                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${isInStock
-                            ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
-                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            }`}
-                        >
-                          <span>📦</span>
-                          <span>Reserve for Counter Pickup</span>
-                        </button>
+                      {/* Jan Aushadhi Generic Savings Banner (if applicable) */}
+                      {item.janAushadhiSavings > 0 && (
+                        <div className="mt-3 p-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-[11px] text-emerald-900 font-semibold">
+                          <span>💡 Jan Aushadhi generic available at ₹{item.janAushadhiSubstitutePrice?.toFixed(2)}</span>
+                          <span className="font-extrabold text-emerald-800 bg-emerald-200 px-2 py-0.5 rounded text-[10px]">
+                            Save {item.janAushadhiSavings}%!
+                          </span>
+                        </div>
+                      )}
 
-                        <a
-                          href={`tel:${item.phone || shop.contactNumber}`}
-                          className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1"
-                        >
-                          <span>📞</span>
-                          <span>Call</span>
-                        </a>
-
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name + ' ' + shop.location.address)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1"
-                        >
-                          <span>🗺️</span>
-                        </a>
+                      {/* Stock & Proximity subtext */}
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span className="text-emerald-700 font-bold">✓ In Stock ({item.quantity || 100})</span>
+                        <span className="text-slate-600">📍 {item.shopName || 'Katkamsandi Jan Aushadhi'} &bull; {item.shopDistance || '1.2 km'}</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+          )}
+
+          {/* Cart Modal Container */}
+          {showCartModal && (
+            <MedicineCartModal
+              cart={cart}
+              onClose={() => setShowCartModal(false)}
+              onCheckoutItem={(item) => {
+                setShowCartModal(false);
+                const orderMedItem = {
+                  medicine: {
+                    inventoryId: item.id || 'inv_01',
+                    medicineName: item.brandName || item.name,
+                    quantity: item.quantity || 10,
+                    price: item.discountPrice || item.price || 24.53
+                  },
+                  shop: {
+                    shopId: 'shop_01',
+                    name: item.shopName || 'Katkamsandi Jan Aushadhi Pharmacy',
+                    contactNumber: '+91-94311-88201',
+                    location: { address: item.shopAddress || 'Katkamsandi Main Road' }
+                  }
+                };
+                setSelectedMedItem(orderMedItem);
+                setOrderQuantity(10);
+                setShowOrderModal(true);
+              }}
+              onClearCart={() => setCart([])}
+            />
           )}
 
           {/* ===================================================== */}
