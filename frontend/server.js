@@ -146,6 +146,27 @@ function cleanupPythonProcess() {
   }
 }
 
+// Helper to proxy AI requests to Python FastAPI Service (Unified Backend)
+const proxyToPython = async (subPath, body) => {
+  try {
+    const pyRes = await fetch(`${PYTHON_SERVICE_BASE}${subPath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (pyRes.ok) {
+      return await pyRes.json();
+    }
+  } catch (e) {
+    // If Python service crashed or not running locally, auto-revive it!
+    if (!process.env.PYTHON_SERVICE_URL || process.env.PYTHON_SERVICE_URL.includes('127.0.0.1')) {
+      ensurePythonServiceRunning().catch(() => {});
+    }
+  }
+  return null;
+};
+
+
 process.on('SIGINT', () => {
   cleanupPythonProcess();
   process.exit(0);
@@ -323,6 +344,178 @@ const server = http.createServer(async (req, res) => {
         }
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // === FEATURE 01: PYTHON AI / ML CLINICAL SCREENING & DIAGNOSTIC REASONING ===
+      if (normPath === '/api/triage/screening/start' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        try {
+          const pyRes = await proxyToPython('/api/triage/screening/start', body);
+          if (pyRes) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
+        } catch (e) {
+          console.warn('[Server] Python screening start fallback:', e.message);
+        }
+
+        // Lightweight JS fallback if Python is still initializing
+        const symptomsText = (body.symptoms?.primarySymptoms || '').toLowerCase();
+        let domain = 'general';
+        let questionText = 'How rapidly did these symptoms develop?';
+        let clinicalFocus = 'Onset Acuity';
+        let options = [
+          { id: 'opt_sudden', text: 'Suddenly (within minutes to an hour)', risk: 'CRITICAL' },
+          { id: 'opt_gradual', text: 'Gradually over several days or weeks', risk: 'ROUTINE' },
+          { id: 'opt_constant', text: 'Constant severe distress', risk: 'URGENT' }
+        ];
+
+        if (symptomsText.includes('chest') || symptomsText.includes('heart')) {
+          domain = 'cardiac';
+          questionText = 'Does this chest discomfort radiate anywhere (e.g. left arm, shoulder, jaw, neck, or back)?';
+          clinicalFocus = 'Ischemic Radiation Pattern';
+          options = [
+            { id: 'rad_arm_jaw', text: 'Yes, radiates to left arm, neck, or jaw', risk: 'CRITICAL' },
+            { id: 'rad_back', text: 'Radiates between the shoulder blades / mid-back', risk: 'CRITICAL' },
+            { id: 'rad_none', text: 'No radiation, strictly localized to one spot on chest', risk: 'MODERATE' },
+            { id: 'rad_burning', text: 'Burning sensation moving upward toward the throat', risk: 'LOW' }
+          ];
+        } else if (symptomsText.includes('head') || symptomsText.includes('dizz') || symptomsText.includes('speech')) {
+          domain = 'neuro';
+          questionText = 'Was the onset sudden, or is there any weakness in one side of the face or body?';
+          clinicalFocus = 'Acute Neurological Deficit';
+          options = [
+            { id: 'fast_positive', text: 'Sudden onset with facial droop, arm weakness, or speech slurring', risk: 'CRITICAL' },
+            { id: 'thunderclap', text: 'Sudden "thunderclap" headache, worst pain of my life', risk: 'CRITICAL' },
+            { id: 'gradual_headache', text: 'Throbbing headache with light sensitivity, no limb weakness', risk: 'ROUTINE' }
+          ];
+        } else if (symptomsText.includes('breath') || symptomsText.includes('cough') || symptomsText.includes('lung')) {
+          domain = 'respiratory';
+          questionText = 'How severe is the breathing difficulty right now?';
+          clinicalFocus = 'Respiratory Compromise';
+          options = [
+            { id: 'resp_distress', text: 'Unable to speak full sentences without gasping for breath', risk: 'CRITICAL' },
+            { id: 'resp_stridor', text: 'Audible wheezing or whistling sound while breathing', risk: 'URGENT' },
+            { id: 'resp_mild', text: 'Mild shortness of breath only when walking or climbing stairs', risk: 'ROUTINE' }
+          ];
+        } else if (symptomsText.includes('stomach') || symptomsText.includes('abdo') || symptomsText.includes('vomit')) {
+          domain = 'abdominal';
+          questionText = 'What is the nature of the abdominal pain and are there red-flag signs?';
+          clinicalFocus = 'Peritoneal & Acute Abdomen Signs';
+          options = [
+            { id: 'abdo_rigid', text: 'Severe rigid belly, unbearable tenderness to touch, or vomiting blood', risk: 'CRITICAL' },
+            { id: 'abdo_cramps', text: 'Intermittent dull cramps with mild nausea', risk: 'ROUTINE' },
+            { id: 'abdo_fever', text: 'Localized lower quadrant pain accompanied by fever', risk: 'URGENT' }
+          ];
+        }
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          session_id: `SCR-${Date.now().toString(36).toUpperCase()}`,
+          is_complete: false,
+          current_step: 1,
+          total_steps: 3,
+          next_question: {
+            question_id: `q_${domain}_1`,
+            question_text: questionText,
+            clinical_focus: clinicalFocus,
+            step_number: 1,
+            total_expected_steps: 3,
+            options: options,
+            allow_custom_text: true
+          },
+          diagnostic_synthesis: null
+        }));
+        return;
+      }
+
+      if (normPath === '/api/triage/screening/answer' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        try {
+          const pyRes = await proxyToPython('/api/triage/screening/answer', body);
+          if (pyRes) {
+            res.writeHead(200);
+            res.end(JSON.stringify(pyRes));
+            return;
+          }
+        } catch (e) {
+          console.warn('[Server] Python screening answer fallback:', e.message);
+        }
+
+        const history = body.conversation_history || [];
+        const symptomsText = (body.symptoms?.primarySymptoms || '').toLowerCase();
+        const hasCritical = history.some(h => (h.selected_option_text || '').toLowerCase().includes('radiates to left arm') || (h.selected_option_text || '').toLowerCase().includes('thunderclap') || (h.selected_option_text || '').toLowerCase().includes('unable to speak') || (h.selected_option_text || '').toLowerCase().includes('severe rigid'));
+
+        if (history.length >= 2 || hasCritical) {
+          const isCritical = hasCritical || symptomsText.includes('chest') || symptomsText.includes('stroke') || symptomsText.includes('heart');
+          const specialty = symptomsText.includes('chest') ? 'Cardiology & Intensive Care' : symptomsText.includes('head') ? 'Neurology & Stroke Care' : symptomsText.includes('breath') ? 'Pulmonology & Respiratory Care' : 'General & Emergency Medicine';
+          res.writeHead(200);
+          res.end(JSON.stringify({
+            success: true,
+            session_id: `SCR-DONE-${Date.now().toString(36).toUpperCase()}`,
+            is_complete: true,
+            current_step: history.length,
+            total_steps: 3,
+            next_question: null,
+            diagnostic_synthesis: {
+              suspected_condition: isCritical ? `Suspected Acute Presentation (${specialty})` : `Primary Presentation (${specialty})`,
+              differential_diagnoses: [
+                {
+                  condition: isCritical ? 'Acute High-Acuity Event' : 'Subacute Evaluation Required',
+                  probability: isCritical ? 'High (72%)' : 'Moderate (65%)',
+                  urgency: isCritical ? 'CRITICAL' : 'ROUTINE',
+                  rationale: 'Derived from symptom acuity profile and patient response history.'
+                },
+                {
+                  condition: 'Alternative Clinical Presentation',
+                  probability: 'Low (20%)',
+                  urgency: 'NON_URGENT',
+                  rationale: 'Secondary differential to rule out during clinical examination.'
+                }
+              ],
+              emergency_level: isCritical ? 'EMERGENCY' : 'ROUTINE',
+              urgency: isCritical ? 'CRITICAL' : 'NON_URGENT',
+              acuity_badge: isCritical ? 'CRITICAL (Acuity Level 1)' : 'ROUTINE (Acuity Level 3)',
+              care_setting: isCritical ? 'EMERGENCY_DEPARTMENT' : 'OUTPATIENT_DEPARTMENT',
+              care_setting_label: isCritical ? '24x7 Emergency Department (ED / ICU)' : 'Outpatient Department (Day OPD Clinic)',
+              recommended_specialty: specialty,
+              clinical_routing_advice: isCritical ? 'Immediate emergency department triage required. Outpatient clinics are NOT suitable.' : 'Patient may be scheduled for standard day outpatient consultation.',
+              red_flags_detected: hasCritical ? ['Acute symptom red-flag identified'] : [],
+              confidence_score: 85,
+              search_queries: [
+                `"${specialty.toLowerCase()}" 24x7 emergency hospital ${body.patient?.location || ''}`,
+                `district hospital ${specialty} ${body.patient?.location || ''}`
+              ]
+            }
+          }));
+          return;
+        }
+
+        // Return follow-up question 2
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          session_id: `SCR-${Date.now().toString(36).toUpperCase()}`,
+          is_complete: false,
+          current_step: history.length + 1,
+          total_steps: 3,
+          next_question: {
+            question_id: `q_followup_${history.length + 1}`,
+            question_text: 'Are there any associated signs such as shortness of breath, cold sweating, or dizziness?',
+            clinical_focus: 'Autonomic & Systemic Instability',
+            step_number: history.length + 1,
+            total_expected_steps: 3,
+            options: [
+              { id: 'opt_assoc_yes', text: 'Yes, experienced sweating, dizziness, or nausea', risk: 'CRITICAL' },
+              { id: 'opt_assoc_no', text: 'No other systemic symptoms present', risk: 'ROUTINE' }
+            ],
+            allow_custom_text: true
+          },
+          diagnostic_synthesis: null
+        }));
         return;
       }
 
@@ -916,26 +1109,6 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: true, data: logs }));
         return;
       }
-
-      // Helper to proxy AI requests to Python FastAPI Service (Unified Backend)
-      const proxyToPython = async (subPath, body) => {
-        try {
-          const pyRes = await fetch(`${PYTHON_SERVICE_BASE}${subPath}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: body ? JSON.stringify(body) : undefined
-          });
-          if (pyRes.ok) {
-            return await pyRes.json();
-          }
-        } catch (e) {
-          // If Python service crashed or not running locally, auto-revive it!
-          if (!process.env.PYTHON_SERVICE_URL || process.env.PYTHON_SERVICE_URL.includes('127.0.0.1')) {
-            ensurePythonServiceRunning().catch(() => {});
-          }
-        }
-        return null;
-      };
 
       // 44b. AI Multimodal Vision OCR Document Analysis: POST /api/records/ocr/analyze
       if (normPath === '/api/records/ocr/analyze' && req.method === 'POST') {

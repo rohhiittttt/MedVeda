@@ -85,29 +85,27 @@
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-font-smoothing: antialiased;
       background-color: #f8fafc;
+      min-height: 100vh;
       color: #0f172a;
     }
-    /* Restrain vibecoded excessive drop shadows to clean enterprise borders */
+    .glass-nav {
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    /* Enterprise clean drop shadow control */
     .shadow-2xl, .shadow-xl {
       box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05) !important;
     }
     .shadow-lg {
       box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05) !important;
     }
-    /* Enforce professional enterprise corner radius instead of bubbly soft corners */
+    /* Professional corner radius control */
     .rounded-3xl {
-      border-radius: 0.75rem !important; /* 12px */
-    }
-    .rounded-2xl {
-      border-radius: 0.75rem !important; /* 12px */
+      border-radius: 0.75rem !important;
     }
     /* Neutralize liquid glass blurring */
-    .backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-xs, .backdrop-blur-lg {
+    .backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-lg {
       backdrop-filter: none !important;
-    }
-    /* Remove harsh pulsing animations and skeleton loaders */
-    .animate-pulse, .animate-ping, .pulse-ring {
-      animation: none !important;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>

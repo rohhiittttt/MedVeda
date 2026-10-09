@@ -2,11 +2,18 @@
 MEDVEDA SERVER START & RESTART COMMANDS
 ================================================================================
 
-1. START SERVER (FROM ROOT: c:\Users\rohit das\MedVeda)
+1. QUICK ONE-CLICK BATCH SCRIPTS (FROM ROOT: c:\Users\rohit das\MedVeda)
 --------------------------------------------------------------------------------
+- Start Server:   .\start-server.bat
+- Restart Server: .\restart-server.bat
+
+
+2. START SERVER (MANUAL COMMAND)
+--------------------------------------------------------------------------------
+PowerShell:
 npm.cmd start
 
-(Alternative direct command)
+(Alternative direct command):
 npx.cmd tsx frontend/server.js
 
 * What this starts automatically:
@@ -14,7 +21,7 @@ npx.cmd tsx frontend/server.js
   - Python AI & Voice Service: http://127.0.0.1:8001 (auto-spawned by server.js)
 
 
-2. RESTART SERVER (POWERSHELL)
+3. RESTART SERVER (POWERSHELL)
 --------------------------------------------------------------------------------
 # Step A: Kill existing processes on ports 3000 and 8001
 Get-Process -Id (Get-NetTCPConnection -LocalPort 3000, 8001 -State Listen -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -23,7 +30,12 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 3000, 8001 -State Listen -Error
 npm.cmd start
 
 
-3. VERIFY SERVER STATUS
+4. STOP SERVER ONLY (POWERSHELL)
+--------------------------------------------------------------------------------
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000, 8001 -State Listen -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue | Stop-Process -Force
+
+
+5. VERIFY SERVER STATUS
 --------------------------------------------------------------------------------
 # Check Frontend & API (Expect: 200 OK)
 Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing | Select-Object StatusCode
@@ -32,10 +44,10 @@ Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing | Select-Object St
 Invoke-WebRequest -Uri http://127.0.0.1:8001/api/agent/doctors -UseBasicParsing | Select-Object StatusCode
 
 
-4. FIRST TIME DEPENDENCY INSTALL (IF NODE_MODULES MISSING)
+6. FIRST TIME SETUP (IF NODE_MODULES MISSING)
 --------------------------------------------------------------------------------
 npm.cmd install
 
 * Note: On Windows PowerShell, always use npm.cmd and npx.cmd rather than
-  npm / npx to bypass the PowerShell script execution policy (npm.ps1).
+  npm / npx to bypass PowerShell script execution policy errors (npm.ps1).
 ================================================================================
