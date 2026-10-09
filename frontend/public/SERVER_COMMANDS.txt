@@ -1,0 +1,41 @@
+================================================================================
+MEDVEDA SERVER START & RESTART COMMANDS
+================================================================================
+
+1. START SERVER (FROM ROOT: c:\Users\rohit das\MedVeda)
+--------------------------------------------------------------------------------
+npm.cmd start
+
+(Alternative direct command)
+npx.cmd tsx frontend/server.js
+
+* What this starts automatically:
+  - Unified Web & API Server: http://localhost:3000
+  - Python AI & Voice Service: http://127.0.0.1:8001 (auto-spawned by server.js)
+
+
+2. RESTART SERVER (POWERSHELL)
+--------------------------------------------------------------------------------
+# Step A: Kill existing processes on ports 3000 and 8001
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000, 8001 -State Listen -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# Step B: Start server
+npm.cmd start
+
+
+3. VERIFY SERVER STATUS
+--------------------------------------------------------------------------------
+# Check Frontend & API (Expect: 200 OK)
+Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing | Select-Object StatusCode
+
+# Check Python AI Service (Expect: 200 OK)
+Invoke-WebRequest -Uri http://127.0.0.1:8001/api/agent/doctors -UseBasicParsing | Select-Object StatusCode
+
+
+4. FIRST TIME DEPENDENCY INSTALL (IF NODE_MODULES MISSING)
+--------------------------------------------------------------------------------
+npm.cmd install
+
+* Note: On Windows PowerShell, always use npm.cmd and npx.cmd rather than
+  npm / npx to bypass the PowerShell script execution policy (npm.ps1).
+================================================================================

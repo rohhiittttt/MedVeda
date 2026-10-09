@@ -84,31 +84,30 @@
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-font-smoothing: antialiased;
-      background-color: #ffffff;
+      background-color: #f8fafc;
+      color: #0f172a;
     }
-    .pulse-ring {
-      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    /* Restrain vibecoded excessive drop shadows to clean enterprise borders */
+    .shadow-2xl, .shadow-xl {
+      box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05) !important;
     }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.1); opacity: 0.4; }
-      100% { transform: scale(0.95); opacity: 0.8; }
+    .shadow-lg {
+      box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05) !important;
     }
-    @keyframes ecgTrace {
-      0% { stroke-dashoffset: 1200; }
-      100% { stroke-dashoffset: 0; }
+    /* Enforce professional enterprise corner radius instead of bubbly soft corners */
+    .rounded-3xl {
+      border-radius: 0.75rem !important; /* 12px */
     }
-    @keyframes cardiacBeat {
-      0%, 100% { transform: scale(1); }
-      14% { transform: scale(1.08); }
-      28% { transform: scale(0.98); }
-      42% { transform: scale(1.04); }
-      56% { transform: scale(1); }
+    .rounded-2xl {
+      border-radius: 0.75rem !important; /* 12px */
     }
-    @keyframes slowmoDrift {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-6px); }
-      100% { transform: translateY(0px); }
+    /* Neutralize liquid glass blurring */
+    .backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-xs, .backdrop-blur-lg {
+      backdrop-filter: none !important;
+    }
+    /* Remove harsh pulsing animations and skeleton loaders */
+    .animate-pulse, .animate-ping, .pulse-ring {
+      animation: none !important;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>

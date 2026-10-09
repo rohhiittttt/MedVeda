@@ -1,3 +1,2 @@
-2026/10/07-18:16:41.316 3848 Reusing MANIFEST C:\Users\rohit das\NexusMind\chrome-temp-test\Default\Local Storage\leveldb/MANIFEST-000001
-2026/10/07-18:16:41.319 3848 Recovering log #3
-2026/10/07-18:16:41.325 3848 Reusing old log C:\Users\rohit das\NexusMind\chrome-temp-test\Default\Local Storage\leveldb/000003.log 
+2026/10/08-23:12:16.618 40e4 Creating DB c:\Users\rohit das\MedVeda\chrome-temp-test\Default\Local Storage\leveldb since it was missing.
+2026/10/08-23:12:16.642 40e4 Reusing MANIFEST c:\Users\rohit das\MedVeda\chrome-temp-test\Default\Local Storage\leveldb/MANIFEST-000001
