@@ -634,9 +634,9 @@ function getRoleBadgeLabel(role) {
     diagnostic_lab: 'Diagnostic Lab',
     facility: 'Hospital Facility',
     hospital: 'Hospital Facility',
-    officer: 'District Health Officer',
-    dho: 'District Health Officer',
-    admin: 'District Health Officer'
+    officer: 'District Health Administrator',
+    dho: 'District Health Administrator',
+    admin: 'District Health Administrator'
   };
   return map[role] || 'User';
 }
@@ -665,11 +665,17 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
 
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
-  const handleQuickLogin = (name, role, abhaId, extraLabel) => {
+  const handleQuickLogin = (name, role, abhaId, extraLabel, extraProps = {}) => {
     const label = extraLabel || getRoleBadgeLabel(role);
     setAuthSuccessMsg(`Logged in as ${name} (${label})`);
     setTimeout(() => {
-      onAuthSuccess({ name, role, abhaId, roleLabel: label });
+      onAuthSuccess({
+        name,
+        role,
+        abhaId,
+        roleLabel: label,
+        ...extraProps
+      });
     }, 400);
   };
 
@@ -691,7 +697,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
       }
     } else if (selectedRole === 'officer') {
       effectiveRole = 'admin';
-      label = 'District Health Officer';
+      label = 'District Health Administrator';
     }
 
     const defaultNames = {
@@ -701,7 +707,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
       facility: 'SBMC&H Referral Desk',
       shop_owner: 'Katkamsandi Jan Aushadhi',
       lab_staff: 'District Diagnostic Lab',
-      admin: 'Dr. S. K. Verma (DHO)'
+      admin: 'Dr. S. K. Verma'
     };
 
     const rawId = loginForm.identifier.trim();
@@ -719,7 +725,12 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
         name,
         role: effectiveRole,
         abhaId,
-        roleLabel: label
+        roleLabel: label,
+        designation: effectiveRole === 'admin' ? 'District Health Administrator & Chief Medical Officer' : undefined,
+        district: 'Hazaribagh',
+        state: 'Jharkhand',
+        phone: effectiveRole === 'admin' ? '+91-6546-264210' : undefined,
+        email: effectiveRole === 'admin' ? (rawId.includes('@') ? rawId : 'dho.hazaribagh@gov.in') : undefined
       });
     }, 400);
   };
@@ -764,8 +775,8 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     },
     {
       id: 'officer',
-      title: '5. District Health Officer',
-      tagline: 'Public Health Admin & MV-DAC',
+      title: '5. District Health Administrator',
+      tagline: 'District Public Health Admin & MV-DAC',
       isWorkable: true
     }
   ];
@@ -987,13 +998,13 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                 <div className="pb-2 border-b border-slate-200">
                   <div className="flex items-center gap-2">
                     <ModuleIcon id="officer" className="w-4 h-4 text-[#0b2b82]" />
-                    <h4 className="text-sm font-bold text-slate-900">District Health Officer (DHO) Login</h4>
-                    <span className="text-[10px] font-semibold text-slate-500" title="District administration authority">
-                      Administration
+                    <h4 className="text-sm font-bold text-slate-900">District Health Administrator (DHA / DHO) Login</h4>
+                    <span className="text-[10px] font-semibold text-slate-500" title="Full district public health administration authority">
+                      District Administration
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-0.5">
-                    Pan-district epidemiological surveillance, outbreak early warnings, ICU readiness matrix, and MV-DAC Command Center.
+                    Pan-district epidemiological surveillance, critical medicine stock buffer warnings, ICU readiness matrix, and MV-DAC Command Center.
                   </p>
                 </div>
               )}
@@ -1127,14 +1138,26 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   {selectedRole === 'officer' && (
                     <button
                       type="button"
-                      onClick={() => handleQuickLogin('Dr. S. K. Verma', 'admin', 'dho.hazaribagh@gov.in', 'District Health Officer')}
+                      onClick={() => handleQuickLogin(
+                        'Dr. S. K. Verma',
+                        'admin',
+                        'dho.hazaribagh@gov.in',
+                        'District Health Administrator',
+                        {
+                          designation: 'District Health Administrator & Chief Medical Officer',
+                          district: 'Hazaribagh',
+                          state: 'Jharkhand',
+                          phone: '+91-6546-264210',
+                          email: 'dho.hazaribagh@gov.in'
+                        }
+                      )}
                       className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
                       <div className="min-w-0 flex items-center gap-2">
                         <ModuleIcon id="officer" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
                         <div>
-                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, DHO Hazaribagh</span>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; District Surveillance Officer</span>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, MD (DHO Hazaribagh)</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; District Health Administrator</span>
                         </div>
                       </div>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
@@ -1207,7 +1230,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     ? 'Log In to ASHA Field Portal &rarr;'
                     : selectedRole === 'facility'
                     ? `Log In to Facility Portal (${facilitySubtype === 'hospital' ? 'Hospital' : facilitySubtype === 'medicine' ? 'Medicine Shop' : 'Diagnostic Lab'}) &rarr;`
-                    : 'Log In to District Command Center &rarr;'}
+                    : 'Log In to District Health Administrator Portal &rarr;'}
                 </button>
               </form>
             </div>
@@ -1555,19 +1578,19 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     };
   }, []);
 
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
   const allFeatureItems = [
     {
       id: 'overview',
       code: 'Module 00',
-      icon: '📊',
-      label: actorRole === 'patient' ? 'Patient Overview' : 'Platform Overview',
-      description: actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : 'Unified command hub, patient & clinical role views, system KPIs',
+      label: actorRole === 'patient' ? 'Patient Overview' : isDistrictAdmin ? 'District Health Administrator Overview' : 'Platform Overview',
+      description: actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : isDistrictAdmin ? 'District command metrics, administrative profile, facility catchment & stock warnings' : 'Unified command hub, patient & clinical role views, system KPIs',
       onSelect: () => setView('overview')
     },
     {
       id: 'feature1',
       code: 'Module 01',
-      icon: '🧭',
       label: 'Care Navigator',
       description: 'Autonomous symptom triage & emergency facility matching',
       onSelect: () => { setView('feature1'); setScreen(1); }
@@ -1575,7 +1598,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature2',
       code: 'Module 02',
-      icon: '👨‍⚕️',
       label: 'Teleconsult & Queue',
       description: 'Multi-specialty doctor roster & priority booking',
       onSelect: () => setView('feature2')
@@ -1583,7 +1605,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature3',
       code: 'Module 03',
-      icon: '🔄',
       label: 'Smart Referrals',
       description: 'Closed-loop digital referral passes & facility network',
       onSelect: () => setView('feature3')
@@ -1591,7 +1612,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature4',
       code: 'Module 04',
-      icon: '📋',
       label: 'High-Risk Follow-Ups',
       description: 'Longitudinal ASHA field tracking & escalation',
       onSelect: () => setView('feature4')
@@ -1599,7 +1619,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature5',
       code: 'Module 05',
-      icon: '📑',
       label: 'Health Records (ABDM)',
       description: 'Interoperable FHIR health records & emergency override',
       onSelect: () => setView('feature5')
@@ -1607,7 +1626,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature6',
       code: 'Module 06',
-      icon: '💊',
       label: 'Medicine & Diagnostic Lab',
       description: 'Pharmacy inventory reservations & diagnostic tracking',
       onSelect: () => setView('feature6')
@@ -1615,7 +1633,6 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature7',
       code: 'Module 07',
-      icon: '🏥',
       label: 'Facility Dashboard',
       description: 'Readiness Index, ICU beds, oxygen buffer & triage meters',
       onSelect: () => setView('feature7')
@@ -1623,15 +1640,13 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature8',
       code: 'Module 08',
-      icon: '🏛️',
-      label: 'Govt Health Schemes',
-      description: 'RAG scheme discovery, deterministic rules engine & gap-filling',
+      label: isDistrictAdmin ? 'Govt Health Schemes (Admin View)' : 'Govt Health Schemes',
+      description: isDistrictAdmin ? 'District scheme quota, beneficiary verification & fund disbursals' : 'RAG scheme discovery, deterministic rules engine & gap-filling',
       onSelect: () => setView('feature8')
     },
     {
       id: 'feature9',
       code: 'Module 09',
-      icon: '🛰️',
       label: 'District Command Center',
       description: 'Pan-India surveillance, shortage forecasts & outbreak warnings',
       onSelect: () => setView('feature9')
@@ -1639,14 +1654,37 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature10',
       code: 'Module 10',
-      icon: '🤖',
       label: 'MediBot',
       description: 'Autonomous action agent: booking, facility search, dosage reminders & voice',
       onSelect: () => setView('feature10')
     }
   ];
 
-  const featureItems = actorRole === 'patient'
+  const featureItems = isDistrictAdmin
+    ? [
+        {
+          id: 'overview',
+          code: 'Module 00',
+          label: 'District Health Administrator Overview',
+          description: 'District command metrics, administrative profile, facility catchment & stock warnings',
+          onSelect: () => setView('overview')
+        },
+        {
+          id: 'feature9',
+          code: 'Module 09',
+          label: 'District Command Center',
+          description: 'Pan-district epidemiological surveillance, shortage forecasts & outbreak warnings',
+          onSelect: () => setView('feature9')
+        },
+        {
+          id: 'feature8',
+          code: 'Module 08',
+          label: 'Govt Health Schemes (Admin View)',
+          description: 'District scheme quota, beneficiary verification & fund disbursals',
+          onSelect: () => setView('feature8')
+        }
+      ]
+    : actorRole === 'patient'
     ? allFeatureItems.filter(item => item.id !== 'feature9')
     : allFeatureItems;
 
@@ -2175,8 +2213,11 @@ function ScreenHomepage({
   onLaunchFeature10,
   onLaunchAbout,
   actorRole,
-  setActorRole
+  setActorRole,
+  currentUser
 }) {
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
   const [activeHeroSlide, setActiveHeroSlide] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash.includes('slide=')) {
       const match = window.location.hash.match(/slide=(\d+)/);
@@ -2212,16 +2253,16 @@ function ScreenHomepage({
     shop_owner: 'Medical Shop Mode: Real-time inventory CRUD, stock level updates, and incoming customer reservation fulfillment.',
     lab_staff: 'Diagnostic Laboratory Mode: Diagnostic test catalog management, sample intake tracking, and dual clinical/patient report publishing.',
     facility: 'Facility Administrator Mode: Referral intake, arriving patient check-ins, bed/ICU resource status updates, and emergency alerts.',
-    admin: 'System Coordinator Mode: District-wide telehealth telemetry, multi-facility queue metrics, and care continuity index monitoring.'
+    admin: 'District Health Administrator Mode: Pan-district epidemiological surveillance, shortage forecasts, inter-hospital logistics, and scheme governance.'
   };
 
   const modules = [
     {
       id: 'feature1',
       code: 'Module 01',
-      icon: '🧭',
+      icon: '',
       title: 'Smart Care Navigator',
-      description: 'Answer a few questions and get routed to the right level of care  -  self-care, teleconsult, or in-person  -  in seconds.',
+      description: 'Answer a few questions and get routed to the right level of care: self-care, teleconsult, or in-person in seconds.',
       actionLabel: 'Launch Triage',
       action: onLaunchFeature1,
       badge: 'Autonomous Triage'
@@ -2229,7 +2270,7 @@ function ScreenHomepage({
     {
       id: 'feature2',
       code: 'Module 02',
-      icon: '👨‍⚕️',
+      icon: '',
       title: 'Teleconsultation',
       description: 'Secure video visits with licensed clinicians, with notes and prescriptions synced straight to your record.',
       actionLabel: 'Start Teleconsult',
@@ -2239,7 +2280,7 @@ function ScreenHomepage({
     {
       id: 'feature3',
       code: 'Module 03',
-      icon: '🔄',
+      icon: '',
       title: 'Referral Routing',
       description: 'Automatically match patients to the right specialist and facility, with status tracked end to end.',
       actionLabel: 'Open Referrals',
@@ -2249,7 +2290,7 @@ function ScreenHomepage({
     {
       id: 'feature4',
       code: 'Module 04',
-      icon: '📋',
+      icon: '',
       title: 'Health Monitoring',
       description: 'Track vitals and trends from connected devices, with smart alerts when something needs attention.',
       actionLabel: 'Open Follow-Ups',
@@ -2259,7 +2300,7 @@ function ScreenHomepage({
     {
       id: 'feature5',
       code: 'Module 05',
-      icon: '📑',
+      icon: '',
       title: 'Unified Health Records',
       description: 'Every visit, lab, and prescription in one encrypted timeline you can share with any provider.',
       actionLabel: 'Open Records',
@@ -2269,7 +2310,7 @@ function ScreenHomepage({
     {
       id: 'feature6',
       code: 'Module 06',
-      icon: '💊',
+      icon: '',
       title: 'Medicine Search',
       description: 'Look up medicines, dosages, and interactions, then order refills without leaving the app.',
       actionLabel: 'Open Medicine & Lab',
@@ -2279,7 +2320,7 @@ function ScreenHomepage({
     {
       id: 'feature7',
       code: 'Module 07',
-      icon: '🏥',
+      icon: '',
       title: 'Facility Operations Dashboard',
       description: 'Multi-source operations overview: Care Continuity Index, live prioritized queue, bed/ICU resource status meters, and alerts.',
       actionLabel: 'Open Dashboard',
@@ -2289,17 +2330,17 @@ function ScreenHomepage({
     {
       id: 'feature8',
       code: 'Module 08',
-      icon: '🏛️',
-      title: 'AI Govt Health Scheme Finder',
-      description: 'RAG scheme discovery with deterministic eligibility rules engine, single-document gap filling, and verified benefit matching.',
-      actionLabel: 'Find Schemes',
+      icon: '',
+      title: isDistrictAdmin ? 'Govt Health Schemes (Admin View)' : 'AI Govt Health Scheme Finder',
+      description: isDistrictAdmin ? 'District scheme quota allocation, beneficiary verification audit, package catalog, and fund disbursal oversight.' : 'RAG scheme discovery with deterministic eligibility rules engine, single-document gap filling, and verified benefit matching.',
+      actionLabel: isDistrictAdmin ? 'Access Schemes Admin' : 'Find Schemes',
       action: onLaunchFeature8,
-      badge: 'Affordable Care'
+      badge: isDistrictAdmin ? 'Admin Audit' : 'Affordable Care'
     },
     {
       id: 'feature9',
       code: 'Module 09',
-      icon: '🛰️',
+      icon: '',
       title: 'District Admin Command Center',
       description: 'Pan-India multi-hospital live surveillance, shortage forecasting, epidemic early warning (CDC EARS/CUSUM), and inter-hospital transfer coordination.',
       actionLabel: 'Command Center',
@@ -2309,7 +2350,7 @@ function ScreenHomepage({
     {
       id: 'feature10',
       code: 'Module 10',
-      icon: '🤖',
+      icon: '',
       title: 'MediBot',
       description: 'Autonomous voice & action agent: book doctor appointments, find emergency beds, set medicine dosage reminders, and navigate MedVeda.',
       actionLabel: 'Launch AI Agent',
@@ -2318,9 +2359,11 @@ function ScreenHomepage({
     }
   ];
 
-  const displayModules = actorRole === 'patient'
-    ? modules.filter(m => m.id !== 'feature9')
-    : modules;
+  const displayModules = isDistrictAdmin
+    ? modules.filter(m => m.id === 'feature9' || m.id === 'feature8')
+    : (actorRole === 'patient'
+      ? modules.filter(m => m.id !== 'feature9')
+      : modules);
 
   return (
     <div className="w-full">
@@ -10250,15 +10293,94 @@ function ScreenHighRiskFollowUp({
   );
 }
 
+// Patient Profile Synthesis Engine: Generates complete, connected, clinically sound profiles
+function synthesizePatientProfile(raw) {
+  if (!raw) return null;
+  const name = (raw.name || 'Patient').trim();
+  const lowerName = name.toLowerCase();
+  const isFemale = raw.sex
+    ? raw.sex.toLowerCase().startsWith('f')
+    : lowerName.includes('devi') || lowerName.includes('kumari') || lowerName.includes('sunita') || lowerName.includes('anita') || lowerName.includes('priya') || lowerName.includes('pooja') || lowerName.includes('sanjana');
+  
+  const sex = isFemale ? 'Female' : 'Male';
+  const age = Number(raw.age) || (isFemale ? 34 : 48);
+  const birthYear = new Date().getFullYear() - age;
+  const birthDate = raw.birthDate && !raw.birthDate.includes('1987') && !raw.birthDate.includes('02/20/1987')
+    ? raw.birthDate
+    : `15/07/${birthYear}`;
+
+  const cleanSlug = lowerName.replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '') || 'patient';
+  const email = raw.email && !raw.email.includes('helenroizhicki')
+    ? raw.email
+    : `${cleanSlug}@medveda.in`;
+
+  const phone = raw.phone && !raw.phone.startsWith('+7')
+    ? raw.phone
+    : (raw.mobile ? (raw.mobile.startsWith('+91') ? raw.mobile : `+91-${raw.mobile}`) : (isFemale ? '+91-98352-19203' : '+91-94311-28901'));
+
+  const bloodGroup = raw.bloodGroup || (isFemale ? 'B+' : 'O+');
+  const location = raw.location && !raw.location.includes('Austin')
+    ? raw.location
+    : 'Katkamsandi, Hazaribagh, Jharkhand';
+  const address = raw.address && !raw.address.includes('Austin')
+    ? raw.address
+    : location;
+
+  const internalMedicalId = raw.internalMedicalId || null;
+  const abhaId = raw.abhaId || `${cleanSlug}@abdm`;
+
+  const emergencyContact = raw.emergencyContact || {
+    name: isFemale ? 'Manoj Kumar (Spouse)' : 'Anita Devi (Spouse)',
+    relation: 'Spouse',
+    phone: isFemale ? '+91-98352-19204' : '+91-94311-28902'
+  };
+
+  return {
+    ...raw,
+    name,
+    role: raw.role || 'Patient',
+    status: raw.status || 'Active',
+    age,
+    sex,
+    birthDate,
+    email,
+    phone,
+    bloodGroup,
+    location,
+    address,
+    internalMedicalId,
+    abhaId,
+    emergencyContact,
+    patientSince: raw.patientSince && !raw.patientSince.includes('2019') ? raw.patientSince : '01/01/2026',
+    medicalInsurance: raw.medicalInsurance && !raw.medicalInsurance.includes('None') ? raw.medicalInsurance : 'PM-JAY Ayushman Bharat (₹5 Lakhs)',
+    visionInsurance: raw.visionInsurance || 'Yes',
+    dentalInsurance: raw.dentalInsurance || 'Yes',
+    photoUrl: raw.photoUrl && !raw.photoUrl.includes('sanjana') ? raw.photoUrl : null
+  };
+}
+
 function ScreenInteroperableRecords({
   actorRole,
   setActorRole,
+  currentUser,
+  setCurrentUser,
   onBackToHome,
   onNavigateToCareNavigator,
   onNavigateToTeleconsult,
   onNavigateToReferrals,
   onNavigateToFollowUps
 }) {
+  const effectiveUser = currentUser || (() => {
+    try {
+      const saved = localStorage.getItem('medveda_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const isPatientLoggedIn = Boolean(effectiveUser && (effectiveUser.role === 'patient' || (!effectiveUser.role && effectiveUser.name)));
+
   const [activeRole, setActiveRole] = useState(actorRole || 'patient');
   const [selectedPatientId, setSelectedPatientId] = useState('MV-MED-2026-1024');
   const [activeSubView, setActiveSubView] = useState('timeline'); // 'timeline' | 'chat'
@@ -10268,22 +10390,22 @@ function ScreenInteroperableRecords({
     {
       internalMedicalId: 'MV-MED-2026-1024',
       abhaId: '91-2890-1423-8891@sbx',
-      name: 'SANJANA KUMARI',
+      name: 'Ramesh Mahto',
       role: 'Patient',
       status: 'Active',
-      age: 34,
-      sex: 'Female',
-      email: 'helenroizhicki@gmail.com',
-      birthDate: '02/20/1987',
-      phone: '+7 (291) 255 58 43',
+      age: 48,
+      sex: 'Male',
+      email: 'ramesh.mahto@medveda.in',
+      birthDate: '15/07/1978',
+      phone: '+91-94311-28901',
       bloodGroup: 'O+',
-      address: '1 Main Street, Austin, TX, 78730',
-      location: '1 Main Street, Austin, TX, 78730',
-      patientSince: '03/02/2019',
-      medicalInsurance: 'None',
+      address: 'Katkamsandi, Hazaribagh, Jharkhand',
+      location: 'Katkamsandi, Hazaribagh, Jharkhand',
+      patientSince: '01/08/2021',
+      medicalInsurance: 'PM-JAY Ayushman Bharat (₹5 Lakhs)',
       visionInsurance: 'Yes',
       dentalInsurance: 'Yes',
-      photoUrl: 'patient-sanjana.jpg',
+      photoUrl: null,
       emergencyContact: {
         name: 'Anita Devi (Spouse)',
         relation: 'Spouse',
@@ -10299,49 +10421,26 @@ function ScreenInteroperableRecords({
       age: 32,
       sex: 'Female',
       email: 'sunita.soren@medveda.in',
-      birthDate: '10/14/1993',
-      phone: '+91-94311-58291',
-      location: 'Barkagaon, Hazaribagh',
+      birthDate: '14/10/1993',
+      phone: '+91-98352-19203',
+      location: 'Barkagaon, Hazaribagh, Jharkhand',
       address: 'Barkagaon, Hazaribagh, Jharkhand',
       bloodGroup: 'B+',
-      patientSince: '11/12/2021',
-      medicalInsurance: 'Yes',
+      patientSince: '12/11/2021',
+      medicalInsurance: 'PM-JAY Ayushman Bharat (₹5 Lakhs)',
       visionInsurance: 'None',
       dentalInsurance: 'Yes',
       photoUrl: null,
       emergencyContact: {
-        name: 'Babulal Soren (Brother)',
+        name: 'Mangal Soren (Brother)',
         relation: 'Brother',
-        phone: '+91-94311-58292'
+        phone: '+91-98352-19204'
       }
     }
   ]);
 
-  const [patient, setPatient] = useState({
-    internalMedicalId: 'MV-MED-2026-1024',
-    abhaId: '91-2890-1423-8891@sbx',
-    name: 'SANJANA KUMARI',
-    role: 'Patient',
-    status: 'Active',
-    age: 34,
-    sex: 'Female',
-    email: 'helenroizhicki@gmail.com',
-    birthDate: '02/20/1987',
-    phone: '+7 (291) 255 58 43',
-    bloodGroup: 'O+',
-    address: '1 Main Street, Austin, TX, 78730',
-    location: '1 Main Street, Austin, TX, 78730',
-    patientSince: '03/02/2019',
-    medicalInsurance: 'None',
-    visionInsurance: 'Yes',
-    dentalInsurance: 'Yes',
-    photoUrl: 'patient-sanjana.jpg',
-    emergencyContact: {
-      name: 'Anita Devi (Spouse)',
-      relation: 'Spouse',
-      phone: '+91-94311-28902'
-    }
-  });
+  const [hasHealthId, setHasHealthId] = useState(false);
+  const [patient, setPatient] = useState(null);
 
   const [records, setRecords] = useState([]);
   const [activeConsents, setActiveConsents] = useState([]);
@@ -10406,7 +10505,7 @@ function ScreenInteroperableRecords({
     {
       id: 'msg_welcome',
       sender: 'assistant',
-      text: 'Hello Sanjana! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including prescriptions, lab reports, and hospital records). You can ask by voice or text in both English and Hindi.',
+      text: 'Hello! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including prescriptions, lab reports, and hospital records). You can ask by voice or text in both English and Hindi.',
       detectedLanguage: 'en',
       confidence: 'HIGH',
       timestamp: '09:08 pm',
@@ -10459,13 +10558,95 @@ function ScreenInteroperableRecords({
     }, 4000);
   };
 
+  // Synchronize active patient and health ID status based on authenticated user
+  useEffect(() => {
+    if (isPatientLoggedIn) {
+      // Find patient matching logged-in user
+      const found = patientsList.find(
+        (p) =>
+          (effectiveUser.internalMedicalId && p.internalMedicalId === effectiveUser.internalMedicalId) ||
+          (effectiveUser.abhaId && p.abhaId && p.abhaId.toLowerCase() === effectiveUser.abhaId.toLowerCase()) ||
+          (effectiveUser.name && p.name && p.name.trim().toLowerCase() === effectiveUser.name.trim().toLowerCase())
+      );
+
+      let storedHealthId = null;
+      try {
+        storedHealthId = localStorage.getItem('medveda_patient_health_id_' + (effectiveUser.name || '').trim().toLowerCase());
+      } catch (e) {}
+
+      const matchedByStored = storedHealthId ? patientsList.find((p) => p.internalMedicalId === storedHealthId) : null;
+      const targetPatient = found || matchedByStored;
+
+      if (targetPatient && targetPatient.internalMedicalId) {
+        const synthesized = synthesizePatientProfile(targetPatient);
+        setPatient(synthesized);
+        setSelectedPatientId(synthesized.internalMedicalId);
+        setHasHealthId(true);
+      } else {
+        // Patient is logged in but has NOT created a Health ID yet!
+        const draftProfile = synthesizePatientProfile({
+          name: effectiveUser.name,
+          abhaId: effectiveUser.abhaId || `${(effectiveUser.name || 'patient').toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`,
+          role: 'Patient',
+          phone: effectiveUser.phone || effectiveUser.mobile || null
+        });
+        setPatient(draftProfile);
+        setSelectedPatientId(null);
+        setHasHealthId(false);
+      }
+    } else if (effectiveUser && effectiveUser.role !== 'patient') {
+      // Clinician / worker viewing records: select from loaded patients list
+      const defaultPat = patientsList[0];
+      if (defaultPat) {
+        const synthesized = synthesizePatientProfile(defaultPat);
+        setPatient(synthesized);
+        setSelectedPatientId(synthesized.internalMedicalId);
+        setHasHealthId(true);
+      }
+    } else {
+      // Guest / unauthenticated visitor
+      let guestId = null;
+      try {
+        guestId = localStorage.getItem('medveda_guest_patient_id');
+      } catch (e) {}
+
+      const guestPat = guestId ? patientsList.find((p) => p.internalMedicalId === guestId) : null;
+      if (guestPat) {
+        const synthesized = synthesizePatientProfile(guestPat);
+        setPatient(synthesized);
+        setSelectedPatientId(synthesized.internalMedicalId);
+        setHasHealthId(true);
+      } else {
+        setPatient(null);
+        setSelectedPatientId(null);
+        setHasHealthId(false);
+      }
+    }
+  }, [effectiveUser?.name, effectiveUser?.abhaId, effectiveUser?.role, effectiveUser?.internalMedicalId, patientsList]);
+
+  // Pre-fill registration form when modal opens
+  useEffect(() => {
+    if (showRegisterModal) {
+      setRegForm({
+        name: patient?.name || effectiveUser?.name || '',
+        age: patient?.age || 35,
+        sex: patient?.sex ? patient.sex.toLowerCase() : 'female',
+        phone: patient?.phone && !patient.phone.startsWith('+7') ? patient.phone : (effectiveUser?.phone || '+91-94311-'),
+        location: patient?.location && !patient.location.includes('Austin') ? patient.location : 'Katkamsandi, Hazaribagh',
+        bloodGroup: patient?.bloodGroup || 'O+',
+        abhaId: patient?.abhaId || effectiveUser?.abhaId || ''
+      });
+    }
+  }, [showRegisterModal]);
+
   // Fetch All Registered Patients List
   const loadPatientsList = async () => {
     try {
       const res = await fetch(getApiUrl('/api/patients'));
       const data = await res.json();
       if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-        setPatientsList(data.data);
+        const synthesizedList = data.data.map(synthesizePatientProfile);
+        setPatientsList(synthesizedList);
       }
     } catch (err) {
       console.warn('Patients list fetch error:', err);
@@ -10474,6 +10655,10 @@ function ScreenInteroperableRecords({
 
   // Load Patient Timeline
   const loadTimeline = async (patId = selectedPatientId, role = activeRole) => {
+    if (!patId) {
+      setRecords([]);
+      return;
+    }
     try {
       setLoading(true);
       const reqId = role === 'doctor' ? 'doc_1' : role === 'worker' ? 'worker_014' : 'self';
@@ -10485,31 +10670,9 @@ function ScreenInteroperableRecords({
       const data = await res.json();
       if (data.data) {
         if (data.data.patient) {
-          if (patId === 'MV-MED-2026-1024') {
-            setPatient((prev) => ({
-              ...prev,
-              ...data.data.patient,
-              name: 'SANJANA KUMARI',
-              role: 'Patient',
-              status: 'Active',
-              age: 34,
-              sex: 'Female',
-              email: 'helenroizhicki@gmail.com',
-              birthDate: '02/20/1987',
-              phone: '+7 (291) 255 58 43',
-              bloodGroup: 'O+',
-              address: '1 Main Street, Austin, TX, 78730',
-              location: '1 Main Street, Austin, TX, 78730',
-              patientSince: '03/02/2019',
-              medicalInsurance: 'None',
-              visionInsurance: 'Yes',
-              dentalInsurance: 'Yes',
-              photoUrl: 'patient-sanjana.jpg'
-            }));
-          } else {
-            setPatient(data.data.patient);
-          }
-          setAbdmInputAbha(data.data.patient.abhaId || '');
+          const synthesized = synthesizePatientProfile(data.data.patient);
+          setPatient((prev) => ({ ...(prev || {}), ...synthesized }));
+          setAbdmInputAbha(synthesized.abhaId || '');
         }
         if (data.data.records) setRecords(data.data.records);
         if (data.data.activeConsents) setActiveConsents(data.data.activeConsents);
@@ -10527,7 +10690,9 @@ function ScreenInteroperableRecords({
   }, []);
 
   useEffect(() => {
-    loadTimeline(selectedPatientId, activeRole);
+    if (selectedPatientId) {
+      loadTimeline(selectedPatientId, activeRole);
+    }
   }, [selectedPatientId, activeRole]);
 
   useEffect(() => {
@@ -10536,20 +10701,32 @@ function ScreenInteroperableRecords({
 
   // Update welcome message when patient changes
   useEffect(() => {
-    if (patient && patient.name) {
-      const displayName = patient.name === 'SANJANA KUMARI' ? 'Sanjana' : patient.name;
+    if (patient && patient.name && hasHealthId) {
+      const displayName = patient.name.split(' ')[0] || patient.name;
       setChatMessages([
         {
-          id: 'msg_welcome_' + patient.internalMedicalId,
+          id: 'msg_welcome_' + (patient.internalMedicalId || Date.now()),
           sender: 'assistant',
           text: `Hello ${displayName}! I am your MedVeda Records AI Assistant. I have indexed your verified medical documents (including hospital discharges, prescriptions, lab reports, and vaccinations). Ask me any question about your medications, dosages, lab tests, or clinical history.`,
           confidence: 'HIGH',
-          timestamp: '09:08 pm',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          citations: []
+        }
+      ]);
+    } else {
+      const guestName = patient?.name ? patient.name.split(' ')[0] : 'there';
+      setChatMessages([
+        {
+          id: 'msg_welcome_guest',
+          sender: 'assistant',
+          text: `Hello ${guestName}! I am your MedVeda Records AI Assistant. Create your official Health ID to index your prescriptions, lab tests, and hospital records with full clinical access.`,
+          confidence: 'HIGH',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           citations: []
         }
       ]);
     }
-  }, [patient.internalMedicalId]);
+  }, [patient?.internalMedicalId, patient?.name, hasHealthId]);
 
   // ==========================================
   // OCR AI VISION LOGIC & HANDLERS
@@ -10564,7 +10741,7 @@ function ScreenInteroperableRecords({
         <text x="40" y="55" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#0f172a">DR. A. K. VERMA, MD (CARDIOLOGY)</text>
         <text x="40" y="80" font-family="Arial, sans-serif" font-size="13" fill="#64748b">HEART CARE CLINIC &bull; HAZARIBAGH &bull; REG: JH-MC-8491</text>
         <line x1="20" y1="125" x2="580" y2="125" stroke="#0284c7" stroke-width="2"/>
-        <text x="40" y="150" font-family="Arial, sans-serif" font-size="14" fill="#334155">Patient: ${patient.name || 'Ramesh Mahto'} | Age: ${patient.age || 48}Y / M | Date: 15/07/2026</text>
+        <text x="40" y="150" font-family="Arial, sans-serif" font-size="14" fill="#334155">Patient: ${patient?.name || 'Ramesh Mahto'} | Age: ${patient?.age || 48}Y / M | Date: 15/07/2026</text>
         <text x="40" y="180" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#0369a1">Diagnosis: Primary Essential Hypertension (Stage 2)</text>
         <line x1="20" y1="200" x2="580" y2="200" stroke="#e2e8f0" stroke-width="1"/>
         <text x="40" y="240" font-family="'Brush Script MT', cursive, sans-serif" font-size="34" font-weight="bold" fill="#0b2b82">Rx</text>
@@ -10588,7 +10765,7 @@ function ScreenInteroperableRecords({
         <text x="40" y="55" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#0f172a">DISTRICT DIAGNOSTIC PATHOLOGY LABORATORY</text>
         <text x="40" y="78" font-family="Arial, sans-serif" font-size="12" fill="#64748b">CIVIL HOSPITAL ROAD, HAZARIBAGH &bull; NABL ACCREDITED LAB</text>
         <line x1="20" y1="115" x2="580" y2="115" stroke="#0b2b82" stroke-width="2"/>
-        <text x="40" y="140" font-family="Arial, sans-serif" font-size="13" fill="#334155">Patient: ${patient.name || 'Ramesh Mahto'} | Sample Date: 03/07/2026 | ID: LAB-2026-9921</text>
+        <text x="40" y="140" font-family="Arial, sans-serif" font-size="13" fill="#334155">Patient: ${patient?.name || 'Ramesh Mahto'} | Sample Date: 03/07/2026 | ID: LAB-2026-9921</text>
         <text x="40" y="170" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#0284c7">TEST: LIPID PROFILE (FASTING)</text>
         <rect x="35" y="195" width="530" height="30" fill="#e2e8f0"/>
         <text x="50" y="215" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1e293b">PARAMETER</text>
@@ -10624,7 +10801,7 @@ function ScreenInteroperableRecords({
         <text x="40" y="78" font-family="Arial, sans-serif" font-size="12" fill="#64748b">DEPARTMENT OF CARDIOLOGY &bull; HAZARIBAGH, JHARKHAND</text>
         <line x1="20" y1="115" x2="580" y2="115" stroke="#0f172a" stroke-width="2"/>
         <text x="40" y="145" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#0284c7">DISCHARGE SUMMARY</text>
-        <text x="40" y="175" font-family="Arial, sans-serif" font-size="12" fill="#334155">Patient: ${patient.name || 'Ramesh Mahto'} | IPD No: CR-9410 | DOA: 01/08/2026 | DOD: 05/08/2026</text>
+        <text x="40" y="175" font-family="Arial, sans-serif" font-size="12" fill="#334155">Patient: ${patient?.name || 'Ramesh Mahto'} | IPD No: CR-9410 | DOA: 01/08/2026 | DOD: 05/08/2026</text>
         <rect x="35" y="195" width="530" height="70" fill="#fef2f2" stroke="#fecaca" rx="6"/>
         <text x="50" y="220" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#991b1b">Primary Diagnosis:</text>
         <text x="50" y="245" font-family="Arial, sans-serif" font-size="13" fill="#b91c1c">Acute Anterior Wall Myocardial Infarction (STEMI), Killip Class I</text>
@@ -10660,7 +10837,7 @@ function ScreenInteroperableRecords({
       setOcrRawText(`DR. A. K. VERMA, MD (CARDIOLOGY)
 HEART CARE CLINIC, HAZARIBAGH
 Date: 15/07/2026
-Patient: ${patient.name}
+Patient: ${patient?.name || 'Ramesh Mahto'}
 Rx:
 Tab. Telmisartan 40mg 1-0-0 (30 days, after breakfast)
 Tab. Atorvastatin 20mg 0-0-1 (30 days, before bedtime)
@@ -10681,7 +10858,7 @@ Advice: Low salt diet, weekly BP check by ASHA worker`);
         { parameter: 'TRIGLYCERIDES', observedValue: '160', unit: 'mg/dL', referenceRange: '50 - 150 mg/dL', isAbnormal: true }
       ]);
       setOcrRawText(`DISTRICT DIAGNOSTIC PATHOLOGY LAB
-Patient: ${patient.name} | Date: 03/07/2026
+Patient: ${patient?.name || 'Ramesh Mahto'} | Date: 03/07/2026
 Test: Lipid Profile (Fasting)
 TOTAL CHOLESTEROL: 218 mg/dL (Normal: 125 - 200) [HIGH]
 LDL CHOLESTEROL: 142 mg/dL (Normal: 0 - 100) [HIGH]
@@ -10834,8 +11011,11 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       rawSummary: ocrRawText
     };
 
+    const targetMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
+    const targetName = patient?.name || 'Patient';
+
     const payload = {
-      internalMedicalId: patient.internalMedicalId,
+      internalMedicalId: targetMedId,
       recordType: ocrRecordType,
       title: ocrTitle || 'Physical Medical Document',
       summary: `Verified ${ocrRecordType.replace('_', ' ')} from ${ocrFacility} by ${ocrDoctor}.`,
@@ -10844,11 +11024,11 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       rawText: ocrRawText,
       extractedData: finalExtracted,
       isVerifiedByUser: ocrUserVerified,
-      verifiedBy: ocrUserVerified ? `Verified by ${patient.name}` : undefined
+      verifiedBy: ocrUserVerified ? `Verified by ${targetName}` : undefined
     };
 
     try {
-      const res = await fetch(getApiUrl(`/api/patient/${patient.internalMedicalId}/records/manual`), {
+      const res = await fetch(getApiUrl(`/api/patient/${targetMedId}/records/manual`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -10864,7 +11044,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       console.warn('Manual record save fallback:', err);
       const newRec = {
         id: `rec_man_local_${Date.now()}`,
-        internalMedicalId: patient.internalMedicalId,
+        internalMedicalId: targetMedId,
         source: 'manual',
         recordType: ocrRecordType,
         title: ocrTitle,
@@ -10874,7 +11054,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         recordedAt: new Date().toISOString(),
         extractedData: finalExtracted,
         verificationStatus: ocrUserVerified ? 'verified' : 'unverified',
-        verifiedBy: ocrUserVerified ? `Verified by ${patient.name}` : undefined
+        verifiedBy: ocrUserVerified ? `Verified by ${targetName}` : undefined
       };
       setRecords((prev) => [newRec, ...prev]);
       setShowOcrModal(false);
@@ -11107,16 +11287,17 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
     }));
 
     try {
+      const activeMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
       const res = await fetch(getApiUrl('/api/records/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          internalMedicalId: patient.internalMedicalId,
+          internalMedicalId: activeMedId,
           question: q,
           scopedDocumentId: targetDocId,
           requesterRole: activeRole,
           language: chosenLang,
-          sessionId: `records_${patient.internalMedicalId}`,
+          sessionId: `records_${activeMedId}`,
           conversationHistory: conversationHistory
         })
       });
@@ -11214,18 +11395,19 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   const handlePullAbdmRecords = async () => {
     try {
       setLoading(true);
-      if (abdmInputAbha && abdmInputAbha !== patient.abhaId) {
-        await fetch(getApiUrl(`/api/patient/${patient.internalMedicalId}/link-abha`), {
+      const activeMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
+      if (abdmInputAbha && abdmInputAbha !== patient?.abhaId) {
+        await fetch(getApiUrl(`/api/patient/${activeMedId}/link-abha`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ abhaId: abdmInputAbha })
         });
-        setPatient((prev) => ({ ...prev, abhaId: abdmInputAbha }));
+        setPatient((prev) => (prev ? { ...prev, abhaId: abdmInputAbha } : prev));
       }
 
       const res = await fetch(
         getApiUrl(
-          `/api/abdm/fetch-records/cns_demo_01?patient_id=${patient.internalMedicalId}`
+          `/api/abdm/fetch-records/cns_demo_01?patient_id=${activeMedId}`
         )
       );
       await res.json();
@@ -11250,7 +11432,8 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   const handleSyncCowin = async () => {
     try {
       setLoading(true);
-      const res = await fetch(getApiUrl(`/api/cowin/vaccination/${patient.internalMedicalId}`));
+      const activeMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
+      const res = await fetch(getApiUrl(`/api/cowin/vaccination/${activeMedId}`));
       await res.json();
       showToast('CoWIN Digital Vaccine Passport synchronized!');
       loadTimeline();
@@ -11266,7 +11449,8 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   const handleCreateConsentRequest = async (e) => {
     e.preventDefault();
     try {
-      await fetch(getApiUrl(`/api/patient/${patient.internalMedicalId}/consent/request`), {
+      const activeMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
+      await fetch(getApiUrl(`/api/patient/${activeMedId}/consent/request`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -11305,7 +11489,8 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
   const handleExecuteEmergencyOverride = async (e) => {
     e.preventDefault();
     try {
-      await fetch(getApiUrl(`/api/patient/${patient.internalMedicalId}/emergency-override`), {
+      const activeMedId = patient?.internalMedicalId || selectedPatientId || 'MV-MED-2026-1024';
+      await fetch(getApiUrl(`/api/patient/${activeMedId}/emergency-override`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -11320,7 +11505,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       showToast('Emergency Override Active: Audit Trail Logged');
       const res = await fetch(
         getApiUrl(
-          `/api/patient/${patient.internalMedicalId}/records/timeline?requester_id=doc_er_99&requester_role=doctor&emergency=true&emergency_reason=${encodeURIComponent(emergencyReason)}`
+          `/api/patient/${activeMedId}/records/timeline?requester_id=doc_er_99&requester_role=doctor&emergency=true&emergency_reason=${encodeURIComponent(emergencyReason)}`
         )
       );
       const data = await res.json();
@@ -11345,36 +11530,82 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         body: JSON.stringify(regForm)
       });
       const data = await res.json();
-      if (data.data) {
-        const newPatient = data.data;
-        setPatientsList((prev) => [newPatient, ...prev.filter((p) => p.internalMedicalId !== newPatient.internalMedicalId)]);
-        setSelectedPatientId(newPatient.internalMedicalId);
-        setPatient(newPatient);
-        setRecords([]);
-        setShowRegisterModal(false);
-        setShowCardModal(true);
-        showToast(`Medical ID Card generated for ${newPatient.name}! ID: ${newPatient.internalMedicalId}`);
-      }
-    } catch (err) {
-      console.warn('Register fallback:', err);
-      const newMedId = `MV-MED-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-      const localPat = {
-        internalMedicalId: newMedId,
-        name: regForm.name || 'New Patient',
-        age: Number(regForm.age) || 30,
+      const rawPat = data.data || {
+        internalMedicalId: `MV-MED-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        name: regForm.name || effectiveUser?.name || 'Registered Patient',
+        age: Number(regForm.age) || 35,
         sex: regForm.sex || 'female',
         phone: regForm.phone || '+91-94311-00000',
-        location: regForm.location || 'Hazaribagh, Jharkhand',
+        location: regForm.location || 'Katkamsandi, Hazaribagh',
         bloodGroup: regForm.bloodGroup || 'O+',
-        abhaId: regForm.abhaId || null,
+        abhaId: regForm.abhaId || (effectiveUser?.abhaId || null),
         createdAt: new Date().toISOString()
       };
-      setPatientsList((prev) => [localPat, ...prev]);
-      setSelectedPatientId(newMedId);
-      setPatient(localPat);
+
+      const newPatient = synthesizePatientProfile(rawPat);
+      setPatientsList((prev) => [newPatient, ...prev.filter((p) => p.internalMedicalId !== newPatient.internalMedicalId)]);
+      setSelectedPatientId(newPatient.internalMedicalId);
+      setPatient(newPatient);
+      setHasHealthId(true);
       setRecords([]);
       setShowRegisterModal(false);
       setShowCardModal(true);
+
+      // Persist association with logged-in user
+      if (effectiveUser && effectiveUser.name) {
+        try {
+          localStorage.setItem('medveda_patient_health_id_' + effectiveUser.name.trim().toLowerCase(), newPatient.internalMedicalId);
+          if (setCurrentUser) {
+            setCurrentUser({
+              ...effectiveUser,
+              internalMedicalId: newPatient.internalMedicalId,
+              abhaId: newPatient.abhaId || effectiveUser.abhaId
+            });
+          }
+        } catch (e) {}
+      } else {
+        try {
+          localStorage.setItem('medveda_guest_patient_id', newPatient.internalMedicalId);
+        } catch (e) {}
+      }
+
+      showToast(`Medical ID Card generated for ${newPatient.name}! ID: ${newPatient.internalMedicalId}`);
+    } catch (err) {
+      console.warn('Register fallback:', err);
+      const newMedId = `MV-MED-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const localPat = synthesizePatientProfile({
+        internalMedicalId: newMedId,
+        name: regForm.name || effectiveUser?.name || 'Registered Patient',
+        age: Number(regForm.age) || 35,
+        sex: regForm.sex || 'female',
+        phone: regForm.phone || '+91-94311-00000',
+        location: regForm.location || 'Katkamsandi, Hazaribagh',
+        bloodGroup: regForm.bloodGroup || 'O+',
+        abhaId: regForm.abhaId || (effectiveUser?.abhaId || null),
+        createdAt: new Date().toISOString()
+      });
+      setPatientsList((prev) => [localPat, ...prev]);
+      setSelectedPatientId(newMedId);
+      setPatient(localPat);
+      setHasHealthId(true);
+      setRecords([]);
+      setShowRegisterModal(false);
+      setShowCardModal(true);
+      if (effectiveUser && effectiveUser.name) {
+        try {
+          localStorage.setItem('medveda_patient_health_id_' + effectiveUser.name.trim().toLowerCase(), newMedId);
+          if (setCurrentUser) {
+            setCurrentUser({
+              ...effectiveUser,
+              internalMedicalId: newMedId
+            });
+          }
+        } catch (e) {}
+      } else {
+        try {
+          localStorage.setItem('medveda_guest_patient_id', newMedId);
+        } catch (e) {}
+      }
       showToast(`Medical ID Card generated! ID: ${newMedId}`);
     }
   };
@@ -11399,11 +11630,13 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
     );
 
     if (found) {
-      setSelectedPatientId(found.internalMedicalId);
-      setPatient(found);
+      const synthesized = synthesizePatientProfile(found);
+      setSelectedPatientId(synthesized.internalMedicalId);
+      setPatient(synthesized);
+      setHasHealthId(true);
       setShowOpenIdModal(false);
       setSearchIdInput('');
-      showToast(`Opened Health ID for ${found.name} (${found.internalMedicalId})`);
+      showToast(`Opened Health ID for ${synthesized.name} (${synthesized.internalMedicalId})`);
       return;
     }
 
@@ -11415,7 +11648,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       ? query.toUpperCase()
       : `MV-MED-2026-${query}`;
 
-    const newPat = {
+    const newPat = synthesizePatientProfile({
       internalMedicalId: newId,
       abhaId: isAbha ? query : null,
       name: isAbha ? query.split('@')[0].replace(/[._-]/g, ' ').toUpperCase() : `Patient (${query})`,
@@ -11423,22 +11656,17 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       status: 'Active',
       age: 35,
       sex: 'Female',
-      email: `${query.toLowerCase()}@medveda.in`,
-      birthDate: '01/15/1991',
       phone: '+91-94311-00000',
       bloodGroup: 'O+',
-      location: 'Jharkhand, India',
-      address: 'Jharkhand, India',
-      patientSince: '01/01/2026',
-      medicalInsurance: 'Yes',
-      visionInsurance: 'None',
-      dentalInsurance: 'Yes',
-      photoUrl: null
-    };
+      location: 'Katkamsandi, Hazaribagh, Jharkhand',
+      address: 'Katkamsandi, Hazaribagh, Jharkhand',
+      patientSince: '01/01/2026'
+    });
 
     setPatientsList((prev) => [newPat, ...prev]);
     setSelectedPatientId(newId);
     setPatient(newPat);
+    setHasHealthId(true);
     setShowOpenIdModal(false);
     setSearchIdInput('');
     showToast(`Opened & Linked Health ID: ${newId}`);
@@ -11446,7 +11674,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
   // Copy ID to Clipboard
   const handleCopyId = () => {
-    if (navigator.clipboard) {
+    if (patient && patient.internalMedicalId && navigator.clipboard) {
       navigator.clipboard.writeText(patient.internalMedicalId);
       showToast(`Copied Medical ID ${patient.internalMedicalId} to clipboard!`);
     }
@@ -11474,7 +11702,6 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         {/* Toast Notification Alert */}
         {notificationToast && (
           <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
-            
             <span>{notificationToast}</span>
           </div>
         )}
@@ -11483,153 +11710,256 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl lg:text-[32px] font-black text-slate-900 tracking-tight leading-tight">
-              Health Records ID &amp; AI Health Assistant
+              Electronic Health Records
             </h1>
             <p className="text-xs sm:text-[13px] text-slate-600 font-medium mt-1 max-w-4xl leading-relaxed">
               All your health records in one place, with AI that reads medical documents and answers questions using only your real health information
             </p>
           </div>
 
-          {/* Top-Right Action Buttons: Create Health ID & Open Health ID */}
+          {/* Top-Right Action Buttons: Create Health ID & Open Health ID (conditional) + Home Button */}
           <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
-            <button
-              type="button"
-              onClick={() => setShowRegisterModal(true)}
-              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-900 text-white text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
-            >
-              <span>Create Health ID</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowOpenIdModal(true)}
-              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#0b2b82] border-2 border-[#0b2b82] text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
-            >
-              <span>Open Health ID</span>
-            </button>
+            {!hasHealthId ? (
+              <button
+                type="button"
+                onClick={() => setShowRegisterModal(true)}
+                className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-900 text-white text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
+              >
+                <span>Create Health ID</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowOpenIdModal(true)}
+                className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#0b2b82] border-2 border-[#0b2b82] text-xs font-black shadow-sm transition-all hover:shadow-md cursor-pointer"
+              >
+                <span>Open Health ID</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onBackToHome}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black shadow-xs transition-all hover:shadow-sm cursor-pointer"
+              title="HOME"
             >
-              <span>&larr; Return to Home</span>
+              <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              <span>HOME</span>
             </button>
           </div>
         </div>
 
-        {/* Top Hero Section: Patient Profile + Actions (Left) and MedVeda Assistant Chat (Right) */}
+        {/* Top Hero Section: Patient Profile / Create Health ID Prompt (Left) and MedVeda Assistant Chat (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 xl:gap-6 items-stretch">
-          {/* Left Column: Patient Profile ID Card + 4 Quick Action Cards (7 cols on lg) */}
+          {/* Left Column: Patient Profile ID Card / Create Health ID Card + 4 Quick Action Cards (7 cols on lg) */}
           <div className="lg:col-span-7 flex flex-col justify-between gap-3.5 min-h-0">
-            {/* Patient Profile Card (Outlined in black in image) */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-[#0b2b82]/40 transition-all p-5 relative flex flex-col justify-between flex-1">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                {/* Photo & Insurance Column */}
-                <div className="flex flex-col items-center sm:items-start shrink-0 w-36">
-                  <div
-                    className="relative w-36 h-36 min-w-[144px] min-h-[144px] max-w-[144px] max-h-[144px] aspect-square rounded-full overflow-hidden border-4 border-slate-100 shadow-md shrink-0"
-                    style={{ width: "144px", height: "144px", minWidth: "144px", minHeight: "144px", maxWidth: "144px", maxHeight: "144px", borderRadius: "9999px", aspectRatio: "1 / 1" }}
-                  >
-                    <img
-                      src={patient.photoUrl || "patient-sanjana.jpg"}
-                      alt={patient.name}
-                      className="w-full h-full object-cover aspect-square rounded-full block"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9999px", aspectRatio: "1 / 1" }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "patient-sanjana.jpg";
-                      }}
-                    />
+            {!hasHealthId ? (
+              /* If Health ID not made: Show "Create Health ID to Gain Full Access" Card */
+              <div className="bg-white rounded-xl border-2 border-dashed border-[#0b2b82]/30 hover:border-[#0b2b82]/60 shadow-2xs transition-all p-5 sm:p-6 relative flex flex-col justify-between flex-1 bg-gradient-to-br from-white via-blue-50/20 to-sky-50/30">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                      Health ID Required
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      National ABDM &bull; MedVeda EHR
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+                      Create Health ID to Gain Full Access
+                    </h3>
+                    <p className="text-xs sm:text-[13px] text-slate-600 font-medium mt-1.5 leading-relaxed">
+                      {effectiveUser && effectiveUser.name
+                        ? `Welcome, ${effectiveUser.name}. Link your verified Ayushman Bharat Digital Health Account (ABHA) and generate your official MedVeda Medical ID to unlock complete electronic health records, AI document OCR, and your nationwide health passport.`
+                        : "Generate your official MedVeda Medical ID and link your Ayushman Bharat Health Account (ABHA) to unlock longitudinal health records, multimodal AI prescription scanning, and interoperable clinical data exchange across all network hospitals."}
+                    </p>
+                  </div>
+
+                  {/* 3 Value Proposition Blocks */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 text-[#0b2b82] flex items-center justify-center font-bold text-sm mb-2">
+                        🪪
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs">Official Medical ID</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 leading-normal">
+                        Unique national anchor ID with printable digital card
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm mb-2">
+                        📄
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs">AI OCR Studio</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 leading-normal">
+                        Gemini Vision extracts handwriting, dosage &amp; lab tests
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-sm mb-2">
+                        🔒
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs">ABDM Sandbox</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 leading-normal">
+                        Encrypted consent-based FHIR R4 clinical sync
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-5 border-t border-slate-200/60 mt-4 flex flex-col sm:flex-row items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setShowRegisterModal(true)}
-                    title="Edit Patient Profile"
-                    className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-[#06b6d4] hover:bg-[#0891b2] text-white flex items-center justify-center shadow-md transition-transform hover:scale-110 cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-blue-900 text-white font-black text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer hover:shadow-md"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Insurance status under photo */}
-                <div className="mt-2 text-[11px] text-slate-400 font-medium text-center sm:text-left" title={"Medical: " + (patient.medicalInsurance || 'None') + " | Vision: " + (patient.visionInsurance || 'Yes') + " | Dental: " + (patient.dentalInsurance || 'Yes')}>
-                  Insurance Verified
-                </div>
-              </div>
-
-              {/* Patient Details Column */}
-              <div className="flex-1 w-full space-y-2 text-xs">
-                {/* Name & Active Badge */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-wide uppercase">
-                    {patient.name || 'SANJANA KUMARI'}
-                  </h3>
-                  <span className="px-3 py-0.5 rounded-md bg-[#00bcd4] text-white text-[11px] font-black uppercase tracking-wider shadow-2xs">
-                    {patient.status || 'Active'}
-                  </span>
-                </div>
-
-                {/* Demographic details matching the photo */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-800 text-xs">
-                  <div><span className="font-bold text-slate-700">Role:</span> <span className="font-medium text-slate-900">{patient.role || 'Patient'}</span></div>
-                  <div><span className="font-bold text-slate-700">Age:</span> <span className="font-medium text-slate-900">{patient.age || 34}</span></div>
-
-                  <div className="truncate"><span className="font-bold text-slate-700">E-mail:</span> <span className="font-medium text-slate-900">{patient.email || 'helenroizhicki@gmail.com'}</span></div>
-                  <div><span className="font-bold text-slate-700">Birth Date:</span> <span className="font-medium text-slate-900">{patient.birthDate || '02/20/1987'}</span></div>
-
-                  <div><span className="font-bold text-slate-700">Phone:</span> <span className="font-medium text-slate-900">{patient.phone || '+7 (291) 255 58 43'}</span></div>
-                  <div><span className="font-bold text-slate-700">Sex:</span> <span className="font-medium text-slate-900">{patient.sex ? (patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1).toLowerCase()) : 'Female'}</span></div>
-                </div>
-
-                <div>
-                  <span className="font-bold text-slate-700">Blood Group:</span> <span className="font-black text-critical-600">{patient.bloodGroup || 'O+'}</span>
-                </div>
-
-                <div>
-                  <span className="font-bold text-slate-700">Address:</span> <span className="font-medium text-slate-800">{patient.address || patient.location || '1 Main Street, Austin, TX, 78730'}</span>
-                </div>
-
-                <hr className="my-2 border-slate-200" />
-
-                {/* IDs & Timeline info */}
-                <div className="space-y-1 text-slate-800">
-                  <div>
-                    <span className="font-bold text-slate-900">MedVeda Medical ID:</span> <span className="font-mono font-bold text-slate-800">{patient.internalMedicalId}</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900">Linked ABHA ID:</span> <span className="font-mono font-bold text-slate-800">{patient.abhaId || '91-2890-1423-8891@sbx'}</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900">Contact:</span> <span className="font-medium text-slate-800">{patient.emergencyContact?.name || 'Anita Devi (Spouse)'} ({patient.emergencyContact?.phone || '+91-94311-28902'})</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900">Patient Since:</span> <span className="font-medium text-slate-800">{patient.patientSince || '03/02/2019'}</span>
-                  </div>
-                </div>
-
-                {/* Bottom right View & Download buttons */}
-                <div className="pt-2 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCardModal(true)}
-                    className="px-5 py-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold text-xs rounded-md transition-all shadow-2xs cursor-pointer"
-                  >
-                    view
+                    <span>Create Health ID Now</span>
+                    <span>&rarr;</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowCardModal(true)}
-                    title="Download Official Medical ID Card"
-                    className="p-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold rounded-md transition-all shadow-2xs cursor-pointer"
+                    onClick={() => setShowOpenIdModal(true)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
+                    <span>Already have an ID? Open Existing ID</span>
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
+            ) : (
+              /* Patient Profile Card (Connected & Synthesized) */
+              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-[#0b2b82]/40 transition-all p-5 relative flex flex-col justify-between flex-1">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                  {/* Photo / Avatar & Insurance Column */}
+                  <div className="flex flex-col items-center sm:items-start shrink-0 w-36">
+                    <div
+                      className="relative w-36 h-36 min-w-[144px] min-h-[144px] max-w-[144px] max-h-[144px] aspect-square rounded-full overflow-hidden border-4 border-slate-100 shadow-md shrink-0 bg-gradient-to-br from-[#0b2b82] to-sky-600 flex items-center justify-center text-white"
+                      style={{ width: "144px", height: "144px", minWidth: "144px", minHeight: "144px", maxWidth: "144px", maxHeight: "144px", borderRadius: "9999px", aspectRatio: "1 / 1" }}
+                    >
+                      {patient?.photoUrl ? (
+                        <img
+                          src={patient.photoUrl}
+                          alt={patient?.name || 'Patient'}
+                          className="w-full h-full object-cover aspect-square rounded-full block"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "9999px", aspectRatio: "1 / 1" }}
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center select-none text-white">
+                          <span className="text-3xl font-black tracking-wider uppercase">
+                            {patient?.name
+                              ? patient.name
+                                  .split(' ')
+                                  .map((n) => n.charAt(0))
+                                  .slice(0, 2)
+                                  .join('')
+                              : 'MV'}
+                          </span>
+                          <span className="text-[9px] font-bold tracking-widest text-sky-200 uppercase mt-0.5">
+                            Verified
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterModal(true)}
+                        title="Edit Patient Profile"
+                        className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-[#06b6d4] hover:bg-[#0891b2] text-white flex items-center justify-center shadow-md transition-transform hover:scale-110 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Insurance status under photo */}
+                    <div className="mt-2 text-[11px] text-slate-500 font-medium text-center sm:text-left" title={"Medical: " + (patient?.medicalInsurance || 'PM-JAY Ayushman Bharat') + " | Vision: " + (patient?.visionInsurance || 'Yes') + " | Dental: " + (patient?.dentalInsurance || 'Yes')}>
+                      {patient?.medicalInsurance ? 'Insurance Verified' : 'ABDM Health ID Active'}
+                    </div>
+                  </div>
+
+                  {/* Patient Details Column */}
+                  <div className="flex-1 w-full space-y-2 text-xs">
+                    {/* Name & Active Badge */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-wide uppercase">
+                        {patient?.name || 'RAMESH MAHTO'}
+                      </h3>
+                      <span className="px-3 py-0.5 rounded-md bg-[#00bcd4] text-white text-[11px] font-black uppercase tracking-wider shadow-2xs">
+                        {patient?.status || 'Active'}
+                      </span>
+                    </div>
+
+                    {/* Demographic details matching the patient */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-800 text-xs">
+                      <div><span className="font-bold text-slate-700">Role:</span> <span className="font-medium text-slate-900">{patient?.role || 'Patient'}</span></div>
+                      <div><span className="font-bold text-slate-700">Age:</span> <span className="font-medium text-slate-900">{patient?.age || 48}</span></div>
+
+                      <div className="truncate"><span className="font-bold text-slate-700">E-mail:</span> <span className="font-medium text-slate-900" title={patient?.email}>{patient?.email || 'patient@medveda.in'}</span></div>
+                      <div><span className="font-bold text-slate-700">Birth Date:</span> <span className="font-medium text-slate-900">{patient?.birthDate || '15/07/1978'}</span></div>
+
+                      <div><span className="font-bold text-slate-700">Phone:</span> <span className="font-medium text-slate-900">{patient?.phone || '+91-94311-28901'}</span></div>
+                      <div><span className="font-bold text-slate-700">Sex:</span> <span className="font-medium text-slate-900">{patient?.sex || 'Male'}</span></div>
+                    </div>
+
+                    <div>
+                      <span className="font-bold text-slate-700">Blood Group:</span> <span className="font-black text-critical-600">{patient?.bloodGroup || 'O+'}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-bold text-slate-700">Address:</span> <span className="font-medium text-slate-800">{patient?.address || patient?.location || 'Katkamsandi, Hazaribagh, Jharkhand'}</span>
+                    </div>
+
+                    <hr className="my-2 border-slate-200" />
+
+                    {/* IDs & Timeline info */}
+                    <div className="space-y-1 text-slate-800">
+                      <div>
+                        <span className="font-bold text-slate-900">MedVeda Medical ID:</span> <span className="font-mono font-bold text-slate-800">{patient?.internalMedicalId}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900">Linked ABHA ID:</span> <span className="font-mono font-bold text-slate-800">{patient?.abhaId || `${(patient?.name || 'patient').toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900">Contact:</span> <span className="font-medium text-slate-800">{patient?.emergencyContact?.name || 'Anita Devi (Spouse)'} ({patient?.emergencyContact?.phone || '+91-94311-28902'})</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900">Patient Since:</span> <span className="font-medium text-slate-800">{patient?.patientSince || '01/08/2021'}</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom right View & Download buttons */}
+                    <div className="pt-2 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCardModal(true)}
+                        className="px-5 py-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold text-xs rounded-md transition-all shadow-2xs cursor-pointer"
+                      >
+                        view
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCardModal(true)}
+                        title="Download Official Medical ID Card"
+                        className="p-1.5 border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-bold rounded-md transition-all shadow-2xs cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* 4 Action Cards (2x2 Grid) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 shrink-0">
@@ -11931,7 +12261,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-slate-500 uppercase">Select Active Patient:</span>
             <select
-              value={selectedPatientId}
+              value={selectedPatientId || ''}
               onChange={(e) => {
                 const val = e.target.value;
                 setSelectedPatientId(val);
@@ -11947,20 +12277,35 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
               ))}
             </select>
 
-            <button
-              type="button"
-              onClick={() => setShowRegisterModal(true)}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <span>Generate Health ID</span>
-            </button>
+            {!hasHealthId ? (
+              <button
+                type="button"
+                onClick={() => setShowRegisterModal(true)}
+                className="px-3.5 py-2 bg-[#0b2b82] hover:bg-blue-900 text-white font-black text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>Create Health ID</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowOpenIdModal(true)}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-[#0b2b82] border-2 border-[#0b2b82] font-black text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>Open Health ID</span>
+              </button>
+            )}
 
             <button
               type="button"
               onClick={onBackToHome}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              title="HOME"
             >
-              <span>Return to Home</span>
+              <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              <span>HOME</span>
             </button>
           </div>
         </div>
@@ -12052,7 +12397,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
           {/* Timeline Records List with all details */}
           {filteredRecords.length === 0 ? (
             <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs">
-              No health records matching current filters for {patient.name}. Click "Upload &amp; AI OCR Studio" or "ABDM Sandbox Sync" to add records.
+              No health records matching current filters for {patient?.name || 'the current patient'}. Click "Upload &amp; AI OCR Studio" or "ABDM Sandbox Sync" to add records.
             </div>
           ) : (
             <div className="space-y-4 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
@@ -12770,7 +13115,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
               {activeConsents.length === 0 ? (
                 <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 rounded-xl">
-                  No active consent requests found for {patient.name}.
+                  No active consent requests found for {patient?.name || 'the current patient'}.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -12953,9 +13298,9 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
               <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-100 px-2 py-0.5 rounded">
                 Patient Enrollment
               </span>
-              <h3 className="text-xl font-black text-slate-900 mt-1">Generate Medical ID Card</h3>
+              <h3 className="text-xl font-black text-slate-900 mt-1">Create Health ID &amp; Digital Passport</h3>
               <p className="text-xs text-slate-500">
-                Creates a unique MedVeda Medical ID anchor (`MV-MED-YYYY-XXXX`). Works standalone with optional ABHA link.
+                Creates your verified MedVeda Medical ID anchor (<code>MV-MED-YYYY-XXXX</code>) and digital health passport to gain full access to Electronic Health Records.
               </p>
             </div>
 
@@ -12967,12 +13312,12 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                   value={regForm.name}
                   onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
                   className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
-                  placeholder="e.g. Babulal Marandi"
+                  placeholder="e.g. Ramesh Mahto"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Age *</label>
                   <input
@@ -12982,6 +13327,18 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                     className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
                     required
                   />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Gender *</label>
+                  <select
+                    value={regForm.sex || 'Female'}
+                    onChange={(e) => setRegForm({ ...regForm, sex: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-bold"
+                  >
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Blood Group</label>
@@ -13036,15 +13393,15 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                 <button
                   type="button"
                   onClick={() => setShowRegisterModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 font-bold rounded-xl"
+                  className="px-4 py-2 border border-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-[#0b2b82] hover:bg-blue-900 text-white font-black rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Generate Medical Card</span>
+                  <span>Create Health ID &amp; Gain Access</span>
                   <span>→</span>
                 </button>
               </div>
@@ -13094,13 +13451,13 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
 
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h4 className="text-xl font-black text-white">{patient.name}</h4>
-                  <div className="text-xs font-mono font-bold text-sky-300 mt-0.5">{patient.internalMedicalId}</div>
+                  <h4 className="text-xl font-black text-white">{patient?.name || 'PATIENT'}</h4>
+                  <div className="text-xs font-mono font-bold text-sky-300 mt-0.5">{patient?.internalMedicalId || 'MV-MED-2026-XXXX'}</div>
                   <div className="text-[11px] text-slate-300 mt-2 font-medium">
-                    {patient.age} Years &bull; {patient.sex ? patient.sex.toUpperCase() : 'N/A'} &bull; Blood: <strong className="text-critical-400">{patient.bloodGroup || 'O+'}</strong>
+                    {patient?.age || 35} Years &bull; {patient?.sex ? patient.sex.toUpperCase() : 'N/A'} &bull; Blood: <strong className="text-critical-400">{patient?.bloodGroup || 'O+'}</strong>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">📍 {patient.location || 'Jharkhand'}</div>
-                  {patient.abhaId && (
+                  <div className="text-[10px] text-slate-400 mt-1">📍 {patient?.location || patient?.address || 'Jharkhand'}</div>
+                  {patient?.abhaId && (
                     <div className="text-[10px] text-emerald-400 font-mono mt-1 font-bold">ABHA: {patient.abhaId}</div>
                   )}
                 </div>
@@ -13132,7 +13489,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
               </div>
 
               <div className="border-t border-white/10 pt-2 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                <span>Phone: {patient.phone}</span>
+                <span>Phone: {patient?.phone || '+91-94311-00000'}</span>
                 <span>Valid Nationwide Across All ABDM Facilities</span>
               </div>
             </div>
@@ -13284,7 +13641,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                 </span>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {patientsList.map((p) => {
-                    const isCurrent = patient.internalMedicalId === p.internalMedicalId;
+                    const isCurrent = patient?.internalMedicalId === p.internalMedicalId;
                     return (
                       <div
                         key={p.internalMedicalId}
@@ -13296,7 +13653,7 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className="text-base">{p.name === 'SANJANA KUMARI' ? '👩' : '👤'}</span>
+                          <span className="text-base">{p.sex && p.sex.toLowerCase().startsWith('f') ? '👩' : '👨'}</span>
                           <div>
                             <div className="font-black text-slate-900 text-xs">
                               {p.name} {isCurrent && <span className="text-[10px] text-blue-600 font-bold">(Currently Active)</span>}
@@ -19674,16 +20031,21 @@ function ScreenLogin({
   onLoginSuccess,
   onBackToHome
 }) {
+  const isDistrictAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin');
+
   if (currentUser) {
     return (
-      <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-12 px-4 bg-gradient-to-b from-slate-50 via-blue-50/20 to-white">
-        <div className="bg-white rounded-xl max-w-md w-full p-6 sm:p-8 shadow-xl border border-slate-200 text-center space-y-5 animate-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-3xl shadow-xs">
-            👤
+      <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-12 px-4 bg-slate-50">
+        <div className="bg-white rounded-xl max-w-md w-full p-6 sm:p-8 shadow-2xs border border-slate-200 text-center space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="w-14 h-14 mx-auto rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[#0b2b82]">
+            <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Authenticated Session</span>
-            <h3 className="text-xl font-black text-slate-900 mt-1">{currentUser.name}</h3>
+            <h3 className="text-xl font-bold text-slate-900 mt-1">{currentUser.name}</h3>
             <p className="text-xs text-[#0b2b82] font-bold uppercase tracking-wide mt-0.5">{currentUser.roleLabel || currentUser.role}</p>
             <p className="text-xs text-slate-500 font-mono mt-1">{currentUser.abhaId}</p>
           </div>
@@ -19691,9 +20053,9 @@ function ScreenLogin({
             <button
               type="button"
               onClick={() => onLoginSuccess(currentUser)}
-              className="w-full py-3.5 px-4 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-black text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 px-4 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Continue to Platform Overview</span>
+              <span>{isDistrictAdmin ? 'Continue to District Health Administrator Overview' : 'Continue to Platform Overview'}</span>
               <span>&rarr;</span>
             </button>
             <button
@@ -19702,7 +20064,7 @@ function ScreenLogin({
                 if (setCurrentUser) setCurrentUser(null);
                 if (setActorRole) setActorRole('patient');
               }}
-              className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer"
             >
               Switch Account / Log Out
             </button>
@@ -19722,7 +20084,7 @@ function ScreenLogin({
   }
 
   return (
-    <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-8 px-4 bg-gradient-to-b from-slate-50 via-blue-50/20 to-white">
+    <div className="min-h-[calc(100vh-140px)] flex flex-col justify-center items-center py-8 px-4 bg-slate-50">
       <AuthModal
         initialTab="login"
         initialRole="patient"
@@ -21257,6 +21619,7 @@ function explainSchemeLocally(assessment, schemeId, perspective) {
 function ScreenSchemeFinder({
   actorRole,
   setActorRole,
+  currentUser,
   onBackToHome,
   onNavigateToCareNavigator,
   onNavigateToTeleconsult,
@@ -21387,8 +21750,16 @@ function ScreenSchemeFinder({
     return 'assessment';
   });
 
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
   // Admin access separation: Data Ingestion and Verification Audit is restricted to Admin
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => actorRole === 'admin' || actorRole === 'officer' || initialTab === 'rules');
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => isDistrictAdmin || actorRole === 'admin' || actorRole === 'officer' || initialTab === 'rules');
+
+  useEffect(() => {
+    if (isDistrictAdmin) {
+      setIsAdminLoggedIn(true);
+    }
+  }, [isDistrictAdmin]);
   const [showAdminLoginModal, setShowAdminLoginModal] = useState(false);
   const [adminUsername, setAdminUsername] = useState('admin@medveda.gov.in');
   const [adminPassword, setAdminPassword] = useState('');
@@ -21638,6 +22009,14 @@ function ScreenSchemeFinder({
               </svg>
               <span>Admin Portal</span>
             </button>
+          ) : isDistrictAdmin ? (
+            <span
+              className="px-3.5 py-2 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded-lg text-xs flex items-center gap-1.5"
+              title="District Health Administrator Official View Active"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+              <span>District Admin Mode</span>
+            </span>
           ) : (
             <button
               type="button"
@@ -22826,11 +23205,11 @@ function ScreenCommandCenter({
       });
       const json = await res.json();
       if (json.success) {
-        showToastMsg(`✓ Transfer request ${json.data.id} created from ${donor.fromFacilityName}!`);
+        showToastMsg(`Transfer request ${json.data.id} created from ${donor.fromFacilityName}!`);
         loadDistrictTelemetry(selectedDistrict);
       }
     } catch (err) {
-      showToastMsg('⚠️ Failed to initiate transfer request.');
+      showToastMsg('Failed to initiate transfer request.');
     }
   };
 
@@ -22858,7 +23237,7 @@ function ScreenCommandCenter({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToastMsg('✓ Exported comprehensive district CSV report!');
+    showToastMsg('Exported comprehensive district CSV report successfully.');
   };
 
   // Filtered alerts
@@ -22870,10 +23249,10 @@ function ScreenCommandCenter({
   });
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-800 flex flex-col font-sans selection:bg-[#0b2b82] selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-[#0b2b82] selection:text-white">
 
-      {/* --- TOP MISSION CONTROL HEADER & GEOGRAPHY BAR (White & Blue Theme) --- */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
+      {/* --- TOP MISSION CONTROL HEADER & GEOGRAPHY BAR (60-30-10 Theme) --- */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 
@@ -22882,14 +23261,21 @@ function ScreenCommandCenter({
               <button
                 type="button"
                 onClick={onBackToHome}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shrink-0 text-xs flex items-center gap-1"
-                title="Back to MedVeda Portal"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all shrink-0 text-xs flex items-center gap-1 cursor-pointer"
+                title="Back to Overview"
               >
-                ← Home
+                <span>&larr; Overview</span>
               </button>
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b2b82] via-[#092268] to-[#0284c7] flex items-center justify-center text-xl text-white shadow-md shadow-blue-900/10 shrink-0">
-                  🛰️
+                <div className="w-10 h-10 rounded-xl bg-[#0b2b82] flex items-center justify-center text-white shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="3" x2="12" y2="7" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                    <line x1="3" y1="12" x2="7" y2="12" />
+                    <line x1="17" y1="12" x2="21" y2="12" />
+                  </svg>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -27107,7 +27493,6 @@ const FEATURE_NAV_MODULES = [
     id: 'overview',
     code: 'MOD 00',
     shortCode: '00',
-    icon: '📊',
     label: 'Platform Overview',
     shortLabel: 'Overview',
     description: 'Unified command hub & telemetry',
@@ -27118,7 +27503,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature1',
     code: 'MOD 01',
     shortCode: '01',
-    icon: '🧭',
     label: 'Care Navigator',
     shortLabel: 'Care Nav',
     badge: 'Patient Only',
@@ -27128,7 +27512,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature2',
     code: 'MOD 02',
     shortCode: '02',
-    icon: '👨‍⚕️',
     label: 'Teleconsult & Queue',
     shortLabel: 'Teleconsult',
     description: 'Doctor roster & priority queue',
@@ -27139,7 +27522,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature3',
     code: 'MOD 03',
     shortCode: '03',
-    icon: '🔄',
     label: 'Smart Referrals',
     shortLabel: 'Referrals',
     description: 'Digital passes & QR admissions',
@@ -27150,7 +27532,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature4',
     code: 'MOD 04',
     shortCode: '04',
-    icon: '📋',
     label: 'High-Risk Follow-Ups',
     shortLabel: 'Follow-Ups',
     description: 'ASHA field tracking & auto-alerts',
@@ -27161,7 +27542,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature5',
     code: 'MOD 05',
     shortCode: '05',
-    icon: '📑',
     label: 'Health Records (ABDM)',
     shortLabel: 'Records',
     description: 'FHIR health data & emergency access',
@@ -27172,7 +27552,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature6',
     code: 'MOD 06',
     shortCode: '06',
-    icon: '💊',
     label: 'Medicines & Labs',
     shortLabel: 'Meds & Lab',
     description: 'Pharmacy inventory & lab orders',
@@ -27183,7 +27562,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature7',
     code: 'MOD 07',
     shortCode: '07',
-    icon: '🏥',
     label: 'Facility Dashboard',
     shortLabel: 'Facility',
     description: 'Readiness Index, ICU beds & triage',
@@ -27194,7 +27572,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature8',
     code: 'MOD 08',
     shortCode: '08',
-    icon: '🏛️',
     label: 'Govt Health Schemes',
     shortLabel: 'Schemes',
     description: 'RAG search & eligibility checks',
@@ -27205,7 +27582,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature9',
     code: 'MOD 09',
     shortCode: '09',
-    icon: '🛰️',
     label: 'District Command Center',
     shortLabel: 'Command',
     description: 'Pan-India surveillance & forecasts',
@@ -27216,7 +27592,6 @@ const FEATURE_NAV_MODULES = [
     id: 'feature10',
     code: 'MOD 10',
     shortCode: '10',
-    icon: '🤖',
     label: 'MediBot',
     shortLabel: 'MediBot',
     description: 'Autonomous action agent, voice & booking',
@@ -27232,10 +27607,10 @@ function FeaturesSideNavbar({
   setTeleconsultScreen,
   actorRole,
   setActorRole,
+  currentUser,
   collapsed,
   onToggleCollapse
 }) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const activeItemRef = useRef(null);
 
@@ -27258,31 +27633,57 @@ function FeaturesSideNavbar({
     setMobileDrawerOpen(false);
   };
 
-  const availableModules = (actorRole === 'patient'
-    ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
-    : FEATURE_NAV_MODULES).map(m => {
-      if (m.id === 'overview' && actorRole === 'patient') {
-        return {
-          ...m,
-          label: 'Patient Overview',
-          shortLabel: 'Overview',
-          description: 'Personal health portal, records & referrals'
-        };
-      }
-      return m;
-    });
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
+  const availableModules = isDistrictAdmin
+    ? [
+        {
+          id: 'overview',
+          code: 'MOD 00',
+          shortCode: '00',
+          label: 'District Health Administrator Overview',
+          shortLabel: 'DHA Overview',
+          description: 'District command metrics, administrative profile, facility catchment & stock warnings',
+          badge: 'Admin',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200'
+        },
+        {
+          id: 'feature9',
+          code: 'MOD 09',
+          shortCode: '09',
+          label: 'District Command Center',
+          shortLabel: 'Command Center',
+          description: 'Pan-district epidemiological surveillance, shortage forecasts & outbreak warnings',
+          badge: 'Live Radar',
+          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200'
+        },
+        {
+          id: 'feature8',
+          code: 'MOD 08',
+          shortCode: '08',
+          label: 'Govt Health Schemes (Admin View)',
+          shortLabel: 'Govt Schemes',
+          description: 'District scheme quota, beneficiary verification & fund disbursals',
+          badge: 'Admin Audit',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }
+      ]
+    : (actorRole === 'patient'
+      ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
+      : FEATURE_NAV_MODULES).map(m => {
+        if (m.id === 'overview' && actorRole === 'patient') {
+          return {
+            ...m,
+            label: 'Patient Overview',
+            shortLabel: 'Overview',
+            description: 'Personal health portal, records & referrals'
+          };
+        }
+        return m;
+      });
 
   const currentModule = availableModules.find(m => m.id === currentView) || availableModules[0] || FEATURE_NAV_MODULES[0];
-
-  const filteredModules = availableModules.filter(m => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      m.label.toLowerCase().includes(q) ||
-      m.code.toLowerCase().includes(q) ||
-      m.description.toLowerCase().includes(q)
-    );
-  });
+  const filteredModules = availableModules;
 
   return (
     <>
@@ -27339,28 +27740,25 @@ function FeaturesSideNavbar({
       {mobileDrawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-slate-900/40 flex">
           <div className="w-80 max-w-[85%] bg-white h-full shadow-lg flex flex-col animate-in slide-in-from-left duration-200">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#0b2b82]"></span>
-                <span className="text-xs font-bold tracking-wider uppercase text-slate-800">MedVeda Features</span>
+            <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div
+                className="flex items-center gap-2.5 cursor-pointer select-none"
+                onClick={() => { setView('home'); setMobileDrawerOpen(false); }}
+                title="MedVeda Home"
+              >
+                <MedVedaLogo className="h-8 w-8" />
+                <span className="font-black text-slate-900 text-lg tracking-tight flex items-center leading-none">
+                  <span>MED</span>
+                  <span className="text-teal-600 font-extrabold">VEDA</span>
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold text-sm"
               >
                 ✕
               </button>
-            </div>
-
-            <div className="p-3 border-b border-slate-100">
-              <input
-                type="text"
-                placeholder="Search modules..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0b2b82] focus:bg-white"
-              />
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -27393,13 +27791,20 @@ function FeaturesSideNavbar({
               })}
             </div>
 
-            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="p-3 border-t border-slate-200 bg-white flex items-center">
               <button
                 type="button"
                 onClick={() => { setView('home'); setMobileDrawerOpen(false); }}
-                className="text-xs font-bold text-slate-600 hover:text-[#0b2b82] flex items-center gap-1.5"
+                className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center gap-2.5 cursor-pointer group"
+                title="Home"
               >
-                ← Back to Home
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 group-hover:text-[#0b2b82] shrink-0 shadow-2xs">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </div>
+                <span className="font-bold text-slate-700 group-hover:text-[#0b2b82]">Home</span>
               </button>
             </div>
           </div>
@@ -27414,18 +27819,28 @@ function FeaturesSideNavbar({
         }`}
       >
         {/* Top Header of Sidebar */}
-        <div className={`p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 ${collapsed ? 'flex-col gap-2 p-2' : ''}`}>
+        <div className={`p-3.5 border-b border-slate-200 flex items-center justify-between bg-white ${collapsed ? 'flex-col gap-2 p-2' : ''}`}>
           {!collapsed ? (
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Features Suite</span>
+            <div
+              onClick={() => setView('home')}
+              className="flex items-center gap-2.5 cursor-pointer select-none group"
+              title="MedVeda Home"
+            >
+              <MedVedaLogo className="h-8 w-8" />
+              <div className="flex items-center">
+                <span className="font-black text-slate-900 text-lg tracking-tight flex items-center leading-none">
+                  <span>MED</span>
+                  <span className="text-teal-600 font-extrabold">VEDA</span>
+                </span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium">{availableModules.length} Integrated Systems</p>
             </div>
           ) : (
-            <div title="MedVeda Features Suite">
-              <ModuleIcon id="overview" className="w-5 h-5 text-[#0b2b82]" />
+            <div
+              onClick={() => setView('home')}
+              className="cursor-pointer select-none p-1 flex items-center justify-center"
+              title="MedVeda Home"
+            >
+              <MedVedaLogo className="h-7 w-7" />
             </div>
           )}
 
@@ -27445,29 +27860,6 @@ function FeaturesSideNavbar({
             </svg>
           </button>
         </div>
-
-        {/* Search Input (When expanded) */}
-        {!collapsed && (
-          <div className="p-2.5 border-b border-slate-100">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search features..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs px-2.5 py-1.5 pl-7 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0b2b82] focus:bg-white transition-all"
-              />
-              <svg
-                className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-        )}
 
         {/* Navigation Items List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -27522,26 +27914,32 @@ function FeaturesSideNavbar({
         </div>
 
         {/* Bottom Section: Clean Navigation */}
-        <div className={`border-t border-slate-200 bg-slate-50/80 p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`}>
+        <div className={`border-t border-slate-200 bg-white p-2.5 flex flex-col gap-2 ${collapsed ? 'items-center p-2' : ''}`}>
           {!collapsed ? (
             <button
               type="button"
               onClick={() => setView('home')}
-              className="w-full text-center py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:text-[#0b2b82] transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#0b2b82] transition-all flex items-center gap-2.5 cursor-pointer group"
+              title="Home"
             >
-              <span>&larr;</span>
-              <span>Return to Home</span>
+              <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 group-hover:text-[#0b2b82] transition-colors shrink-0 shadow-2xs">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+              </div>
+              <span className="font-bold text-slate-700 group-hover:text-[#0b2b82] transition-colors">Home</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setView('home')}
-              className="w-10 h-10 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 hover:text-[#0b2b82] transition-colors"
-              title="Return to Home"
+              className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 flex items-center justify-center text-slate-700 hover:text-[#0b2b82] transition-all cursor-pointer shadow-2xs"
+              title="Home"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
             </button>
           )}
@@ -27551,19 +27949,885 @@ function FeaturesSideNavbar({
   );
 }
 
+// ==========================================
+// --- DISTRICT HEALTH ADMINISTRATOR OVERVIEW ---
+// ==========================================
+
+function DistrictHealthAdminOverview({
+  setView,
+  setScreen,
+  setTeleconsultScreen,
+  currentUser,
+  actorRole,
+  setActorRole,
+  showRoleSwitcher = false,
+  onSwitchTab
+}) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeStockTab, setActiveStockTab] = useState('all'); // 'all' | 'critical' | 'warning'
+  const [stockRebalanceNotice, setStockRebalanceNotice] = useState(null);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
+  };
+
+  const handleTriggerRebalance = (drugName, facilityFrom, facilityTo, quantity) => {
+    setStockRebalanceNotice(`Emergency rebalance requisition dispatched: ${quantity} of ${drugName} from ${facilityFrom} to ${facilityTo}. Request synchronized with MV-DAC Command Center.`);
+    setTimeout(() => {
+      setStockRebalanceNotice(null);
+    }, 6500);
+  };
+
+  const adminName = currentUser?.name || 'Dr. S. K. Verma';
+  const adminDesignation = currentUser?.designation || 'District Health Administrator & Chief Medical Officer';
+  const adminAbhaId = currentUser?.abhaId || 'dho.hazaribagh@gov.in';
+  const adminCadre = 'Gazetted Health Service Class-I (ID: DHA-JH-HAZ-2024-049)';
+  const adminPhone = currentUser?.phone || '+91-6546-264210';
+  const adminEmail = currentUser?.email || 'dho.hazaribagh@gov.in';
+  const adminDistrict = currentUser?.district || 'Hazaribagh';
+  const adminState = currentUser?.state || 'Jharkhand';
+
+  const stockItems = [
+    {
+      id: 'asv',
+      name: 'Anti-Snake Venom (ASV Polyvalent 10mL)',
+      category: 'Life-Saving Antidote',
+      facility: 'CHC Katkamsandi',
+      currentStock: 14,
+      unit: 'vials',
+      bufferThreshold: 50,
+      daysOfCover: 2.1,
+      status: 'CRITICAL',
+      statusClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      actionNeeded: 'Emergency transfer from SBMC&H buffer (48 vials available)',
+      fromFacility: 'SBMC&H Medical College',
+      toFacility: 'CHC Katkamsandi',
+      rebalanceQty: '25 vials'
+    },
+    {
+      id: 'rig',
+      name: 'Rabies Immunoglobulin (RIG 300 IU)',
+      category: 'Post-Exposure Biologic',
+      facility: 'PHC Ichak',
+      currentStock: 0,
+      unit: 'vials',
+      bufferThreshold: 15,
+      daysOfCover: 0.0,
+      status: 'DEPLETED',
+      statusClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      actionNeeded: 'Immediate dispatch from District Sadar Central Store',
+      fromFacility: 'Sadar Hospital Central Warehouse',
+      toFacility: 'PHC Ichak',
+      rebalanceQty: '10 vials'
+    },
+    {
+      id: 'oxy',
+      name: 'Inj. Oxytocin (10 IU/mL)',
+      category: 'Maternal Obstetric Essential',
+      facility: 'CHC Barhi',
+      currentStock: 65,
+      unit: 'ampoules',
+      bufferThreshold: 170,
+      daysOfCover: 4.5,
+      status: 'WARNING',
+      statusClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      actionNeeded: 'Reorder requisition submitted to JSMSCL portal',
+      fromFacility: 'District Buffer Stock',
+      toFacility: 'CHC Barhi',
+      rebalanceQty: '100 ampoules'
+    },
+    {
+      id: 'ns',
+      name: 'IV Normal Saline (0.9% 500mL)',
+      category: 'Intravenous Resuscitation Fluid',
+      facility: 'District Sadar Hospital Warehouse',
+      currentStock: 950,
+      unit: 'bottles',
+      bufferThreshold: 2500,
+      daysOfCover: 5.8,
+      status: 'WARNING',
+      statusClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      actionNeeded: 'Consignment in transit from state depot (arrival in 24h)',
+      fromFacility: 'State Medical Depot (Ranchi)',
+      toFacility: 'Sadar Hospital Warehouse',
+      rebalanceQty: '1,500 bottles'
+    },
+    {
+      id: 'act',
+      name: 'Artemether-Lumefantrine (ACT Tablets)',
+      category: 'First-Line Antimalarial',
+      facility: 'District-Wide Primary Inventory',
+      currentStock: 3200,
+      unit: 'blisters',
+      bufferThreshold: 1500,
+      daysOfCover: 22.0,
+      status: 'ADEQUATE',
+      statusClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      actionNeeded: 'Stock satisfies NVBDCP monsoon buffer mandate',
+      fromFacility: 'Central Store',
+      toFacility: 'PHC Network',
+      rebalanceQty: 'Normal'
+    }
+  ];
+
+  const filteredStock = stockItems.filter(s => {
+    if (activeStockTab === 'critical') return s.status === 'CRITICAL' || s.status === 'DEPLETED';
+    if (activeStockTab === 'warning') return s.status === 'WARNING';
+    return true;
+  });
+
+  const districtFacilities = [
+    {
+      name: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+      tier: 'Tertiary Medical College',
+      totalBeds: 500,
+      occupiedBeds: 432,
+      icuAvailable: 18,
+      stockCompliance: '92%',
+      doctorsOnDuty: 42,
+      readiness: 'Operational 24x7'
+    },
+    {
+      name: 'Sadar District Hospital Hazaribagh',
+      tier: 'Secondary District Hospital',
+      totalBeds: 350,
+      occupiedBeds: 252,
+      icuAvailable: 12,
+      stockCompliance: '88%',
+      doctorsOnDuty: 24,
+      readiness: 'Operational 24x7'
+    },
+    {
+      name: 'CHC Katkamsandi',
+      tier: 'Block Community Health Center',
+      totalBeds: 30,
+      occupiedBeds: 24,
+      icuAvailable: 2,
+      stockCompliance: '74%',
+      doctorsOnDuty: 4,
+      readiness: 'Operational 24x7'
+    },
+    {
+      name: 'CHC Barhi',
+      tier: 'Block Community Health Center',
+      totalBeds: 30,
+      occupiedBeds: 21,
+      icuAvailable: 2,
+      stockCompliance: '79%',
+      doctorsOnDuty: 5,
+      readiness: 'Operational 24x7'
+    },
+    {
+      name: 'CHC Chauparan',
+      tier: 'Border Block Community Health Center',
+      totalBeds: 30,
+      occupiedBeds: 18,
+      icuAvailable: 2,
+      stockCompliance: '85%',
+      doctorsOnDuty: 4,
+      readiness: 'Operational 24x7'
+    }
+  ];
+
+  const pendingApprovals = [
+    {
+      id: 'app_01',
+      title: 'PM-JAY Tertiary Surgical Claim Pre-Authorizations (14 Claims)',
+      department: 'Ayushman Bharat PM-JAY Cell',
+      time: '45 mins ago',
+      actionText: 'Review Claims in Schemes Admin',
+      route: () => setView('feature8')
+    },
+    {
+      id: 'app_02',
+      title: 'Emergency ASV Antidote Transfer Approval (CHC Katkamsandi)',
+      department: 'District Drug Logistics Cell',
+      time: '1 hour ago',
+      actionText: 'Open Command Center Logistics',
+      route: () => setView('feature9')
+    },
+    {
+      id: 'app_03',
+      title: 'Suspected Scrub Typhus Cluster Investigation Report (Barhi Block)',
+      department: 'Integrated Disease Surveillance Programme (IDSP)',
+      time: '2 hours ago',
+      actionText: 'Inspect Disease Radar',
+      route: () => setView('feature9')
+    }
+  ];
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
+      {/* Top Header Banner */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-7 shadow-2xs">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                Operational &bull; Real-Time DHIS2 &amp; ABDM Sync
+              </span>
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                Govt of Jharkhand &bull; Directorate of Health Services
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              District Health Administrator Overview
+            </h1>
+            <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
+              District health administration command hub: officer credentials, jurisdiction catchment, critical medicine stock buffer warnings, and healthcare delivery metrics.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start md:self-center flex-wrap">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-[#0b2b82] text-xs font-bold rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+              title="Reload live telemetry from district health facilities"
+            >
+              <svg className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              <span>Refresh District Telemetry</span>
+            </button>
+            <span className="text-xs font-semibold px-3 py-2 bg-slate-50 text-slate-700 rounded-lg border border-slate-200">
+              {adminDistrict} District (Chota Nagpur)
+            </span>
+            {showRoleSwitcher && onSwitchTab && (
+              <button
+                type="button"
+                onClick={() => onSwitchTab('hub')}
+                className="px-3 py-2 bg-white text-slate-600 hover:text-[#0b2b82] text-xs font-semibold rounded-lg border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
+              >
+                Switch Role View
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Stock Rebalance Confirmation Toast */}
+      {stockRebalanceNotice && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start justify-between gap-3 animate-in fade-in duration-200 text-xs shadow-2xs">
+          <div className="flex items-start gap-2.5">
+            <svg className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+            <div>
+              <p className="font-bold text-emerald-900 leading-tight">Stock Rebalance Directive Dispatched</p>
+              <p className="text-emerald-800 text-[11px] mt-0.5">{stockRebalanceNotice}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStockRebalanceNotice(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold text-sm px-1 leading-none cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Skeleton Loaders during Refresh */}
+      {isRefreshing ? (
+        <div className="space-y-6 animate-pulse">
+          {/* Skeleton Profile and Jurisdiction (2 Columns) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-slate-200 shrink-0"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 bg-slate-200 rounded w-3/5"></div>
+                  <div className="h-3.5 bg-slate-200 rounded w-2/5"></div>
+                </div>
+              </div>
+              <div className="space-y-2.5 pt-4">
+                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+                <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-200 rounded w-5/6"></div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
+              <div className="h-5 bg-slate-200 rounded w-1/2"></div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="h-16 bg-slate-200 rounded"></div>
+                <div className="h-16 bg-slate-200 rounded"></div>
+                <div className="h-16 bg-slate-200 rounded"></div>
+                <div className="h-16 bg-slate-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Skeleton 4 Core KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(idx => (
+              <div key={idx} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 shadow-2xs">
+                <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+                <div className="h-7 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-200 rounded w-2/3"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Skeleton Stock Warnings */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
+            <div className="h-5 bg-slate-200 rounded w-1/3"></div>
+            <div className="space-y-2.5">
+              <div className="h-14 bg-slate-200 rounded w-full"></div>
+              <div className="h-14 bg-slate-200 rounded w-full"></div>
+              <div className="h-14 bg-slate-200 rounded w-full"></div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* SECTION 1: ADMINISTRATOR PROFILE & DISTRICT CATCHMENT (2 Columns, matching Home Feature Cards) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Card A: District Health Administrator Profile Card */}
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  {/* Administrator Profile Picture / Professional Avatar */}
+                  <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-[#0b2b82] flex items-center justify-center text-[#0b2b82] shrink-0 relative shadow-2xs">
+                    <svg className="w-9 h-9 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-600 border-2 border-white rounded-full" title="Officer Online &amp; Duty Active"></span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug truncate">{adminName}</h3>
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shrink-0" title="Class-I Health Administrator">
+                        Class-I Gazetted
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-[#0b2b82] mt-0.5">{adminDesignation}</p>
+                    <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">{adminCadre}</p>
+                  </div>
+                </div>
+
+                {/* Structured Key Details (Clean Rows with Hover Placeholders, No Clutter Dash Boxes) */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Officer Administrative Jurisdiction">
+                    <span className="text-slate-500 font-medium">Jurisdiction</span>
+                    <span className="text-slate-900 font-semibold">{adminDistrict} District, {adminState}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Official Government Communication Address">
+                    <span className="text-slate-500 font-medium">Official Portal Email</span>
+                    <span className="text-slate-900 font-mono font-medium">{adminEmail}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Direct Administrative Control Room">
+                    <span className="text-slate-500 font-medium">Direct Line / Control Room</span>
+                    <span className="text-slate-900 font-semibold">{adminPhone}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Permanent Camp Office Location">
+                    <span className="text-slate-500 font-medium">Headquarters / Camp Office</span>
+                    <span className="text-slate-900 font-medium text-right truncate max-w-[220px]">Civil Surgeon Directorate, Sadar Hospital Campus</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1" title="National Digital Health Mission Cryptographic Authority">
+                    <span className="text-slate-500 font-medium">ABDM Health Admin Key</span>
+                    <span className="text-emerald-700 font-semibold text-right">NDHM Level 4 Verified (M1-M3)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-medium" title="District Health Society Authorization Active">
+                  Verified Official &bull; Govt of Jharkhand
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setView('feature9')}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 border border-slate-200 hover:border-[#0b2b82] cursor-pointer"
+                >
+                  <span>Command Center</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Card B: District Healthcare Jurisdiction & Location */}
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group">
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/></svg>
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
+                        District Healthcare Jurisdiction
+                      </h4>
+                      <p className="text-xs text-slate-500">{adminDistrict} District, {adminState} (PIN: 825301)</p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shrink-0" title="Geographic boundary active">
+                    North Chota Nagpur
+                  </span>
+                </div>
+
+                {/* Location Specs: 2x2 Clean Metric Boxes */}
+                <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="District Surface Area and Geocoordinates">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Jurisdiction Area</span>
+                    <span className="text-base font-bold text-slate-900 block mt-0.5">4,313 km²</span>
+                    <span className="text-[10px] text-slate-500">23.99° N, 85.36° E</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Census Projected Population">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">District Population</span>
+                    <span className="text-base font-bold text-slate-900 block mt-0.5">1,734,495</span>
+                    <span className="text-[10px] text-slate-500">84.1% Rural &bull; 15.9% Urban</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Sub-District Administrative Blocks">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Administrative Blocks</span>
+                    <span className="text-base font-bold text-slate-900 block mt-0.5">16 Blocks</span>
+                    <span className="text-[10px] text-slate-500 truncate block">Katkamsandi, Barhi, Chauparan...</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Total Public Health Facilities in District">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Network Facilities</span>
+                    <span className="text-base font-bold text-slate-900 block mt-0.5">274 Facilities</span>
+                    <span className="text-[10px] text-slate-500 truncate block">1 Med Coll + 1 DH + 16 CHC + 42 PHC</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-medium">100% Public Facilities GPS Mapped</span>
+                <button
+                  type="button"
+                  onClick={() => setView('feature9')}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 border border-slate-200 hover:border-[#0b2b82] cursor-pointer"
+                >
+                  <span>Open GIS Radar</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: 4 CORE DISTRICT HEALTH KPIS (4 Columns, Never 3 in a Row) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Pan-District Inpatient and ICU Bed Occupancy">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bed Occupancy</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">80.5% Load</span>
+                </div>
+                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">684 / 850</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">Beds occupied across 18 hospitals</p>
+              </div>
+              <p className="text-[11px] text-emerald-700 font-semibold pt-2 border-t border-slate-100">
+                42 ICU beds currently ready
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Epidemiological Outbreak Early Warning System">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Disease Surveillance</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Baseline Level 1</span>
+                </div>
+                <p className="text-2xl font-black text-slate-900 tracking-tight">2 Clusters</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">Active watches in Katkamsandi &amp; Barhi</p>
+              </div>
+              <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                CDC EARS / CUSUM monitored
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Reproductive and Child Health Coverage">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">MCH Immunization</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">On Target</span>
+                </div>
+                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">93.4%</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">12,480 children tracked this month</p>
+              </div>
+              <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                Logged by 1,420 ASHA workers
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Dial 108 Emergency Medical Response Fleet">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Emergency 108 Fleet</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">28 Active Units</span>
+                </div>
+                <p className="text-2xl font-black text-slate-900 tracking-tight">14.2 min</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">Average district rural response time</p>
+              </div>
+              <p className="text-[11px] text-emerald-700 font-semibold pt-2 border-t border-slate-100">
+                22 BLS + 6 ALS vehicles operational
+              </p>
+            </div>
+          </div>
+
+          {/* SECTION 3: STOCK WARNINGS OVERVIEW (CRUCIAL USER REQUIREMENT) */}
+          <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 leading-snug">
+                      District Medicine &amp; Emergency Stock Warnings
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Buffer threshold compliance monitored across 16 CHCs, 42 PHCs and District Warehouse (Buffer Norm: 15-30 Days Cover)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1.5 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => setActiveStockTab('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeStockTab === 'all'
+                      ? 'bg-[#0b2b82] text-white shadow-2xs font-bold'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  All Items ({stockItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStockTab('critical')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeStockTab === 'critical'
+                      ? 'bg-rose-700 text-white shadow-2xs font-bold'
+                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                  }`}
+                >
+                  Critical (2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStockTab('warning')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeStockTab === 'warning'
+                      ? 'bg-amber-700 text-white shadow-2xs font-bold'
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  Warnings (2)
+                </button>
+              </div>
+            </div>
+
+            {/* Stock Warning Rows */}
+            <div className="space-y-3">
+              {filteredStock.map((stock) => (
+                <div
+                  key={stock.id}
+                  className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                  title={`${stock.name}: Current stock ${stock.currentStock} ${stock.unit} at ${stock.facility}. Buffer norm is ${stock.bufferThreshold} ${stock.unit}. Action: ${stock.actionNeeded}`}
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 text-sm">{stock.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${stock.statusClass}`}>
+                        {stock.status}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        &bull; {stock.category}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-slate-600 text-xs flex-wrap">
+                      <span>Facility: <strong className="text-slate-800">{stock.facility}</strong></span>
+                      <span>Stock: <strong className="text-slate-900">{stock.currentStock} {stock.unit}</strong></span>
+                      <span>Cover: <strong className={stock.daysOfCover < 3 ? 'text-rose-700 font-bold' : stock.daysOfCover < 7 ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{stock.daysOfCover} Days</strong></span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 italic mt-0.5">
+                      {stock.actionNeeded}
+                    </p>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2">
+                    {stock.status !== 'ADEQUATE' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerRebalance(stock.name, stock.fromFacility, stock.toFacility, stock.rebalanceQty)}
+                        className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <span>Trigger Rebalance</span>
+                        <span>&rarr;</span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-emerald-700 font-semibold px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200">
+                        Buffer Compliant
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs flex-wrap gap-2">
+              <span className="text-slate-500 font-medium">
+                Overall District Buffer Compliance Index: <strong className="text-slate-800">84.6%</strong> (Target: 95.0%)
+              </span>
+              <button
+                type="button"
+                onClick={() => setView('feature9')}
+                className="text-xs font-bold text-[#0b2b82] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Open Command Center Inter-Hospital Logistics</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION 4: DIRECT COMMAND GATEWAYS (2 Cards in a row, NEVER 3!) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Gateway 1: District Command Center (MV-DAC) */}
+            <div
+              onClick={() => setView('feature9')}
+              title="District Admin Command Center: Pan-district epidemiological surveillance, shortage forecasting, and inter-hospital transfer coordination"
+              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group cursor-pointer"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                      <ModuleIcon id="feature9" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
+                        District Command Center (MV-DAC)
+                      </h4>
+                      <span className="text-[11px] font-mono font-semibold text-slate-400">Module 09</span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                    <span>Live Radar</span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed font-normal">
+                  Pan-district multi-hospital live surveillance, shortage forecasting, epidemic early warning (CDC EARS/CUSUM), ICU matrix, and inter-hospital logistics coordination.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setView('feature9');
+                }}
+                className="w-full py-2 px-3.5 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-2 border border-slate-200 group-hover:border-[#0b2b82] cursor-pointer"
+              >
+                <span>Launch Command Center</span>
+                <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+              </button>
+            </div>
+
+            {/* Gateway 2: Government Health Schemes (Admin View) */}
+            <div
+              onClick={() => setView('feature8')}
+              title="Government Health Schemes Administration: Scheme quota allocation, audit log verification, and hospital empanelment oversight"
+              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group cursor-pointer"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+                      <ModuleIcon id="feature8" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
+                        Govt Health Schemes (Admin View)
+                      </h4>
+                      <span className="text-[11px] font-mono font-semibold text-slate-400">Module 08</span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    <span>Admin Audit</span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed font-normal">
+                  District quota allocation, Ayushman Bharat PM-JAY and State scheme claim audits, ingestion logs verification from MoHFW, and beneficiary enrollment tracking.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setView('feature8');
+                }}
+                className="w-full py-2 px-3.5 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-2 border border-slate-200 group-hover:border-[#0b2b82] cursor-pointer"
+              >
+                <span>Access Schemes Admin View</span>
+                <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION 5: DISTRICT FACILITIES STATUS & PENDING ACTION ITEMS (2 Columns) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Operational Status Table (2 cols wide on desktop) */}
+            <div className="lg:col-span-2 bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    District Healthcare Facility Operational Roster
+                  </h3>
+                  <p className="text-xs text-slate-500">Live operational readiness across primary referral and secondary tier centers</p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+                  5 Key Centers
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
+                      <th className="py-2.5 pr-3">Facility Name</th>
+                      <th className="py-2.5 px-3">Beds</th>
+                      <th className="py-2.5 px-3">ICU</th>
+                      <th className="py-2.5 px-3">Stock %</th>
+                      <th className="py-2.5 px-3">Doctors</th>
+                      <th className="py-2.5 pl-3 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {districtFacilities.map((fac, idx) => (
+                      <tr
+                        key={idx}
+                        className="hover:bg-slate-50/60 transition-colors"
+                        title={`${fac.name} (${fac.tier}): ${fac.occupiedBeds}/${fac.totalBeds} beds occupied, ${fac.icuAvailable} ICU beds available, ${fac.doctorsOnDuty} doctors on active roster.`}
+                      >
+                        <td className="py-3 pr-3 font-semibold text-slate-900">
+                          <span className="block truncate max-w-[220px]">{fac.name}</span>
+                          <span className="text-[10px] text-slate-500 font-normal block">{fac.tier}</span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-700">
+                          {fac.occupiedBeds} / {fac.totalBeds}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-emerald-700">
+                          {fac.icuAvailable}
+                        </td>
+                        <td className="py-3 px-3 text-slate-700">
+                          {fac.stockCompliance}
+                        </td>
+                        <td className="py-3 px-3 text-slate-700">
+                          {fac.doctorsOnDuty}
+                        </td>
+                        <td className="py-3 pl-3 text-right">
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {fac.readiness}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Pending Administrative Action Items (1 col wide on desktop) */}
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    Action Items &amp; Approvals
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                    3 Pending
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {pendingApprovals.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={item.route}
+                      className="p-3 rounded-lg border border-slate-200 hover:border-[#0b2b82]/40 bg-slate-50 hover:bg-white transition-all cursor-pointer space-y-1.5"
+                      title={`${item.title} - ${item.department} (${item.time})`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-bold text-slate-900 text-xs leading-snug">{item.title}</p>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>{item.department}</span>
+                        <span>{item.time}</span>
+                      </div>
+                      <div className="pt-1 flex items-center text-[11px] font-semibold text-[#0b2b82]">
+                        <span>{item.actionText} &rarr;</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setView('feature9')}
+                  className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-[#0b2b82] text-xs font-bold rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Open All Directives</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Upgraded ScreenOverview  -  Comprehensive Platform Hub & Directory
-function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen }) {
+function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen, currentUser }) {
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
   const [activeTab, setActiveTab] = useState(() => {
+    if (isDistrictAdmin) return 'admin';
     if (actorRole === 'patient') return 'patient';
-    if (['doctor', 'facility', 'admin'].includes(actorRole)) return 'doctor';
+    if (['doctor', 'facility'].includes(actorRole)) return 'doctor';
     return 'hub';
   });
 
   useEffect(() => {
-    if (actorRole === 'patient') {
+    if (isDistrictAdmin) {
+      setActiveTab('admin');
+    } else if (actorRole === 'patient') {
       setActiveTab('patient');
     }
-  }, [actorRole]);
+  }, [isDistrictAdmin, actorRole]);
+
+  // When logged in as District Administrator, render DistrictHealthAdminOverview directly
+  if (isDistrictAdmin || activeTab === 'admin') {
+    return (
+      <DistrictHealthAdminOverview
+        setView={setView}
+        setScreen={setScreen}
+        setTeleconsultScreen={setTeleconsultScreen}
+        currentUser={currentUser}
+        actorRole={actorRole}
+        setActorRole={setActorRole}
+        showRoleSwitcher={!isDistrictAdmin}
+        onSwitchTab={setActiveTab}
+      />
+    );
+  }
 
   // When logged in as patient, directly render PatientOverview without the prototype switcher box
   if (actorRole === 'patient') {
@@ -27891,6 +29155,8 @@ function App() {
     }
   };
 
+  const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+
   const [view, setViewState] = useState('home'); // 'home' | 'overview' | 'feature1' | 'feature2' | 'feature3' | 'feature4' | 'feature5' | 'feature6' | 'feature7' | 'feature8' | 'feature9'
   const [feature1Screen, setFeature1Screen] = useState(1);
   const [maxClearedStep, setMaxClearedStep] = useState(1);
@@ -28150,6 +29416,7 @@ function App() {
             }}
             actorRole={actorRole}
             setActorRole={setActorRole}
+            currentUser={currentUser}
           />
         </main>
       )}
@@ -28221,6 +29488,7 @@ function App() {
             setTeleconsultScreen={setTeleconsultScreen}
             actorRole={actorRole}
             setActorRole={setActorRole}
+            currentUser={currentUser}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
@@ -28235,11 +29503,43 @@ function App() {
                 setView={setView}
                 setScreen={setScreen}
                 setTeleconsultScreen={setTeleconsultScreen}
+                currentUser={currentUser}
               />
             )}
 
+            {/* RESTRICTED MODULE VIEW FOR DISTRICT ADMINISTRATOR */}
+            {isDistrictAdmin && !['overview', 'feature9', 'feature8'].includes(view) && (
+              <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
+                <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-2xs text-center space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#0b2b82]/10 text-[#0b2b82] flex items-center justify-center mx-auto">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 font-mono">
+                    Administrative Scope Restricted
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                    Module Outside District Administrative Scope
+                  </h2>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                    The District Health Administrator console is dedicated strictly to District Health Administrator Overview, District Command Center, and Government Health Schemes. Clinical patient workflows are restricted to primary care workers and clinical personnel.
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setView('overview')}
+                      className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+                    >
+                      Return to Administrator Overview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* VIEW 2: FEATURE 01  -  SMART CARE NAVIGATOR (PATIENT EXCLUSIVE) */}
-        {view === 'feature1' && (
+        {!isDistrictAdmin && view === 'feature1' && (
           <div>
             {feature1Screen === 1 && (
               <Screen1PatientInfo
@@ -28361,7 +29661,7 @@ function App() {
         )}
 
         {/* VIEW 3: FEATURE 02  -  TELECONSULTATION & QUEUE MANAGEMENT */}
-        {view === 'feature2' && (
+        {!isDistrictAdmin && view === 'feature2' && (
           <div>
             {teleconsultScreen === 'entry' && (
               <ScreenTeleconsultEntry
@@ -28430,7 +29730,7 @@ function App() {
         )}
 
         {/* VIEW 4: FEATURE 03  -  SMART REFERRAL MANAGEMENT SYSTEM */}
-        {view === 'feature3' && (
+        {!isDistrictAdmin && view === 'feature3' && (
           <ScreenReferralManagement
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -28446,7 +29746,7 @@ function App() {
         )}
 
         {/* VIEW 5: FEATURE 04  -  HIGH-RISK PATIENT FOLLOW-UP SYSTEM */}
-        {view === 'feature4' && (
+        {!isDistrictAdmin && view === 'feature4' && (
           <ScreenHighRiskFollowUp
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -28460,10 +29760,12 @@ function App() {
         )}
 
         {/* VIEW 6: FEATURE 05  -  INTEROPERABLE HEALTH RECORDS */}
-        {view === 'feature5' && (
+        {!isDistrictAdmin && view === 'feature5' && (
           <ScreenInteroperableRecords
             actorRole={actorRole}
             setActorRole={setActorRole}
+            currentUser={currentUser}
+            setCurrentUser={handleSetCurrentUser}
             onBackToHome={() => setView('home')}
             onNavigateToCareNavigator={() => {
               setView('feature1');
@@ -28479,7 +29781,7 @@ function App() {
         )}
 
         {/* VIEW 7: FEATURE 06  -  MEDICINE AVAILABILITY & DIAGNOSTIC COORDINATION */}
-        {view === 'feature6' && (
+        {!isDistrictAdmin && view === 'feature6' && (
           <ScreenMedicineDiagnostics
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -28499,7 +29801,7 @@ function App() {
         )}
 
         {/* VIEW 8: FEATURE 07  -  FACILITY DASHBOARD & MULTI-SOURCE AGGREGATION LAYER */}
-        {view === 'feature7' && (
+        {!isDistrictAdmin && view === 'feature7' && (
           <ScreenFacilityDashboard
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -28519,11 +29821,12 @@ function App() {
           />
         )}
 
-                {/* VIEW 9: FEATURE 08  -  AI GOVERNMENT HEALTH SCHEME FINDER */}
+        {/* VIEW 9: FEATURE 08  -  AI GOVERNMENT HEALTH SCHEME FINDER */}
         {view === 'feature8' && (
           <ScreenSchemeFinder
             actorRole={actorRole}
             setActorRole={setActorRole}
+            currentUser={currentUser}
             onBackToHome={() => setView('home')}
             onNavigateToCareNavigator={() => {
               setView('feature1');
@@ -28544,14 +29847,16 @@ function App() {
         {view === 'feature9' && (
           actorRole === 'patient' ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
-              <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-3xl mx-auto">
-                  🔒
+              <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-2xs text-center space-y-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto border border-amber-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 uppercase tracking-wider font-mono">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800 uppercase tracking-wider font-mono">
                   Administrative Access Only
                 </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                   District Command Center is Not Accessible to Patients
                 </h2>
                 <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
@@ -28561,7 +29866,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setView('overview')}
-                    className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                    className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-semibold text-xs rounded-xl shadow-2xs transition-all cursor-pointer"
                   >
                     Return to Platform Overview
                   </button>
@@ -28572,7 +29877,8 @@ function App() {
             <ScreenCommandCenter
               actorRole={actorRole}
               setActorRole={setActorRole}
-              onBackToHome={() => setView('home')}
+              currentUser={currentUser}
+              onBackToHome={() => setView('overview')}
               onNavigateToFacilityDashboard={() => setView('feature7')}
               onNavigateToSchemeFinder={() => setView('feature8')}
             />
@@ -28580,7 +29886,7 @@ function App() {
         )}
 
         {/* VIEW 11: FEATURE 10  -  MEDIBOT (AI HEALTH ASSISTANT) */}
-        {view === 'feature10' && (
+        {!isDistrictAdmin && view === 'feature10' && (
           <ScreenMedicalAssistantAgent
             actorRole={actorRole}
             setActorRole={setActorRole}
