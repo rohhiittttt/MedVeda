@@ -1351,14 +1351,32 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                       {facilitySubtype === 'lab' && (
                         <button
                           type="button"
-                          onClick={() => handleQuickLogin('District Diagnostic Lab', 'lab_staff', 'lab.pathology@abdm', 'Diagnostic Lab')}
+                          onClick={() => handleQuickLogin(
+                            'District Diagnostic Pathology Lab',
+                            'lab_staff',
+                            'lab.pathology@abdm',
+                            'Diagnostic Lab',
+                            {
+                              facilitySubtype: 'lab',
+                              facilityName: 'District Diagnostic Pathology & Molecular Lab',
+                              labId: 'LAB-JH-HAZ-2026-0042',
+                              nablRegNo: 'NABL-MC-4921/2026',
+                              director: 'Dr. R. K. Mukherjee, MD (Pathology)',
+                              accreditation: 'NABL Accredited & ABDM M1-M3 Verified',
+                              address: 'Civil Lines, Near Sadar Hospital Campus, Hazaribagh, Jharkhand - 825301',
+                              phone: '+91-6546-224810',
+                              email: 'lab.pathology@abdm',
+                              district: 'Hazaribagh',
+                              state: 'Jharkhand'
+                            }
+                          )}
                           className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                         >
                           <div className="min-w-0 flex items-center gap-2">
                             <ModuleIcon id="lab" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
                             <div>
                               <span className="text-xs font-bold text-slate-900 block truncate">District Diagnostic Pathology Lab</span>
-                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; NABL Accredited</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; NABL Accredited &bull; Log In &rarr;</span>
                             </div>
                           </div>
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
@@ -1823,13 +1841,20 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
   const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
+  const isDiagnosticLab = (currentUser && (
+    currentUser.role === 'lab_staff' ||
+    currentUser.role === 'lab' ||
+    currentUser.role === 'diagnostic' ||
+    currentUser.facilitySubtype === 'lab' ||
+    currentUser.facilitySubtype === 'diagnostic'
+  )) || actorRole === 'lab_staff' || actorRole === 'lab';
 
   const allFeatureItems = [
     {
       id: 'overview',
       code: 'Module 00',
-      label: actorRole === 'patient' ? 'Patient Overview' : isDistrictAdmin ? 'District Health Administrator Overview' : isHospitalFacility ? 'Hospital Overview' : isMedicineFacility ? 'Pharmacy Overview' : isAshaWorker ? 'ASHA Worker Overview' : 'Platform Overview',
-      description: actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : isDistrictAdmin ? 'District command metrics, administrative profile, facility catchment & stock warnings' : isHospitalFacility ? 'Hospital ID card, inpatient & ICU telemetry, inbound referrals & alerts' : isMedicineFacility ? 'Pharmacy license profile, store status toggles, stock-out warnings & order requests' : isAshaWorker ? 'ASHA ID card with profile picture, follow-up patient reminders & teleconsultation help requests' : 'Unified command hub, patient & clinical role views, system KPIs',
+      label: isDiagnosticLab ? 'Diagnostic Lab Overview' : actorRole === 'patient' ? 'Patient Overview' : isDistrictAdmin ? 'District Health Administrator Overview' : isHospitalFacility ? 'Hospital Overview' : isMedicineFacility ? 'Pharmacy Overview' : isAshaWorker ? 'ASHA Worker Overview' : 'Platform Overview',
+      description: isDiagnosticLab ? "Monitor your lab's daily activity, samples & verified reports" : actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : isDistrictAdmin ? 'District command metrics, administrative profile, facility catchment & stock warnings' : isHospitalFacility ? 'Hospital ID card, inpatient & ICU telemetry, inbound referrals & alerts' : isMedicineFacility ? 'Pharmacy license profile, store status toggles, stock-out warnings & order requests' : isAshaWorker ? 'ASHA ID card with profile picture, follow-up patient reminders & teleconsultation help requests' : 'Unified command hub, patient & clinical role views, system KPIs',
       onSelect: () => setView('overview')
     },
     {
@@ -28502,6 +28527,13 @@ function FeaturesSideNavbar({
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
   const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
+  const isDiagnosticLab = (currentUser && (
+    currentUser.role === 'lab_staff' ||
+    currentUser.role === 'lab' ||
+    currentUser.role === 'diagnostic' ||
+    currentUser.facilitySubtype === 'lab' ||
+    currentUser.facilitySubtype === 'diagnostic'
+  )) || actorRole === 'lab_staff' || actorRole === 'lab';
 
   const availableModules = isDistrictAdmin
     ? [
@@ -28645,19 +28677,34 @@ function FeaturesSideNavbar({
           badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }
       ]
-    : (actorRole === 'patient'
-      ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
-      : FEATURE_NAV_MODULES).map(m => {
-        if (m.id === 'overview' && actorRole === 'patient') {
-          return {
-            ...m,
-            label: 'Patient Overview',
-            shortLabel: 'Overview',
-            description: 'Personal health portal, records & referrals'
-          };
-        }
-        return m;
-      });
+    : (isDiagnosticLab
+      ? FEATURE_NAV_MODULES.map(m => {
+          if (m.id === 'overview') {
+            return {
+              ...m,
+              label: 'Diagnostic Lab Overview',
+              shortLabel: 'Lab Overview',
+              description: "Monitor your lab's daily activity, samples & orders",
+              badge: 'Lab Ops',
+              badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            };
+          }
+          return m;
+        })
+      : (actorRole === 'patient'
+        ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
+        : FEATURE_NAV_MODULES).map(m => {
+          if (m.id === 'overview' && actorRole === 'patient') {
+            return {
+              ...m,
+              label: 'Patient Overview',
+              shortLabel: 'Overview',
+              description: 'Personal health portal, records & referrals'
+            };
+          }
+          return m;
+        })
+      );
 
   const currentModule = availableModules.find(m => m.id === currentView) || availableModules[0] || FEATURE_NAV_MODULES[0];
   const filteredModules = availableModules;
@@ -32745,13 +32792,1110 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
 }
 
 // Upgraded ScreenOverview  -  Comprehensive Platform Hub & Directory
+
+// ============================================================================
+// DIAGNOSTIC LAB OVERVIEW (Facility Module 00 - Pathology & Diagnostic Grid)
+// ============================================================================
+function DiagnosticLabOverview({ setView, currentUser }) {
+  const [dateRange, setDateRange] = useState('today'); // 'today' | 'yesterday' | 'week' | 'month'
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'Collected' | 'Processing' | 'Completed' | 'Awaiting'
+  const [sortAsc, setSortAsc] = useState(false); // default down arrow like screenshot
+  const [activeModal, setActiveModal] = useState(null); // 'process' | 'review' | 'order' | 'details'
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [hoveredPointIndex, setHoveredPointIndex] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  // Lab Facility Profile details
+  const labProfile = {
+    name: currentUser?.facilityName || currentUser?.name || 'District Diagnostic Pathology & Molecular Lab',
+    labId: currentUser?.labId || 'LAB-JH-HAZ-2026-0042',
+    nablRegNo: currentUser?.nablRegNo || 'NABL-MC-4921/2026',
+    abhaId: currentUser?.abhaId || 'lab.pathology@abdm',
+    director: currentUser?.director || 'Dr. R. K. Mukherjee, MD (Pathology)',
+    address: currentUser?.address || 'Civil Lines, Near Sadar Hospital Campus, Hazaribagh, Jharkhand - 825301',
+    phone: currentUser?.phone || '+91-6546-224810',
+    turnaround: '2.8 hrs Average',
+    analyzerStatus: 'Sysmex XN-1000 & Beckman AU480 Operational'
+  };
+
+  // Metrics based on selected date range
+  const metricsData = {
+    today: { bookings: 128, pending: 65, awaitingApproval: 31, completed: 214, dateLabel: 'October 26, 2026', rangeLabel: 'Date-range' },
+    yesterday: { bookings: 114, pending: 42, awaitingApproval: 28, completed: 198, dateLabel: 'October 25, 2026', rangeLabel: 'Yesterday' },
+    week: { bookings: 842, pending: 85, awaitingApproval: 46, completed: 1420, dateLabel: 'Oct 20 – Oct 26, 2026', rangeLabel: 'Last 7 Days' },
+    month: { bookings: 3680, pending: 92, awaitingApproval: 58, completed: 5940, dateLabel: 'October 2026', rangeLabel: 'This Month' }
+  };
+  const currentMetrics = metricsData[dateRange] || metricsData.today;
+
+  // Recent Orders dataset matching the reference layout
+  const [orders, setOrders] = useState([
+    {
+      id: 'SP-9041',
+      patientId: 'PH*900******',
+      patientName: 'Sanjay Kumar (Masked ABHA)',
+      testName: 'Blood Test Name',
+      testSubtype: 'Complete Blood Count (CBC) & Platelets',
+      bookingTime: 'June 26, 2026',
+      sampleStatus: 'Collected',
+      reportStatus: 'Completed',
+      sampleType: 'Whole Blood (EDTA Purple Top)',
+      vialBarcode: 'BC-2026-90418',
+      delayAlert: true,
+      parameters: [
+        { name: 'Hemoglobin', value: '14.2 g/dL', normal: '13.0 - 17.0', status: 'normal' },
+        { name: 'Total Leukocyte Count (TLC)', value: '7,400 /µL', normal: '4,000 - 11,000', status: 'normal' },
+        { name: 'Platelet Count', value: '260,000 /µL', normal: '150,000 - 450,000', status: 'normal' },
+        { name: 'Packed Cell Volume (PCV)', value: '42.5 %', normal: '40.0 - 50.0', status: 'normal' }
+      ]
+    },
+    {
+      id: 'SP-9042',
+      patientId: 'PH1000133',
+      patientName: 'Sunita Devi',
+      testName: 'Central Test',
+      testSubtype: 'Fasting Blood Sugar & Lipid Profile',
+      bookingTime: 'May 26, 20:26',
+      sampleStatus: 'Processing',
+      reportStatus: 'Completed',
+      sampleType: 'Serum (SST Gold Top)',
+      vialBarcode: 'BC-2026-90429',
+      delayAlert: false,
+      parameters: [
+        { name: 'Fasting Blood Glucose', value: '94 mg/dL', normal: '70 - 100', status: 'normal' },
+        { name: 'Total Cholesterol', value: '182 mg/dL', normal: '< 200', status: 'normal' },
+        { name: 'Triglycerides', value: '142 mg/dL', normal: '< 150', status: 'normal' },
+        { name: 'HDL Cholesterol', value: '48 mg/dL', normal: '> 40', status: 'normal' }
+      ]
+    },
+    {
+      id: 'SP-9043',
+      patientId: 'PH1000144',
+      patientName: 'Manish Pandey',
+      testName: 'Testorical 1/Operation',
+      testSubtype: 'Thyroid Profile Total T3, T4, TSH',
+      bookingTime: 'May 26, 20:26',
+      sampleStatus: 'Processing',
+      reportStatus: 'Completed',
+      sampleType: 'Serum (Red Top Clot Activator)',
+      vialBarcode: 'BC-2026-90431',
+      delayAlert: false,
+      parameters: [
+        { name: 'TSH (Ultrasensitive)', value: '2.45 µIU/mL', normal: '0.35 - 4.94', status: 'normal' },
+        { name: 'Free T4', value: '1.24 ng/dL', normal: '0.70 - 1.48', status: 'normal' },
+        { name: 'Free T3', value: '3.12 pg/mL', normal: '1.71 - 3.71', status: 'normal' }
+      ]
+    },
+    {
+      id: 'SP-9044',
+      patientId: 'PH1000755',
+      patientName: 'Pooja Kumari',
+      testName: 'Central Test',
+      testSubtype: 'Liver Function Test (LFT) & Bilirubin',
+      bookingTime: 'May 26, 20:26',
+      sampleStatus: 'Collected',
+      reportStatus: 'Completed',
+      sampleType: 'Serum (SST Gold Top)',
+      vialBarcode: 'BC-2026-90445',
+      delayAlert: false,
+      parameters: [
+        { name: 'Serum Bilirubin Total', value: '0.8 mg/dL', normal: '0.2 - 1.2', status: 'normal' },
+        { name: 'SGOT (AST)', value: '28 U/L', normal: '< 35', status: 'normal' },
+        { name: 'SGPT (ALT)', value: '32 U/L', normal: '< 45', status: 'normal' },
+        { name: 'Alkaline Phosphatase', value: '88 U/L', normal: '44 - 147', status: 'normal' }
+      ]
+    },
+    {
+      id: 'SP-9045',
+      patientId: 'PH1000842',
+      patientName: 'Rameshwar Lal',
+      testName: 'Central Test',
+      testSubtype: 'Kidney Function Test (KFT & Serum Creatinine)',
+      bookingTime: 'Today, 08:30 AM',
+      sampleStatus: 'Processing',
+      reportStatus: 'In Review',
+      sampleType: 'Serum & Fluoride Plasma',
+      vialBarcode: 'BC-2026-90456',
+      delayAlert: true,
+      parameters: [
+        { name: 'Serum Creatinine', value: '1.05 mg/dL', normal: '0.70 - 1.30', status: 'normal' },
+        { name: 'Blood Urea Nitrogen', value: '18 mg/dL', normal: '7 - 20', status: 'normal' },
+        { name: 'Uric Acid', value: '5.2 mg/dL', normal: '3.5 - 7.2', status: 'normal' }
+      ]
+    },
+    {
+      id: 'SP-9046',
+      patientId: 'PH1000918',
+      patientName: 'Devaki Soren',
+      testName: 'Blood Test Name',
+      testSubtype: 'Glycated Hemoglobin (HbA1c HPLC Method)',
+      bookingTime: 'Today, 09:15 AM',
+      sampleStatus: 'Collected',
+      reportStatus: 'In Progress',
+      sampleType: 'Whole Blood (EDTA Purple Top)',
+      vialBarcode: 'BC-2026-90467',
+      delayAlert: false,
+      parameters: [
+        { name: 'HbA1c', value: '6.4 %', normal: '< 5.7 Normal, 5.7-6.4 Prediabetic', status: 'urgent' },
+        { name: 'Estimated Avg Glucose (eAG)', value: '137 mg/dL', normal: '< 117', status: 'urgent' }
+      ]
+    },
+    {
+      id: 'SP-9047',
+      patientId: 'PH1001024',
+      patientName: 'Anil Mahto',
+      testName: 'Central Test',
+      testSubtype: 'Urine Routine & Microscopic Examination',
+      bookingTime: 'Today, 10:00 AM',
+      sampleStatus: 'Awaiting Collection',
+      reportStatus: 'Pending Sample',
+      sampleType: 'Midstream Urine Sterile Container',
+      vialBarcode: 'BC-2026-90478',
+      delayAlert: false,
+      parameters: []
+    }
+  ]);
+
+  // Operational Analytics Weekly Data points
+  const weeklyAnalytics = [
+    { day: 'Mon', bookings: 75, completed: 42 },
+    { day: 'Tue', bookings: 145, completed: 105 },
+    { day: 'Wed', bookings: 125, completed: 88 },
+    { day: 'Thu', bookings: 140, completed: 102 },
+    { day: 'Fri', bookings: 215, completed: 172 },
+    { day: 'Sat', bookings: 195, completed: 148 },
+    { day: 'Sat', bookings: 242, completed: 196 }
+  ];
+
+  // Filtered & sorted orders
+  const filteredOrders = useMemo(() => {
+    return orders.filter(item => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q ||
+        item.patientId.toLowerCase().includes(q) ||
+        item.testName.toLowerCase().includes(q) ||
+        item.testSubtype.toLowerCase().includes(q) ||
+        item.patientName.toLowerCase().includes(q);
+
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'Collected' && item.sampleStatus === 'Collected') ||
+        (statusFilter === 'Processing' && item.sampleStatus === 'Processing') ||
+        (statusFilter === 'Completed' && item.reportStatus === 'Completed') ||
+        (statusFilter === 'Awaiting' && item.sampleStatus === 'Awaiting Collection');
+
+      return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+      if (sortAsc) return a.patientId.localeCompare(b.patientId);
+      return b.patientId.localeCompare(a.patientId);
+    });
+  }, [orders, searchQuery, statusFilter, sortAsc]);
+
+  // Handle sample status transition
+  const handleUpdateSampleStatus = (orderId, newStatus) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, sampleStatus: newStatus } : o));
+    showToast(`Sample ${orderId} status updated to "${newStatus}"`);
+    setActiveModal(null);
+  };
+
+  // Handle report approval sign-off
+  const handleApproveReport = (orderId) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, reportStatus: 'Completed' } : o));
+    showToast(`Report ${orderId} digitally signed & approved by Pathologist`);
+    setActiveModal(null);
+  };
+
+  // Reagents Inventory Data
+  const [reagents, setReagents] = useState([
+    { id: 'RG-01', name: 'Sysmex Cellpack CBC Diluent (20L)', stock: '12%', min: '25%', status: 'low' },
+    { id: 'RG-02', name: 'Stromatolyser-4DL Lyse Cartridge', stock: '14%', min: '20%', status: 'low' },
+    { id: 'RG-03', name: 'Beckman AU Liquid Stable Lipid Reagent', stock: '18%', min: '30%', status: 'low' },
+    { id: 'RG-04', name: 'Glucose Hexokinase Enzymatic Kit', stock: '64%', min: '30%', status: 'good' },
+    { id: 'RG-05', name: 'Vacutainer K2-EDTA 3mL Vials (Pack of 100)', stock: '78%', min: '40%', status: 'good' }
+  ]);
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl border border-slate-700 flex items-center gap-2.5 animate-in slide-in-from-bottom duration-200">
+          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Main Container with generous professional dimensions */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6">
+
+        {/* 1. TOP HEADER & METADATA BAR */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0A2540] tracking-tight">
+              Diagnostic Lab Overview
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+              Monitor your lab's daily activity
+            </p>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2.5 self-start md:self-center">
+            {/* Formatted Date Pill */}
+            <div className="text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 px-3.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-2">
+              <span>{currentMetrics.dateLabel}</span>
+            </div>
+
+            {/* Date-range dropdown button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDateDropdownOpen(!dateDropdownOpen)}
+                className="text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span>{currentMetrics.rangeLabel}</span>
+                <svg className={`w-3 h-3 text-slate-400 transition-transform ${dateDropdownOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {dateDropdownOpen && (
+                <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-30 py-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setDateRange('today'); setDateDropdownOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'today' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
+                  >
+                    Today (Oct 26)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDateRange('yesterday'); setDateDropdownOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'yesterday' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
+                  >
+                    Yesterday (Oct 25)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDateRange('week'); setDateDropdownOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'week' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDateRange('month'); setDateDropdownOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'month' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
+                  >
+                    This Month
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lab Operational Status Pill */}
+            <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Lab Operational - ALL SYSTEMS OPTIMAL</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. TOP SECTION: 2x2 METRIC CARDS ON LEFT + OPTIONAL ANALYTICS GRAPH ON RIGHT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+
+          {/* Left: 2x2 Metric Cards (7 cols on lg) */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Card 1: Today's Bookings */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-500 tracking-wide">Today's Bookings</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1 tracking-tight">
+                    {currentMetrics.bookings}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">scheduled test bookings</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 border border-blue-100 group-hover:scale-105 transition-transform">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('all'); showToast('Showing all test bookings'); }}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 mt-4 transition-colors cursor-pointer text-left"
+              >
+                <span>View details</span>
+                <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+              </button>
+            </div>
+
+            {/* Card 2: Pending Samples */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-500 tracking-wide">Pending Samples</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1 tracking-tight">
+                    {currentMetrics.pending}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">samples awaiting collection or processing</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100 group-hover:scale-105 transition-transform">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 2v7.31L4.35 19.5A2 2 0 0 0 6.09 22h11.82a2 2 0 0 0 1.74-2.5L14 9.31V2"/>
+                    <line x1="8.5" y1="2" x2="15.5" y2="2"/>
+                    <line x1="7" y1="15" x2="17" y2="15"/>
+                  </svg>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('Processing'); showToast('Filtered to processing samples'); }}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 mt-4 transition-colors cursor-pointer text-left"
+              >
+                <span>View details</span>
+                <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+              </button>
+            </div>
+
+            {/* Card 3: Reports Awaiting Approval */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-500 tracking-wide">Reports Awaiting Approval</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1 tracking-tight">
+                    {currentMetrics.awaitingApproval}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">reports awaiting authorized review</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 group-hover:scale-105 transition-transform">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal('review')}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 mt-4 transition-colors cursor-pointer text-left"
+              >
+                <span>View details</span>
+                <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+              </button>
+            </div>
+
+            {/* Card 4: Completed Tests */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-500 tracking-wide">Completed Tests</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1 tracking-tight">
+                    {currentMetrics.completed}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">tests completed today</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:scale-105 transition-transform">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('Completed'); showToast('Filtered to completed diagnostic tests'); }}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 mt-4 transition-colors cursor-pointer text-left"
+              >
+                <span>View details</span>
+                <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Optional Analytics Card (5 cols on lg) */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              {/* Header & Legends */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 tracking-tight">Optional Analytics</h2>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-0.5 bg-[#2563EB] rounded-full inline-block"></span>
+                    <span>Daily Bookings</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-0.5 bg-[#0F9F9A] rounded-full inline-block"></span>
+                    <span>Completed Tests</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Responsive SVG Curved Trend Graph Matching Picture */}
+              <div className="mt-3 relative select-none">
+                <svg viewBox="0 0 380 190" className="w-full h-auto overflow-visible">
+                  <defs>
+                    {/* Linear Gradient for Bookings (Blue) */}
+                    <linearGradient id="gradientBookings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563EB" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#2563EB" stopOpacity="0.01" />
+                    </linearGradient>
+                    {/* Linear Gradient for Completed Tests (Teal) */}
+                    <linearGradient id="gradientCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0F9F9A" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="#0F9F9A" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Guideline Lines */}
+                  {[
+                    { label: '250', y: 18 },
+                    { label: '200', y: 48 },
+                    { label: '150', y: 78 },
+                    { label: '100', y: 108 },
+                    { label: '50', y: 138 },
+                    { label: '0', y: 168 }
+                  ].map((grid, idx) => (
+                    <g key={idx}>
+                      <text x="0" y={grid.y + 3} className="text-[9px] fill-slate-400 font-mono" textAnchor="start">
+                        {grid.label}
+                      </text>
+                      <line x1="28" y1={grid.y} x2="380" y2={grid.y} stroke="#F1F5F9" strokeWidth="1" />
+                    </g>
+                  ))}
+
+                  {/* Area Fills Under Curved Splines */}
+                  {/* Daily Bookings Area */}
+                  <path
+                    d="M 45 125 C 75 80, 95 85, 145 95 C 195 105, 220 50, 295 40 C 330 35, 355 22, 375 18 L 375 168 L 45 168 Z"
+                    fill="url(#gradientBookings)"
+                  />
+                  {/* Completed Tests Area */}
+                  <path
+                    d="M 45 145 C 75 105, 115 118, 165 110 C 215 100, 255 65, 315 82 C 345 92, 365 68, 375 62 L 375 168 L 45 168 Z"
+                    fill="url(#gradientCompleted)"
+                  />
+
+                  {/* Smooth Curved Splines */}
+                  {/* Line 1: Daily Bookings (Blue #2563EB) */}
+                  <path
+                    d="M 45 125 C 75 80, 95 85, 145 95 C 195 105, 220 50, 295 40 C 330 35, 355 22, 375 18"
+                    fill="none"
+                    stroke="#2563EB"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Line 2: Completed Tests (Teal #0F9F9A) */}
+                  <path
+                    d="M 45 145 C 75 105, 115 118, 165 110 C 215 100, 255 65, 315 82 C 345 92, 365 68, 375 62"
+                    fill="none"
+                    stroke="#0F9F9A"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Interactive Day Points */}
+                  {[
+                    { day: 'Mon', x: 45, yB: 125, yC: 145, bVal: 75, cVal: 42 },
+                    { day: 'Tue', x: 100, yB: 85, yC: 110, bVal: 145, cVal: 105 },
+                    { day: 'Wed', x: 155, yB: 95, yC: 108, bVal: 125, cVal: 88 },
+                    { day: 'Thu', x: 210, yB: 85, yC: 105, bVal: 140, cVal: 102 },
+                    { day: 'Fri', x: 265, yB: 44, yC: 70, bVal: 215, cVal: 172 },
+                    { day: 'Sat', x: 320, yB: 36, yC: 80, bVal: 195, cVal: 148 },
+                    { day: 'Sat', x: 375, yB: 18, yC: 62, bVal: 242, cVal: 196 }
+                  ].map((pt, idx) => (
+                    <g
+                      key={idx}
+                      className="cursor-pointer"
+                      onMouseEnter={() => setHoveredPointIndex(idx)}
+                      onMouseLeave={() => setHoveredPointIndex(null)}
+                    >
+                      {/* X-axis day labels */}
+                      <text x={pt.x} y="184" className="text-[10px] fill-slate-500 font-medium" textAnchor="middle">
+                        {pt.day}
+                      </text>
+                      {/* Dots on Blue Line */}
+                      <circle cx={pt.x} cy={pt.yB} r="3" fill="#ffffff" stroke="#2563EB" strokeWidth="2" />
+                      {/* Dots on Teal Line */}
+                      <circle cx={pt.x} cy={pt.yC} r="3" fill="#ffffff" stroke="#0F9F9A" strokeWidth="2" />
+                    </g>
+                  ))}
+                </svg>
+
+                {/* Floating Tooltip when hovering over a chart point */}
+                {hoveredPointIndex !== null && (
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-lg pointer-events-none flex items-center gap-3">
+                    <span className="text-slate-300">{weeklyAnalytics[hoveredPointIndex]?.day}</span>
+                    <span className="text-[#60a5fa] font-bold">Bookings: {weeklyAnalytics[hoveredPointIndex]?.bookings}</span>
+                    <span className="text-[#2dd4bf] font-bold">Completed: {weeklyAnalytics[hoveredPointIndex]?.completed}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick KPI Strip below graph */}
+            <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Avg Turnaround</span>
+                <span className="text-slate-900 font-extrabold text-sm mt-0.5 block">2.8 Hours</span>
+              </div>
+              <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Weekly Volume</span>
+                <span className="text-emerald-700 font-extrabold text-sm mt-0.5 block">1,420 Tests</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* 3. MIDDLE SECTION: NEEDS ATTENTION */}
+        <div className="space-y-2.5">
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Needs Attention</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {/* Attention Item 1: Critical Delay */}
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
+              <span className="bg-rose-100/80 text-rose-800 text-xs font-bold px-2.5 py-1 rounded-md border border-rose-200">
+                Critical Delay: 2 Samples
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('process')}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
+              >
+                <span>Process Now</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+
+            {/* Attention Item 2: Pending Approvals */}
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
+              <span className="bg-amber-100/80 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-md border border-amber-200">
+                Pending Approvals: 15 Reports
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('review')}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
+              >
+                <span>Review Now</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+
+            {/* Attention Item 3: Inventory */}
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
+              <span className="bg-yellow-100/80 text-yellow-900 text-xs font-bold px-2.5 py-1 rounded-md border border-yellow-200">
+                Inventory: Reagent Low
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('order')}
+                className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
+              >
+                <span>Order Now</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. BOTTOM SECTION: RECENT TEST ORDERS (FULL-WIDTH EXPANDED TABLE) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Recent Test Orders</h2>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter('all'); setSearchQuery(''); showToast('Showing all test orders'); }}
+              className="text-xs font-bold text-[#2563EB] hover:underline cursor-pointer"
+            >
+              View all orders
+            </button>
+          </div>
+
+          {/* Search Input matching reference layout */}
+          <div className="relative w-full">
+            <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Clean Enterprise Table matching screenshot */}
+          <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+            <table className="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th
+                    className="py-2.5 pr-4 cursor-pointer hover:text-slate-700 select-none"
+                    onClick={() => setSortAsc(!sortAsc)}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>Patient ID</span>
+                      <span>{sortAsc ? '↑' : '↓'}</span>
+                    </span>
+                  </th>
+                  <th className="py-2.5 px-4">Test Name</th>
+                  <th className="py-2.5 px-4">Booking Time</th>
+                  <th className="py-2.5 px-4">Sample Status</th>
+                  <th className="py-2.5 px-4">Report Status</th>
+                  <th className="py-2.5 pl-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-slate-400 text-xs">
+                      No orders found matching "{searchQuery}".
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                      onClick={() => { setSelectedOrder(order); setActiveModal('details'); }}
+                    >
+                      {/* Patient ID */}
+                      <td className="py-3.5 pr-4 text-slate-900 font-bold font-mono">
+                        {order.patientId}
+                      </td>
+
+                      {/* Test Name */}
+                      <td className="py-3.5 px-4 text-slate-800">
+                        <div className="font-semibold text-slate-900">{order.testName}</div>
+                        <div className="text-[11px] text-slate-500 font-normal">{order.testSubtype}</div>
+                      </td>
+
+                      {/* Booking Time */}
+                      <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                        {order.bookingTime}
+                      </td>
+
+                      {/* Sample Status Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {order.sampleStatus === 'Collected' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                            Collected
+                          </span>
+                        ) : order.sampleStatus === 'Processing' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            Processing
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            Awaiting Collection
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Report Status Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {order.reportStatus === 'Completed' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Completed
+                          </span>
+                        ) : order.reportStatus === 'In Review' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                            In Review
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            {order.reportStatus}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 pl-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5 text-slate-400">
+                          <button
+                            type="button"
+                            title="Update Sample Vials"
+                            onClick={() => { setSelectedOrder(order); setActiveModal('process'); }}
+                            className="p-1 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="3"/>
+                              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="Review & Sign Off Report"
+                            onClick={() => { setSelectedOrder(order); setActiveModal('review'); }}
+                            className="p-1 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"/>
+                              <line x1="12" y1="8" x2="12" y2="12"/>
+                              <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="Order Details"
+                            onClick={() => { setSelectedOrder(order); setActiveModal('details'); }}
+                            className="p-1 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors font-bold tracking-widest text-xs"
+                          >
+                            &bull;&bull;&bull;
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 5. INTERACTIVE MODALS */}
+      {/* ==================================================================== */}
+
+      {/* Modal 1: Sample Processing & Critical Delay */}
+      {activeModal === 'process' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 2v7.31L4.35 19.5A2 2 0 0 0 6.09 22h11.82a2 2 0 0 0 1.74-2.5L14 9.31V2"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Sample Transit & Processing Station</h3>
+                  <p className="text-[11px] text-slate-500">Prioritize delayed specimens for automated analyzer entry</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-rose-600 mt-1 shrink-0"></span>
+                <div>
+                  <span className="font-bold text-rose-900">Specimen #BC-2026-90418 (Whole Blood EDTA)</span>
+                  <p className="text-rose-700 text-[11px] mt-0.5">In transit from Sub-Center Katkamsandi. Elapsed: 3 hrs 45 mins. Cold-chain storage ILR 4.2°C nominal.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-slate-700">
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-[10px] text-slate-400 block font-bold">ANALYZER LINE</span>
+                  <span className="font-bold text-slate-900">Sysmex XN-1000 Line #1</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-[10px] text-slate-400 block font-bold">SAMPLE STATUS</span>
+                  <span className="font-bold text-amber-700">Awaiting Centrifuge Entry</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSampleStatus('SP-9041', 'Processing')}
+                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
+                >
+                  Confirm Receipt & Load to Analyzer &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Pathologist Report Approval & Sign-Off */}
+      {activeModal === 'review' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Pathologist Digital Sign-Off Queue</h3>
+                  <p className="text-[11px] text-slate-500">NABL Accredited Verification & Clinical Release</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-900">Rameshwar Lal (Age 54, M)</span>
+                  <span className="text-slate-500 block text-[11px]">ABHA: rameshwar.lal@abdm &bull; Test: Renal Function Panel</span>
+                </div>
+                <span className="text-[10px] font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">SP-9045</span>
+              </div>
+
+              {/* Parameters List */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="bg-slate-100/70 p-2 font-bold text-[11px] text-slate-600 grid grid-cols-3">
+                  <span>Parameter</span>
+                  <span>Observed Value</span>
+                  <span>Reference Range</span>
+                </div>
+                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
+                  <span className="font-semibold">Serum Creatinine</span>
+                  <span className="font-bold text-emerald-700">1.05 mg/dL</span>
+                  <span className="text-slate-500">0.70 - 1.30</span>
+                </div>
+                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
+                  <span className="font-semibold">Blood Urea Nitrogen</span>
+                  <span className="font-bold text-emerald-700">18 mg/dL</span>
+                  <span className="text-slate-500">7 - 20</span>
+                </div>
+                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
+                  <span className="font-semibold">Uric Acid</span>
+                  <span className="font-bold text-emerald-700">5.2 mg/dL</span>
+                  <span className="text-slate-500">3.5 - 7.2</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800">
+                <span className="font-bold">Digital Sign-Off Certifier:</span> Dr. R. K. Mukherjee, MD (Pathology) &bull; Reg No: JMC-24918 &bull; NABL Validated
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleApproveReport('SP-9045')}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
+                >
+                  Approve & Release to Patient ABHA Record &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Reagents Inventory Re-Order */}
+      {activeModal === 'order' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-700 flex items-center justify-center font-bold">
+                  !
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Lab Reagents & Consumables Depot</h3>
+                  <p className="text-[11px] text-slate-500">Automated buffer refill request to District Supply Warehouse</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <p className="text-slate-600 text-xs">
+                The following reagents are below the safety threshold. Submit an expedited requisition order:
+              </p>
+
+              <div className="space-y-2">
+                {reagents.map(rg => (
+                  <div key={rg.id} className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900 block">{rg.name}</span>
+                      <span className="text-[10px] text-slate-500">Current Stock: <strong className={rg.status === 'low' ? 'text-rose-600' : 'text-emerald-600'}>{rg.stock}</strong> (Buffer min: {rg.min})</span>
+                    </div>
+                    {rg.status === 'low' ? (
+                      <span className="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded text-[10px] border border-rose-200">
+                        Low Reagent
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px] border border-emerald-200">
+                        Adequate
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    showToast('Emergency Reagent Requisition PO #REQ-2026-881 dispatched to District Depot');
+                    setActiveModal(null);
+                  }}
+                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
+                >
+                  Dispatch Requisition to District Depot &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 4: Test Order Details & ABDM Token */}
+      {activeModal === 'details' && selectedOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Diagnostic Order Details</h3>
+                <span className="text-[11px] font-mono text-slate-500">{selectedOrder.id} &bull; Barcode: {selectedOrder.vialBarcode}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-slate-700">
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-[10px] text-slate-400 block font-bold">PATIENT ID</span>
+                  <span className="font-bold text-slate-900 font-mono">{selectedOrder.patientId}</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-[10px] text-slate-400 block font-bold">SPECIMEN TYPE</span>
+                  <span className="font-semibold text-slate-900">{selectedOrder.sampleType}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-400 block font-bold uppercase">Ordered Investigation</span>
+                <span className="font-bold text-slate-900 text-sm mt-0.5 block">{selectedOrder.testName}</span>
+                <span className="text-slate-600 block text-xs mt-0.5">{selectedOrder.testSubtype}</span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-blue-50/70 rounded-xl border border-blue-200">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-800 uppercase block">Current Workflow State</span>
+                  <span className="font-bold text-blue-900 text-xs">Sample: {selectedOrder.sampleStatus} &bull; Report: {selectedOrder.reportStatus}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApproveReport(selectedOrder.id);
+                  }}
+                  className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                >
+                  Mark Complete
+                </button>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen, currentUser }) {
   const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
   const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
+  const isDiagnosticLab = (currentUser && (
+    currentUser.role === 'lab_staff' ||
+    currentUser.role === 'lab' ||
+    currentUser.role === 'diagnostic' ||
+    currentUser.facilitySubtype === 'lab' ||
+    currentUser.facilitySubtype === 'diagnostic'
+  )) || actorRole === 'lab_staff' || actorRole === 'lab';
 
   const [activeTab, setActiveTab] = useState(() => {
+    if (isDiagnosticLab) return 'lab';
     if (isDistrictAdmin) return 'admin';
     if (isHospitalFacility) return 'hospital';
     if (isMedicineFacility) return 'pharmacy';
@@ -32762,7 +33906,9 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
   });
 
   useEffect(() => {
-    if (isDistrictAdmin) {
+    if (isDiagnosticLab) {
+      setActiveTab('lab');
+    } else if (isDistrictAdmin) {
       setActiveTab('admin');
     } else if (isHospitalFacility) {
       setActiveTab('hospital');
@@ -32773,7 +33919,17 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
     } else if (actorRole === 'patient') {
       setActiveTab('patient');
     }
-  }, [isDistrictAdmin, isHospitalFacility, isMedicineFacility, isAshaWorker, actorRole]);
+  }, [isDiagnosticLab, isDistrictAdmin, isHospitalFacility, isMedicineFacility, isAshaWorker, actorRole]);
+
+  // When logged in as Diagnostic Lab Facility, render DiagnosticLabOverview directly
+  if (isDiagnosticLab || activeTab === 'lab') {
+    return (
+      <DiagnosticLabOverview
+        setView={setView}
+        currentUser={currentUser}
+      />
+    );
+  }
 
   // When logged in as District Administrator, render DistrictHealthAdminOverview directly
   if (isDistrictAdmin || activeTab === 'admin') {
