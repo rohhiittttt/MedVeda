@@ -1,0 +1,219 @@
+// ============================================================================
+// MedVeda OPD Booking Core - Prisma Schema (Section 6 of docs/PLAN.md)
+// Compatible with SQLite (local/edge runtime) and PostgreSQL (production)
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Facility {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  shortName   String?      @map("short_name")
+  district    String
+  state       String       @default("Jharkhand")
+  type        String       @default("DISTRICT_HOSPITAL")
+  address     String?
+  geo         String?      // JSON: { lat, lng, address, aliases }
+  latitude    Float?
+  longitude   Float?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  departments Department[]
+  sessions    Session[]
+  bookings    Booking[]
+  staffUsers  StaffUser[]
+
+  @@index([district, active])
+  @@map("facilities")
+}
+
+model Department {
+  id             String    @id @default(cuid())
+  facilityId     String    @map("facility_id")
+  code           String
+  name           String
+  dailyCapacity  Int       @default(80) @map("daily_capacity")
+  morningHours   String    @default("09:00-13:00") @map("morning_hours")
+  afternoonHours String    @default("14:00-17:00") @map("afternoon_hours")
+  roomNumber     String    @default("OPD-101") @map("room_number")
+  active         Boolean   @default(true)
+
+  facility       Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  bookings       Booking[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId, active])
+  @@map("departments")
+}
+
+model Session {
+  id               String        @id @default(cuid())
+  facilityId       String        @map("facility_id")
+  departmentId     String        @map("department_id")
+  date             String        // YYYY-MM-DD
+  session          String        @default("MORNING") // MORNING | AFTERNOON | EVENING
+  startTime        String        @default("09:00") @map("start")
+  endTime          String        @default("13:00") @map("end")
+  capacity         Int           @default(50)
+  walkinReserve    Int           @default(13) @map("walkin_reserve") // 25% reserved_sms_quota
+  bookedCount      Int           @default(0) @map("booked_count")
+  heldCount        Int           @default(0) @map("held_count")
+  status           String        @default("OPEN") // OPEN | FULL | CLOSED
+
+  facility         Facility      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  department       Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+  tokenCounter     TokenCounter?
+
+  @@unique([departmentId, date, session])
+  @@index([facilityId, departmentId, date])
+  @@map("sessions")
+}
+
+model Patient {
+  id               String    @id @default(cuid())
+  msisdn           String    @unique
+  msisdnHash       String    @map("msisdn_hash")
+  phoneLast4       String    @map("phone_last4")
+  name             String?
+  abhaAddress      String?   @map("abha_address")
+  abhaNumberHash   String?   @map("abha_number_hash")
+  preferredLang    String    @default("en") @map("preferred_lang")
+  consentAt        DateTime? @map("consent_at")
+  blocked          Boolean   @default(false)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  bookings         Booking[]
+
+  @@index([msisdnHash])
+  @@map("patients")
+}
+
+model Booking {
+  id                String      @id @default(cuid())
+  trackingId        String      @unique @map("tracking_id")
+  trackingIdRaw     String      @map("tracking_id_raw")
+  facilityId        String      @map("facility_id")
+  departmentId      String      @map("department_id")
+  sessionId         String      @map("session_id")
+  patientId         String      @map("patient_id")
+  slotDate          String      @map("slot_date")
+  sessionPeriod     String      @default("MORNING") @map("session_period")
+  reportingWindow   String      @default("09:30-10:30 AM") @map("reporting_window")
+  tokenNo           Int?        @map("token_no")
+  estimatedTokenNo  Int?        @map("estimated_token_no")
+  channel           String      @default("WEB") // WEB | QR_WALKIN | SMS | COUNTER
+  state             String      @default("PENDING_CONFIRMATION") // BookingStatus
+  holdExpiresAt     DateTime?   @map("hold_expires_at")
+  confirmCode       String?     @map("confirm_code")
+  confirmCodeHash   String?     @map("confirm_code_hash")
+  qrPayload         String?     @map("qr_payload")
+  abhaVerified      Boolean     @default(false) @map("abha_verified")
+  cancelReason      String?     @map("cancel_reason")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  confirmedAt       DateTime?   @map("confirmed_at")
+  arrivedAt         DateTime?   @map("arrived_at")
+  cancelledAt       DateTime?   @map("cancelled_at")
+  completedAt       DateTime?   @map("completed_at")
+
+  facility          Facility    @relation(fields: [facilityId], references: [id])
+  department        Department  @relation(fields: [departmentId], references: [id])
+  session           Session     @relation(fields: [sessionId], references: [id])
+  patient           Patient     @relation(fields: [patientId], references: [id])
+  smsOutbox         SmsOutbox[]
+
+  @@index([sessionId, state])
+  @@index([patientId, createdAt])
+  @@index([trackingId])
+  @@index([trackingIdRaw])
+  @@index([patientId, departmentId, slotDate])
+  @@map("bookings")
+}
+
+model TokenCounter {
+  sessionId String  @id @map("session_id")
+  lastToken Int     @default(0) @map("last_token")
+  updatedAt String? @map("updated_at")
+
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("token_counters")
+}
+
+model SmsInbox {
+  id            String   @id @default(cuid())
+  providerMsgId String   @unique @map("provider_msg_id")
+  provider      String   @default("simulator")
+  msisdn        String
+  body          String
+  receivedAt    DateTime @default(now()) @map("received_at")
+  parsedJson    String?  @map("parsed_json")
+  bookingId     String?  @map("booking_id")
+  status        String   @default("PROCESSED")
+
+  @@index([providerMsgId])
+  @@index([msisdn, receivedAt])
+  @@map("sms_inbox")
+}
+
+model SmsOutbox {
+  id            String   @id @default(cuid())
+  bookingId     String?  @map("booking_id")
+  msisdn        String
+  templateId    String   @default("OPD_GENERIC") @map("template_id")
+  rendered      String
+  provider      String   @default("simulator")
+  providerMsgId String   @unique @map("provider_msg_id")
+  status        String   @default("SENT")
+  dlrStatus     String?  @map("dlr_status")
+  attempts      Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([providerMsgId])
+  @@index([bookingId])
+  @@map("sms_outbox")
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorType  String   @default("SYSTEM") @map("actor_type")
+  actor      String
+  action     String
+  entity     String
+  entityId   String   @map("entity_id")
+  payload    String   // JSON string
+  at         DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([at])
+  @@map("audit_events")
+}
+
+model StaffUser {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  displayName String    @map("display_name")
+  facilityId  String?   @map("facility_id")
+  role        String    @default("COUNTER") // COUNTER | SUPERVISOR | ADMIN
+  pinHash     String?   @map("pin_hash")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  facility    Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, role])
+  @@map("staff_users")
+}

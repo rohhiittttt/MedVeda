@@ -6,9 +6,9 @@ import { ManageReferralUseCase } from '../../src/application/use-cases/manage-re
 import { validateStatusTransition } from '../../src/domain/rules/referral-transition.rules.ts';
 
 describe('Feature 03: Smart Referral Management System & Invariants', () => {
-  it('should allow a doctor to create a referral with unique REF-2026-XXXXX identifier and initial CREATED status', async () => {
+  it('should allow a doctor to create a referral with unique REF-2026-XXXXX identifier and initial REFERRAL_INITIATED status', async () => {
     const store = new InMemoryReferralStore();
-    const useCase = new ManageReferralUseCase(store);
+    const useCase = new ManageReferralUseCase(store as any);
 
     const referral = await useCase.createReferral({
       patientId: 'PAT-2001',
@@ -28,16 +28,16 @@ describe('Feature 03: Smart Referral Management System & Invariants', () => {
     });
 
     assert.ok(referral.referralId.startsWith('REF-2026-'));
-    assert.equal(referral.status, 'CREATED');
+    assert.equal(referral.status, 'REFERRAL_INITIATED');
     assert.equal(referral.patientName, 'Geeta Devi');
     assert.equal(referral.receivingFacilityName, 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)');
     assert.equal(referral.statusHistory.length, 1);
-    assert.equal(referral.statusHistory[0].toStatus, 'CREATED');
+    assert.equal(referral.statusHistory[0].toStatus, 'REFERRAL_INITIATED');
   });
 
-  it('should strictly enforce the valid referral lifecycle: CREATED -> SENT -> IN_PROGRESS -> REACHED_FACILITY -> COMPLETED', async () => {
+  it('should strictly enforce the valid 7-state clinical referral lifecycle', async () => {
     const store = new InMemoryReferralStore();
-    const useCase = new ManageReferralUseCase(store);
+    const useCase = new ManageReferralUseCase(store as any);
 
     const referral = await useCase.createReferral({
       patientId: 'PAT-2002',
@@ -56,83 +56,101 @@ describe('Feature 03: Smart Referral Management System & Invariants', () => {
       clinicalSummary: 'Mild headache following low velocity fall. GCS 15/15.'
     });
 
-    // 1. Doctor submits referral: CREATED -> SENT
+    // 1. Receiving facility accepts referral: REFERRAL_INITIATED -> ACCEPTED
     const step1 = await useCase.updateReferralStatus(referral.referralId, {
-      toStatus: 'SENT',
-      updatedBy: 'Dr. Rajesh Verma',
-      userRole: 'doctor',
-      remarks: 'Referral dispatched to Kalyani Trauma Centre.'
+      toStatus: 'ACCEPTED',
+      updatedBy: 'Kalyani Emergency Desk',
+      userRole: 'facility',
+      remarks: 'Referral accepted by Kalyani Trauma Centre.'
     });
-    assert.equal(step1.status, 'SENT');
+    assert.equal(step1.status, 'ACCEPTED');
 
-    // 2. Frontline ASHA worker contacts patient: SENT -> IN_PROGRESS
+    // 2. Receiving facility reserves bed: ACCEPTED -> BED_RESERVATION
     const step2 = await useCase.updateReferralStatus(referral.referralId, {
-      toStatus: 'IN_PROGRESS',
-      updatedBy: 'ASHA Manju Devi',
-      userRole: 'worker',
-      remarks: 'Contacted patient family; transport confirmed.'
+      toStatus: 'BED_RESERVATION',
+      updatedBy: 'Kalyani Bed Coordinator',
+      userRole: 'facility',
+      remarks: 'Trauma Ward bed reserved.'
     });
-    assert.equal(step2.status, 'IN_PROGRESS');
+    assert.equal(step2.status, 'BED_RESERVATION');
 
-    // 3. ASHA confirms patient reaches facility: IN_PROGRESS -> REACHED_FACILITY
+    // 3. Patient arrives at facility: BED_RESERVATION -> PATIENT_ARRIVAL
     const step3 = await useCase.updateReferralStatus(referral.referralId, {
-      toStatus: 'REACHED_FACILITY',
-      updatedBy: 'ASHA Manju Devi',
-      userRole: 'worker',
+      toStatus: 'PATIENT_ARRIVAL',
+      updatedBy: 'Kalyani Reception Desk',
+      userRole: 'facility',
       remarks: 'Patient safely arrived at Kalyani reception desk.'
     });
-    assert.equal(step3.status, 'REACHED_FACILITY');
+    assert.equal(step3.status, 'PATIENT_ARRIVAL');
 
-    // 4. Receiving facility completes care: REACHED_FACILITY -> COMPLETED
+    // 4. Bed allotted: PATIENT_ARRIVAL -> BED_ALLOTTED
     const step4 = await useCase.updateReferralStatus(referral.referralId, {
+      toStatus: 'BED_ALLOTTED',
+      updatedBy: 'Kalyani Ward Nurse',
+      userRole: 'facility',
+      remarks: 'Patient admitted to Neuro-Trauma Bed #4.'
+    });
+    assert.equal(step4.status, 'BED_ALLOTTED');
+
+    // 5. Treatment ongoing: BED_ALLOTTED -> TREATMENT_ONGOING
+    const step5 = await useCase.updateReferralStatus(referral.referralId, {
+      toStatus: 'TREATMENT_ONGOING',
+      updatedBy: 'Dr. S. K. Mukherjee',
+      userRole: 'facility',
+      remarks: 'CT Head and neuro observation initiated.'
+    });
+    assert.equal(step5.status, 'TREATMENT_ONGOING');
+
+    // 6. Completed: TREATMENT_ONGOING -> COMPLETED
+    const step6 = await useCase.updateReferralStatus(referral.referralId, {
       toStatus: 'COMPLETED',
       updatedBy: 'Dr. S. K. Mukherjee',
       userRole: 'facility',
       remarks: 'Neuro evaluation and CT head negative. Patient discharged with analgesics.'
     });
-    assert.equal(step4.status, 'COMPLETED');
-    assert.equal(step4.statusHistory.length, 5);
+    assert.equal(step6.status, 'COMPLETED');
+    assert.equal(step6.statusHistory.length, 7);
   });
 
-  it('should strictly reject illegal transitions (e.g. CREATED directly to COMPLETED or unauthorized role transitions)', () => {
-    // Cannot jump CREATED -> COMPLETED
-    const res1 = validateStatusTransition('CREATED', 'COMPLETED', 'doctor');
+  it('should strictly reject illegal transitions (e.g. REFERRAL_INITIATED directly to COMPLETED or unauthorized role transitions)', () => {
+    // Cannot jump REFERRAL_INITIATED -> COMPLETED
+    const res1 = validateStatusTransition('REFERRAL_INITIATED', 'COMPLETED', 'facility');
     assert.equal(res1.isValid, false);
-    assert.ok(res1.error?.includes("Cannot transition from 'CREATED' directly to 'COMPLETED'"));
+    assert.ok(res1.error?.includes("Cannot transition from 'REFERRAL_INITIATED' directly to 'COMPLETED'"));
 
     // Patient cannot update status to COMPLETED
-    const res2 = validateStatusTransition('REACHED_FACILITY', 'COMPLETED', 'patient');
+    const res2 = validateStatusTransition('TREATMENT_ONGOING', 'COMPLETED', 'patient');
     assert.equal(res2.isValid, false);
     assert.ok(res2.error?.includes("Role 'patient' is not authorized"));
 
     // Completed is terminal
-    const res3 = validateStatusTransition('COMPLETED', 'SENT', 'doctor');
+    const res3 = validateStatusTransition('COMPLETED', 'ACCEPTED', 'facility');
     assert.equal(res3.isValid, false);
   });
 
-  it('should support cancellation from CREATED or SENT states', () => {
-    const res1 = validateStatusTransition('CREATED', 'CANCELLED', 'doctor');
+  it('should support rejection from REFERRAL_INITIATED state by doctor or facility', () => {
+    const res1 = validateStatusTransition('REFERRAL_INITIATED', 'REJECTED', 'doctor');
     assert.equal(res1.isValid, true);
 
-    const res2 = validateStatusTransition('SENT', 'CANCELLED', 'worker');
+    const res2 = validateStatusTransition('REFERRAL_INITIATED', 'REJECTED', 'facility');
     assert.equal(res2.isValid, true);
 
-    const res3 = validateStatusTransition('COMPLETED', 'CANCELLED', 'doctor');
+    const res3 = validateStatusTransition('COMPLETED', 'REJECTED', 'doctor');
     assert.equal(res3.isValid, false);
   });
 
   it('should retrieve pending referrals for frontline worker follow-up and retain audit history', async () => {
     const store = new InMemoryReferralStore();
-    const useCase = new ManageReferralUseCase(store);
+    const useCase = new ManageReferralUseCase(store as any);
 
     const pending = await useCase.getPendingReferrals();
     assert.ok(pending.length >= 2);
 
     const history = await useCase.getHistory('REF-2026-00125');
     assert.ok(history.length >= 3);
-    assert.equal(history[0].toStatus, 'CREATED');
-    assert.equal(history[1].toStatus, 'SENT');
-    assert.equal(history[2].toStatus, 'IN_PROGRESS');
+    assert.equal(history[0].toStatus, 'REFERRAL_INITIATED');
+    assert.equal(history[1].toStatus, 'ACCEPTED');
+    assert.equal(history[2].toStatus, 'BED_RESERVATION');
 
     const stats = await useCase.getStats();
     assert.ok(stats.total >= 3);
@@ -141,7 +159,7 @@ describe('Feature 03: Smart Referral Management System & Invariants', () => {
 
   it('should support deleting a referral and clean up associated history logs', async () => {
     const store = new InMemoryReferralStore();
-    const useCase = new ManageReferralUseCase(store);
+    const useCase = new ManageReferralUseCase(store as any);
 
     const ref = await useCase.getReferral('REF-2026-00125');
     assert.ok(ref !== null);

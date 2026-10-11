@@ -9,10 +9,10 @@
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "node --experimental-transform-types --test tests/unit/*.spec.ts",
+    "test:watch": "node --experimental-transform-types --watch --test tests/unit/*.spec.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/infrastructure/db/migrate.ts"
+    "db:migrate": "node --experimental-transform-types src/infrastructure/db/migrate.ts"
   },
   "dependencies": {
     "fastify": "^5.2.0",

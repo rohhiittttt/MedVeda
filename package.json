@@ -8,7 +8,7 @@
     "backend"
   ],
   "scripts": {
-    "start": "npm --prefix frontend start",
+    "start": "node --experimental-transform-types frontend/server.js",
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

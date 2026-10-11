@@ -305,7 +305,7 @@ export class InMemoryRecordsStore {
       scope: 'ALL',
       status: 'approved',
       createdAt: '2026-08-20T08:00:00.000Z',
-      expiresAt: '2026-09-20T08:00:00.000Z',
+      expiresAt: '2027-09-20T08:00:00.000Z',
       grantedAt: '2026-08-20T08:05:00.000Z'
     });
 
@@ -319,7 +319,21 @@ export class InMemoryRecordsStore {
       scope: 'LAB_REPORTS',
       status: 'pending',
       createdAt: '2026-09-02T10:00:00.000Z',
-      expiresAt: '2026-09-09T10:00:00.000Z'
+      expiresAt: '2027-09-09T10:00:00.000Z'
     });
+  }
+
+  private ragAuditLogs: any[] = [];
+
+  saveRagAuditLog(item: any): any {
+    this.ragAuditLogs.unshift(item);
+    return item;
+  }
+
+  getRagAuditLogs(patientId?: string, limit = 50): any[] {
+    if (patientId) {
+      return this.ragAuditLogs.filter((a) => a.patientId === patientId).slice(0, limit);
+    }
+    return this.ragAuditLogs.slice(0, limit);
   }
 }

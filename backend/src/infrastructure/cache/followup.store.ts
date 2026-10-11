@@ -103,14 +103,53 @@ export class InMemoryFollowUpStore {
   }
 
   public async listWorkerTasks(workerId?: string, status?: string): Promise<FollowUpTask[]> {
+    return this.listTasks({ workerId, status });
+  }
+
+  public async listTasks(filters?: {
+    workerId?: string;
+    status?: string;
+    patientId?: string;
+    facilityId?: string;
+  }): Promise<FollowUpTask[]> {
     let list = Array.from(this.tasks.values());
-    if (workerId) {
-      list = list.filter((t) => t.frontlineWorkerId === workerId);
+    if (filters?.workerId) {
+      list = list.filter((t) => t.frontlineWorkerId === filters.workerId);
     }
-    if (status && status !== 'ALL') {
-      list = list.filter((t) => t.status === status);
+    if (filters?.status && filters.status !== 'ALL') {
+      list = list.filter((t) => t.status === filters.status);
+    }
+    if (filters?.patientId) {
+      list = list.filter((t) => t.patientId === filters.patientId);
+    }
+    if (filters?.facilityId) {
+      list = list.filter((t) => {
+        const plan = this.plans.get(t.planId);
+        return plan?.facilityId === filters.facilityId;
+      });
     }
     return list.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  }
+
+  public async listReports(filters?: {
+    workerId?: string;
+    patientId?: string;
+    facilityId?: string;
+  }): Promise<FollowUpReport[]> {
+    let list = Array.from(this.reports.values());
+    if (filters?.workerId) {
+      list = list.filter((r) => r.frontlineWorkerId === filters.workerId);
+    }
+    if (filters?.patientId) {
+      list = list.filter((r) => r.patientId === filters.patientId);
+    }
+    if (filters?.facilityId) {
+      list = list.filter((r) => {
+        const plan = this.plans.get(r.planId);
+        return plan?.facilityId === filters.facilityId;
+      });
+    }
+    return list.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
   }
 
   // --- REPORT SUBMISSION & DYNAMIC RISK ENGINE ---
@@ -279,12 +318,26 @@ export class InMemoryFollowUpStore {
     return results.sort((a, b) => b.latestScore - a.latestScore);
   }
 
-  public async getFacilityAlerts(facilityId?: string): Promise<FacilityAlert[]> {
+  public async getFacilityAlerts(filters?: string | { facilityId?: string; doctorId?: string; patientId?: string }): Promise<FacilityAlert[]> {
     let list = Array.from(this.facilityAlerts.values());
-    if (facilityId) {
-      list = list.filter((a) => a.facilityId === facilityId);
+    if (typeof filters === 'string') {
+      list = list.filter((a) => a.facilityId === filters);
+    } else if (filters) {
+      if (filters.facilityId) list = list.filter((a) => a.facilityId === filters.facilityId);
+      if (filters.doctorId) list = list.filter((a) => a.doctorId === filters.doctorId);
+      if (filters.patientId) list = list.filter((a) => a.patientId === filters.patientId);
     }
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  public async getFilterOptions() {
+    const plans = Array.from(this.plans.values());
+    return {
+      doctors: Array.from(new Map(plans.map((p) => [p.doctorId, { id: p.doctorId, name: p.doctorName }])).values()),
+      workers: Array.from(new Map(plans.map((p) => [p.frontlineWorkerId, { id: p.frontlineWorkerId, name: p.frontlineWorkerName }])).values()),
+      facilities: Array.from(new Map(plans.map((p) => [p.facilityId, { id: p.facilityId, name: p.facilityName }])).values()),
+      patients: Array.from(new Map(plans.map((p) => [p.patientId, { id: p.patientId, name: p.patientName }])).values())
+    };
   }
 
   public async acknowledgeAlert(alertId: string): Promise<FacilityAlert | null> {

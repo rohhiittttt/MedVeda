@@ -3,5 +3,5 @@ echo ===================================================
 echo Starting MedVeda Server...
 echo ===================================================
 cd /d "%~dp0"
-call npm.cmd start
+node --experimental-transform-types frontend/server.js
 pause

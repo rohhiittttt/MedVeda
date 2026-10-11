@@ -56,9 +56,10 @@ describe('Feature 05: Interoperable Health Records & Multi-Source Timeline Aggre
     `;
 
     const parsed = parseOcrDocumentText(rawPrescriptionText, 'prescription');
+    const rxData = parsed.data as any;
     assert.strictEqual(parsed.confidenceScore >= 70, true);
-    assert.ok(parsed.data.medicines.length >= 1);
-    assert.ok(parsed.data.doctorName?.includes('VERMA'));
+    assert.ok(rxData.medicines.length >= 1);
+    assert.ok(rxData.doctorName?.includes('VERMA'));
   });
 
   it('should capture manual record and tag verificationStatus based on user confirmation', async () => {

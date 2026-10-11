@@ -36,7 +36,7 @@ export class GeminiHospitalDiscoveryAdapter {
 
   constructor(apiKey?: string, modelName?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || '';
-    this.modelName = modelName || process.env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite';
+    this.modelName = modelName || process.env.GEMINI_CHAT_MODEL || 'gemini-3.8-flash';
   }
 
   /**

@@ -1,0 +1,710 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MedVeda OPD Booking Core & Multi-Channel API",
+    "version": "1.0.0",
+    "description": "Unified OPD appointment & token booking API supporting Web/PWA, Hospital Walk-in QR, Feature-Phone SMS (2-step hold & confirm), Counter Verification Console, and Live Admin Queue."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Unified MedVeda Server"
+    }
+  ],
+  "paths": {
+    "/v1/facilities": {
+      "get": {
+        "operationId": "listFacilities",
+        "summary": "List active OPD facilities",
+        "parameters": [
+          {
+            "name": "district",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of OPD facilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facilities": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Facility" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/facilities/{id}/departments": {
+      "get": {
+        "operationId": "listFacilityDepartments",
+        "summary": "List OPD departments for a facility (by ID or facilityCode)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Facility ID or code (e.g. DHJ01, SBMC01, SDH01, RIMS01, CHC01)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of departments for facility",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facility": { "$ref": "#/components/schemas/Facility" },
+                    "departments": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Department" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "operationId": "listSessions",
+        "summary": "Get OPD sessions and live slot availability for a department and date",
+        "parameters": [
+          {
+            "name": "facility",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Facility code or ID (e.g. DHJ01)"
+          },
+          {
+            "name": "dept",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Department ID or code (e.g. MED, CAR, NEU, PED, ORT, GYN, ENT, OPH)"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date" },
+            "description": "Date in YYYY-MM-DD format (defaults to today)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available OPD sessions for the requested date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Session" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bookings": {
+      "post": {
+        "operationId": "createBooking",
+        "summary": "Create an OPD booking or 10-minute slot hold (Web/PWA, QR Walk-in, SMS, or Counter)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone"],
+                "properties": {
+                  "facilityCode": { "type": "string", "example": "DHJ01" },
+                  "deptCode": { "type": "string", "example": "MED" },
+                  "sessionId": { "type": "string" },
+                  "date": { "type": "string", "format": "date", "example": "2026-10-12" },
+                  "session": { "type": "string", "enum": ["MORNING", "AFTERNOON", "EVENING"] },
+                  "phone": { "type": "string", "example": "+919876543210" },
+                  "patientName": { "type": "string", "example": "Ramesh Kumar" },
+                  "abhaAddress": { "type": "string" },
+                  "abhaVerified": { "type": "boolean" },
+                  "channel": { "$ref": "#/components/schemas/Channel" },
+                  "mode": { "type": "string", "enum": ["HOLD", "IMMEDIATE_CONFIRM"] },
+                  "qrToken": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking or hold created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "booking": { "$ref": "#/components/schemas/Booking" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bookings/{trackingId}": {
+      "get": {
+        "operationId": "getBookingByTrackingId",
+        "summary": "Get booking status and details by Crockford Base32 Tracking ID or booking ID",
+        "parameters": [
+          {
+            "name": "trackingId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "MV-7K4Q-9X2" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "booking": { "$ref": "#/components/schemas/Booking" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Booking not found" }
+        }
+      }
+    },
+    "/v1/bookings/{id}/cancel": {
+      "post": {
+        "operationId": "cancelBooking",
+        "summary": "Cancel an active or pending booking and release slot capacity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" },
+                  "phone": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "booking": { "$ref": "#/components/schemas/Booking" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sms/inbound/{provider}": {
+      "post": {
+        "operationId": "handleInboundSms",
+        "summary": "Inbound MO SMS webhook for simulator, android-gateway, msg91, or twilio",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["simulator", "android-gateway", "msg91", "twilio"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["msisdn", "body"],
+                "properties": {
+                  "messageId": { "type": "string" },
+                  "msisdn": { "type": "string", "example": "+919876543210" },
+                  "body": { "type": "string", "example": "OPD DHJ01 MED" },
+                  "receivedAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Processed inbound SMS with parsed JSON and outbound reply",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deduplicated": { "type": "boolean" },
+                    "parsed": { "$ref": "#/components/schemas/ParsedSmsContract" },
+                    "booking": { "$ref": "#/components/schemas/Booking" },
+                    "reply": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sms/dlr/{provider}": {
+      "post": {
+        "operationId": "handleSmsDlr",
+        "summary": "SMS Delivery Report (DLR) webhook",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["providerMessageId", "dlrStatus"],
+                "properties": {
+                  "providerMessageId": { "type": "string" },
+                  "dlrStatus": { "type": "string", "enum": ["DELIVERED", "FAILED", "SUBMITTED", "UNDELIVERED"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "DLR recorded" }
+        }
+      }
+    },
+    "/v1/counter/lookup": {
+      "post": {
+        "operationId": "counterLookup",
+        "summary": "Counter console lookup by Tracking ID (with Crockford check-char validation) or signed QR payload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "trackingId": { "type": "string", "example": "MV-7K4Q-9X2" },
+                  "qrToken": { "type": "string" },
+                  "phoneLast4": { "type": "string", "example": "3210" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Counter lookup result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CounterLookupResult" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/counter/{id}/arrive": {
+      "post": {
+        "operationId": "counterMarkArrived",
+        "summary": "Mark a confirmed booking as ARRIVED at the OPD token counter and generate printable slip",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Booking ID or Tracking ID"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "staffId": { "type": "string", "example": "counter-dhj01" },
+                  "phoneLast4": { "type": "string", "example": "3210" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking marked ARRIVED",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CounterLookupResult" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/queue": {
+      "get": {
+        "operationId": "getAdminQueue",
+        "summary": "Live departmental OPD queue snapshot and channel telemetry",
+        "parameters": [
+          {
+            "name": "facility",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "DHJ01" }
+          },
+          {
+            "name": "dept",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "MED" }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Department queue snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminQueueSnapshot" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/q/{signedPayload}": {
+      "get": {
+        "operationId": "resolveSignedQrLink",
+        "summary": "Verify and resolve a hospital department walk-in QR or booking QR deep link",
+        "parameters": [
+          {
+            "name": "signedPayload",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Verified QR metadata or deep link redirect" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Channel": {
+        "type": "string",
+        "enum": ["WEB", "QR_WALKIN", "SMS", "COUNTER"]
+      },
+      "BookingState": {
+        "type": "string",
+        "enum": [
+          "RECEIVED",
+          "PARSED",
+          "PENDING_CONFIRMATION",
+          "CONFIRMED",
+          "EXPIRED",
+          "CANCELLED",
+          "ARRIVED",
+          "COMPLETED",
+          "NO_SHOW",
+          "REJECTED"
+        ]
+      },
+      "ParsedSmsContract": {
+        "type": "object",
+        "required": ["messageId", "msisdn", "receivedAt", "intent", "entities", "confidence", "parseErrors"],
+        "properties": {
+          "messageId": { "type": "string" },
+          "msisdn": { "type": "string" },
+          "receivedAt": { "type": "string", "format": "date-time" },
+          "intent": {
+            "type": "string",
+            "enum": ["BOOK", "CONFIRM", "CANCEL", "STATUS", "LIST", "HELP", "UNKNOWN"]
+          },
+          "entities": {
+            "type": "object",
+            "properties": {
+              "facilityCode": { "type": ["string", "null"] },
+              "deptCode": { "type": ["string", "null"] },
+              "requestedDate": { "type": ["string", "null"] },
+              "date": { "type": ["string", "null"] },
+              "session": { "type": ["string", "null"], "enum": ["MORNING", "AFTERNOON", "EVENING", null] },
+              "confirmCode": { "type": ["string", "null"] },
+              "trackingId": { "type": ["string", "null"] }
+            }
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "parseErrors": { "type": "array", "items": { "type": "string" } },
+          "normalizedCommand": { "type": "string" }
+        }
+      },
+      "Facility": {
+        "type": "object",
+        "required": ["id", "code", "name", "district", "state", "type", "active"],
+        "properties": {
+          "id": { "type": "string" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "shortName": { "type": "string" },
+          "district": { "type": "string" },
+          "state": { "type": "string" },
+          "type": { "type": "string" },
+          "address": { "type": "string" },
+          "latitude": { "type": ["number", "null"] },
+          "longitude": { "type": ["number", "null"] },
+          "active": { "type": "boolean" }
+        }
+      },
+      "Department": {
+        "type": "object",
+        "required": ["id", "facilityId", "code", "name", "dailyCapacity", "morningHours", "afternoonHours", "roomNumber", "active"],
+        "properties": {
+          "id": { "type": "string" },
+          "facilityId": { "type": "string" },
+          "facilityCode": { "type": "string" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "dailyCapacity": { "type": "integer" },
+          "morningHours": { "type": "string" },
+          "afternoonHours": { "type": "string" },
+          "roomNumber": { "type": "string" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "id",
+          "facilityId",
+          "facilityCode",
+          "departmentId",
+          "deptCode",
+          "date",
+          "session",
+          "startTime",
+          "endTime",
+          "totalCapacity",
+          "reservedSmsQuota",
+          "bookedCount",
+          "heldCount",
+          "availableCount",
+          "status"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "facilityId": { "type": "string" },
+          "facilityCode": { "type": "string" },
+          "departmentId": { "type": "string" },
+          "deptCode": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "session": { "type": "string", "enum": ["MORNING", "AFTERNOON", "EVENING"] },
+          "startTime": { "type": "string" },
+          "endTime": { "type": "string" },
+          "totalCapacity": { "type": "integer" },
+          "reservedSmsQuota": { "type": "integer" },
+          "bookedCount": { "type": "integer" },
+          "heldCount": { "type": "integer" },
+          "availableCount": { "type": "integer" },
+          "smsAvailableCount": { "type": "integer" },
+          "nextEstimatedToken": { "type": "integer" },
+          "status": { "type": "string", "enum": ["OPEN", "FULL", "CLOSED"] }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "required": [
+          "id",
+          "trackingId",
+          "facilityCode",
+          "deptCode",
+          "sessionId",
+          "slotDate",
+          "session",
+          "patientId",
+          "maskedPatientName",
+          "phoneLast4",
+          "channel",
+          "status",
+          "createdAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "trackingId": { "type": "string" },
+          "facilityId": { "type": "string" },
+          "facilityCode": { "type": "string" },
+          "facilityName": { "type": "string" },
+          "departmentId": { "type": "string" },
+          "deptCode": { "type": "string" },
+          "departmentName": { "type": "string" },
+          "roomNumber": { "type": "string" },
+          "sessionId": { "type": "string" },
+          "slotDate": { "type": "string", "format": "date" },
+          "session": { "type": "string", "enum": ["MORNING", "AFTERNOON", "EVENING"] },
+          "reportingWindow": { "type": "string" },
+          "patientId": { "type": "string" },
+          "maskedPatientName": { "type": "string" },
+          "phoneLast4": { "type": "string" },
+          "channel": { "$ref": "#/components/schemas/Channel" },
+          "status": { "$ref": "#/components/schemas/BookingState" },
+          "tokenNumber": { "type": ["integer", "null"] },
+          "holdExpiresAt": { "type": ["string", "null"] },
+          "qrPayload": { "type": ["string", "null"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "confirmedAt": { "type": ["string", "null"] },
+          "arrivedAt": { "type": ["string", "null"] }
+        }
+      },
+      "SmsInboxItem": {
+        "type": "object",
+        "required": ["id", "providerMessageId", "provider", "direction", "msisdn", "body", "status", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "providerMessageId": { "type": "string" },
+          "provider": { "type": "string" },
+          "direction": { "type": "string", "enum": ["INBOUND"] },
+          "msisdn": { "type": "string" },
+          "body": { "type": "string" },
+          "parsedJson": { "$ref": "#/components/schemas/ParsedSmsContract" },
+          "status": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SmsOutboxItem": {
+        "type": "object",
+        "required": ["id", "providerMessageId", "provider", "direction", "msisdn", "body", "status", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "providerMessageId": { "type": "string" },
+          "provider": { "type": "string" },
+          "direction": { "type": "string", "enum": ["OUTBOUND"] },
+          "msisdn": { "type": "string" },
+          "body": { "type": "string" },
+          "bookingId": { "type": ["string", "null"] },
+          "templateId": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "dlrStatus": { "type": ["string", "null"] },
+          "attempts": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "required": ["id", "actorType", "actorId", "action", "entityType", "entityId", "payload", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "actorType": { "type": "string", "enum": ["PATIENT", "STAFF", "SYSTEM", "SMS_GATEWAY"] },
+          "actorId": { "type": "string" },
+          "action": { "type": "string" },
+          "entityType": { "type": "string" },
+          "entityId": { "type": "string" },
+          "payload": { "type": "object" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CounterLookupResult": {
+        "type": "object",
+        "required": ["found", "checksumValid", "verificationMethod"],
+        "properties": {
+          "found": { "type": "boolean" },
+          "checksumValid": { "type": "boolean" },
+          "qrVerified": { "type": "boolean" },
+          "verificationMethod": { "type": "string", "enum": ["TRACKING_ID", "QR_SIGNATURE"] },
+          "error": { "type": "string" },
+          "booking": { "$ref": "#/components/schemas/Booking" },
+          "slip": { "type": "object" }
+        }
+      },
+      "AdminQueueSnapshot": {
+        "type": "object",
+        "required": ["facilityCode", "facilityName", "deptCode", "departmentName", "date", "generatedAt", "summary", "sessions", "queue"],
+        "properties": {
+          "facilityCode": { "type": "string" },
+          "facilityName": { "type": "string" },
+          "deptCode": { "type": "string" },
+          "departmentName": { "type": "string" },
+          "roomNumber": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "summary": { "type": "object" },
+          "sessions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Session" }
+          },
+          "queue": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Booking" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -19,12 +19,16 @@ export interface TriageInput {
   readonly age: number;
   readonly sex: 'male' | 'female' | 'other';
   readonly location: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
   readonly primarySymptoms: string;
+  readonly additionalNotes?: string;
   readonly duration: string;
   readonly severity: 'mild' | 'moderate' | 'severe';
   readonly redFlags: RedFlagChecklist;
   readonly vitals?: PatientVitals;
   readonly medicalHistory?: readonly string[];
+  readonly sessionToken?: string;
 }
 
 export interface TriageAssessment {

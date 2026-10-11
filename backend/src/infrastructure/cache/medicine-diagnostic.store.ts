@@ -443,6 +443,7 @@ export class InMemoryMedicineDiagnosticStore {
         patientName: 'Sunita Soren',
         patientPhone: '+91-98352-19203',
         centerId: 'center_01',
+        centerName: 'Dr. Lal PathLabs & Hazaribagh Diagnostics',
         testOfferingId: 'test_01',
         testName: 'Complete Blood Count (CBC with ESR)',
         source: 'direct_search',

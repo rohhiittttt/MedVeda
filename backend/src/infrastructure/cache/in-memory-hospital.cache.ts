@@ -7,6 +7,8 @@ const DEFAULT_REGIONAL_SEED: HospitalCandidate[] = [
     name: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
     address: 'Near Canary Hill Road, Hazaribagh, Jharkhand',
     distanceKm: 2.8,
+    latitude: 24.0124,
+    longitude: 85.3612,
     hasEmergencyDepartment: true,
     hasRequiredSpecialty: true,
     specialtyMode: 'EMERGENCY_AND_OPD',
@@ -24,6 +26,8 @@ const DEFAULT_REGIONAL_SEED: HospitalCandidate[] = [
     name: 'Arogyam Multi-Specialty Hospital & Critical Care',
     address: 'Indraprastha Colony, Hazaribagh, Jharkhand',
     distanceKm: 4.8,
+    latitude: 23.9962,
+    longitude: 85.3691,
     hasEmergencyDepartment: true,
     hasRequiredSpecialty: true,
     specialtyMode: 'EMERGENCY_AND_OPD',
@@ -41,6 +45,8 @@ const DEFAULT_REGIONAL_SEED: HospitalCandidate[] = [
     name: 'Kalyani Super Specialty Hospital & Trauma Centre',
     address: 'NH33, Ramgarh Cantt, Jharkhand (38 km from Hazaribagh)',
     distanceKm: 38.0,
+    latitude: 23.6345,
+    longitude: 85.5142,
     hasEmergencyDepartment: true,
     hasRequiredSpecialty: true,
     specialtyMode: 'EMERGENCY_AND_OPD',
@@ -57,6 +63,8 @@ const DEFAULT_REGIONAL_SEED: HospitalCandidate[] = [
     name: 'Sadar Hospital Hazaribagh',
     address: 'Main Hospital Road, Hazaribagh, Jharkhand',
     distanceKm: 3.2,
+    latitude: 23.9921,
+    longitude: 85.3588,
     hasEmergencyDepartment: true,
     hasRequiredSpecialty: true,
     specialtyMode: 'OPD_ONLY',
@@ -73,6 +81,8 @@ const DEFAULT_REGIONAL_SEED: HospitalCandidate[] = [
     name: 'Ranchi Super Specialty Hospital',
     address: 'Bariatu Road, Ranchi, Jharkhand (92 km via NH20)',
     distanceKm: 92.0,
+    latitude: 23.3911,
+    longitude: 85.3497,
     hasEmergencyDepartment: true,
     hasRequiredSpecialty: true,
     specialtyMode: 'EMERGENCY_AND_OPD',
@@ -97,9 +107,24 @@ export class InMemoryHospitalCacheAdapter implements IHospitalCachePort {
     }
   }
 
-  async findNearby(location: string, specialty: string, emergencyRequired: boolean): Promise<readonly HospitalCandidate[]> {
-    // Return all facilities relevant to this region / specialty
-    return Array.from(this.facilities.values());
+  async findNearby(location: string, _specialty: string, _emergencyRequired: boolean): Promise<readonly HospitalCandidate[]> {
+    const all = Array.from(this.facilities.values());
+    const locTokens = (location || '')
+      .toLowerCase()
+      .split(/[,/\s-]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3);
+
+    if (locTokens.length > 0) {
+      const matched = all.filter((c) => {
+        const hay = `${c.name} ${c.address}`.toLowerCase();
+        return locTokens.some((tok) => hay.includes(tok));
+      });
+      if (matched.length > 0) {
+        return matched;
+      }
+    }
+    return all;
   }
 
   async save(candidate: HospitalCandidate): Promise<void> {

@@ -66,7 +66,7 @@ export interface CreateReferralDto {
   readonly referringFacilityName: string;
   readonly receivingFacilityId: string;
   readonly receivingFacilityName: string;
-  readonly departmentReferredTo: string;
+  readonly departmentReferredTo?: string;
   readonly specialty: string;
   readonly reason: string;
   readonly clinicalSummary: string;

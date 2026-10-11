@@ -12,8 +12,10 @@ export interface PriorityCalculationInput {
 export function calculateUrgencyWeight(tier: UrgencyTier): number {
   switch (tier) {
     case 'RED':
+    case 'CRITICAL':
       return 100;
     case 'ORANGE':
+    case 'URGENT':
       return 75;
     case 'YELLOW':
       return 50;

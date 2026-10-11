@@ -8,11 +8,12 @@ import type {
   SubmitReportDto
 } from '../../domain/models/followup.model.ts';
 import type { SqliteFollowUpStore } from '../../infrastructure/db/sqlite-followup.store.ts';
+import type { InMemoryFollowUpStore } from '../../infrastructure/cache/followup.store.ts';
 
 export class ManageFollowUpUseCase {
-  private store: SqliteFollowUpStore;
+  private store: SqliteFollowUpStore | InMemoryFollowUpStore;
 
-  constructor(store: SqliteFollowUpStore) {
+  constructor(store: SqliteFollowUpStore | InMemoryFollowUpStore) {
     this.store = store;
   }
 

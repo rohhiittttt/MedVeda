@@ -469,7 +469,7 @@ Review in 1 month with Lipid Profile report.`,
     const diagnoses: string[] = [];
 
     for (const rec of records) {
-      const ext = rec.extractedData || {};
+      const ext: any = rec.extractedData || {};
 
       // Prescriptions
       if (rec.recordType === 'prescription' && Array.isArray(ext.medicines)) {

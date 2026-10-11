@@ -73,7 +73,7 @@ export class RecordsRagUseCase {
       dto.language || 'en'
     );
 
-    // Record audit log entry (as requested in Feature Map: Operational Guardrails)
+    // Record audit log entry (persisted via store when supported)
     const auditItem: ChatAuditLogItem = {
       id: `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       patientId: dto.internalMedicalId,
@@ -85,7 +85,11 @@ export class RecordsRagUseCase {
       confidence: response.confidence,
       timestamp: new Date().toISOString()
     };
-    this.auditLogs.unshift(auditItem);
+    if (typeof (this.store as any).saveRagAuditLog === 'function') {
+      (this.store as any).saveRagAuditLog(auditItem);
+    } else {
+      this.auditLogs.unshift(auditItem);
+    }
 
     return response;
   }
@@ -94,6 +98,9 @@ export class RecordsRagUseCase {
    * Returns chat audit history for a patient.
    */
   getAuditLogs(patientId?: string): ChatAuditLogItem[] {
+    if (typeof (this.store as any).getRagAuditLogs === 'function') {
+      return (this.store as any).getRagAuditLogs(patientId, 50);
+    }
     if (patientId) {
       return this.auditLogs.filter(a => a.patientId === patientId);
     }

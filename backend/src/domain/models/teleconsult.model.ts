@@ -1,6 +1,6 @@
-export type UrgencyTier = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'ROUTINE';
+export type UrgencyTier = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'ROUTINE' | 'CRITICAL' | 'URGENT';
 
-export type BookedByActor = 'worker' | 'self';
+export type BookedByActor = 'worker' | 'self' | 'patient';
 
 export type ConsultationMode = 'video' | 'audio' | 'chat';
 

@@ -181,7 +181,7 @@ process.on('exit', () => {
   cleanupPythonProcess();
 });
 
-import { InMemoryTeleconsultStore } from '../backend/src/infrastructure/cache/teleconsult.cache.ts';
+import { SqliteTeleconsultStore } from '../backend/src/infrastructure/db/sqlite-teleconsult.store.ts';
 import { TeleconsultBookingUseCase } from '../backend/src/application/use-cases/teleconsult-booking.use-case.ts';
 import { TeleconsultQueueUseCase } from '../backend/src/application/use-cases/teleconsult-queue.use-case.ts';
 import { TeleconsultSessionUseCase } from '../backend/src/application/use-cases/teleconsult-session.use-case.ts';
@@ -192,36 +192,53 @@ import { ManageReferralUseCase } from '../backend/src/application/use-cases/mana
 import { SqliteFollowUpStore } from '../backend/src/infrastructure/db/sqlite-followup.store.ts';
 import { ManageFollowUpUseCase } from '../backend/src/application/use-cases/manage-followup.use-case.ts';
 
-import { InMemoryRecordsStore } from '../backend/src/infrastructure/cache/records.store.ts';
+import { SqliteRecordsStore } from '../backend/src/infrastructure/db/sqlite-records.store.ts';
 import { ManageRecordsUseCase } from '../backend/src/application/use-cases/manage-records.use-case.ts';
 
 import { SqliteMedicineStore } from '../backend/src/infrastructure/db/sqlite-medicine.store.ts';
 import { ManageMedicineDiagnosticUseCase } from '../backend/src/application/use-cases/manage-medicine-diagnostic.use-case.ts';
 
-import { InMemoryFacilityDashboardStore } from '../backend/src/infrastructure/cache/facility-dashboard.store.ts';
+import { SqliteFacilityDashboardStore } from '../backend/src/infrastructure/db/sqlite-facility-dashboard.store.ts';
 import { ManageFacilityDashboardUseCase } from '../backend/src/application/use-cases/manage-facility-dashboard.use-case.ts';
 
-import { InMemorySchemeStore } from '../backend/src/infrastructure/cache/scheme.store.ts';
+import { SqliteSchemeStore } from '../backend/src/infrastructure/db/sqlite-scheme.store.ts';
 
-import { InMemoryCommandCenterStore } from '../backend/src/infrastructure/cache/command-center.store.ts';
+import { SqliteCommandCenterStore } from '../backend/src/infrastructure/db/sqlite-command-center.store.ts';
 import { ManageCommandCenterUseCase } from '../backend/src/application/use-cases/manage-command-center.use-case.ts';
 import { GeminiCommandCenterAdapter } from '../backend/src/infrastructure/mcp/gemini-command-center.adapter.ts';
 import { INDIA_STATES, INDIA_DISTRICTS, getDistrictsByState, getDistrictById, searchDistricts } from '../backend/src/infrastructure/data/india-geography.ts';
+import { getOpdBookingStore, OpdBookingError } from '../backend/src/infrastructure/db/sqlite-opd-booking.store.ts';
+import { getOpdBookingCore } from '../backend/src/application/use-cases/opd-booking-core.use-case.ts';
+import { getOpdSmsOrchestrator } from '../backend/src/application/use-cases/opd-sms-orchestrator.use-case.ts';
+import { DLT_TEMPLATES } from '../backend/src/infrastructure/sms/sms-gateway.adapter.ts';
+import { parseInboundSms, getSmsGrammarHelpText } from '../packages/sms-parser/index.ts';
+import { validateTrackingId } from '../packages/contracts/index.ts';
+import { SqliteNavigationStore } from '../backend/src/infrastructure/db/sqlite-navigation.store.ts';
+import { RedisOrSqliteHospitalCacheAdapter } from '../backend/src/infrastructure/cache/redis-hospital.cache.ts';
+import { PipelineStreamManager } from '../backend/src/presentation/sse/pipeline-stream.manager.ts';
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-// Initialize Domain Pipeline (Feature 01)
+// Initialize Domain Pipeline (Feature 01: Persistent SQLite + Optional Redis Cache + Live SSE Stream)
+const navigationStore = new SqliteNavigationStore();
+const pipelineStreamManager = new PipelineStreamManager();
 const triageUseCase = new AssessTriageUseCase();
-const cacheAdapter = new InMemoryHospitalCacheAdapter();
+const cacheAdapter = new RedisOrSqliteHospitalCacheAdapter(navigationStore);
 const searchAdapter = new GoogleSearchMcpAdapter();
 const geminiAdapter = new GeminiHospitalDiscoveryAdapter();
 const researchUseCase = new ResearchHospitalsUseCase(searchAdapter, cacheAdapter, geminiAdapter);
 const rankUseCase = new RankFacilitiesUseCase();
-const pipelineUseCase = new CareNavigationPipelineUseCase(triageUseCase, researchUseCase, rankUseCase);
+const pipelineUseCase = new CareNavigationPipelineUseCase(
+  triageUseCase,
+  researchUseCase,
+  rankUseCase,
+  navigationStore,
+  pipelineStreamManager
+);
 
-// Initialize Teleconsultation & Queue Store & Use Cases (Feature 02)
-const teleconsultStore = new InMemoryTeleconsultStore();
+// Initialize Teleconsultation & Queue Store & Use Cases (Feature 02: Persistent SQLite)
+const teleconsultStore = new SqliteTeleconsultStore();
 const bookingUseCase = new TeleconsultBookingUseCase(teleconsultStore);
 const queueUseCase = new TeleconsultQueueUseCase(teleconsultStore);
 const sessionUseCase = new TeleconsultSessionUseCase(teleconsultStore);
@@ -234,11 +251,11 @@ const referralUseCase = new ManageReferralUseCase(referralStore);
 const followUpStore = new SqliteFollowUpStore();
 const followUpUseCase = new ManageFollowUpUseCase(followUpStore);
 
-// Initialize Interoperable Health Records Store & Use Case (Feature 05)
+// Initialize Interoperable Health Records Store & Use Case (Feature 05: Persistent SQLite)
 import { RecordsRagUseCase } from '../backend/src/application/use-cases/records-rag.use-case.ts';
 import { GeminiRecordsRagAdapter } from '../backend/src/infrastructure/ai/gemini-records-rag.adapter.ts';
 
-const recordsStore = new InMemoryRecordsStore();
+const recordsStore = new SqliteRecordsStore();
 const recordsUseCase = new ManageRecordsUseCase(recordsStore);
 const recordsRagAdapter = new GeminiRecordsRagAdapter();
 const recordsRagUseCase = new RecordsRagUseCase(recordsStore, recordsRagAdapter);
@@ -247,8 +264,8 @@ const recordsRagUseCase = new RecordsRagUseCase(recordsStore, recordsRagAdapter)
 const medicineStore = new SqliteMedicineStore();
 const medicineUseCase = new ManageMedicineDiagnosticUseCase(medicineStore);
 
-// Initialize Facility Dashboard Store & Use Case (Feature 07)
-const dashboardStore = new InMemoryFacilityDashboardStore();
+// Initialize Facility Dashboard Store & Use Case (Feature 07: Persistent SQLite)
+const dashboardStore = new SqliteFacilityDashboardStore();
 const dashboardUseCase = new ManageFacilityDashboardUseCase(
   dashboardStore,
   teleconsultStore,
@@ -258,13 +275,18 @@ const dashboardUseCase = new ManageFacilityDashboardUseCase(
   medicineStore
 );
 
-// Initialize Scheme Finder Store (Feature 08)
-const schemeStore = new InMemorySchemeStore();
+// Initialize Scheme Finder Store (Feature 08: Persistent SQLite)
+const schemeStore = new SqliteSchemeStore();
 
-// Initialize District Admin Command Center (Feature 09 / MV-DAC)
-const commandCenterStore = new InMemoryCommandCenterStore();
+// Initialize District Admin Command Center (Feature 09 / MV-DAC: Persistent SQLite)
+const commandCenterStore = new SqliteCommandCenterStore();
 const commandCenterGeminiAdapter = new GeminiCommandCenterAdapter();
 const commandCenterUseCase = new ManageCommandCenterUseCase(commandCenterStore, commandCenterGeminiAdapter);
+
+// Initialize OPD Booking Core & 2-Way SMS Orchestrator (Book Appointments inside Doctor Visits)
+const opdBookingStore = getOpdBookingStore();
+const opdBookingCore = getOpdBookingCore(opdBookingStore);
+const opdSmsOrchestrator = getOpdSmsOrchestrator(opdBookingStore, opdBookingCore);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -307,6 +329,243 @@ const server = http.createServer(async (req, res) => {
 
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const reqPath = urlObj.pathname;
+
+  // --- QR WALK-IN DEEP LINK VERIFICATION & REDIRECT (/q/:signedPayload) ---
+  if (reqPath.startsWith('/q/') && req.method === 'GET') {
+    const signedPayload = decodeURIComponent(reqPath.slice(3).trim());
+    const verification = opdBookingCore.verifyQrDeepLink(signedPayload);
+    const wantsJson =
+      urlObj.searchParams.get('format') === 'json' ||
+      (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html'));
+    if (wantsJson) {
+      res.writeHead(verification.valid ? 200 : 400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: verification.valid, data: verification }));
+      return;
+    }
+    const facParam = verification.payload?.facilityCode ? `&facility=${encodeURIComponent(verification.payload.facilityCode)}` : '';
+    const deptParam = verification.payload?.deptCode ? `&dept=${encodeURIComponent(verification.payload.deptCode)}` : '';
+    res.writeHead(302, {
+      Location: `/#book-appointments?qr=${encodeURIComponent(signedPayload)}${facParam}${deptParam}`
+    });
+    res.end();
+    return;
+  }
+
+  // --- OPD BOOKING ("BOOK APPOINTMENTS") API ROUTER (/v1/* and /api/opd/*) ---
+  if (reqPath.startsWith('/v1/') || reqPath.startsWith('/api/opd/')) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const opdPath = reqPath.replace(/^\/api\/opd\//, '/v1/');
+
+    try {
+      // 1. GET /v1/facilities — List active hospitals + SMS codes
+      if (opdPath === '/v1/facilities' && req.method === 'GET') {
+        const district = urlObj.searchParams.get('district') || undefined;
+        const search = urlObj.searchParams.get('search') || urlObj.searchParams.get('q') || undefined;
+        const facilities = opdBookingCore.listFacilities({ district, search, activeOnly: true });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, count: facilities.length, data: facilities }));
+        return;
+      }
+
+      // 2. GET /v1/facilities/:id/departments — List departments + codes + hours
+      const facDeptMatch = opdPath.match(/^\/v1\/facilities\/([^/]+)\/departments$/);
+      if (facDeptMatch && req.method === 'GET') {
+        const facilityIdOrCode = decodeURIComponent(facDeptMatch[1]);
+        const facility = opdBookingCore.getFacility(facilityIdOrCode);
+        const departments = opdBookingCore.listDepartments(facilityIdOrCode);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, facility, count: departments.length, data: departments }));
+        return;
+      }
+
+      // 3. GET /v1/sessions?dept=&date=&facility= — Available slots & sessions
+      if (opdPath === '/v1/sessions' && req.method === 'GET') {
+        const facilityCode = urlObj.searchParams.get('facility') || urlObj.searchParams.get('facilityCode') || urlObj.searchParams.get('facilityId') || 'DHJ01';
+        const deptCode = urlObj.searchParams.get('dept') || urlObj.searchParams.get('deptCode') || urlObj.searchParams.get('departmentId') || undefined;
+        const date = urlObj.searchParams.get('date') || undefined;
+        const sessions = opdBookingCore.listSessions({ facilityCode, deptCode, date });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, count: sessions.length, data: sessions }));
+        return;
+      }
+
+      // 4. POST /v1/bookings — Create Web, QR Walk-In, Counter, or Hold booking
+      if (opdPath === '/v1/bookings' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const result = opdBookingCore.createWebOrQrBooking(body);
+        res.writeHead(201);
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 5. POST /v1/bookings/confirm — Confirm a 10-minute pending hold
+      if (opdPath === '/v1/bookings/confirm' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const result = opdBookingCore.confirmHold(body);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 6. POST /v1/bookings/:id/cancel — Cancel booking / release slot
+      const cancelMatch = opdPath.match(/^\/v1\/bookings\/([^/]+)\/cancel$/);
+      if (cancelMatch && req.method === 'POST') {
+        const idOrTrackingId = decodeURIComponent(cancelMatch[1]);
+        const body = await readJsonBody(req);
+        const result = opdBookingCore.cancelBooking({
+          ...body,
+          idOrTrackingId
+        });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: result }));
+        return;
+      }
+
+      // 7. GET /v1/bookings/:trackingId — Public status lookup by tracking ID
+      const bookingLookupMatch = opdPath.match(/^\/v1\/bookings\/([^/]+)$/);
+      if (bookingLookupMatch && req.method === 'GET') {
+        const trackingId = decodeURIComponent(bookingLookupMatch[1]);
+        const check = validateTrackingId(trackingId);
+        const booking = opdBookingCore.getBookingByTrackingId(trackingId);
+        if (!booking) {
+          res.writeHead(404);
+          res.end(JSON.stringify({
+            success: false,
+            validCheckChar: check.valid,
+            error: check.valid ? 'Booking not found' : (check.reason || 'Invalid Tracking ID check character')
+          }));
+          return;
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, validCheckChar: true, data: booking }));
+        return;
+      }
+
+      // 8. POST /v1/sms/inbound/:provider — Webhook receiver (simulator | android-gateway | msg91)
+      const smsInboundMatch = opdPath.match(/^\/v1\/sms\/inbound\/([^/]+)$/);
+      if (smsInboundMatch && req.method === 'POST') {
+        const provider = decodeURIComponent(smsInboundMatch[1]);
+        const body = await readJsonBody(req);
+        const turnResult = opdSmsOrchestrator.handleInboundSms(provider, body, req.headers, {
+          bypassRateLimit: Boolean(body?.bypassRateLimit)
+        });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: turnResult }));
+        return;
+      }
+
+      // 9. POST /v1/sms/dlr/:provider — Delivery receipt webhook
+      const smsDlrMatch = opdPath.match(/^\/v1\/sms\/dlr\/([^/]+)$/);
+      if (smsDlrMatch && req.method === 'POST') {
+        const provider = decodeURIComponent(smsDlrMatch[1]);
+        const body = await readJsonBody(req);
+        const dlrResult = opdSmsOrchestrator.handleDeliveryReceipt(provider, body);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: dlrResult }));
+        return;
+      }
+
+      // 10. GET /v1/sms/messages — List SMS inbox + outbox + DLT templates for interactive UI
+      if (opdPath === '/v1/sms/messages' && req.method === 'GET') {
+        const msisdn = urlObj.searchParams.get('msisdn') || urlObj.searchParams.get('phone') || undefined;
+        const limit = urlObj.searchParams.get('limit') ? Number(urlObj.searchParams.get('limit')) : 50;
+        const messages = opdBookingStore.listSmsMessages({ msisdn, limit });
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          count: messages.length,
+          data: messages,
+          dltTemplates: DLT_TEMPLATES,
+          grammarHelp: getSmsGrammarHelpText()
+        }));
+        return;
+      }
+
+      // 11. POST /v1/sms/parse — Deterministic SMS parser live preview
+      if (opdPath === '/v1/sms/parse' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const parsed = parseInboundSms({
+          messageId: body.messageId || `preview_${Date.now()}`,
+          msisdn: body.msisdn || body.phone || '+919876543210',
+          text: body.text || body.message || ''
+        });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: parsed }));
+        return;
+      }
+
+      // 12. POST /v1/counter/lookup — Lookup by Tracking ID or signed QR token
+      if (opdPath === '/v1/counter/lookup' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const lookupResult = opdBookingCore.counterLookup({
+          trackingId: body.trackingId || body.code,
+          qrToken: body.qrToken || body.qrPayload,
+          phoneLast4: body.phoneLast4
+        });
+        res.writeHead(lookupResult.found ? 200 : 404);
+        res.end(JSON.stringify({ success: lookupResult.found, data: lookupResult }));
+        return;
+      }
+
+      // 13. POST /v1/counter/:id/arrive — Mark patient arrived & generate OPD slip
+      const counterArriveMatch = opdPath.match(/^\/v1\/counter\/([^/]+)\/arrive$/);
+      if (counterArriveMatch && req.method === 'POST') {
+        const idOrTrackingId = decodeURIComponent(counterArriveMatch[1]);
+        const body = await readJsonBody(req);
+        const arriveResult = opdBookingCore.markArrived(
+          idOrTrackingId,
+          body.staffId || 'counter-dhj01',
+          body.phoneLast4
+        );
+        res.writeHead(arriveResult.found ? 200 : 404);
+        res.end(JSON.stringify({ success: arriveResult.found, data: arriveResult }));
+        return;
+      }
+
+      // 14. GET /v1/admin/queue?facility=&dept=&date= — Live department queue
+      if (opdPath === '/v1/admin/queue' && req.method === 'GET') {
+        const facilityCode = urlObj.searchParams.get('facility') || urlObj.searchParams.get('facilityCode') || 'DHJ01';
+        const deptCode = urlObj.searchParams.get('dept') || urlObj.searchParams.get('deptCode') || undefined;
+        const date = urlObj.searchParams.get('date') || undefined;
+        const queueSnapshot = opdBookingCore.getAdminQueue({ facilityCode, deptCode, date });
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: queueSnapshot }));
+        return;
+      }
+
+      // 15. GET /v1/posters?facility=&date= — Printable Department QR + SMS Posters
+      if (opdPath === '/v1/posters' && req.method === 'GET') {
+        const facilityCode = urlObj.searchParams.get('facility') || urlObj.searchParams.get('facilityCode') || 'DHJ01';
+        const date = urlObj.searchParams.get('date') || undefined;
+        const posterPack = opdBookingCore.generateDepartmentPosters(facilityCode, date);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: posterPack }));
+        return;
+      }
+
+      // 16. POST /v1/qr/verify — Verify signed QR payload directly from UI
+      if (opdPath === '/v1/qr/verify' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const verification = opdBookingCore.verifyQrDeepLink(body.qrToken || body.signedPayload || '');
+        res.writeHead(verification.valid ? 200 : 400);
+        res.end(JSON.stringify({ success: verification.valid, data: verification }));
+        return;
+      }
+
+      res.writeHead(404);
+      res.end(JSON.stringify({ success: false, error: `OPD Endpoint Not Found: ${opdPath}` }));
+      return;
+    } catch (err) {
+      const statusCode = err instanceof OpdBookingError ? err.statusCode : (err.statusCode || 400);
+      res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: false,
+        code: err.code || 'OPD_ERROR',
+        error: err.message || 'OPD Booking operation failed'
+      }));
+      return;
+    }
+  }
 
   // --- API ROUTING (/api/v1/* and /api/*) ---
   if (reqPath.startsWith('/api/')) {
@@ -522,6 +781,12 @@ const server = http.createServer(async (req, res) => {
       if ((normPath === '/api/triage/assess') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const triage = await triageUseCase.execute(body);
+        const sessionId = body.sessionId || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        try {
+          navigationStore.saveTriageSession(sessionId, body, triage);
+        } catch (dbErr) {
+          console.warn('[Server] Could not persist standalone triage session:', dbErr);
+        }
         if (triage.urgency === 'CRITICAL') {
           dashboardStore.addAlert({
             alertId: `ALT-CRIT-${Date.now().toString(36).toUpperCase()}`,
@@ -534,7 +799,7 @@ const server = http.createServer(async (req, res) => {
           });
         }
         res.writeHead(200);
-        res.end(JSON.stringify({ success: true, data: triage }));
+        res.end(JSON.stringify({ success: true, sessionId, data: triage }));
         return;
       }
 
@@ -549,8 +814,74 @@ const server = http.createServer(async (req, res) => {
       if ((normPath === '/api/recommendations/rank') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const ranking = await rankUseCase.execute(body);
+        try {
+          let sessionId = body.sessionId;
+          if (!sessionId) {
+            sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            navigationStore.saveTriageSession(
+              sessionId,
+              {
+                age: Number(body.age || 35),
+                sex: body.sex || 'other',
+                location: body.location || 'India',
+                primarySymptoms: body.primarySymptoms || body.requiredSpecialty || 'Clinical Evaluation',
+                duration: body.duration || 'acute',
+                severity: body.urgency === 'CRITICAL' ? 'severe' : 'moderate',
+                redFlags: {
+                  facialDroopOrSpeech: false,
+                  chestPain: false,
+                  breathingDistress: false,
+                  unconsciousOrConfusion: false,
+                  severeBleeding: false
+                }
+              },
+              {
+                urgency: body.urgency || 'URGENT',
+                acuityBadge: body.urgency || 'URGENT',
+                requiredSpecialty: body.requiredSpecialty || 'General Medicine',
+                conditionCategory: body.requiredSpecialty || 'General',
+                clinicalRoutingAdvice: 'Evaluated via Smart Care Navigator.',
+                emergencyRequired: Boolean(body.emergencyRequired),
+                redFlagsDetected: [],
+                searchQueries: []
+              }
+            );
+          }
+          navigationStore.saveRecommendations(sessionId, ranking.topFacilities);
+        } catch (dbErr) {
+          console.warn('[Server] Could not persist recommendations:', dbErr);
+        }
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: ranking }));
+        return;
+      }
+
+      const navStreamMatch = normPath.match(/^\/api\/navigate\/stream\/([^/]+)$/);
+      if (navStreamMatch && req.method === 'GET') {
+        const sessionId = decodeURIComponent(navStreamMatch[1]);
+        pipelineStreamManager.subscribe(sessionId, res);
+        return;
+      }
+
+      if (normPath === '/api/navigate/sessions' && req.method === 'GET') {
+        const limit = Number(urlObj.searchParams.get('limit') || 25);
+        const sessions = navigationStore.listRecentTriageSessions(limit);
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, count: sessions.length, data: sessions }));
+        return;
+      }
+
+      const navSessionMatch = normPath.match(/^\/api\/navigate\/sessions\/([^/]+)$/);
+      if (navSessionMatch && req.method === 'GET') {
+        const sessionId = decodeURIComponent(navSessionMatch[1]);
+        const session = navigationStore.getTriageSession(sessionId);
+        if (!session) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, error: `Triage session '${sessionId}' not found.` }));
+          return;
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: session }));
         return;
       }
 
@@ -1220,17 +1551,18 @@ const server = http.createServer(async (req, res) => {
                     patientName: apt.patientName || 'Ramesh Mahto',
                     patientAge: apt.patientAge || 48,
                     patientSex: apt.patientSex || 'male',
+                    patientLocation: apt.patientLocation || 'Katkamsandi, Hazaribagh',
                     doctorId: apt.doctorId || 'doc_2',
                     doctorName: apt.doctorName || 'Dr. Rajesh Verma',
                     specialty: apt.specialty || 'Cardiology',
                     facilityId: apt.facilityId || 'fac_sbmch',
                     facilityName: apt.facilityName || 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-                    scheduledDate: new Date().toISOString().split('T')[0],
                     scheduledTime: apt.scheduledTime || 'Tomorrow 10:00 AM',
                     status: 'booked',
                     bookedBy: 'patient',
-                    priorityScore: 50,
                     urgencyTier: 'ROUTINE',
+                    highRiskFlags: [],
+                    symptomsSummary: apt.reasonNote || 'Scheduled via AI Assistant',
                     createdAt: new Date().toISOString()
                   });
                 } catch (syncErr) {
@@ -1241,9 +1573,95 @@ const server = http.createServer(async (req, res) => {
               res.end(JSON.stringify(pyRes));
               return;
             }
+
+            // Native Node/SQLite Fallback when Python service is offline
+            if (subPath === '/api/agent/action/execute') {
+              const actionType = body.actionType;
+              const params = body.params || {};
+              if (actionType === 'CONFIRM_BOOKING') {
+                const roster = await teleconsultStore.getDoctorRoster();
+                const doc = roster.find((d) => d.id === params.doctorId) || roster[1] || roster[0];
+                const slotTime = params.slotTime || 'Tomorrow 10:00 AM';
+                const aptId = `APT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+                const newAppointment = await teleconsultStore.createAppointment({
+                  id: aptId,
+                  patientId: body.patientId || 'MV-MED-2026-1024',
+                  patientName: params.patientName || 'Ramesh Mahto',
+                  patientAge: 48,
+                  patientSex: 'male',
+                  patientLocation: 'Katkamsandi, Hazaribagh',
+                  doctorId: doc.id,
+                  doctorName: doc.name,
+                  facilityId: doc.facilityIds?.[0] || 'fac_sbmch',
+                  facilityName: doc.availabilityWindows?.[0]?.facilityName || 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+                  specialty: doc.specialties?.[0] || 'Cardiology',
+                  scheduledTime: slotTime,
+                  status: 'booked',
+                  urgencyTier: params.urgencyTier || 'ROUTINE',
+                  bookedBy: 'patient',
+                  highRiskFlags: [],
+                  symptomsSummary: params.reasonNote || `Consultation with ${doc.name}`,
+                  createdAt: new Date().toISOString()
+                });
+                const confirmMsg = `Appointment confirmed successfully! Booked with ${doc.name} (${doc.specialties?.[0] || 'General Medicine'}) for ${slotTime}. Your Appointment ID is ${aptId}.`;
+                res.writeHead(200);
+                res.end(JSON.stringify({
+                  success: true,
+                  status: 'success',
+                  code: 'BOOKING_CONFIRMED',
+                  data: {
+                    appointment: newAppointment,
+                    confirmationMessage: confirmMsg,
+                    smsNotification: {
+                      recipient: '+91-94311-28901',
+                      text: `MedVeda: Your consultation with ${doc.name} is CONFIRMED for ${slotTime}. ID: ${aptId}.`,
+                      sentAt: 'Just now'
+                    }
+                  }
+                }));
+                return;
+              }
+
+              res.writeHead(200);
+              res.end(JSON.stringify({
+                success: true,
+                status: 'success',
+                code: 'ACTION_COMPLETED',
+                data: {
+                  confirmationMessage: `Action ${actionType} recorded successfully.`
+                }
+              }));
+              return;
+            }
+
+            if (subPath === '/api/agent/chat') {
+              const query = String(body.query || body.message || '').trim();
+              const patientId = body.patientId || 'MV-MED-2026-1024';
+              const ragRes = await recordsRagUseCase.queryPatientRecordsChat({
+                patientId,
+                question: query || 'Summarize my current medications and recent lab results.',
+                language: body.language || 'en',
+                requesterRole: 'patient'
+              });
+              res.writeHead(200);
+              res.end(JSON.stringify({
+                success: true,
+                data: {
+                  answer: ragRes.answer,
+                  detectedLanguage: ragRes.detectedLanguage || 'en',
+                  urgencyLevel: ragRes.isEmergencyBypass ? 'RED' : 'GREEN',
+                  isEmergency: Boolean(ragRes.isEmergencyBypass),
+                  citations: ragRes.citations || [],
+                  actionCards: []
+                }
+              }));
+              return;
+            }
           } else if (req.method === 'GET') {
             try {
-              const pyFetch = await fetch(`${PYTHON_SERVICE_BASE}${subPath}${urlObj.search}`);
+              const pyFetch = await fetch(`${PYTHON_SERVICE_BASE}${subPath}${urlObj.search}`, {
+                signal: AbortSignal.timeout(1200)
+              });
               if (pyFetch.ok) {
                 const pyData = await pyFetch.json();
                 res.writeHead(200);
@@ -1251,13 +1669,65 @@ const server = http.createServer(async (req, res) => {
                 return;
               }
             } catch (err) {
-              // fallback below
+              // Native fallback below
+            }
+
+            if (subPath === '/api/agent/doctors') {
+              const specialty = urlObj.searchParams.get('specialty') || undefined;
+              const roster = await teleconsultStore.getDoctorRoster(undefined, specialty);
+              res.writeHead(200);
+              res.end(JSON.stringify({ success: true, data: roster }));
+              return;
+            }
+
+            if (subPath === '/api/agent/facilities') {
+              const facilities = dashboardStore.getAllFacilities();
+              res.writeHead(200);
+              res.end(JSON.stringify({ success: true, data: facilities }));
+              return;
+            }
+
+            if (subPath === '/api/agent/appointments') {
+              const appointments = await teleconsultStore.getAppointments();
+              res.writeHead(200);
+              res.end(JSON.stringify({ success: true, data: appointments }));
+              return;
+            }
+
+            if (subPath === '/api/agent/reminders') {
+              res.writeHead(200);
+              res.end(JSON.stringify({
+                success: true,
+                data: [
+                  {
+                    id: 'rem_1',
+                    patientId: urlObj.searchParams.get('patientId') || 'MV-MED-2026-1024',
+                    medicineName: 'Ecosprin 75mg',
+                    dosage: '75mg',
+                    frequency: '1-0-0',
+                    time: '08:30 AM',
+                    instruction: 'After breakfast',
+                    active: true
+                  },
+                  {
+                    id: 'rem_2',
+                    patientId: urlObj.searchParams.get('patientId') || 'MV-MED-2026-1024',
+                    medicineName: 'Rosuvas 20mg',
+                    dosage: '20mg',
+                    frequency: '0-0-1',
+                    time: '09:30 PM',
+                    instruction: 'Before bedtime',
+                    active: true
+                  }
+                ]
+              }));
+              return;
             }
           }
-          res.writeHead(503);
-          res.end(JSON.stringify({ success: false, error: 'Python Medical Assistant Service is offline on port 8001' }));
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, error: `Unknown agent endpoint: ${subPath}` }));
         } catch (err) {
-          console.error('Error in agent proxy:', err);
+          console.error('Error in agent handler:', err);
           res.writeHead(500);
           res.end(JSON.stringify({ success: false, error: err.message || 'Medical Assistant Agent failed' }));
         }
@@ -1719,7 +2189,7 @@ const server = http.createServer(async (req, res) => {
 
       // === FEATURE 08: AI GOVERNMENT HEALTH SCHEME FINDER ENDPOINTS ===
       if (normPath.startsWith('/api/schemes') || normPath.startsWith('/api/admin/schemes')) {
-        const pythonBase = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:8000';
+        const pythonBase = PYTHON_SERVICE_BASE;
         let body = null;
         if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
           body = await readJsonBody(req);
@@ -1843,131 +2313,112 @@ const server = http.createServer(async (req, res) => {
           };
         };
 
-        // Try Python FastAPI microservice first with fast timeout
-        try {
-          const fetchRes = await fetch(`${pythonBase}${req.url}`, {
-            method: req.method,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: body ? JSON.stringify(body) : undefined,
-            signal: AbortSignal.timeout(600)
-          });
-          const pyData = await fetchRes.json();
-          res.writeHead(fetchRes.status, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify(pyData));
+        if (normPath === '/api/schemes' && req.method === 'GET') {
+          const list = schemeStore.getAllSchemes();
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: true, count: list.length, data: list }));
           return;
-        } catch (fetchErr) {
-          // Python microservice starting or offline - fallback to in-memory evaluation
-          if (normPath === '/api/schemes' && req.method === 'GET') {
-            const list = schemeStore.getAllSchemes();
+        }
+
+        if (normPath.startsWith('/api/schemes/') && !normPath.includes('/assessment') && req.method === 'GET') {
+          const sId = normPath.replace('/api/schemes/', '');
+          const scheme = schemeStore.getSchemeById(sId);
+          if (scheme) {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: true, count: list.length, data: list }));
-            return;
+            res.end(JSON.stringify({ success: true, data: scheme }));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: false, error: 'Scheme not found' }));
           }
+          return;
+        }
 
-          if (normPath.startsWith('/api/schemes/') && !normPath.includes('/assessment') && req.method === 'GET') {
-            const sId = normPath.replace('/api/schemes/', '');
-            const scheme = schemeStore.getSchemeById(sId);
-            if (scheme) {
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: true, data: scheme }));
-            } else {
-              res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: false, error: 'Scheme not found' }));
+        if (normPath === '/api/schemes/assess' && req.method === 'POST') {
+          const profile = body || {};
+          const assessment = evaluateAssessmentForProfile(profile);
+          schemeStore.saveAssessment(assessment);
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: true, data: assessment }));
+          return;
+        }
+
+        if (normPath.startsWith('/api/schemes/assessment/') && normPath.endsWith('/clarify') && req.method === 'POST') {
+          const parts = normPath.split('/');
+          const aId = parts[4];
+          const assessment = schemeStore.getAssessmentById(aId);
+          if (assessment) {
+            const q = assessment.pending_clarifications.find(item => item.question_id === body.question_id);
+            if (q) {
+              q.patient_answer = body.answer;
+              if (body.answer === 'yes' && !assessment.patient_profile.existing_documents.includes(q.document_name)) {
+                assessment.patient_profile.existing_documents.push(q.document_name);
+              }
             }
-            return;
+            const updated = evaluateAssessmentForProfile(assessment.patient_profile);
+            updated.assessment_id = aId;
+            const reQ = updated.pending_clarifications.find(item => item.document_name === q?.document_name);
+            if (reQ) reQ.patient_answer = body.answer;
+            schemeStore.saveAssessment(updated);
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: true, data: updated }));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: false, error: 'Assessment not found' }));
           }
+          return;
+        }
 
-          if (normPath === '/api/schemes/assess' && req.method === 'POST') {
-            const profile = body || {};
-            const assessment = evaluateAssessmentForProfile(profile);
-            schemeStore.saveAssessment(assessment);
+        if (normPath.startsWith('/api/schemes/assessment/') && normPath.endsWith('/explain') && req.method === 'POST') {
+          const parts = normPath.split('/');
+          const aId = parts[4];
+          const sId = body.scheme_id;
+          const perspective = body.perspective || 'why_eligible';
+          const scheme = schemeStore.getSchemeById(sId);
+          const explanationText = perspective === 'why_eligible'
+            ? `You appear eligible for ${scheme?.scheme_name || sId} based on verified regional coverage, economic threshold compliance, and clinical procedure scheduling.`
+            : `Key precautions for ${scheme?.scheme_name || sId}: Ensure clinical cost estimates are countersigned by the attending superintendent and required identification cards are presented before hospital discharge.`;
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            success: true,
+            data: {
+              scheme_id: sId,
+              scheme_name: scheme?.scheme_name || sId,
+              perspective,
+              explanation: explanationText,
+              traceable_rule_checks: {},
+              key_highlights: ['✓ Territorial Eligibility Verified', '✓ Income Limit Adherence', '✓ Treatment Procedure Covered'],
+              cautions_or_actions: ['Ensure pre-authorization is confirmed before elective surgery']
+            }
+          }));
+          return;
+        }
+
+        if (normPath.startsWith('/api/schemes/assessment/') && req.method === 'GET') {
+          const aId = normPath.replace('/api/schemes/assessment/', '');
+          const assessment = schemeStore.getAssessmentById(aId);
+          if (assessment) {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ success: true, data: assessment }));
-            return;
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: false, error: 'Assessment not found' }));
           }
+          return;
+        }
 
-          if (normPath.startsWith('/api/schemes/assessment/') && normPath.endsWith('/clarify') && req.method === 'POST') {
-            const parts = normPath.split('/');
-            const aId = parts[4];
-            const assessment = schemeStore.getAssessmentById(aId);
-            if (assessment) {
-              const q = assessment.pending_clarifications.find(item => item.question_id === body.question_id);
-              if (q) {
-                q.patient_answer = body.answer;
-                if (body.answer === 'yes' && !assessment.patient_profile.existing_documents.includes(q.document_name)) {
-                  assessment.patient_profile.existing_documents.push(q.document_name);
-                }
-              }
-              // Re-evaluate to upgrade schemes immediately
-              const updated = evaluateAssessmentForProfile(assessment.patient_profile);
-              updated.assessment_id = aId;
-              const reQ = updated.pending_clarifications.find(item => item.document_name === q?.document_name);
-              if (reQ) reQ.patient_answer = body.answer;
-              schemeStore.saveAssessment(updated);
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: true, data: updated }));
-            } else {
-              res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: false, error: 'Assessment not found' }));
-            }
-            return;
-          }
-
-          if (normPath.startsWith('/api/schemes/assessment/') && normPath.endsWith('/explain') && req.method === 'POST') {
-            const parts = normPath.split('/');
-            const aId = parts[4];
-            const sId = body.scheme_id;
-            const perspective = body.perspective || 'why_eligible';
-            const scheme = schemeStore.getSchemeById(sId);
-            const explanationText = perspective === 'why_eligible'
-              ? `You appear eligible for ${scheme?.scheme_name || sId} based on verified regional coverage, economic threshold compliance, and clinical procedure scheduling.`
-              : `Key precautions for ${scheme?.scheme_name || sId}: Ensure clinical cost estimates are countersigned by the attending superintendent and required identification cards are presented before hospital discharge.`;
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({
-              success: true,
-              data: {
-                scheme_id: sId,
-                scheme_name: scheme?.scheme_name || sId,
-                perspective,
-                explanation: explanationText,
-                traceable_rule_checks: {},
-                key_highlights: ['✓ Territorial Eligibility Verified', '✓ Income Limit Adherence', '✓ Treatment Procedure Covered'],
-                cautions_or_actions: ['Ensure pre-authorization is confirmed before elective surgery']
-              }
-            }));
-            return;
-          }
-
-          if (normPath.startsWith('/api/schemes/assessment/') && req.method === 'GET') {
-            const aId = normPath.replace('/api/schemes/assessment/', '');
-            const assessment = schemeStore.getAssessmentById(aId);
-            if (assessment) {
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: true, data: assessment }));
-            } else {
-              res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-              res.end(JSON.stringify({ success: false, error: 'Assessment not found' }));
-            }
-            return;
-          }
-
-          if (normPath === '/api/admin/schemes/ingestion-log' && req.method === 'GET') {
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({
-              success: true,
-              count: 4,
-              data: [
-                { ingestion_id: 'ing_001', source_url: 'https://pmjay.gov.in', portal_name: 'National Health Authority (NHA) Central Portal', run_at: '2025-01-15 04:30:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
-                { ingestion_id: 'ing_002', source_url: 'https://main.mohfw.gov.in', portal_name: 'Ministry of Health and Family Welfare (MoHFW)', run_at: '2025-01-18 05:15:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
-                { ingestion_id: 'ing_003', source_url: 'https://www.jeevandayee.gov.in', portal_name: 'State Health Assurance Society, Govt of Maharashtra', run_at: '2025-01-14 06:00:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
-                { ingestion_id: 'ing_004', source_url: 'https://jharkhand.gov.in/health', portal_name: 'Department of Health & Family Welfare, Govt of Jharkhand', run_at: '2025-01-22 09:00:00', ingestion_status: 'success', staleness_status: 'verified_fresh' }
-              ]
-            }));
-            return;
-          }
+        if (normPath === '/api/admin/schemes/ingestion-log' && req.method === 'GET') {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            success: true,
+            count: 4,
+            data: [
+              { ingestion_id: 'ing_001', source_url: 'https://pmjay.gov.in', portal_name: 'National Health Authority (NHA) Central Portal', run_at: '2025-01-15 04:30:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
+              { ingestion_id: 'ing_002', source_url: 'https://main.mohfw.gov.in', portal_name: 'Ministry of Health and Family Welfare (MoHFW)', run_at: '2025-01-18 05:15:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
+              { ingestion_id: 'ing_003', source_url: 'https://www.jeevandayee.gov.in', portal_name: 'State Health Assurance Society, Govt of Maharashtra', run_at: '2025-01-14 06:00:00', ingestion_status: 'success', staleness_status: 'verified_fresh' },
+              { ingestion_id: 'ing_004', source_url: 'https://jharkhand.gov.in/health', portal_name: 'Department of Health & Family Welfare, Govt of Jharkhand', run_at: '2025-01-22 09:00:00', ingestion_status: 'success', staleness_status: 'verified_fresh' }
+            ]
+          }));
+          return;
         }
       }
 

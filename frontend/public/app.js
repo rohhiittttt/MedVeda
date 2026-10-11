@@ -642,16 +642,78 @@ function getRoleBadgeLabel(role) {
 }
 
 function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess, isPage = false }) {
-  const [activeTab, setActiveTab] = useState(initialTab);
-  // 6 Logins: 'patient', 'doctor', 'worker', 'facility', 'officer' (with facility having 3 subtypes: 'hospital', 'medicine', 'lab')
+  const [activeTab, setActiveTab] = useState(initialTab); // 'login' | 'prototype' | 'signup'
+  // 5 Top-Level Portals: 'patient', 'doctor', 'worker', 'facility', 'officer' (with facility having 3 subtypes: 'hospital', 'medicine', 'lab')
   const [selectedRole, setSelectedRole] = useState(
     ['patient', 'doctor', 'worker', 'facility', 'officer'].includes(initialRole) ? initialRole : 'patient'
   );
   const [facilitySubtype, setFacilitySubtype] = useState('hospital'); // 'hospital' | 'medicine' | 'lab'
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   const [loginForm, setLoginForm] = useState({
     identifier: initialIdentifier || '',
-    password: ''
+    password: '',
+    // Mandatory core display fields for Real Login
+    name: '',
+    phone: '',
+    district: 'Hazaribagh',
+    state: 'Jharkhand',
+    // Role-specific mandatory fields
+    age: '',
+    sex: 'female',
+    qualification: '',
+    specialty: '',
+    registrationNo: '',
+    facilityName: '',
+    ashaId: '',
+    subCenter: '',
+    phcName: '',
+    villageCatchment: '',
+    hospitalId: '',
+    tier: '',
+    medicalSuperintendent: '',
+    address: '',
+    drugLicenseNo: '',
+    ownerName: '',
+    pharmacistName: '',
+    labId: '',
+    director: '',
+    designation: '',
+    cadre: '',
+    // Optional fields (can be filled now or added later)
+    bloodGroup: '',
+    weight: '',
+    medicalHistoryText: '',
+    emergencyContact: '',
+    experienceYears: '',
+    department: '',
+    email: '',
+    nhmCode: '',
+    anmSupervisor: '',
+    medicalOfficer: '',
+    languages: '',
+    kitStatus: '',
+    pmjayCode: '',
+    accreditation: '',
+    emergencyHelpline: '',
+    totalBeds: '',
+    occupiedBeds: '',
+    icuTotal: '',
+    icuAvailable: '',
+    oxygenCapacity: '',
+    pharmacyId: '',
+    janAushadhiCode: '',
+    gstin: '',
+    timings: '',
+    coordinates: '',
+    nablRegNo: '',
+    analyzerStatus: '',
+    turnaround: '',
+    headquarters: '',
+    jurisdictionArea: '',
+    population: '',
+    blocksCount: '',
+    facilitiesCount: ''
   });
 
   const [signUpForm, setSignUpForm] = useState({
@@ -660,163 +722,270 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     abhaId: '',
     role: 'patient',
     district: 'Hazaribagh',
-    password: ''
+    state: 'Jharkhand',
+    password: '',
+    age: '',
+    sex: 'female',
+    qualification: '',
+    specialty: '',
+    registrationNo: '',
+    facilityName: '',
+    ashaId: '',
+    subCenter: '',
+    phcName: '',
+    villageCatchment: '',
+    hospitalId: '',
+    tier: '',
+    medicalSuperintendent: '',
+    address: '',
+    drugLicenseNo: '',
+    ownerName: '',
+    pharmacistName: '',
+    labId: '',
+    director: '',
+    designation: '',
+    cadre: ''
   });
 
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
+  // Auto-populate saved Real Account if identifier matches a previously registered/logged-in real user
+  const handleIdentifierChange = (val) => {
+    let nextForm = { ...loginForm, identifier: val };
+    try {
+      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
+      const key = val.trim().toLowerCase();
+      if (key && savedMap[key]) {
+        const savedUser = savedMap[key];
+        nextForm = {
+          ...nextForm,
+          name: savedUser.name || nextForm.name,
+          phone: savedUser.phone || nextForm.phone,
+          district: savedUser.district || nextForm.district,
+          state: savedUser.state || nextForm.state
+        };
+      }
+    } catch (e) {}
+    setLoginForm(nextForm);
+  };
+
+  // PROTOTYPE DEMO LOGIN: Explicitly sets isPrototype: true and loads rich demonstration dataset
   const handleQuickLogin = (name, role, abhaId, extraLabel, extraProps = {}) => {
     const label = extraLabel || getRoleBadgeLabel(role);
-    setAuthSuccessMsg(`Logged in as ${name} (${label})`);
+    setAuthSuccessMsg(`Prototype Demo Mode: Logged in as ${name} (${label})`);
     setTimeout(() => {
       onAuthSuccess({
         name,
         role,
         abhaId,
         roleLabel: label,
+        isPrototype: true,
+        accountType: 'prototype',
         ...extraProps
       });
-    }, 400);
+    }, 350);
   };
 
+  const getEffectiveRoleInfo = (portalRole, subtype) => {
+    if (portalRole === 'facility') {
+      if (subtype === 'medicine') return { effectiveRole: 'shop_owner', label: 'Medicine Shop' };
+      if (subtype === 'lab') return { effectiveRole: 'lab_staff', label: 'Diagnostic Lab' };
+      return { effectiveRole: 'facility', label: 'Hospital Facility' };
+    }
+    if (portalRole === 'officer') {
+      return { effectiveRole: 'admin', label: 'District Health Administrator' };
+    }
+    return { effectiveRole: portalRole, label: getRoleBadgeLabel(portalRole) };
+  };
+
+  // REAL ACCOUNT LOGIN: Sets isPrototype: false and NEVER injects fake prototype data
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    let effectiveRole = selectedRole;
-    let label = getRoleBadgeLabel(selectedRole);
+    const { effectiveRole, label } = getEffectiveRoleInfo(selectedRole, facilitySubtype);
+    const rawId = loginForm.identifier.trim();
+    const cleanName = loginForm.name.trim() || (rawId ? rawId.split('@')[0] : 'Authenticated User');
+    const abhaId = rawId.includes('@') ? rawId : `${rawId.replace(/\s+/g, '.').toLowerCase()}@abdm`;
 
-    if (selectedRole === 'facility') {
-      if (facilitySubtype === 'medicine') {
-        effectiveRole = 'shop_owner';
-        label = 'Medicine Shop';
-      } else if (facilitySubtype === 'lab') {
-        effectiveRole = 'lab_staff';
-        label = 'Diagnostic Lab';
-      } else {
-        effectiveRole = 'facility';
-        label = 'Hospital Facility';
+    // Check if an existing real profile was saved under this identifier
+    let existingCustomData = {};
+    try {
+      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
+      const key = rawId.toLowerCase();
+      if (key && savedMap[key] && savedMap[key].customData) {
+        existingCustomData = savedMap[key].customData;
       }
-    } else if (selectedRole === 'officer') {
-      effectiveRole = 'admin';
-      label = 'District Health Administrator';
-    }
+    } catch (err) {}
 
-    const defaultNames = {
-      patient: 'Ramesh Mahto',
-      doctor: 'Dr. Priya Sharma',
-      worker: 'Anita Devi',
-      facility: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-      shop_owner: 'Katkamsandi Jan Aushadhi',
-      lab_staff: 'District Diagnostic Lab',
-      admin: 'Dr. S. K. Verma'
+    const realUserPayload = {
+      name: cleanName,
+      role: effectiveRole,
+      abhaId,
+      roleLabel: label,
+      isPrototype: false,
+      accountType: 'real',
+      district: loginForm.district.trim() || 'Hazaribagh',
+      state: loginForm.state.trim() || 'Jharkhand',
+      phone: loginForm.phone.trim() || '',
+      email: loginForm.email.trim() || (rawId.includes('@') ? rawId : ''),
+      customData: existingCustomData
     };
 
-    const rawId = loginForm.identifier.trim();
-    const name = rawId
-      ? (rawId.split('@')[0].charAt(0).toUpperCase() + rawId.split('@')[0].slice(1))
-      : defaultNames[effectiveRole] || 'Ramesh Mahto';
+    if (effectiveRole === 'patient') {
+      realUserPayload.age = loginForm.age ? Number(loginForm.age) : '';
+      realUserPayload.sex = loginForm.sex || 'female';
+      realUserPayload.bloodGroup = loginForm.bloodGroup.trim() || '';
+      realUserPayload.weight = loginForm.weight.trim() || '';
+      realUserPayload.emergencyContact = loginForm.emergencyContact.trim() || '';
+      realUserPayload.medicalHistory = loginForm.medicalHistoryText
+        ? loginForm.medicalHistoryText.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+      if (loginForm.weight.trim()) {
+        realUserPayload.customData = {
+          ...realUserPayload.customData,
+          vitals: {
+            ...(realUserPayload.customData?.vitals || {}),
+            weight: loginForm.weight.trim()
+          }
+        };
+      }
+    } else if (effectiveRole === 'doctor') {
+      realUserPayload.doctorName = cleanName;
+      realUserPayload.qualification = loginForm.qualification.trim();
+      realUserPayload.specialty = loginForm.specialty.trim();
+      realUserPayload.registrationNo = loginForm.registrationNo.trim();
+      realUserPayload.facility = loginForm.facilityName.trim();
+      realUserPayload.department = loginForm.department.trim() || loginForm.specialty.trim();
+      realUserPayload.designation = loginForm.designation.trim() || '';
+      realUserPayload.experienceYears = loginForm.experienceYears.trim() || '';
+      realUserPayload.dutyStatus = 'On Duty • Authenticated Real Clinician';
+    } else if (effectiveRole === 'worker') {
+      realUserPayload.ashaId = loginForm.ashaId.trim();
+      realUserPayload.subCenter = loginForm.subCenter.trim();
+      realUserPayload.phcName = loginForm.phcName.trim();
+      realUserPayload.villageCatchment = loginForm.villageCatchment.trim();
+      realUserPayload.nhmCode = loginForm.nhmCode.trim() || '';
+      realUserPayload.designation = loginForm.designation.trim() || 'Accredited Social Health Activist (ASHA)';
+      realUserPayload.anmSupervisor = loginForm.anmSupervisor.trim() || '';
+      realUserPayload.medicalOfficer = loginForm.medicalOfficer.trim() || '';
+      realUserPayload.experienceYears = loginForm.experienceYears.trim() || '';
+      realUserPayload.bloodGroup = loginForm.bloodGroup.trim() || '';
+      realUserPayload.languages = loginForm.languages.trim() || '';
+      realUserPayload.kitStatus = loginForm.kitStatus.trim() || '';
+    } else if (effectiveRole === 'facility') {
+      realUserPayload.facilitySubtype = 'hospital';
+      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
+      realUserPayload.name = realUserPayload.facilityName;
+      realUserPayload.hospitalId = loginForm.hospitalId.trim();
+      realUserPayload.tier = loginForm.tier.trim();
+      realUserPayload.designation = loginForm.tier.trim();
+      realUserPayload.medicalSuperintendent = loginForm.medicalSuperintendent.trim();
+      realUserPayload.address = loginForm.address.trim();
+      realUserPayload.pmjayCode = loginForm.pmjayCode.trim() || '';
+      realUserPayload.accreditation = loginForm.accreditation.trim() || '';
+      realUserPayload.emergencyHelpline = loginForm.emergencyHelpline.trim() || loginForm.phone.trim();
+      realUserPayload.totalBeds = loginForm.totalBeds !== '' ? Number(loginForm.totalBeds) : null;
+      realUserPayload.occupiedBeds = loginForm.occupiedBeds !== '' ? Number(loginForm.occupiedBeds) : null;
+      realUserPayload.icuTotal = loginForm.icuTotal !== '' ? Number(loginForm.icuTotal) : null;
+      realUserPayload.icuAvailable = loginForm.icuAvailable !== '' ? Number(loginForm.icuAvailable) : null;
+      realUserPayload.oxygenCapacity = loginForm.oxygenCapacity.trim() || '';
+    } else if (effectiveRole === 'shop_owner') {
+      realUserPayload.facilitySubtype = 'medicine';
+      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
+      realUserPayload.name = realUserPayload.facilityName;
+      realUserPayload.drugLicenseNo = loginForm.drugLicenseNo.trim();
+      realUserPayload.ownerName = loginForm.ownerName.trim() || cleanName;
+      realUserPayload.pharmacistName = loginForm.pharmacistName.trim();
+      realUserPayload.address = loginForm.address.trim();
+      realUserPayload.pharmacyId = loginForm.pharmacyId.trim() || '';
+      realUserPayload.janAushadhiCode = loginForm.janAushadhiCode.trim() || '';
+      realUserPayload.gstin = loginForm.gstin.trim() || '';
+      realUserPayload.timings = loginForm.timings.trim() || '';
+      realUserPayload.coordinates = loginForm.coordinates.trim() || '';
+    } else if (effectiveRole === 'lab_staff') {
+      realUserPayload.facilitySubtype = 'lab';
+      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
+      realUserPayload.name = realUserPayload.facilityName;
+      realUserPayload.labId = loginForm.labId.trim();
+      realUserPayload.director = loginForm.director.trim() || cleanName;
+      realUserPayload.address = loginForm.address.trim();
+      realUserPayload.nablRegNo = loginForm.nablRegNo.trim() || '';
+      realUserPayload.analyzerStatus = loginForm.analyzerStatus.trim() || '';
+      realUserPayload.turnaround = loginForm.turnaround.trim() || '';
+    } else if (effectiveRole === 'admin') {
+      realUserPayload.designation = loginForm.designation.trim();
+      realUserPayload.cadre = loginForm.cadre.trim();
+      realUserPayload.headquarters = loginForm.headquarters.trim() || '';
+      realUserPayload.jurisdictionArea = loginForm.jurisdictionArea.trim() || '';
+      realUserPayload.population = loginForm.population.trim() || '';
+      realUserPayload.blocksCount = loginForm.blocksCount.trim() || '';
+      realUserPayload.facilitiesCount = loginForm.facilitiesCount.trim() || '';
+    }
 
-    const abhaId = rawId
-      ? (rawId.includes('@') ? rawId : `${rawId}@abdm`)
-      : effectiveRole === 'facility'
-      ? 'admin.sbmch@abdm'
-      : effectiveRole === 'shop_owner'
-      ? 'pharmacy.katkamsandi@abdm'
-      : effectiveRole === 'worker'
-      ? 'anita.devi.asha@abdm'
-      : `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`;
+    try {
+      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
+      savedMap[rawId.toLowerCase()] = realUserPayload;
+      savedMap[abhaId.toLowerCase()] = realUserPayload;
+      localStorage.setItem('medveda_real_accounts_v1', JSON.stringify(savedMap));
+    } catch (err) {}
 
-    const ashaProfile = effectiveRole === 'worker' ? {
-      ashaId: 'ASHA-JH-HZB-0142',
-      nhmCode: 'NHM-JH-ASHA-2019-084',
-      subCenter: 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)',
-      phcName: 'PHC Katkamsandi, Block Katkamsandi, Hazaribagh',
-      villageCatchment: 'Katkamsandi, Pelawal & Dhengura Gram Panchayats (1,420 Households)',
-      anmSupervisor: 'Smt. Rekha Tirkey, ANM (Reg: JH-ANM-1108)',
-      medicalOfficer: 'Dr. Priya Sharma, MO-IC (PHC Katkamsandi)',
-      experienceYears: '7 Years Active Field Service (Certified 2019)',
-      serviceRating: '4.9 / 5.0',
-      bloodGroup: 'O+ve',
-      languages: 'Hindi, Khortha, Santhali & English',
-      kitStatus: 'HBNC Kit, Digital BP, Pulse Oximeter & Glucometer Verified'
-    } : {};
-
-    const hospitalProfile = effectiveRole === 'facility' ? {
-      facilitySubtype: 'hospital',
-      facilityName: rawId ? name : 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-      hospitalId: 'HFR-IN-JH-2026-0104',
-      pmjayCode: 'PMJAY-JH-HAZ-0014',
-      tier: 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)',
-      medicalSuperintendent: 'Dr. R. K. Mishra, MS (Ortho), Chief Medical Superintendent',
-      accreditation: 'NABH Accredited & ABDM M1-M3 Verified',
-      address: 'NH-33, Ranchi-Patna Highway, Hazaribagh, Jharkhand - 825301',
-      phone: '+91-6546-263108',
-      emergencyHelpline: '108 / +91-6546-263199 (24x7 Trauma Control)',
-      email: 'cms.sbmch.hazaribagh@jharkhand.gov.in',
-      ownership: 'Department of Health, Medical Education & Family Welfare, Govt. of Jharkhand',
-      totalBeds: 500,
-      occupiedBeds: 432,
-      icuTotal: 42,
-      icuAvailable: 18,
-      emergencyBays: '24 / 24 Operational',
-      oxygenCapacity: '2 PSA Plants (2,000 LPM) + 12 KL LMO Tank'
-    } : {};
-
-    const pharmacyProfile = effectiveRole === 'shop_owner' ? {
-      facilitySubtype: 'medicine',
-      shopId: 'shop_01',
-      facilityName: rawId ? name : 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi',
-      pharmacyId: 'HFR-PH-JH-2026-0842',
-      drugLicenseNo: 'JH-HAZ-20B/21B-2024-0891',
-      janAushadhiCode: 'PMBJK-JH-HAZ-0412',
-      gstin: '20AABCP4821M1Z5',
-      ownerName: 'Rajesh Kumar Barnwal',
-      pharmacistName: 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)',
-      timings: '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Dispensing Counter',
-      address: 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319',
-      coordinates: '23.9980° N, 85.3450° E',
-      phone: '+91-94311-88201',
-      email: 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in',
-      coldChainStatus: '2.0°C – 8.0°C ILR Active (4.4°C Verified)'
-    } : {};
-
-    setAuthSuccessMsg(`Welcome, ${name}! (${label})`);
+    setAuthSuccessMsg(`Real Session Authenticated: ${realUserPayload.name} (${label})`);
     setTimeout(() => {
-      onAuthSuccess({
-        name,
-        role: effectiveRole,
-        abhaId,
-        roleLabel: label,
-        designation: effectiveRole === 'admin'
-          ? 'District Health Administrator & Chief Medical Officer'
-          : effectiveRole === 'facility'
-          ? 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)'
-          : effectiveRole === 'shop_owner'
-          ? 'Licensed PMBJK Jan Aushadhi & Retail Medical Store'
-          : effectiveRole === 'worker'
-          ? 'Senior Accredited Social Health Activist (ASHA) • NHM Jharkhand'
-          : undefined,
-        district: 'Hazaribagh',
-        state: 'Jharkhand',
-        phone: effectiveRole === 'admin' ? '+91-6546-264210' : effectiveRole === 'facility' ? '+91-6546-263108' : effectiveRole === 'shop_owner' ? '+91-94311-88201' : effectiveRole === 'worker' ? '+91-94311-58201' : undefined,
-        email: effectiveRole === 'admin' ? (rawId.includes('@') ? rawId : 'dho.hazaribagh@gov.in') : effectiveRole === 'facility' ? 'cms.sbmch.hazaribagh@jharkhand.gov.in' : effectiveRole === 'shop_owner' ? 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in' : effectiveRole === 'worker' ? 'anita.devi.asha@nhm.jharkhand.gov.in' : undefined,
-        ...ashaProfile,
-        ...hospitalProfile,
-        ...pharmacyProfile
-      });
-    }, 400);
+      onAuthSuccess(realUserPayload);
+    }, 350);
   };
 
   const handleSignUpSubmit = (e) => {
     e.preventDefault();
-    setAuthSuccessMsg(`ABDM Account registered for ${signUpForm.name}!`);
+    const roleLabel = getRoleBadgeLabel(signUpForm.role);
+    const abhaId = signUpForm.abhaId.trim() || `${signUpForm.mobile.trim()}@abdm`;
+    const newRealUser = {
+      name: signUpForm.name.trim(),
+      role: signUpForm.role,
+      abhaId,
+      roleLabel,
+      isPrototype: false,
+      accountType: 'real',
+      phone: signUpForm.mobile.trim(),
+      district: signUpForm.district || 'Hazaribagh',
+      state: signUpForm.state || 'Jharkhand',
+      age: signUpForm.age ? Number(signUpForm.age) : '',
+      sex: signUpForm.sex || 'female',
+      qualification: signUpForm.qualification.trim(),
+      specialty: signUpForm.specialty.trim(),
+      registrationNo: signUpForm.registrationNo.trim(),
+      facility: signUpForm.facilityName.trim(),
+      facilityName: signUpForm.facilityName.trim() || signUpForm.name.trim(),
+      ashaId: signUpForm.ashaId.trim(),
+      subCenter: signUpForm.subCenter.trim(),
+      phcName: signUpForm.phcName.trim(),
+      villageCatchment: signUpForm.villageCatchment.trim(),
+      hospitalId: signUpForm.hospitalId.trim(),
+      tier: signUpForm.tier.trim(),
+      medicalSuperintendent: signUpForm.medicalSuperintendent.trim(),
+      address: signUpForm.address.trim(),
+      drugLicenseNo: signUpForm.drugLicenseNo.trim(),
+      ownerName: signUpForm.ownerName.trim() || signUpForm.name.trim(),
+      pharmacistName: signUpForm.pharmacistName.trim(),
+      labId: signUpForm.labId.trim(),
+      director: signUpForm.director.trim() || signUpForm.name.trim(),
+      designation: signUpForm.designation.trim(),
+      cadre: signUpForm.cadre.trim(),
+      customData: {}
+    };
+
+    try {
+      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
+      savedMap[abhaId.toLowerCase()] = newRealUser;
+      if (signUpForm.mobile.trim()) {
+        savedMap[signUpForm.mobile.trim().toLowerCase()] = newRealUser;
+      }
+      localStorage.setItem('medveda_real_accounts_v1', JSON.stringify(savedMap));
+    } catch (err) {}
+
+    setAuthSuccessMsg(`Real ABDM Account registered for ${newRealUser.name}!`);
     setTimeout(() => {
-      onAuthSuccess({
-        name: signUpForm.name,
-        role: signUpForm.role,
-        abhaId: signUpForm.abhaId || `${signUpForm.mobile}@abdm`,
-        roleLabel: getRoleBadgeLabel(signUpForm.role)
-      });
-    }, 400);
+      onAuthSuccess(newRealUser);
+    }, 350);
   };
 
   const LOGIN_PORTALS = [
@@ -852,21 +1021,23 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     }
   ];
 
+  const activeEffectiveRole = getEffectiveRoleInfo(selectedRole, facilitySubtype).effectiveRole;
+
   return (
-    <div className={isPage ? "w-full max-w-xl sm:max-w-2xl mx-auto my-2" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"}>
-      <div className={`bg-white rounded-xl w-full p-5 sm:p-7 border border-slate-200 space-y-4 my-4 ${isPage ? 'shadow-xs' : 'max-w-xl sm:max-w-2xl shadow-xs'}`}>
+    <div className={isPage ? "w-full max-w-2xl sm:max-w-3xl mx-auto my-2" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"}>
+      <div className={`bg-white rounded-xl w-full p-5 sm:p-7 border border-slate-200 space-y-4 my-4 ${isPage ? 'shadow-xs' : 'max-w-2xl sm:max-w-3xl shadow-xs'}`}>
         {/* Modal Header */}
         <div className="flex items-start justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <MedVedaLogo className="h-10 w-10" />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-lg font-bold text-slate-900 leading-tight">MedVeda Portal Access</h3>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded text-slate-600 bg-slate-100 border border-slate-200" title="Available access pathways for all health system stakeholders">
-                  6 Role Portals
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded text-[#0b2b82] bg-blue-50 border border-blue-200">
+                  Real Logins &amp; Prototype Demo Split
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-normal">National Digital Health Mission &bull; ABDM Integrated Multi-Role Security</p>
+              <p className="text-[11px] text-slate-500 font-normal">National Digital Health Mission &bull; Real Account Onboarding vs. Prototype Evaluation</p>
             </div>
           </div>
           {onClose && (
@@ -885,29 +1056,42 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
           )}
         </div>
 
-        {/* Tab Switcher: Log In vs Sign Up */}
-        <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-semibold">
+        {/* 3-Way Tab Switcher: Real Login vs Prototype Demo Logins vs Register New Account */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setActiveTab('login')}
-            className={`py-2 rounded-md transition-all ${
+            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'login'
-                ? 'bg-[#0b2b82] text-white shadow-xs'
+                ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Log In to Portal
+            <span className={`w-2 h-2 rounded-full ${activeTab === 'login' ? 'bg-emerald-400' : 'bg-emerald-600'}`}></span>
+            <span>Real Account Login</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('prototype')}
+            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'prototype'
+                ? 'bg-amber-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${activeTab === 'prototype' ? 'bg-white' : 'bg-amber-500'}`}></span>
+            <span>Prototype Demo Logins</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('signup')}
-            className={`py-2 rounded-md transition-all ${
+            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeTab === 'signup'
-                ? 'bg-[#0b2b82] text-white shadow-xs'
+                ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Register New ABHA Account
+            <span>Register Real ABHA</span>
           </button>
         </div>
 
@@ -921,200 +1105,943 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
             <p className="text-sm font-bold text-slate-900">{authSuccessMsg}</p>
             <p className="text-xs text-slate-500">Connecting authenticated session...</p>
           </div>
-        ) : activeTab === 'login' ? (
-          /* ================= LOGIN SECTION: 6 LOGINS ================= */
+        ) : (
           <div className="space-y-4">
-            {/* 1. SELECT LOGIN PORTAL (5 Buttons, with Facility having 3 Subtypes) */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
-                Select Login Portal Category
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {LOGIN_PORTALS.map((portal) => {
-                  const isSelected = selectedRole === portal.id;
-                  return (
-                    <button
-                      key={portal.id}
-                      type="button"
-                      onClick={() => setSelectedRole(portal.id)}
-                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer relative ${
-                        isSelected
-                          ? 'border-[#0b2b82] bg-slate-50 shadow-2xs'
-                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600'}`}>
-                          <ModuleIcon id={portal.id} className="w-3.5 h-3.5" />
+            {/* ROLE SELECTOR (Shared by Real Login & Prototype Demo Logins) */}
+            {(activeTab === 'login' || activeTab === 'prototype') && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+                    1. Select Role Portal Category
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {LOGIN_PORTALS.map((portal) => {
+                      const isSelected = selectedRole === portal.id;
+                      return (
+                        <button
+                          key={portal.id}
+                          type="button"
+                          onClick={() => setSelectedRole(portal.id)}
+                          className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer relative ${
+                            isSelected
+                              ? 'border-[#0b2b82] bg-slate-50 shadow-2xs'
+                              : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600'}`}>
+                              <ModuleIcon id={portal.id} className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className={`text-xs font-bold block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
+                                {portal.title}
+                              </span>
+                              <span className="text-[10px] text-slate-500 block truncate leading-tight">
+                                {portal.tagline}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* IF FACILITY SELECTED: SHOW THE 3 SUBTYPES (HOSPITALS, MEDICINE SHOPS, DIAGNOSTIC LABS) */}
+                {selectedRole === 'facility' && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <ModuleIcon id="facility" className="w-3.5 h-3.5 text-[#0b2b82]" />
+                        <span>Select Facility Type (3 Categories)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-semibold">Facility Grid</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      {[
+                        { id: 'hospital', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
+                        { id: 'medicine', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
+                        { id: 'lab', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
+                      ].map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => setFacilitySubtype(sub.id)}
+                          className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                            facilitySubtype === sub.id
+                              ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="mb-1"><ModuleIcon id={sub.id} className="w-3.5 h-3.5" /></div>
+                          <div className="font-bold text-[11px] leading-tight truncate">{sub.label}</div>
+                          <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-slate-200' : 'text-slate-500'}`}>{sub.sub}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB A: REAL ACCOUNT LOGIN (NO FAKE DATA, COLLECTS MANDATORY + OPTIONAL)   */}
+            {/* ========================================================================= */}
+            {activeTab === 'login' && (
+              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-4">
+                <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-emerald-200/80">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white uppercase tracking-wider">
+                        Real Account Mode
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        {activeEffectiveRole === 'patient' && 'Patient Real Login & Profile Intake'}
+                        {activeEffectiveRole === 'doctor' && 'Doctor Real Clinical Login & Credentials'}
+                        {activeEffectiveRole === 'worker' && 'ASHA Worker Real Field Login & Beat Profile'}
+                        {activeEffectiveRole === 'facility' && 'Hospital Facility Real Login & HFR Profile'}
+                        {activeEffectiveRole === 'shop_owner' && 'Medicine Shop Real Login & Pharmacy License'}
+                        {activeEffectiveRole === 'lab_staff' && 'Diagnostic Lab Real Login & Pathology Profile'}
+                        {activeEffectiveRole === 'admin' && 'District Health Administrator Real Officer Login'}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1">
+                      Clean real-user workspace with <strong>zero fake pre-populated data</strong>. Mandatory profile fields are collected below; optional details can be filled now or added later inside your dashboard.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-xs">
+                  {/* SECTION 1: MANDATORY CREDENTIALS & CORE PROFILE */}
+                  <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-[#0b2b82]">
+                        Mandatory Profile &amp; Login Credentials *
+                      </span>
+                      <span className="text-[10px] font-semibold text-rose-600">* Required for Display</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          {activeEffectiveRole === 'facility'
+                            ? 'Hospital / Facility Legal Name *'
+                            : activeEffectiveRole === 'shop_owner'
+                            ? 'Pharmacy / Medicine Shop Name *'
+                            : activeEffectiveRole === 'lab_staff'
+                            ? 'Diagnostic Lab Name *'
+                            : 'Full Legal Name *'}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder={
+                            activeEffectiveRole === 'facility'
+                              ? 'e.g. City General Hospital'
+                              : activeEffectiveRole === 'shop_owner'
+                              ? 'e.g. LifeCare Medico'
+                              : activeEffectiveRole === 'lab_staff'
+                              ? 'e.g. Apex Pathology Center'
+                              : 'Enter your full name'
+                          }
+                          value={
+                            ['facility', 'shop_owner', 'lab_staff'].includes(activeEffectiveRole)
+                              ? loginForm.facilityName
+                              : loginForm.name
+                          }
+                          onChange={(e) =>
+                            ['facility', 'shop_owner', 'lab_staff'].includes(activeEffectiveRole)
+                              ? setLoginForm({ ...loginForm, facilityName: e.target.value, name: e.target.value })
+                              : setLoginForm({ ...loginForm, name: e.target.value })
+                          }
+                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          {activeEffectiveRole === 'patient'
+                            ? 'ABHA ID / Mobile Username *'
+                            : activeEffectiveRole === 'doctor'
+                            ? 'Doctor ABHA ID / Official Email *'
+                            : activeEffectiveRole === 'worker'
+                            ? 'ASHA ABHA Handle / Mobile *'
+                            : activeEffectiveRole === 'admin'
+                            ? 'Official Govt Email / Officer ID *'
+                            : 'Portal Handle / Official Email *'}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. username@abdm or mobile"
+                          value={loginForm.identifier}
+                          onChange={(e) => handleIdentifierChange(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Contact Mobile / Switchboard *</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="e.g. +91-9876543210"
+                          value={loginForm.phone}
+                          onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value })}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">District *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="District"
+                            value={loginForm.district}
+                            onChange={(e) => setLoginForm({ ...loginForm, district: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
                         </div>
-                        <div className="min-w-0">
-                          <span className={`text-xs font-bold block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
-                            {portal.title}
-                          </span>
-                          <span className="text-[10px] text-slate-500 block truncate leading-tight">
-                            {portal.tagline}
-                          </span>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">State *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="State"
+                            value={loginForm.state}
+                            onChange={(e) => setLoginForm({ ...loginForm, state: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
                         </div>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                    </div>
 
-            {/* IF FACILITY SELECTED: SHOW THE 3 TYPES (HOSPITALS, MEDICINE SHOPS, DIAGNOSTIC LABS) */}
-            {selectedRole === 'facility' && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <ModuleIcon id="facility" className="w-3.5 h-3.5 text-[#0b2b82]" />
-                    <span>Select Facility Type (3 Categories)</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-semibold">Facility Grid</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  {[
-                    { id: 'hospital', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
-                    { id: 'medicine', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
-                    { id: 'lab', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
-                  ].map((sub) => (
+                    {/* ROLE-SPECIFIC MANDATORY FIELDS */}
+                    {activeEffectiveRole === 'patient' && (
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Age (Years) *</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="120"
+                            required
+                            placeholder="e.g. 34"
+                            value={loginForm.age}
+                            onChange={(e) => setLoginForm({ ...loginForm, age: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Biological Sex *</label>
+                          <select
+                            required
+                            value={loginForm.sex}
+                            onChange={(e) => setLoginForm({ ...loginForm, sex: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          >
+                            <option value="female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'doctor' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Medical Qualification *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. MBBS, MD (General Medicine)"
+                            value={loginForm.qualification}
+                            onChange={(e) => setLoginForm({ ...loginForm, qualification: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Primary Specialty *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Internal Medicine / Cardiology"
+                            value={loginForm.specialty}
+                            onChange={(e) => setLoginForm({ ...loginForm, specialty: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Medical Council Reg. No. *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. MCI-2021-99412"
+                            value={loginForm.registrationNo}
+                            onChange={(e) => setLoginForm({ ...loginForm, registrationNo: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Primary Hospital / PHC Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. District Sadar Hospital"
+                            value={loginForm.facilityName}
+                            onChange={(e) => setLoginForm({ ...loginForm, facilityName: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'worker' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Official ASHA Worker ID *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. ASHA-JH-0412"
+                            value={loginForm.ashaId}
+                            onChange={(e) => setLoginForm({ ...loginForm, ashaId: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Assigned Sub-Center *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Sub-Center Pelawal"
+                            value={loginForm.subCenter}
+                            onChange={(e) => setLoginForm({ ...loginForm, subCenter: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Assigned PHC / CHC Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. PHC Katkamsandi"
+                            value={loginForm.phcName}
+                            onChange={(e) => setLoginForm({ ...loginForm, phcName: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Village Catchment Area *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Pelawal Gram Panchayat"
+                            value={loginForm.villageCatchment}
+                            onChange={(e) => setLoginForm({ ...loginForm, villageCatchment: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'facility' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">ABDM HFR Hospital ID *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. HFR-IN-JH-2026-0511"
+                            value={loginForm.hospitalId}
+                            onChange={(e) => setLoginForm({ ...loginForm, hospitalId: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Hospital Tier / Category *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Secondary District Hospital / CHC"
+                            value={loginForm.tier}
+                            onChange={(e) => setLoginForm({ ...loginForm, tier: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Medical Superintendent Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Dr. M. K. Prasad"
+                            value={loginForm.medicalSuperintendent}
+                            onChange={(e) => setLoginForm({ ...loginForm, medicalSuperintendent: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Hospital Street Address *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Full street address & PIN"
+                            value={loginForm.address}
+                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'shop_owner' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Drug License No. (Form 20B/21B) *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. JH-HAZ-20B-2025-0192"
+                            value={loginForm.drugLicenseNo}
+                            onChange={(e) => setLoginForm({ ...loginForm, drugLicenseNo: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Proprietor / Shop Owner Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Amit Kumar"
+                            value={loginForm.ownerName}
+                            onChange={(e) => setLoginForm({ ...loginForm, ownerName: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Registered Pharmacist Name &amp; Reg *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Neha Verma, B.Pharm"
+                            value={loginForm.pharmacistName}
+                            onChange={(e) => setLoginForm({ ...loginForm, pharmacistName: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Shop Address *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Market road, town & PIN"
+                            value={loginForm.address}
+                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'lab_staff' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Lab Registration / HFR ID *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. LAB-JH-2026-0108"
+                            value={loginForm.labId}
+                            onChange={(e) => setLoginForm({ ...loginForm, labId: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Chief Pathologist / Lab Director *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Dr. S. K. Sen, MD (Pathology)"
+                            value={loginForm.director}
+                            onChange={(e) => setLoginForm({ ...loginForm, director: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="font-bold text-slate-700 block mb-1">Diagnostic Lab Address *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Lab street address, landmark & PIN"
+                            value={loginForm.address}
+                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {activeEffectiveRole === 'admin' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Official Designation *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. District Health Officer / Civil Surgeon"
+                            value={loginForm.designation}
+                            onChange={(e) => setLoginForm({ ...loginForm, designation: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Service Cadre &amp; Officer ID *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. State Health Service Class-I (ID: DHO-09)"
+                            value={loginForm.cadre}
+                            onChange={(e) => setLoginForm({ ...loginForm, cadre: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Password / Secure OTP *</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SECTION 2: OPTIONAL PROFILE & DISPLAY DETAILS (CAN BE ADDED NOW OR LATER) */}
+                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                     <button
-                      key={sub.id}
                       type="button"
-                      onClick={() => setFacilitySubtype(sub.id)}
-                      className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                        facilitySubtype === sub.id
-                          ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                      }`}
+                      onClick={() => setShowOptionalFields(!showOptionalFields)}
+                      className="w-full p-3 text-left flex items-center justify-between bg-slate-50 hover:bg-slate-100/80 transition-colors cursor-pointer"
                     >
-                      <div className="mb-1"><ModuleIcon id={sub.id} className="w-3.5 h-3.5" /></div>
-                      <div className="font-bold text-[11px] leading-tight truncate">{sub.label}</div>
-                      <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-slate-200' : 'text-slate-500'}`}>{sub.sub}</div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-800 block">
+                          Optional Profile &amp; Operational Details (Add Now or Later in Portal)
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          If skipped now, you will see &ldquo;+ Add Data&rdquo; buttons inside your role dashboard.
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-[#0b2b82]">
+                        {showOptionalFields ? 'Hide Optional ▲' : 'Add Optional Details ▼'}
+                      </span>
                     </button>
-                  ))}
+
+                    {showOptionalFields && (
+                      <div className="p-3.5 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {activeEffectiveRole === 'patient' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Blood Group (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. O+ve, B+ve"
+                                value={loginForm.bloodGroup}
+                                onChange={(e) => setLoginForm({ ...loginForm, bloodGroup: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Body Weight in kg (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 64"
+                                value={loginForm.weight}
+                                onChange={(e) => setLoginForm({ ...loginForm, weight: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="font-semibold text-slate-600 block mb-1">Known Medical Conditions / Allergies (Comma-separated)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Hypertension, Penicillin Allergy"
+                                value={loginForm.medicalHistoryText}
+                                onChange={(e) => setLoginForm({ ...loginForm, medicalHistoryText: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'doctor' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Designation / Role Title (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Senior Consultant Physician"
+                                value={loginForm.designation}
+                                onChange={(e) => setLoginForm({ ...loginForm, designation: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Years of Clinical Experience (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 8 Years Experience"
+                                value={loginForm.experienceYears}
+                                onChange={(e) => setLoginForm({ ...loginForm, experienceYears: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Department / Unit (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. General Medicine OPD"
+                                value={loginForm.department}
+                                onChange={(e) => setLoginForm({ ...loginForm, department: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Official Email (Optional)</label>
+                              <input
+                                type="email"
+                                placeholder="e.g. doctor@hospital.org"
+                                value={loginForm.email}
+                                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'worker' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">NHM Worker Code (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. NHM-JH-ASHA-2022-11"
+                                value={loginForm.nhmCode}
+                                onChange={(e) => setLoginForm({ ...loginForm, nhmCode: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Supervising ANM Name (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Smt. Rekha Tirkey"
+                                value={loginForm.anmSupervisor}
+                                onChange={(e) => setLoginForm({ ...loginForm, anmSupervisor: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">PHC Medical Officer (MO-IC) (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Dr. Rajesh Sharma"
+                                value={loginForm.medicalOfficer}
+                                onChange={(e) => setLoginForm({ ...loginForm, medicalOfficer: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Field Experience &amp; Languages (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 5 Years • Hindi, Khortha"
+                                value={loginForm.experienceYears}
+                                onChange={(e) => setLoginForm({ ...loginForm, experienceYears: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'facility' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Total Inpatient Beds (Optional)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 120"
+                                value={loginForm.totalBeds}
+                                onChange={(e) => setLoginForm({ ...loginForm, totalBeds: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Currently Occupied Beds (Optional)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 85"
+                                value={loginForm.occupiedBeds}
+                                onChange={(e) => setLoginForm({ ...loginForm, occupiedBeds: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Total ICU Beds (Optional)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 15"
+                                value={loginForm.icuTotal}
+                                onChange={(e) => setLoginForm({ ...loginForm, icuTotal: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Available ICU Beds (Optional)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 6"
+                                value={loginForm.icuAvailable}
+                                onChange={(e) => setLoginForm({ ...loginForm, icuAvailable: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">PM-JAY Code &amp; Accreditation (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. PMJAY-JH-0091 • NABH"
+                                value={loginForm.pmjayCode}
+                                onChange={(e) => setLoginForm({ ...loginForm, pmjayCode: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Oxygen &amp; Emergency Capacity (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 1 PSA Plant (500 LPM)"
+                                value={loginForm.oxygenCapacity}
+                                onChange={(e) => setLoginForm({ ...loginForm, oxygenCapacity: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'shop_owner' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">ABDM HFR Pharmacy ID (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. HFR-PH-JH-2026-0112"
+                                value={loginForm.pharmacyId}
+                                onChange={(e) => setLoginForm({ ...loginForm, pharmacyId: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Jan Aushadhi Code / GSTIN (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. PMBJK-0412 / 20AAB..."
+                                value={loginForm.janAushadhiCode}
+                                onChange={(e) => setLoginForm({ ...loginForm, janAushadhiCode: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="font-semibold text-slate-600 block mb-1">Operating Timings (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 08:00 AM – 09:00 PM (Mon–Sun)"
+                                value={loginForm.timings}
+                                onChange={(e) => setLoginForm({ ...loginForm, timings: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'lab_staff' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">NABL Accreditation No. (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. NABL-MC-5012"
+                                value={loginForm.nablRegNo}
+                                onChange={(e) => setLoginForm({ ...loginForm, nablRegNo: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Analyzer Equipment Status (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Hematology & Biochemistry Active"
+                                value={loginForm.analyzerStatus}
+                                onChange={(e) => setLoginForm({ ...loginForm, analyzerStatus: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {activeEffectiveRole === 'admin' && (
+                          <>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Headquarters / Camp Office (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Civil Surgeon Office, Collectorate"
+                                value={loginForm.headquarters}
+                                onChange={(e) => setLoginForm({ ...loginForm, headquarters: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">District Population Covered (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 1,734,000"
+                                value={loginForm.population}
+                                onChange={(e) => setLoginForm({ ...loginForm, population: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Administrative Blocks Count (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 16 Blocks"
+                                value={loginForm.blocksCount}
+                                onChange={(e) => setLoginForm({ ...loginForm, blocksCount: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-semibold text-slate-600 block mb-1">Total Network Facilities (Optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 274 Facilities"
+                                value={loginForm.facilitiesCount}
+                                onChange={(e) => setLoginForm({ ...loginForm, facilitiesCount: e.target.value })}
+                                className="w-full border border-slate-300 rounded-lg p-2"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 text-white font-bold text-xs rounded-lg shadow-xs bg-[#0b2b82] hover:bg-[#082060] transition-colors cursor-pointer"
+                  >
+                    {selectedRole === 'patient'
+                      ? 'Log In to Real Patient Portal (Clean Workspace) →'
+                      : selectedRole === 'doctor'
+                      ? 'Log In to Real Doctor Clinical Portal →'
+                      : selectedRole === 'worker'
+                      ? 'Log In to Real ASHA Field Portal →'
+                      : selectedRole === 'facility'
+                      ? `Log In to Real Facility Portal (${facilitySubtype === 'hospital' ? 'Hospital' : facilitySubtype === 'medicine' ? 'Medicine Shop' : 'Diagnostic Lab'}) →`
+                      : 'Log In to Real District Health Administrator Portal →'}
+                  </button>
+                </form>
+
+                <div className="flex items-center justify-between pt-2 border-t border-emerald-200/60 text-[11px] text-slate-600">
+                  <span>Want to explore pre-populated demonstration data instead?</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('prototype')}
+                    className="text-amber-700 font-bold hover:underline cursor-pointer"
+                  >
+                    Switch to Prototype Demo Logins &rarr;
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* DEDICATED PORTAL LOGIN WINDOW FOR SELECTED ROLE */}
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3">
-              {/* Portal Info Banner */}
-              {selectedRole === 'patient' && (
-                <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-200">
+            {/* ========================================================================= */}
+            {/* TAB B: PROTOTYPE DEMO LOGINS (EXPLICIT DEMO PERSONAS WITH SAMPLE DATA)   */}
+            {/* ========================================================================= */}
+            {activeTab === 'prototype' && (
+              <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 space-y-3.5">
+                <div className="pb-2.5 border-b border-amber-200 flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <ModuleIcon id="patient" className="w-4 h-4 text-[#0b2b82]" />
-                      <h4 className="text-sm font-bold text-slate-900">Patient Login Window</h4>
-                      <span className="text-[10px] font-semibold text-slate-500" title="Full self-service access enabled">
-                        Active Portal
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white uppercase tracking-wider">
+                        Prototype Demo Mode
                       </span>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        1-Click Prototype Personas (Pre-Loaded Demonstration Data)
+                      </h4>
                     </div>
-                    <p className="text-[11px] text-slate-600 mt-0.5">
-                      Unique self-service view: Care Navigator triage, teleconsultation queue, referral pass, recovery follow-ups, and health records.
+                    <p className="text-[11px] text-slate-600 mt-1">
+                      These prototype accounts are pre-populated with realistic sample patients, queues, stock alerts, and telemetry solely to demonstrate how MedVeda features work. For a clean workspace with your own data, use <strong>Real Account Login</strong>.
                     </p>
                   </div>
                 </div>
-              )}
 
-              {selectedRole === 'doctor' && (
-                <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <ModuleIcon id="doctor" className="w-4 h-4 text-[#0b2b82]" />
-                    <h4 className="text-sm font-bold text-slate-900">Doctor Portal Login</h4>
-                    <span className="text-[10px] font-semibold text-slate-500" title="Clinical provider credentials required">
-                      Clinical Provider
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Access consulting doctor queues, teleconsult video rooms, digital prescription pad, and outbound hospital referrals.
-                  </p>
-                </div>
-              )}
-
-              {selectedRole === 'worker' && (
-                <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <ModuleIcon id="worker" className="w-4 h-4 text-[#0b2b82]" />
-                    <h4 className="text-sm font-bold text-slate-900">ASHA Worker Portal Login</h4>
-                    <span className="text-[10px] font-semibold text-slate-500" title="Frontline community health access">
-                      Frontline Health
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Door-to-door high-risk tracking, home visit observations, maternal care checklists, and emergency facility escalation.
-                  </p>
-                </div>
-              )}
-
-              {selectedRole === 'facility' && (
-                <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <ModuleIcon id={facilitySubtype} className="w-4 h-4 text-[#0b2b82]" />
-                    <h4 className="text-sm font-bold text-slate-900">
-                      Facility Login Window: {facilitySubtype === 'hospital' ? 'Hospital Inpatient & ICU' : facilitySubtype === 'medicine' ? 'Pharmacy & Medicine Shop' : 'Diagnostic Pathology Lab'}
-                    </h4>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    {facilitySubtype === 'hospital'
-                      ? 'Inbound emergency referral intake, bed allotment, ICU occupancy, and surgical availability status.'
-                      : facilitySubtype === 'medicine'
-                      ? 'Jan Aushadhi pharmacy stock inventory, real-time medicine reservations, and batch dispensing.'
-                      : 'Diagnostic pathology test catalog, sample accessioning, scanner queues, and signed reports.'}
-                  </p>
-                </div>
-              )}
-
-              {selectedRole === 'officer' && (
-                <div className="pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <ModuleIcon id="officer" className="w-4 h-4 text-[#0b2b82]" />
-                    <h4 className="text-sm font-bold text-slate-900">District Health Administrator (DHA / DHO) Login</h4>
-                    <span className="text-[10px] font-semibold text-slate-500" title="Full district public health administration authority">
-                      District Administration
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Pan-district epidemiological surveillance, critical medicine stock buffer warnings, ICU readiness matrix, and MV-DAC Command Center.
-                  </p>
-                </div>
-              )}
-
-              {/* Quick 1-Click Simulation Buttons */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                  Quick 1-Click Persona Login
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {selectedRole === 'patient' && (
                     <>
                       <button
                         type="button"
-                        onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm', 'Patient')}
-                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                        onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm', 'Patient (Prototype Demo)', {
+                          age: 48,
+                          sex: 'male',
+                          district: 'Hazaribagh',
+                          state: 'Jharkhand',
+                          phone: '+91-94311-28901',
+                          bloodGroup: 'B+ve'
+                        })}
+                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <ModuleIcon id="patient" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <ModuleIcon id="patient" className="w-4 h-4 text-amber-700 shrink-0" />
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Ramesh Mahto</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ramesh.mahto@abdm</span>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Ramesh Mahto (Prototype)</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">ramesh.mahto@abdm &bull; Demo Data</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleQuickLogin('Sunita Hansda', 'patient', 'sunita.hansda@abdm', 'Patient')}
-                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                        onClick={() => handleQuickLogin('Sunita Hansda', 'patient', 'sunita.hansda@abdm', 'Patient (Prototype Demo)', {
+                          age: 29,
+                          sex: 'female',
+                          district: 'Hazaribagh',
+                          state: 'Jharkhand',
+                          phone: '+91-98352-41029',
+                          bloodGroup: 'O+ve'
+                        })}
+                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <ModuleIcon id="patient" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <ModuleIcon id="patient" className="w-4 h-4 text-amber-700 shrink-0" />
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Sunita Hansda</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">sunita.hansda@abdm (Rural)</span>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Sunita Hansda (Prototype)</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">sunita.hansda@abdm &bull; Rural Demo</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                       </button>
                     </>
                   )}
@@ -1122,17 +2049,31 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                   {selectedRole === 'doctor' && (
                     <button
                       type="button"
-                      onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm', 'Doctor')}
-                      className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                      onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm', 'Doctor (Prototype Demo)', {
+                        doctorName: 'Dr. Priya Sharma',
+                        qualification: 'MBBS, MD (General Medicine)',
+                        specialty: 'Internal Medicine & Diabetology',
+                        registrationNo: 'MCI-2018-847291 (Jharkhand Medical Council)',
+                        facility: 'Primary Health Centre (PHC) Katkamsandi & District Sadar Hospital',
+                        department: 'General Medicine & Telemedicine OPD',
+                        dutyStatus: 'On Duty & Teleconsultation Node Online',
+                        designation: 'Medical Officer & Specialist Physician (MD, General Medicine)',
+                        experienceYears: '9 Years Clinical Experience',
+                        district: 'Hazaribagh',
+                        state: 'Jharkhand',
+                        phone: '+91-94311-44201',
+                        email: 'dr.priya.sharma@jharkhand.gov.in'
+                      })}
+                      className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
-                      <div className="min-w-0 flex items-center gap-2">
-                        <ModuleIcon id="doctor" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                      <div className="min-w-0 flex items-center gap-2.5">
+                        <ModuleIcon id="doctor" className="w-4 h-4 text-amber-700 shrink-0" />
                         <div>
-                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. Priya Sharma (Specialist Doctor)</span>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">priya.sharma@abdm &bull; PHC Katkamsandi</span>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. Priya Sharma (Prototype Specialist Doctor)</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">priya.sharma@abdm &bull; PHC Katkamsandi &bull; Pre-loaded Demo Queue</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
                     </button>
                   )}
 
@@ -1144,7 +2085,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                           'Anita Devi',
                           'worker',
                           'anita.devi.asha@abdm',
-                          'ASHA Worker',
+                          'ASHA Worker (Prototype Demo)',
                           {
                             ashaId: 'ASHA-JH-HZB-0142',
                             nhmCode: 'NHM-JH-ASHA-2019-084',
@@ -1165,16 +2106,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                             email: 'anita.devi.asha@nhm.jharkhand.gov.in'
                           }
                         )}
-                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <ModuleIcon id="worker" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <ModuleIcon id="worker" className="w-4 h-4 text-amber-700 shrink-0" />
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Anita Devi (Senior ASHA)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0142 &bull; Sub-Center Katkamsandi</span>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Anita Devi (Prototype ASHA)</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0142 &bull; Katkamsandi Demo</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                       </button>
                       <button
                         type="button"
@@ -1182,14 +2123,14 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                           'Meena Kumari',
                           'worker',
                           'meena.kumari.asha@abdm',
-                          'ASHA Worker',
+                          'ASHA Worker (Prototype Demo)',
                           {
                             ashaId: 'ASHA-JH-HZB-0219',
                             nhmCode: 'NHM-JH-ASHA-2021-142',
                             designation: 'Accredited Social Health Activist (ASHA) • NHM Jharkhand',
                             subCenter: 'Sub-Center Churchu (Ayushman Arogya Mandir)',
                             phcName: 'CHC Ichak & Churchu Rural Cluster, Hazaribagh',
-                            villageCatchment: 'Churchu, Charhi &जरी (Jari) Gram Panchayats (1,180 Households)',
+                            villageCatchment: 'Churchu, Charhi & Jari Gram Panchayats (1,180 Households)',
                             anmSupervisor: 'Smt. Pushpa Lakra, ANM (Reg: JH-ANM-1482)',
                             medicalOfficer: 'Dr. Suresh Chandra, MO-IC (CHC Ichak)',
                             experienceYears: '5 Years Active Field Service (Certified 2021)',
@@ -1203,16 +2144,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                             email: 'meena.kumari.asha@nhm.jharkhand.gov.in'
                           }
                         )}
-                        className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                       >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <ModuleIcon id="worker" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <ModuleIcon id="worker" className="w-4 h-4 text-amber-700 shrink-0" />
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Meena Kumari (ASHA Worker)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0219 &bull; Sub-Center Churchu</span>
+                            <span className="text-xs font-bold text-slate-900 block truncate">Meena Kumari (Prototype ASHA)</span>
+                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0219 &bull; Churchu Demo</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                       </button>
                     </>
                   )}
@@ -1227,7 +2168,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                               'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
                               'facility',
                               'admin.sbmch@abdm',
-                              'Hospital Facility',
+                              'Hospital Facility (Prototype Demo)',
                               {
                                 facilitySubtype: 'hospital',
                                 facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
@@ -1252,16 +2193,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                                 oxygenCapacity: '2 PSA Plants (2,000 LPM) + 12 KL LMO Tank'
                               }
                             )}
-                            className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                            className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                           >
-                            <div className="min-w-0 flex items-center gap-2">
-                              <ModuleIcon id="hospital" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                            <div className="min-w-0 flex items-center gap-2.5">
+                              <ModuleIcon id="hospital" className="w-4 h-4 text-amber-700 shrink-0" />
                               <div>
-                                <span className="text-xs font-bold text-slate-900 block truncate">SBMC&H Medical College</span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0104 &bull; Level-1 Tertiary</span>
+                                <span className="text-xs font-bold text-slate-900 block truncate">SBMC&amp;H Medical College (Prototype)</span>
+                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0104 &bull; 500-Bed Demo</span>
                               </div>
                             </div>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                           </button>
                           <button
                             type="button"
@@ -1269,7 +2210,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                               'Sadar District Hospital Hazaribagh',
                               'facility',
                               'admin.sadar.hzb@abdm',
-                              'Hospital Facility',
+                              'Hospital Facility (Prototype Demo)',
                               {
                                 facilitySubtype: 'hospital',
                                 facilityName: 'Sadar District Hospital Hazaribagh',
@@ -1294,59 +2235,57 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                                 oxygenCapacity: '1 PSA Plant (1,000 LPM) + Manifold Backup'
                               }
                             )}
-                            className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between"
+                            className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
                           >
-                            <div className="min-w-0 flex items-center gap-2">
-                              <ModuleIcon id="hospital" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                            <div className="min-w-0 flex items-center gap-2.5">
+                              <ModuleIcon id="hospital" className="w-4 h-4 text-amber-700 shrink-0" />
                               <div>
-                                <span className="text-xs font-bold text-slate-900 block truncate">Sadar District Hospital</span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0218 &bull; District FRU</span>
+                                <span className="text-xs font-bold text-slate-900 block truncate">Sadar District Hospital (Prototype)</span>
+                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0218 &bull; 300-Bed Demo</span>
                               </div>
                             </div>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
                           </button>
                         </>
                       )}
                       {facilitySubtype === 'medicine' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickLogin(
-                              'Jan Aushadhi Kendra, Katkamsandi',
-                              'shop_owner',
-                              'pharmacy.katkamsandi@abdm',
-                              'Medicine Shop',
-                              {
-                                facilitySubtype: 'medicine',
-                                shopId: 'shop_01',
-                                facilityName: 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi',
-                                pharmacyId: 'HFR-PH-JH-2026-0842',
-                                drugLicenseNo: 'JH-HAZ-20B/21B-2024-0891',
-                                janAushadhiCode: 'PMBJK-JH-HAZ-0412',
-                                gstin: '20AABCP4821M1Z5',
-                                ownerName: 'Rajesh Kumar Barnwal',
-                                pharmacistName: 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)',
-                                timings: '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Dispensing Counter',
-                                address: 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319',
-                                coordinates: '23.9980° N, 85.3450° E',
-                                phone: '+91-94311-88201',
-                                email: 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in',
-                                district: 'Hazaribagh',
-                                state: 'Jharkhand'
-                              }
-                            )}
-                            className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
-                          >
-                            <div className="min-w-0 flex items-center gap-2">
-                              <ModuleIcon id="medicine" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-900 block truncate">Katkamsandi Jan Aushadhi Pharmacy</span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-PH-JH-2026-0842 &bull; PMBJK Licensed Chemist</span>
-                              </div>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickLogin(
+                            'Jan Aushadhi Kendra, Katkamsandi',
+                            'shop_owner',
+                            'pharmacy.katkamsandi@abdm',
+                            'Medicine Shop (Prototype Demo)',
+                            {
+                              facilitySubtype: 'medicine',
+                              shopId: 'shop_01',
+                              facilityName: 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi',
+                              pharmacyId: 'HFR-PH-JH-2026-0842',
+                              drugLicenseNo: 'JH-HAZ-20B/21B-2024-0891',
+                              janAushadhiCode: 'PMBJK-JH-HAZ-0412',
+                              gstin: '20AABCP4821M1Z5',
+                              ownerName: 'Rajesh Kumar Barnwal',
+                              pharmacistName: 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)',
+                              timings: '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Dispensing Counter',
+                              address: 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319',
+                              coordinates: '23.9980° N, 85.3450° E',
+                              phone: '+91-94311-88201',
+                              email: 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in',
+                              district: 'Hazaribagh',
+                              state: 'Jharkhand'
+                            }
+                          )}
+                          className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                        >
+                          <div className="min-w-0 flex items-center gap-2.5">
+                            <ModuleIcon id="medicine" className="w-4 h-4 text-amber-700 shrink-0" />
+                            <div>
+                              <span className="text-xs font-bold text-slate-900 block truncate">Katkamsandi Jan Aushadhi Pharmacy (Prototype)</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-PH-JH-2026-0842 &bull; Pre-loaded Demo Stock &amp; Orders</span>
                             </div>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
-                          </button>
-                        </>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
+                        </button>
                       )}
                       {facilitySubtype === 'lab' && (
                         <button
@@ -1355,7 +2294,7 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                             'District Diagnostic Pathology Lab',
                             'lab_staff',
                             'lab.pathology@abdm',
-                            'Diagnostic Lab',
+                            'Diagnostic Lab (Prototype Demo)',
                             {
                               facilitySubtype: 'lab',
                               facilityName: 'District Diagnostic Pathology & Molecular Lab',
@@ -1370,16 +2309,16 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                               state: 'Jharkhand'
                             }
                           )}
-                          className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                          className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                         >
-                          <div className="min-w-0 flex items-center gap-2">
-                            <ModuleIcon id="lab" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                          <div className="min-w-0 flex items-center gap-2.5">
+                            <ModuleIcon id="lab" className="w-4 h-4 text-amber-700 shrink-0" />
                             <div>
-                              <span className="text-xs font-bold text-slate-900 block truncate">District Diagnostic Pathology Lab</span>
-                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; NABL Accredited &bull; Log In &rarr;</span>
+                              <span className="text-xs font-bold text-slate-900 block truncate">District Diagnostic Pathology Lab (Prototype)</span>
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; Pre-loaded Sample Queue &amp; Analytics</span>
                             </div>
                           </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
                         </button>
                       )}
                     </>
@@ -1392,215 +2331,352 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                         'Dr. S. K. Verma',
                         'admin',
                         'dho.hazaribagh@gov.in',
-                        'District Health Administrator',
+                        'District Health Administrator (Prototype Demo)',
                         {
                           designation: 'District Health Administrator & Chief Medical Officer',
+                          cadre: 'Gazetted Health Service Class-I (ID: DHA-JH-HAZ-2024-049)',
                           district: 'Hazaribagh',
                           state: 'Jharkhand',
                           phone: '+91-6546-264210',
                           email: 'dho.hazaribagh@gov.in'
                         }
                       )}
-                      className="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
+                      className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
                     >
-                      <div className="min-w-0 flex items-center gap-2">
-                        <ModuleIcon id="officer" className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" />
+                      <div className="min-w-0 flex items-center gap-2.5">
+                        <ModuleIcon id="officer" className="w-4 h-4 text-amber-700 shrink-0" />
                         <div>
-                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, MD (DHO Hazaribagh)</span>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; District Health Administrator</span>
+                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, MD (Prototype DHO Hazaribagh)</span>
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; Pre-loaded District Surveillance Demo</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">Log In &rarr;</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
                     </button>
                   )}
                 </div>
-              </div>
 
-              {/* Manual Credentials Form */}
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-2 text-[10px] font-bold uppercase text-slate-400">or enter credentials</span>
-                <div className="flex-grow border-t border-slate-200"></div>
-              </div>
-
-              <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    {selectedRole === 'patient'
-                      ? 'ABHA ID / Mobile Number'
-                      : selectedRole === 'doctor'
-                      ? 'Doctor ABHA ID / Medical Registration No.'
-                      : selectedRole === 'worker'
-                      ? 'ASHA Worker ID / Mobile'
-                      : selectedRole === 'facility'
-                      ? 'Facility HFR ID / Portal Email'
-                      : 'Govt Officer Email / Employee ID'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={
-                      selectedRole === 'patient'
-                        ? 'e.g. 9876543210 or ramesh.mahto@abdm'
-                        : selectedRole === 'doctor'
-                        ? 'e.g. priya.sharma@abdm'
-                        : selectedRole === 'worker'
-                        ? 'e.g. 9876543210@abdm'
-                        : selectedRole === 'facility'
-                        ? 'e.g. admin.sbmch@abdm'
-                        : 'e.g. dho.hazaribagh@gov.in'
-                    }
-                    value={loginForm.identifier}
-                    onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Password / Secure OTP</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 text-white font-bold text-xs rounded-lg shadow-xs bg-[#0b2b82] hover:bg-[#082060] transition-colors mt-2 cursor-pointer"
-                >
-                  {selectedRole === 'patient'
-                    ? 'Log In to Patient Health Portal &rarr;'
-                    : selectedRole === 'doctor'
-                    ? 'Log In to Doctor Clinical Portal &rarr;'
-                    : selectedRole === 'worker'
-                    ? 'Log In to ASHA Field Portal &rarr;'
-                    : selectedRole === 'facility'
-                    ? `Log In to Facility Portal (${facilitySubtype === 'hospital' ? 'Hospital' : facilitySubtype === 'medicine' ? 'Medicine Shop' : 'Diagnostic Lab'}) &rarr;`
-                    : 'Log In to District Health Administrator Portal &rarr;'}
-                </button>
-              </form>
-            </div>
-
-            <p className="text-center text-[11px] text-slate-500 pt-1">
-              New patient or clinician?{' '}
-              <button
-                type="button"
-                onClick={() => setActiveTab('signup')}
-                className="text-[#0b2b82] font-bold hover:underline cursor-pointer"
-              >
-                Create New ABHA Account
-              </button>
-            </p>
-          </div>
-        ) : (
-          /* ================= SIGN UP FORM ================= */
-          <div className="space-y-3 text-xs">
-            <form onSubmit={handleSignUpSubmit} className="space-y-3">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Full Legal Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ramesh Mahto or Sunita Devi"
-                  value={signUpForm.name}
-                  onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Mobile (Linked to Aadhaar)</label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="9876543210"
-                    value={signUpForm.mobile}
-                    onChange={(e) => setSignUpForm({ ...signUpForm, mobile: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">ABHA Health Address</label>
-                  <input
-                    type="text"
-                    placeholder="username@abdm"
-                    value={signUpForm.abhaId}
-                    onChange={(e) => setSignUpForm({ ...signUpForm, abhaId: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] focus:ring-2 focus:ring-[#0b2b82]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Role / Persona</label>
-                  <select
-                    value={signUpForm.role}
-                    onChange={(e) => setSignUpForm({ ...signUpForm, role: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
+                <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-[11px] text-slate-600">
+                  <span>Ready to log in with your own real credentials without fake data?</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('login')}
+                    className="text-[#0b2b82] font-bold hover:underline cursor-pointer"
                   >
-                    <option value="patient">1. Patient (Self-Service)</option>
-                    <option value="doctor">2. Doctor (Specialist)</option>
-                    <option value="worker">3. ASHA Worker</option>
-                    <option value="facility">4. Facility (Hospital)</option>
-                    <option value="shop_owner">4. Facility (Medicine Shop)</option>
-                    <option value="lab_staff">4. Facility (Diagnostic Lab)</option>
-                    <option value="admin">5. District Health Officer</option>
-                  </select>
+                    Go to Real Account Login &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB C: REGISTER NEW REAL ABHA ACCOUNT                                     */}
+            {/* ========================================================================= */}
+            {activeTab === 'signup' && (
+              <div className="space-y-3 text-xs p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                <div className="pb-2 border-b border-slate-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#0b2b82] text-white uppercase tracking-wider">
+                    New Real Account Registration
+                  </span>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    Register a clean real account (`isPrototype: false`) with mandatory role profile details.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">District Grid</label>
-                  <select
-                    value={signUpForm.district}
-                    onChange={(e) => setSignUpForm({ ...signUpForm, district: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 font-bold focus:ring-2 focus:ring-[#0b2b82]"
+                <form onSubmit={handleSignUpSubmit} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Role / Portal Persona *</label>
+                      <select
+                        value={signUpForm.role}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, role: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-bold bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      >
+                        <option value="patient">1. Patient (Self-Service)</option>
+                        <option value="doctor">2. Doctor (Specialist)</option>
+                        <option value="worker">3. ASHA Worker</option>
+                        <option value="facility">4. Facility (Hospital)</option>
+                        <option value="shop_owner">4. Facility (Medicine Shop)</option>
+                        <option value="lab_staff">4. Facility (Diagnostic Lab)</option>
+                        <option value="admin">5. District Health Administrator</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">
+                        {['facility', 'shop_owner', 'lab_staff'].includes(signUpForm.role)
+                          ? 'Official Facility / Store / Lab Name *'
+                          : 'Full Legal Name *'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter full legal name"
+                        value={signUpForm.name}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value, facilityName: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Mobile / Helpline Number *</label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="9876543210"
+                        value={signUpForm.mobile}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, mobile: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">ABHA Health Address *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="username@abdm"
+                        value={signUpForm.abhaId}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, abhaId: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">District *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Hazaribagh"
+                        value={signUpForm.district}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, district: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">State *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Jharkhand"
+                        value={signUpForm.state}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, state: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Role-specific mandatory registration fields */}
+                  {signUpForm.role === 'patient' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Age (Years) *</label>
+                        <input
+                          type="number"
+                          required
+                          placeholder="e.g. 30"
+                          value={signUpForm.age}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, age: e.target.value })}
+                          className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Sex *</label>
+                        <select
+                          value={signUpForm.sex}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, sex: e.target.value })}
+                          className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                        >
+                          <option value="female">Female</option>
+                          <option value="male">Male</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'doctor' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Qualification (e.g. MBBS, MD) *"
+                        value={signUpForm.qualification}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, qualification: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Specialty *"
+                        value={signUpForm.specialty}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, specialty: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Medical Reg No. *"
+                        value={signUpForm.registrationNo}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, registrationNo: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'worker' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Official ASHA ID *"
+                        value={signUpForm.ashaId}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, ashaId: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Sub-Center Name *"
+                        value={signUpForm.subCenter}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, subCenter: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Village Catchment *"
+                        value={signUpForm.villageCatchment}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, villageCatchment: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'facility' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="HFR Hospital ID *"
+                        value={signUpForm.hospitalId}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, hospitalId: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Hospital Tier *"
+                        value={signUpForm.tier}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, tier: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Medical Superintendent *"
+                        value={signUpForm.medicalSuperintendent}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, medicalSuperintendent: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'shop_owner' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Drug License No. *"
+                        value={signUpForm.drugLicenseNo}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, drugLicenseNo: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Owner Name *"
+                        value={signUpForm.ownerName}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, ownerName: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Pharmacist Name *"
+                        value={signUpForm.pharmacistName}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, pharmacistName: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'lab_staff' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Lab Registration ID *"
+                        value={signUpForm.labId}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, labId: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Chief Pathologist / Director *"
+                        value={signUpForm.director}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, director: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {signUpForm.role === 'admin' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Official Designation *"
+                        value={signUpForm.designation}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, designation: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Administrative Cadre / ID *"
+                        value={signUpForm.cadre}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, cadre: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Create Secure Password / PIN *</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="At least 6 characters"
+                      value={signUpForm.password}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-xs rounded-lg shadow-xs transition-colors mt-1 cursor-pointer"
                   >
-                    <option value="Hazaribagh">Hazaribagh</option>
-                    <option value="Ranchi">Ranchi</option>
-                    <option value="Dhanbad">Dhanbad</option>
-                    <option value="Bokaro">Bokaro</option>
-                    <option value="Ramgarh">Ramgarh</option>
-                  </select>
-                </div>
+                    Register Clean Real ABDM Account &rarr;
+                  </button>
+                </form>
               </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Create Secure Password / PIN</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="At least 6 characters"
-                  value={signUpForm.password}
-                  onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-xs rounded-lg shadow-xs transition-colors mt-1 cursor-pointer"
-              >
-                Register ABDM Account &rarr;
-              </button>
-            </form>
-
-            <p className="text-center text-[11px] text-slate-500 pt-1">
-              Already have an ABHA profile?{' '}
-              <button
-                type="button"
-                onClick={() => setActiveTab('login')}
-                className="text-[#0b2b82] font-bold hover:underline cursor-pointer"
-              >
-                Log In
-              </button>
-            </p>
+            )}
           </div>
         )}
       </div>
@@ -1851,13 +2927,14 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     currentUser.facilitySubtype === 'lab' ||
     currentUser.facilitySubtype === 'diagnostic'
   )) || actorRole === 'lab_staff' || actorRole === 'lab';
+  const isDoctor = (currentUser && currentUser.role === 'doctor') || actorRole === 'doctor';
 
   const allFeatureItems = [
     {
       id: 'overview',
       code: 'Module 00',
-      label: isDiagnosticLab ? 'Diagnostic Lab Overview' : actorRole === 'patient' ? 'Patient Overview' : isDistrictAdmin ? 'District Health Administrator Overview' : isHospitalFacility ? 'Hospital Overview' : isMedicineFacility ? 'Pharmacy Overview' : isAshaWorker ? 'ASHA Worker Overview' : 'Platform Overview',
-      description: isDiagnosticLab ? "Monitor your lab's daily activity, samples & verified reports" : actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : isDistrictAdmin ? 'District command metrics, administrative profile, facility catchment & stock warnings' : isHospitalFacility ? 'Hospital ID card, inpatient & ICU telemetry, inbound referrals & alerts' : isMedicineFacility ? 'Pharmacy license profile, store status toggles, stock-out warnings & order requests' : isAshaWorker ? 'ASHA ID card with profile picture, follow-up patient reminders & teleconsultation help requests' : 'Unified command hub, patient & clinical role views, system KPIs',
+      label: isDiagnosticLab ? 'Diagnostic Lab Overview' : actorRole === 'patient' ? 'Patient Overview' : isDistrictAdmin ? 'District Health Administrator Overview' : isHospitalFacility ? 'Hospital Overview' : isMedicineFacility ? 'Pharmacy Overview' : isAshaWorker ? 'ASHA Worker Overview' : isDoctor ? 'Doctor Clinical Overview' : 'Platform Overview',
+      description: isDiagnosticLab ? "Monitor your lab's daily activity, samples & verified reports" : actorRole === 'patient' ? 'Personal health portal, appointments, records & referral tracking' : isDistrictAdmin ? 'District command metrics, administrative profile, facility catchment & stock warnings' : isHospitalFacility ? 'Hospital ID card, inpatient & ICU telemetry, inbound referrals & alerts' : isMedicineFacility ? 'Pharmacy license profile, store status toggles, stock-out warnings & order requests' : isAshaWorker ? 'ASHA ID card with profile picture, follow-up patient reminders & teleconsultation help requests' : isDoctor ? 'Clinical duty roster, active teleconsult queues, referrals & patient diagnostics' : 'Unified command hub, patient & clinical role views, system KPIs',
       onSelect: () => setView('overview')
     },
     {
@@ -1898,8 +2975,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature6',
       code: 'Module 06',
-      label: isMedicineFacility ? 'Medicine Search & Shop' : 'Medicine & Diagnostic Lab',
-      description: isMedicineFacility ? 'Medicine shop dashboard, inventory management & customer order requests' : 'Pharmacy inventory reservations & diagnostic tracking',
+      label: isMedicineFacility ? 'Medicine Search & Shop' : isDiagnosticLab ? 'Diagnostic Lab & Orders' : 'Medicine & Diagnostic Lab',
+      description: isMedicineFacility ? 'Medicine shop dashboard, inventory management & customer order requests' : isDiagnosticLab ? 'Diagnostic center test catalog, sample queue & pathology result uploads' : 'Pharmacy inventory reservations & diagnostic tracking',
       onSelect: () => setView('feature6')
     },
     {
@@ -1966,6 +3043,16 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
           onSelect: () => setView('overview')
         },
         {
+          id: 'feature2',
+          code: 'Module 02',
+          label: 'Book Appointments (OPD Ops)',
+          description: 'Hospital Gate QR Walk-In Posters, 2-Way SMS Booking & Token Counter Console',
+          onSelect: () => {
+            setView('feature2');
+            if (typeof setTeleconsultScreen === 'function') setTeleconsultScreen('book_appointments');
+          }
+        },
+        {
           id: 'feature3',
           code: 'Module 03',
           label: 'Smart Referrals',
@@ -2004,6 +3091,37 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
           onSelect: () => setView('feature6')
         }
       ]
+    : isDiagnosticLab
+    ? [
+        {
+          id: 'overview',
+          code: 'Module 00',
+          label: 'Diagnostic Lab Overview',
+          description: "Monitor your lab's daily activity, samples & verified reports",
+          onSelect: () => setView('overview')
+        },
+        {
+          id: 'feature6',
+          code: 'Module 06',
+          label: 'Diagnostic Lab & Orders',
+          description: 'Diagnostic center test catalog, sample queue & pathology result uploads',
+          onSelect: () => setView('feature6')
+        },
+        {
+          id: 'feature5',
+          code: 'Module 05',
+          label: 'Health Records (ABDM)',
+          description: 'Interoperable FHIR health records & diagnostic report linking',
+          onSelect: () => setView('feature5')
+        },
+        {
+          id: 'feature7',
+          code: 'Module 07',
+          label: 'Facility Dashboard',
+          description: 'Lab facility operations, equipment readiness & turnaround telemetry',
+          onSelect: () => setView('feature7')
+        }
+      ]
     : isAshaWorker
     ? [
         {
@@ -2033,6 +3151,44 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
           label: 'ASHA Service & Impact Tracker',
           description: 'Past follow-up assessments, teleconsultations facilitated, service reviews & weekly/monthly/yearly cases solved',
           onSelect: () => setView('asha_tracker')
+        }
+      ]
+    : isDoctor
+    ? [
+        {
+          id: 'overview',
+          code: 'Module 00',
+          label: 'Doctor Clinical Overview',
+          description: 'Doctor profile, clinical duty roster, active teleconsult queue & referrals summary',
+          onSelect: () => setView('overview')
+        },
+        {
+          id: 'feature2',
+          code: 'Module 02',
+          label: 'Teleconsultation Desk',
+          description: 'Doctor teleconsultation desk: accept requests, call next patient & digital prescription pad',
+          onSelect: () => setView('feature2')
+        },
+        {
+          id: 'feature3',
+          code: 'Module 03',
+          label: 'Referral Management (Doctor View)',
+          description: 'Referring doctor workbench, outbound specialist referrals & hospital admission tracking',
+          onSelect: () => setView('feature3')
+        },
+        {
+          id: 'feature4',
+          code: 'Module 04',
+          label: 'High-Risk Follow-Ups (Doctor View)',
+          description: 'Specialist clinical monitoring center, ASHA field vital alert escalation & intervention',
+          onSelect: () => setView('feature4')
+        },
+        {
+          id: 'feature5',
+          code: 'Module 05',
+          label: 'Health Records (Doctor View Only)',
+          description: 'Patient longitudinal ABDM FHIR health records, lab reports & clinical history lookup',
+          onSelect: () => setView('feature5')
         }
       ]
     : actorRole === 'patient'
@@ -2207,18 +3363,20 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const nextRole = actorRole === 'patient' ? 'doctor' : 'patient';
-                  setActorRole(nextRole);
-                  setView(nextRole === 'patient' ? 'overview' : 'feature1');
-                }}
-                className="bg-white border border-[#93c5fd] hover:border-[#3b82f6] text-[#0b2b82] rounded-full px-2 py-0.5 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ml-1"
-                title={actorRole === 'patient' ? "Switch to Doctor View" : "Switch to Patient View"}
-              >
-                <span>{actorRole === 'patient' ? 'Doctor View' : 'Patient View'}</span>
-              </button>
+              {currentUser.role === 'patient' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextRole = actorRole === 'patient' ? 'doctor' : 'patient';
+                    setActorRole(nextRole);
+                    setView(nextRole === 'patient' ? 'overview' : 'feature1');
+                  }}
+                  className="bg-white border border-[#93c5fd] hover:border-[#3b82f6] text-[#0b2b82] rounded-full px-2 py-0.5 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ml-1"
+                  title={actorRole === 'patient' ? "Switch to Doctor View" : "Switch to Patient View"}
+                >
+                  <span>{actorRole === 'patient' ? 'Doctor View' : 'Patient View'}</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -4050,12 +5208,13 @@ function Screen4TriageProcessing({ patient, symptoms, redFlags, triageResult, on
 
   const steps = [
     { label: 'Sanitizing input & stripping all PII identifiers', duration: 400 },
-    { label: 'Agent 1: Ingesting Python LLM clinical screening synthesis', duration: 500 },
+    { label: 'Agent 1: Ingesting Python LLM & Gemini clinical screening synthesis', duration: 500 },
     { label: 'Validating Emergency Department vs OPD mandate & specialty tier', duration: 500 },
     { label: 'Formulating targeted search queries for verified facility matching', duration: 400 }
   ];
 
   useEffect(() => {
+    let cancelled = false;
     let timer1 = null;
     let timer2 = null;
     let interval = null;
@@ -4068,15 +5227,74 @@ function Screen4TriageProcessing({ patient, symptoms, redFlags, triageResult, on
       }
     }, 450);
 
-    timer1 = setTimeout(() => {
-      clearInterval(interval);
+    const symptomList = [
+      ...(symptoms?.selectedTags || []),
+      ...(symptoms?.freeText ? [symptoms.freeText] : [])
+    ];
+    if (symptomList.length === 0) {
+      symptomList.push('General acute clinical presentation');
+    }
+
+    const activeRedFlags = Object.entries(redFlags || {})
+      .filter(([, val]) => Boolean(val))
+      .map(([key]) => key);
+
+    const assessPromise = fetch(getApiUrl('/api/v1/triage/assess'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        age: Number(patient?.age) || 45,
+        sex: (patient?.sex || 'Other').toUpperCase(),
+        location: patient?.location || 'India',
+        latitude: patient?.latitude || undefined,
+        longitude: patient?.longitude || undefined,
+        symptoms: symptomList,
+        redFlags: activeRedFlags,
+        durationMinutes: 60,
+        severity: Number(symptoms?.severity) || 5
+      })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+
+    timer1 = setTimeout(async () => {
+      if (interval) clearInterval(interval);
+      const apiJson = await assessPromise;
+      if (cancelled) return;
       setStepIndex(steps.length);
+
+      const apiTriage = apiJson?.data;
+      const mergedTriage = apiTriage
+        ? {
+            ...(triageResult || {}),
+            urgency:
+              triageResult?.urgency === 'CRITICAL' || apiTriage.urgency === 'CRITICAL'
+                ? 'CRITICAL'
+                : apiTriage.urgency || triageResult?.urgency || 'URGENT',
+            requiredSpecialty:
+              triageResult?.requiredSpecialty || apiTriage.requiredSpecialty || 'General Medicine',
+            emergencyRequired: Boolean(
+              triageResult?.emergencyRequired ?? apiTriage.emergencyRequired ?? true
+            ),
+            conditionCategory:
+              triageResult?.conditionCategory ||
+              apiTriage.conditionCategory ||
+              'Acute Clinical Presentation',
+            clinicalRoutingAdvice:
+              triageResult?.clinicalRoutingAdvice ||
+              apiTriage.clinicalRoutingAdvice ||
+              'Prompt clinical evaluation advised at a verified facility.',
+            searchQueries: apiTriage.searchQueries || triageResult?.searchQueries || []
+          }
+        : triageResult;
+
       timer2 = setTimeout(() => {
-        onComplete(triageResult);
-      }, 400);
-    }, 1800);
+        if (!cancelled) onComplete(mergedTriage);
+      }, 350);
+    }, 1700);
 
     return () => {
+      cancelled = true;
       if (interval) clearInterval(interval);
       if (timer1) clearTimeout(timer1);
       if (timer2) clearTimeout(timer2);
@@ -4303,12 +5521,12 @@ function Screen5TriageResult({ triage, onFindHospitals, onBack }) {
   );
 }
 
-function Screen6HospitalSearch({ location, latitude, longitude, requiredSpecialty, emergencyRequired, onComplete }) {
+function Screen6HospitalSearch({ location, latitude, longitude, requiredSpecialty, emergencyRequired, searchQueries, onComplete }) {
   const [progress, setProgress] = useState(20);
   const specName = requiredSpecialty || 'General Medicine';
   const [activeQuery, setActiveQuery] = useState(`Verifying healthcare facilities near ${location || 'your locality'}...`);
 
-  const queries = emergencyRequired
+  const defaultQueries = emergencyRequired
     ? [
         `"${specName.toLowerCase()}" 24x7 emergency hospital near ${location || 'India'}`,
         `best multi specialty hospital emergency ICU trauma near ${location || 'India'}`,
@@ -4321,6 +5539,8 @@ function Screen6HospitalSearch({ location, latitude, longitude, requiredSpecialt
         `district healthcare clinic doctor consultation ${location || 'India'}`,
         `certified specialty healthcare center ${location || 'India'}`
       ];
+
+  const queries = Array.isArray(searchQueries) && searchQueries.length > 0 ? searchQueries : defaultQueries;
 
   useEffect(() => {
     let step = 0;
@@ -4704,11 +5924,59 @@ function Screen8FacilityDetails({ facility, requiredSpecialty, onNext, onBack })
   );
 }
 
-function Screen9ReferralPass({ facility, patient, triage, onRestart }) {
+function Screen9ReferralPass({ facility, patient, symptoms, triage, onRestart, onOpenReferrals }) {
   const activeFacility = facility || MOCK_FACILITIES[0];
   const activePatient = patient || INITIAL_PATIENT;
   const [copied, setCopied] = useState(false);
-  const referralId = `REF-JH-${Date.now().toString(36).toUpperCase()}`;
+  const [referralId, setReferralId] = useState(() => `REF-JH-${Date.now().toString(36).toUpperCase()}`);
+  const [persistedReferral, setPersistedReferral] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const symptomSummary = [
+      ...(symptoms?.selectedTags || []),
+      ...(symptoms?.freeText ? [symptoms.freeText] : [])
+    ].join(', ');
+
+    fetch(getApiUrl('/api/referrals'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: activePatient.name || `Patient (${activePatient.age}y/${activePatient.sex})`,
+        patient_age: Number(activePatient.age) || 45,
+        patient_gender: activePatient.sex || 'Male',
+        patient_abha: '91-4829-1039-8472',
+        referring_facility: `Smart Care Navigator (${activePatient.location || 'Jharkhand'})`,
+        referring_doctor: 'Agent 1 & 3 Clinical Triage Engine',
+        target_hospital_id: activeFacility.id || 'HOSP-RIMS',
+        target_hospital_name: activeFacility.name,
+        specialty: triage?.requiredSpecialty || 'General Medicine',
+        urgency: triage?.urgency === 'CRITICAL' ? 'EMERGENCY' : 'PRIORITY',
+        symptoms: symptomSummary || triage?.conditionCategory || 'Acute clinical presentation',
+        clinical_summary:
+          triage?.clinicalRoutingAdvice ||
+          activeFacility.explanation ||
+          'Verified emergency referral generated via Smart Care Navigator.',
+        vitals: { bp: '130/85', hr: 88, spo2: 97, temp: '98.8°F' },
+        required_resources: triage?.emergencyRequired ? ['ICU Bed', '24x7 Emergency Unit'] : ['Specialty OPD']
+      })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.referral?.id) {
+          setReferralId(data.referral.id);
+          setPersistedReferral(data.referral);
+          try {
+            localStorage.setItem('medveda_last_referral_id', data.referral.id);
+          } catch (_err) {}
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFacility.id]);
 
   const copyReferral = () => {
     navigator.clipboard?.writeText(referralId);
@@ -4728,9 +5996,16 @@ function Screen9ReferralPass({ facility, patient, triage, onRestart }) {
         <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-2xs mb-6">
           <div className="flex items-center justify-between border-b border-blue-200/60 pb-4 mb-4">
             <div>
-              <span className="text-[10px] font-extrabold tracking-widest text-[#0b2b82] uppercase bg-blue-100 px-2 py-0.5 rounded">
-                Official Digital Triage Pass
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold tracking-widest text-[#0b2b82] uppercase bg-blue-100 px-2 py-0.5 rounded">
+                  Official Digital Triage Pass
+                </span>
+                {persistedReferral && (
+                  <span className="text-[10px] font-extrabold tracking-wider text-emerald-700 uppercase bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                    Synced to Hospital Desk ({persistedReferral.status || 'BED_RESERVED'})
+                  </span>
+                )}
+              </div>
               <h3 className="text-xl font-black text-slate-900 mt-1">{activeFacility.name}</h3>
             </div>
             <div className="text-right">
@@ -4762,18 +6037,11 @@ function Screen9ReferralPass({ facility, patient, triage, onRestart }) {
 
           <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 bg-slate-900 rounded-lg p-1.5 flex flex-col justify-between shrink-0">
-                <div className="flex justify-between">
-                  <div className="w-4 h-4 bg-white rounded-xs"></div>
-                  <div className="w-4 h-4 bg-white rounded-xs"></div>
-                </div>
-                <div className="flex justify-between">
-                  <div className="w-4 h-4 bg-white rounded-xs"></div>
-                  <div className="w-2 h-2 bg-white rounded-xs self-end"></div>
-                </div>
+              <div className="w-16 h-16 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shrink-0">
+                <DeterministicQrMatrixSvg value={referralId} size={56} />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900">Hospital Staff Fast-Scan</div>
+                <div className="text-xs font-bold text-slate-900">Hospital Staff Fast-Scan QR</div>
                 <div className="text-[11px] text-slate-500">Scan at Emergency triage desk to instantly import triage parameters into hospital EMR.</div>
               </div>
             </div>
@@ -4782,12 +6050,12 @@ function Screen9ReferralPass({ facility, patient, triage, onRestart }) {
               onClick={copyReferral}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg shrink-0 cursor-pointer"
             >
-              {copied ? <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg><span>Copied</span></span> : 'Copy ID'}
+              {copied ? <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg><span>Copied</span></span> : 'Copy ID'}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <a
             href={`tel:${activeFacility.contactNumber}`}
             className="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm shadow-xs transition-all"
@@ -4810,6 +6078,19 @@ function Screen9ReferralPass({ facility, patient, triage, onRestart }) {
             <span>Open Google Maps Directions</span>
           </a>
         </div>
+
+        {onOpenReferrals && (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => onOpenReferrals(referralId)}
+              className="w-full p-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#0b2b82] rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+            >
+              <span>Track Live Referral &amp; Bed Allotment in Smart Referrals ({referralId})</span>
+              <span>&rarr;</span>
+            </button>
+          </div>
+        )}
 
         <div className="pt-4 border-t border-slate-100 flex justify-center">
           <button
@@ -4837,32 +6118,1793 @@ function getDoctorInitials(name) {
   return 'DR';
 }
 
-function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackToHome }) {
-  const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
-  const [showWorkerLogin, setShowWorkerLogin] = useState(false);
-  const [workerId, setWorkerId] = useState(currentUser?.ashaId || 'ASHA-JH-HZB-0142');
-  const [workerPassword, setWorkerPassword] = useState('asha@2026');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  const handleWorkerLogin = (e) => {
-    if (e) e.preventDefault();
-    if (!workerId.trim()) {
-      setLoginError('Please enter your Frontline Worker ID or Mobile Number.');
-      return;
-    }
-    if (!workerPassword.trim()) {
-      setLoginError('Please enter your Password or Security PIN.');
-      return;
-    }
-    setIsAuthenticating(true);
-    setLoginError('');
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      onSelectPath('worker');
-    }, 350);
+function DeterministicQrMatrixSvg({ value = 'MEDVEDA-OPD', size = 148 }) {
+  const grid = 21;
+  const cells = [];
+  let hash = 2166136261;
+  const str = String(value || 'MEDVEDA');
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const isFinder = (r, c) => {
+    const inTL = r < 7 && c < 7;
+    const inTR = r < 7 && c >= grid - 7;
+    const inBL = r >= grid - 7 && c < 7;
+    if (!inTL && !inTR && !inBL) return null;
+    const lr = inBL ? r - (grid - 7) : r;
+    const lc = inTR ? c - (grid - 7) : c;
+    if (lr === 0 || lr === 6 || lc === 0 || lc === 6) return true;
+    if (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4) return true;
+    return false;
   };
+  for (let r = 0; r < grid; r++) {
+    for (let c = 0; c < grid; c++) {
+      const finder = isFinder(r, c);
+      if (finder !== null) {
+        if (finder) cells.push(`${r}-${c}`);
+        continue;
+      }
+      if (r === 6 || c === 6) {
+        if ((r + c) % 2 === 0) cells.push(`${r}-${c}`);
+        continue;
+      }
+      const idx = r * grid + c;
+      const charCode = str.charCodeAt(idx % str.length) || 65;
+      const bit = ((hash ^ (idx * 2654435761) ^ (charCode * 374761393)) >>> ((idx % 16))) & 1;
+      if (bit === 1) cells.push(`${r}-${c}`);
+    }
+  }
+  const cellSet = new Set(cells);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${grid + 2} ${grid + 2}`} className="bg-white rounded-lg border border-slate-200 p-1 shadow-2xs">
+      <rect width={grid + 2} height={grid + 2} fill="#ffffff" />
+      {Array.from({ length: grid }).map((_, r) =>
+        Array.from({ length: grid }).map((__, c) =>
+          cellSet.has(`${r}-${c}`) ? (
+            <rect key={`${r}-${c}`} x={c + 1} y={r + 1} width="1" height="1" fill="#0f172a" />
+          ) : null
+        )
+      )}
+    </svg>
+  );
+}
+
+function ScreenOpdBookAppointments({ actorRole, currentUser, onBackToDoctorVisits, onSwitchToTeleconsult, initialQrParams }) {
+  const isFacilityView = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
+  const [activeChannelTab, setActiveChannelTab] = useState(() => {
+    if (isFacilityView) {
+      return initialQrParams?.qr ? 'qr_walkin' : 'qr_walkin';
+    }
+    return 'web';
+  });
+
+  useEffect(() => {
+    if (isFacilityView) {
+      if (activeChannelTab === 'web') {
+        setActiveChannelTab(initialQrParams?.qr ? 'qr_walkin' : 'qr_walkin');
+      }
+    } else {
+      if (activeChannelTab !== 'web') {
+        setActiveChannelTab('web');
+      }
+    }
+  }, [isFacilityView]);
+
+  const [facilities, setFacilities] = useState([]);
+  const [selectedFacilityCode, setSelectedFacilityCode] = useState(initialQrParams?.facility || 'DHJ01');
+  const [departments, setDepartments] = useState([]);
+  const [selectedDeptCode, setSelectedDeptCode] = useState(initialQrParams?.dept || 'MED');
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date(Date.now() + 5.5 * 3600 * 1000);
+    return d.toISOString().slice(0, 10);
+  });
+  const [sessions, setSessions] = useState([]);
+  const [selectedSessionPeriod, setSelectedSessionPeriod] = useState('MORNING');
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Patient Web Booking Form State
+  const [patientName, setPatientName] = useState('Ramesh Kumar');
+  const [patientPhone, setPatientPhone] = useState('+919876543210');
+  const [abhaAddress, setAbhaAddress] = useState('ramesh.kumar@abdm');
+  const [abhaVerified, setAbhaVerified] = useState(true);
+  const [bookingMode, setBookingMode] = useState('IMMEDIATE_CONFIRM'); // 'IMMEDIATE_CONFIRM' | 'HOLD'
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [createdBookingResult, setCreatedBookingResult] = useState(null);
+
+  // Public Tracking ID Lookup State
+  const [quickTrackId, setQuickTrackId] = useState('');
+  const [quickTrackResult, setQuickTrackResult] = useState(null);
+  const [quickTrackError, setQuickTrackError] = useState('');
+
+  // QR Walk-in & Poster Pack State
+  const [posterPack, setPosterPack] = useState(null);
+  const [scannedQrToken, setScannedQrToken] = useState(initialQrParams?.qr || '');
+  const [qrVerification, setQrVerification] = useState(null);
+  const [walkinPhone, setWalkinPhone] = useState('+919876501234');
+  const [walkinName, setWalkinName] = useState('Sita Devi');
+  const [walkinResult, setWalkinResult] = useState(null);
+  const [walkinError, setWalkinError] = useState('');
+
+  // 2-Way SMS Simulator + Parser State
+  const [smsProvider, setSmsProvider] = useState('simulator');
+  const [smsPhone, setSmsPhone] = useState('+919876543210');
+  const [smsInputText, setSmsInputText] = useState('OPD DHJ01 MED');
+  const [smsLiveParsed, setSmsLiveParsed] = useState(null);
+  const [smsTurns, setSmsTurns] = useState([]);
+  const [smsMessagesLog, setSmsMessagesLog] = useState([]);
+  const [dltTemplates, setDltTemplates] = useState({});
+  const [lastConfirmCode, setLastConfirmCode] = useState('');
+  const [lastSmsTrackingId, setSmsLastTrackingId] = useState('');
+  const [lastProviderMsgId, setLastProviderMsgId] = useState('');
+  const [smsSending, setSmsSending] = useState(false);
+
+  // Counter & Live Queue Console State
+  const [counterTrackingInput, setCounterTrackingInput] = useState('');
+  const [counterQrInput, setCounterQrInput] = useState('');
+  const [counterPhoneLast4, setCounterPhoneLast4] = useState('');
+  const [counterLookupRes, setCounterLookupRes] = useState(null);
+  const [counterArriveSlip, setCounterArriveSlip] = useState(null);
+  const [queueDeptFilter, setQueueDeptFilter] = useState('MED');
+  const [adminQueueData, setAdminQueueData] = useState(null);
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  // Load Facilities
+  useEffect(() => {
+    fetch('/v1/facilities')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setFacilities(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load Departments & Posters when facility changes
+  useEffect(() => {
+    if (!selectedFacilityCode) return;
+    fetch(`/v1/facilities/${encodeURIComponent(selectedFacilityCode)}/departments`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setDepartments(json.data);
+          if (json.data.length > 0 && !json.data.some((d) => d.code === selectedDeptCode)) {
+            setSelectedDeptCode(json.data[0].code);
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetch(`/v1/posters?facility=${encodeURIComponent(selectedFacilityCode)}&date=${encodeURIComponent(selectedDate)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setPosterPack(json.data);
+          if (!scannedQrToken && json.data.posters?.length > 0) {
+            const matching = json.data.posters.find((p) => p.deptCode === selectedDeptCode) || json.data.posters[0];
+            if (matching) {
+              setScannedQrToken(matching.qrToken);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, [selectedFacilityCode, selectedDate]);
+
+  // Load Sessions when Facility + Dept + Date change
+  const refreshSessions = () => {
+    if (!selectedFacilityCode || !selectedDeptCode) return;
+    setLoadingSlots(true);
+    fetch(`/v1/sessions?facility=${encodeURIComponent(selectedFacilityCode)}&dept=${encodeURIComponent(selectedDeptCode)}&date=${encodeURIComponent(selectedDate)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setSessions(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSlots(false));
+  };
+
+  useEffect(() => {
+    refreshSessions();
+  }, [selectedFacilityCode, selectedDeptCode, selectedDate]);
+
+  // Verify Scanned QR Token when it changes
+  useEffect(() => {
+    if (!scannedQrToken) {
+      setQrVerification(null);
+      return;
+    }
+    fetch('/v1/qr/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qrToken: scannedQrToken })
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        setQrVerification(json.data || { valid: false, error: json.error || 'Invalid QR token' });
+      })
+      .catch(() => {});
+  }, [scannedQrToken]);
+
+  // Live deterministic SMS parser preview as user types
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetch('/v1/sms/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ msisdn: smsPhone, text: smsInputText })
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) setSmsLiveParsed(json.data);
+        })
+        .catch(() => {});
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [smsInputText, smsPhone]);
+
+  // Load SMS Inbox/Outbox Log
+  const refreshSmsLog = () => {
+    fetch('/v1/sms/messages?limit=30')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setSmsMessagesLog(json.data || []);
+          if (json.dltTemplates) setDltTemplates(json.dltTemplates);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (activeChannelTab === 'sms_simulator') {
+      refreshSmsLog();
+    }
+  }, [activeChannelTab]);
+
+  // Load Live Admin Queue
+  const refreshAdminQueue = () => {
+    setQueueLoading(true);
+    const deptParam = queueDeptFilter && queueDeptFilter !== 'ALL' ? `&dept=${encodeURIComponent(queueDeptFilter)}` : '';
+    fetch(`/v1/admin/queue?facility=${encodeURIComponent(selectedFacilityCode)}${deptParam}&date=${encodeURIComponent(selectedDate)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setAdminQueueData(json.data);
+      })
+      .catch(() => {})
+      .finally(() => setQueueLoading(false));
+  };
+
+  useEffect(() => {
+    if (activeChannelTab === 'counter_queue') {
+      refreshAdminQueue();
+    }
+  }, [activeChannelTab, selectedFacilityCode, queueDeptFilter, selectedDate]);
+
+  // Handler: Create Web Booking or 10-Min Hold
+  const handleCreateWebBooking = async (e) => {
+    if (e) e.preventDefault();
+    setBookingError('');
+    setBookingSubmitting(true);
+    try {
+      const res = await fetch('/v1/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'WEB',
+          facilityCode: selectedFacilityCode,
+          deptCode: selectedDeptCode,
+          date: selectedDate,
+          session: selectedSessionPeriod,
+          patientName: patientName.trim() || 'OPD Patient',
+          phone: patientPhone.trim(),
+          abhaAddress: abhaVerified ? abhaAddress.trim() : null,
+          abhaVerified,
+          mode: bookingMode
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setBookingError(json.error || 'Could not create OPD booking');
+      } else {
+        setCreatedBookingResult(json.data);
+        setCounterTrackingInput(json.data.trackingId || '');
+        setCounterPhoneLast4((patientPhone.replace(/\D/g, '').slice(-4)) || '');
+        refreshSessions();
+      }
+    } catch (err) {
+      setBookingError(err.message || 'Network error while booking');
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  // Handler: Confirm 10-Min Hold on Web
+  const handleConfirmWebHold = async () => {
+    if (!createdBookingResult?.booking?.id) return;
+    setBookingError('');
+    setBookingSubmitting(true);
+    try {
+      const res = await fetch('/v1/bookings/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: createdBookingResult.booking.id,
+          msisdn: patientPhone,
+          confirmCode: createdBookingResult.confirmCode
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setBookingError(json.error || 'Failed to confirm slot hold');
+      } else {
+        setCreatedBookingResult(json.data);
+        refreshSessions();
+      }
+    } catch (err) {
+      setBookingError(err.message || 'Failed to confirm hold');
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  // Handler: Cancel Booking
+  const handleCancelBooking = async (idOrTrackingId) => {
+    try {
+      const res = await fetch(`/v1/bookings/${encodeURIComponent(idOrTrackingId)}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Cancelled by patient from Book Appointments UI' })
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        if (createdBookingResult && (createdBookingResult.trackingId === idOrTrackingId || createdBookingResult.booking?.id === idOrTrackingId)) {
+          setCreatedBookingResult({
+            ...createdBookingResult,
+            status: 'CANCELLED',
+            booking: json.data.booking
+          });
+        }
+        refreshSessions();
+        refreshAdminQueue();
+      }
+    } catch (e) {}
+  };
+
+  // Handler: Public Tracking ID Quick Lookup
+  const handleQuickTrackLookup = async (e) => {
+    if (e) e.preventDefault();
+    setQuickTrackError('');
+    setQuickTrackResult(null);
+    if (!quickTrackId.trim()) return;
+    try {
+      const res = await fetch(`/v1/bookings/${encodeURIComponent(quickTrackId.trim())}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setQuickTrackError(json.error || 'Booking not found');
+      } else {
+        setQuickTrackResult(json.data);
+      }
+    } catch (err) {
+      setQuickTrackError(err.message || 'Lookup error');
+    }
+  };
+
+  // Handler: QR Walk-in Instant Token
+  const handleCreateWalkinBooking = async (e) => {
+    if (e) e.preventDefault();
+    setWalkinError('');
+    setWalkinResult(null);
+    try {
+      const res = await fetch('/v1/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'QR_WALKIN',
+          qrToken: scannedQrToken,
+          phone: walkinPhone.trim(),
+          patientName: walkinName.trim() || 'Walk-in Patient',
+          mode: 'IMMEDIATE_CONFIRM'
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setWalkinError(json.error || 'QR Walk-in token generation failed');
+      } else {
+        setWalkinResult(json.data);
+        setCounterTrackingInput(json.data.trackingId || '');
+        setCounterPhoneLast4((walkinPhone.replace(/\D/g, '').slice(-4)) || '');
+        refreshSessions();
+      }
+    } catch (err) {
+      setWalkinError(err.message || 'QR Walk-in error');
+    }
+  };
+
+  // Handler: Send Inbound SMS via Selected Provider Webhook
+  const handleSendInboundSms = async (overrideText, replayDuplicateMsgId) => {
+    const textToSend = (overrideText !== undefined ? overrideText : smsInputText).trim();
+    if (!textToSend) return;
+    setSmsSending(true);
+    const msgId = replayDuplicateMsgId || `sim_msg_${Date.now()}_${Math.floor(Math.random() * 900 + 100)}`;
+    if (!replayDuplicateMsgId) setLastProviderMsgId(msgId);
+
+    let payload = {};
+    if (smsProvider === 'android-gateway') {
+      payload = {
+        event: 'sms:received',
+        payload: {
+          messageId: msgId,
+          phoneNumber: smsPhone,
+          message: textToSend,
+          receivedAt: new Date().toISOString()
+        },
+        bypassRateLimit: true
+      };
+    } else if (smsProvider === 'msg91') {
+      payload = {
+        msgid: msgId,
+        sender: smsPhone.replace(/^\+/, ''),
+        content: textToSend,
+        rcvd: new Date().toISOString(),
+        bypassRateLimit: true
+      };
+    } else {
+      payload = {
+        messageId: msgId,
+        msisdn: smsPhone,
+        text: textToSend,
+        receivedAt: new Date().toISOString(),
+        bypassRateLimit: true
+      };
+    }
+
+    try {
+      const res = await fetch(`/v1/sms/inbound/${encodeURIComponent(smsProvider)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const turn = json.data;
+        setSmsTurns((prev) => [...prev, turn]);
+        if (turn.booking?.confirmCode) {
+          setLastConfirmCode(turn.booking.confirmCode);
+        }
+        if (turn.booking?.slotDate) {
+          setSelectedDate(turn.booking.slotDate);
+        }
+        if (turn.booking?.trackingId) {
+          setSmsLastTrackingId(turn.booking.trackingId.replace(/-/g, ''));
+          setCounterTrackingInput(turn.booking.trackingId);
+          setCounterPhoneLast4((smsPhone.replace(/\D/g, '').slice(-4)) || '');
+        }
+        refreshSmsLog();
+        refreshSessions();
+      }
+    } catch (err) {
+      // ignore
+    } finally {
+      setSmsSending(false);
+    }
+  };
+
+  // Handler: Counter Lookup by Tracking ID or QR
+  const handleCounterLookup = async (overrideTrackingId, overrideQrToken) => {
+    setCounterArriveSlip(null);
+    const tId = overrideTrackingId !== undefined ? overrideTrackingId : counterTrackingInput;
+    const qTok = overrideQrToken !== undefined ? overrideQrToken : counterQrInput;
+    try {
+      const res = await fetch('/v1/counter/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trackingId: tId ? tId.trim() : undefined,
+          qrToken: qTok ? qTok.trim() : undefined,
+          phoneLast4: counterPhoneLast4 ? counterPhoneLast4.trim() : undefined
+        })
+      });
+      const json = await res.json();
+      setCounterLookupRes(json.data || { found: false, validCheckChar: false, reason: json.error || 'Not found' });
+    } catch (err) {
+      setCounterLookupRes({ found: false, validCheckChar: false, reason: err.message });
+    }
+  };
+
+  // Handler: Mark Arrived at Counter & Generate OPD Slip
+  const handleCounterMarkArrived = async (bookingIdOrTrackingId, last4Override) => {
+    try {
+      const res = await fetch(`/v1/counter/${encodeURIComponent(bookingIdOrTrackingId)}/arrive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staffId: 'counter-dhj01',
+          phoneLast4: last4Override || counterPhoneLast4 || undefined
+        })
+      });
+      const json = await res.json();
+      if (json.data) {
+        setCounterArriveSlip(json.data);
+        if (json.data.booking) {
+          setCounterLookupRes((prev) => prev ? { ...prev, booking: json.data.booking } : prev);
+        }
+        refreshAdminQueue();
+        refreshSessions();
+      }
+    } catch (err) {}
+  };
+
+  const activeSessionObj = sessions.find((s) => s.session === selectedSessionPeriod) || sessions[0] || null;
+  const activeFacilityObj = facilities.find((f) => f.code === selectedFacilityCode) || facilities[0] || { code: 'DHJ01', name: 'District Hospital Jamshedpur', district: 'East Singhbhum' };
+  const activeDeptObj = departments.find((d) => d.code === selectedDeptCode) || departments[0] || { code: 'MED', name: 'General Medicine', roomNumber: 'Room 101' };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
+      {/* Top Header Banner */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#0b2b82]"></span>
+              {isFacilityView ? 'Hospital Facility View • OPD Operations' : 'Patient View • Channel 1 (Web / PWA)'}
+            </span>
+            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+              {isFacilityView ? 'Channels 2, 3 & 4 • QR, 2-Way SMS & Counter' : 'Book OPD Appointment from Home'}
+            </span>
+            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+              Crockford Base32 + HMAC-SHA256 QR
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            {isFacilityView
+              ? 'Book Appointments — Hospital QR Walk-In, 2-Way SMS & Token Counter'
+              : 'Book Appointments — Hospital OPD Slot & Token Booking'}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 max-w-3xl">
+            {isFacilityView
+              ? 'Manage hospital gate QR walk-in posters (/q/<signedPayload>), 2-way SMS booking webhooks & parser (OPD DHJ01 MED → Y 4821), and the Hospital OPD Token Counter & Live Queue.'
+              : 'Select your public or district hospital, OPD department, date, and session to receive an instant sequential OPD Token, Crockford Base32 Tracking ID (MV-XXXX-XXX), and signed Counter QR.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          {!isFacilityView && onSwitchToTeleconsult && (
+            <button
+              type="button"
+              onClick={onSwitchToTeleconsult}
+              className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0b2b82] border border-blue-200 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Switch to Video Teleconsult &rarr;
+            </button>
+          )}
+          {onBackToDoctorVisits && (
+            <button
+              type="button"
+              onClick={onBackToDoctorVisits}
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              &larr; {isFacilityView ? 'Hospital Overview' : 'Doctor Visits Hub'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Role-Scoped Channel Tabs: Patient View shows ONLY Channel 1; Facility View shows ONLY the remaining 3 channels */}
+      {!isFacilityView ? (
+        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-1 rounded-lg bg-[#0b2b82] text-white text-xs font-mono font-bold">
+              Channel 1 &bull; Web / PWA
+            </span>
+            <div>
+              <div className="text-sm font-extrabold text-slate-900">Book from Home (Patient Direct OPD Booking)</div>
+              <div className="text-xs text-slate-500">Select Facility &rarr; Department &rarr; Date &amp; Session &rarr; Instant OPD Token &amp; Signed Counter QR</div>
+            </div>
+          </div>
+          <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hidden sm:inline-block">
+            Patient View Active
+          </span>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl p-2 border border-slate-200 shadow-2xs grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            {
+              id: 'qr_walkin',
+              badge: 'Channel 2 • Hospital Gate',
+              title: 'QR Walk-In & Posters',
+              desc: 'Signed /q/ QR Scan + sms: URI Posters'
+            },
+            {
+              id: 'sms_simulator',
+              badge: 'Channel 3 • 2-Way SMS',
+              title: 'SMS Booking & Parser',
+              desc: 'OPD DHJ01 MED → 10m Hold → Y 4821'
+            },
+            {
+              id: 'counter_queue',
+              badge: 'Channel 4 • Hospital Ops (A7)',
+              title: 'Token Counter & Queue',
+              desc: 'Check-Char Verify, Arrive & OPD Slip'
+            }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveChannelTab(tab.id)}
+              className={`text-left p-3.5 rounded-lg border transition-all cursor-pointer ${
+                activeChannelTab === tab.id
+                  ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-xs'
+                  : 'bg-slate-50/70 hover:bg-slate-100 text-slate-800 border-slate-200'
+              }`}
+            >
+              <div className={`text-[10px] font-mono font-bold uppercase tracking-wider ${activeChannelTab === tab.id ? 'text-blue-200' : 'text-[#0b2b82]'}`}>
+                {tab.badge}
+              </div>
+              <div className="text-sm font-extrabold mt-0.5">{tab.title}</div>
+              <div className={`text-[11px] mt-0.5 truncate ${activeChannelTab === tab.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                {tab.desc}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 1: WEB / PWA BOOKING FROM HOME (PATIENT VIEW ONLY)                */}
+      {/* ===================================================================== */}
+      {!isFacilityView && activeChannelTab === 'web' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left 7 Columns: 4-Step Booking Flow */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Step 1: Select Hospital Facility */}
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  1. Select Hospital Facility
+                </h2>
+                <span className="text-[11px] font-mono text-slate-500">GET /v1/facilities</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {facilities.map((fac) => {
+                  const selected = fac.code === selectedFacilityCode;
+                  return (
+                    <button
+                      key={fac.code}
+                      type="button"
+                      onClick={() => setSelectedFacilityCode(fac.code)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        selected
+                          ? 'border-[#0b2b82] bg-blue-50/60 ring-2 ring-[#0b2b82]/15'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono font-black px-2 py-0.5 rounded bg-[#0b2b82] text-white">
+                          {fac.code}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase">
+                          {fac.district}
+                        </span>
+                      </div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 mt-1.5 leading-snug">
+                        {fac.name}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                        SMS Command: OPD {fac.code} &lt;DEPT&gt;
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 2: Select OPD Department */}
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  2. Select Department ({activeFacilityObj.code})
+                </h2>
+                <span className="text-[11px] font-mono text-slate-500">
+                  GET /v1/facilities/{activeFacilityObj.code}/departments
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {departments.map((dept) => {
+                  const selected = dept.code === selectedDeptCode;
+                  return (
+                    <button
+                      key={dept.code}
+                      type="button"
+                      onClick={() => setSelectedDeptCode(dept.code)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        selected
+                          ? 'border-[#0b2b82] bg-[#0b2b82] text-white shadow-2xs'
+                          : 'border-slate-200 hover:border-slate-300 bg-slate-50/60 text-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-mono font-black px-1.5 py-0.5 rounded ${selected ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#0b2b82]'}`}>
+                          {dept.code}
+                        </span>
+                        <span className={`text-[10px] font-mono ${selected ? 'text-blue-100' : 'text-slate-500'}`}>
+                          {dept.roomNumber}
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold mt-1.5 truncate">{dept.name}</div>
+                      <div className={`text-[10px] mt-0.5 ${selected ? 'text-blue-100' : 'text-slate-500'}`}>
+                        Cap: {dept.dailyCapacity}/session
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 3: Select Date & OPD Session */}
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  3. Choose Date &amp; OPD Session
+                </h2>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-600">Appointment Date:</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              {loadingSlots ? (
+                <div className="text-xs text-slate-500 py-4 text-center">Loading live session availability...</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {sessions.map((sess) => {
+                    const selected = sess.session === selectedSessionPeriod;
+                    return (
+                      <button
+                        key={sess.id}
+                        type="button"
+                        onClick={() => setSelectedSessionPeriod(sess.session)}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                          selected
+                            ? 'border-[#0b2b82] bg-blue-50/70 ring-2 ring-[#0b2b82]/15'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-[#0b2b82]">
+                            {sess.session} SESSION
+                          </span>
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {sess.startTime} &ndash; {sess.endTime}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-slate-200/80 text-[11px]">
+                          <div>
+                            <span className="text-slate-500 block">Web Open</span>
+                            <strong className="text-slate-900 font-mono text-sm">{sess.availableWeb}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">SMS/QR Quota</span>
+                            <strong className="text-amber-700 font-mono text-sm">{sess.reservedSmsQuota}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">Next Token</span>
+                            <strong className="text-[#0b2b82] font-mono text-sm">#{String(sess.nextEstimatedToken).padStart(2, '0')}</strong>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[11px] text-slate-600">
+                          Est. Reporting Window: <strong className="text-slate-900">{sess.reportingWindow}</strong>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Step 4: Patient Details, ABHA/OTP Verification & Submit */}
+            <form onSubmit={handleCreateWebBooking} className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  4. Patient Details &amp; Confirmation Mode
+                </h2>
+                <span className="text-[11px] font-mono text-emerald-700 font-bold">
+                  DPDP Act 2023 Protected
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Patient Full Name</label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Mobile Number (for SMS Token)</label>
+                  <input
+                    type="text"
+                    value={patientPhone}
+                    onChange={(e) => setPatientPhone(e.target.value)}
+                    placeholder="+919876543210"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Optional ABHA Address (Fast-Track Desk)</label>
+                  <input
+                    type="text"
+                    value={abhaAddress}
+                    onChange={(e) => setAbhaAddress(e.target.value)}
+                    placeholder="name@abdm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pb-1">
+                  <input
+                    id="abha-verified-toggle"
+                    type="checkbox"
+                    checked={abhaVerified}
+                    onChange={(e) => setAbhaVerified(e.target.checked)}
+                    className="w-4 h-4 accent-[#0b2b82]"
+                  />
+                  <label htmlFor="abha-verified-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    Mark ABHA / Phone OTP Verified
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-700">Booking State Machine Mode:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBookingMode('IMMEDIATE_CONFIRM')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                      bookingMode === 'IMMEDIATE_CONFIRM'
+                        ? 'bg-[#0b2b82] text-white'
+                        : 'bg-white text-slate-700 border border-slate-300'
+                    }`}
+                  >
+                    Instant Confirm (OTP Verified)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBookingMode('HOLD')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                      bookingMode === 'HOLD'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-white text-slate-700 border border-slate-300'
+                    }`}
+                  >
+                    10-Min Hold (PENDING_CONFIRMATION)
+                  </button>
+                </div>
+              </div>
+
+              {bookingError && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                  {bookingError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={bookingSubmitting}
+                className="w-full py-3 px-4 rounded-xl bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold text-sm shadow-xs transition-colors cursor-pointer"
+              >
+                {bookingSubmitting
+                  ? 'Allocating Atomic OPD Token...'
+                  : bookingMode === 'IMMEDIATE_CONFIRM'
+                    ? `Confirm OPD Appointment at ${activeFacilityObj.code} (${activeDeptObj.code}) →`
+                    : `Create 10-Minute Slot Hold at ${activeFacilityObj.code} (${activeDeptObj.code}) →`}
+              </button>
+            </form>
+          </div>
+
+          {/* Right 5 Columns: Issued Digital OPD Pass + Public Status Lookup */}
+          <div className="lg:col-span-5 space-y-5">
+            {createdBookingResult ? (
+              <div className="bg-white rounded-2xl p-6 border-2 border-[#0b2b82] shadow-sm space-y-4">
+                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div>
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                      createdBookingResult.status === 'CONFIRMED'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : createdBookingResult.status === 'PENDING_CONFIRMATION'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    }`}>
+                      {createdBookingResult.status}
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-1">
+                      {createdBookingResult.booking?.facilityName || activeFacilityObj.name}
+                    </h3>
+                    <p className="text-xs text-slate-600 font-semibold">
+                      {createdBookingResult.booking?.departmentName || activeDeptObj.name} ({createdBookingResult.booking?.deptCode}) &bull; {createdBookingResult.booking?.roomNumber || activeDeptObj.roomNumber}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">OPD Token</span>
+                    <span className="text-3xl font-black font-mono text-[#0b2b82]">
+                      #{String(createdBookingResult.tokenNumber || createdBookingResult.estimatedTokenNumber || 1).padStart(2, '0')}
+                    </span>
+                  </div>
+                </div>
+
+                {createdBookingResult.status === 'PENDING_CONFIRMATION' && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                    <div className="text-xs font-bold text-amber-900">
+                      10-Minute Slot Hold Active &bull; Confirm Code: <span className="font-mono text-sm bg-white px-2 py-0.5 rounded border border-amber-300">{createdBookingResult.confirmCode}</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800">
+                      Expires at: {new Date(createdBookingResult.holdExpiresAt).toLocaleTimeString()} (or reply <code className="font-mono font-bold">Y {createdBookingResult.confirmCode}</code> via SMS).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleConfirmWebHold}
+                      className="w-full py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer"
+                    >
+                      Confirm Slot Hold Now (Allocate Final Token #) &rarr;
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Tracking ID (Check-Char)</span>
+                    <span className="font-mono font-black text-sm text-slate-900">{createdBookingResult.trackingId}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Reporting Window</span>
+                    <span className="font-bold text-slate-900">{createdBookingResult.reportingWindow}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Date &amp; Session</span>
+                    <span className="font-semibold text-slate-800">{createdBookingResult.booking?.slotDate} ({createdBookingResult.booking?.session})</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Patient (Masked PII)</span>
+                    <span className="font-semibold text-slate-800">{createdBookingResult.booking?.maskedPatientName} (&bull;&bull;{createdBookingResult.booking?.phoneLast4})</span>
+                  </div>
+                </div>
+
+                {/* Signed Counter QR Code */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <DeterministicQrMatrixSvg value={createdBookingResult.qrToken || createdBookingResult.trackingId} size={116} />
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-900">HMAC-SHA256 Signed Counter QR</div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Scan at the Hospital OPD Registration Desk or enter Tracking ID <strong className="font-mono">{createdBookingResult.trackingId}</strong> for instant check-in.
+                    </p>
+                    <div className="text-[10px] font-mono text-slate-500 truncate bg-white px-2 py-1 rounded border border-slate-200">
+                      {createdBookingResult.qrDeepLink}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DLT SMS Outbox Copy */}
+                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono font-bold text-emerald-800">
+                    <span>TRAI DLT SMS DISPATCHED ({createdBookingResult.smsOutbox?.templateId})</span>
+                    <span>{(createdBookingResult.smsConfirmationText || '').length}/160 chars (1 seg)</span>
+                  </div>
+                  <p className="text-xs font-mono text-slate-900 bg-white p-2.5 rounded-lg border border-emerald-200">
+                    {createdBookingResult.smsConfirmationText}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="flex-1 py-2.5 px-3 rounded-lg bg-[#0b2b82] hover:bg-[#071c59] text-white text-xs font-bold cursor-pointer"
+                  >
+                    Print / Save OPD Appointment Pass
+                  </button>
+                  {createdBookingResult.status !== 'CANCELLED' && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelBooking(createdBookingResult.trackingId)}
+                      className="py-2.5 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer"
+                    >
+                      Cancel Slot
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-2xs space-y-3">
+                <span className="text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-blue-50 text-[#0b2b82]">
+                  Digital OPD Token Pass Preview
+                </span>
+                <h3 className="text-base font-bold text-slate-900">
+                  Complete the 4 steps on the left to generate your OPD Token
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Every booking allocates an atomic sequential token per department session, generates a <strong>Crockford Base32 Tracking ID (`MV-XXXX-XXX`)</strong> with a modulo-32 check character, signs an <strong>HMAC-SHA256 QR payload</strong>, and logs a single-segment <strong>TRAI DLT SMS</strong>.
+                </p>
+              </div>
+            )}
+
+            {/* Public Tracking ID Status Lookup Card */}
+            <form onSubmit={handleQuickTrackLookup} className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                  Check Existing Booking Status (`GET /v1/bookings/:trackingId`)
+                </h3>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={quickTrackId}
+                  onChange={(e) => setQuickTrackId(e.target.value)}
+                  placeholder="Enter MV-XXXX-XXX or MVXXXXXXX"
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-bold uppercase text-slate-900"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                >
+                  Check
+                </button>
+              </div>
+              {quickTrackError && (
+                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                  {quickTrackError}
+                </div>
+              )}
+              {quickTrackResult && (
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-black text-[#0b2b82]">{quickTrackResult.trackingId}</span>
+                    <span className="font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">{quickTrackResult.status}</span>
+                  </div>
+                  <div>
+                    <strong>{quickTrackResult.facilityName}</strong> &bull; {quickTrackResult.departmentName} ({quickTrackResult.deptCode})
+                  </div>
+                  <div className="text-slate-600">
+                    Token <strong>#{quickTrackResult.tokenNumber || quickTrackResult.estimatedTokenNumber}</strong> &bull; {quickTrackResult.slotDate} ({quickTrackResult.reportingWindow})
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 2: HOSPITAL QR WALK-IN & PRINTABLE POSTER PACK (FACILITY ONLY)    */}
+      {/* ===================================================================== */}
+      {isFacilityView && activeChannelTab === 'qr_walkin' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left 7 Columns: Printable Department QR & SMS Posters */}
+          <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">
+                  Hospital Department Walk-In QR &amp; SMS Posters ({activeFacilityObj.name})
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Each poster includes Variant A (HMAC-signed `/q/&lt;signedPayload&gt;` walk-in link) and Variant B (`sms:` URI pre-filling the phone's SMS app).
+                </p>
+              </div>
+              <select
+                value={selectedFacilityCode}
+                onChange={(e) => setSelectedFacilityCode(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+              >
+                {facilities.map((f) => (
+                  <option key={f.code} value={f.code}>{f.code} &mdash; {f.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {(posterPack?.posters || []).map((poster) => {
+                const isSelectedPoster = scannedQrToken === poster.qrToken;
+                return (
+                  <div
+                    key={poster.deptCode}
+                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between space-y-3 ${
+                      isSelectedPoster
+                        ? 'border-[#0b2b82] bg-blue-50/40 ring-2 ring-[#0b2b82]/15'
+                        : 'border-slate-200 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-black px-2 py-0.5 rounded bg-[#0b2b82] text-white">
+                          {poster.facilityCode} &bull; {poster.deptCode}
+                        </span>
+                        <span className="text-[11px] font-mono font-semibold text-slate-600">
+                          {poster.roomNumber}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-black text-slate-900">{poster.deptName}</h3>
+                      <div className="text-[11px] text-slate-600 bg-white p-2 rounded border border-slate-200">
+                        <div className="font-bold text-slate-800">बिना लाइन में लगे ओपीडी टोकन पाएं</div>
+                        <div>Scan QR or send SMS: <code className="font-mono font-bold text-[#0b2b82]">{poster.smsCommand}</code> to <span className="font-mono">{poster.smsHelpline}</span></div>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1">
+                        <DeterministicQrMatrixSvg value={poster.qrToken} size={84} />
+                        <div className="space-y-1 text-[10px] min-w-0 flex-1">
+                          <div className="font-bold text-slate-700">Hours: {poster.morningHours}</div>
+                          <div className="font-mono text-slate-500 truncate">{poster.qrDeepLink}</div>
+                          <a
+                            href={poster.smsUri}
+                            className="inline-block text-[#0b2b82] font-bold hover:underline"
+                          >
+                            Open Pre-filled SMS App (`sms:`) &rarr;
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScannedQrToken(poster.qrToken);
+                        setSelectedDeptCode(poster.deptCode);
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-[#0b2b82] hover:bg-[#071c59] text-white text-xs font-bold cursor-pointer"
+                    >
+                      Simulate Scanning {poster.deptCode} Poster QR &rarr;
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right 5 Columns: QR Verification & 1-Tap Walk-In Token Generator */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  Cryptographic QR Verification (`/q/:signedPayload`)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setScannedQrToken(scannedQrToken ? scannedQrToken.slice(0, -4) + 'XXXX' : 'tampered.token')}
+                  className="text-[11px] font-mono font-bold px-2.5 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                >
+                  Tamper Signature (Test)
+                </button>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Signed QR Token Payload</label>
+                <input
+                  type="text"
+                  value={scannedQrToken}
+                  onChange={(e) => setScannedQrToken(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-[11px] font-mono text-slate-800"
+                />
+              </div>
+
+              {qrVerification && (
+                <div className={`p-3.5 rounded-xl border text-xs space-y-1 ${
+                  qrVerification.valid
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}>
+                  <div className="font-black uppercase tracking-wider">
+                    {qrVerification.valid ? '✓ HMAC-SHA256 Signature Verified' : '✗ QR Signature Verification Failed'}
+                  </div>
+                  {qrVerification.valid ? (
+                    <>
+                      <div>Facility: <strong>{qrVerification.facility?.name} ({qrVerification.payload?.facilityCode})</strong></div>
+                      <div>Department: <strong>{qrVerification.department?.name} ({qrVerification.payload?.deptCode}) &bull; {qrVerification.department?.roomNumber}</strong></div>
+                    </>
+                  ) : (
+                    <div>Reason: <strong>{qrVerification.error || 'Tampered or expired QR token'}</strong></div>
+                  )}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateWalkinBooking} className="space-y-3 pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                  Instant Walk-In Token (Uses 25% Reserved Walk-In/SMS Quota)
+                </h4>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Patient Name</label>
+                  <input
+                    type="text"
+                    value={walkinName}
+                    onChange={(e) => setWalkinName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Mobile Number</label>
+                  <input
+                    type="text"
+                    value={walkinPhone}
+                    onChange={(e) => setWalkinPhone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-900"
+                    required
+                  />
+                </div>
+                {walkinError && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                    {walkinError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer"
+                >
+                  Generate Instant Walk-In OPD Token &rarr;
+                </button>
+              </form>
+
+              {walkinResult && (
+                <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-[#0b2b82] uppercase">Walk-In Token Issued</span>
+                    <span className="text-xl font-black font-mono text-[#0b2b82]">#{String(walkinResult.tokenNumber || 1).padStart(2, '0')}</span>
+                  </div>
+                  <div>Tracking ID: <strong className="font-mono">{walkinResult.trackingId}</strong></div>
+                  <div>Reporting Window: <strong>{walkinResult.reportingWindow}</strong></div>
+                  <div className="text-[11px] font-mono bg-white p-2 rounded border border-blue-200">
+                    {walkinResult.smsConfirmationText}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 3: 2-WAY SMS BOOKING SIMULATOR & GRAMMAR PARSER (FACILITY ONLY)   */}
+      {/* ===================================================================== */}
+      {isFacilityView && activeChannelTab === 'sms_simulator' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left 6 Columns: Interactive Keypad Phone 2-Way SMS Simulator */}
+          <div className="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">
+                  2-Way SMS Booking Loop (`POST /v1/sms/inbound/:provider`)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Test the two-step hold + confirm loop (<code className="font-mono">OPD DHJ01 MED</code> &rarr; <code className="font-mono">Y &lt;code&gt;</code>) across Simulator, Android SMS Gateway, and MSG91 webhook formats.
+                </p>
+              </div>
+              <select
+                value={smsProvider}
+                onChange={(e) => setSmsProvider(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-bold text-[#0b2b82] bg-blue-50"
+              >
+                <option value="simulator">Provider: simulator</option>
+                <option value="android-gateway">Provider: android-gateway (capcom6)</option>
+                <option value="msg91">Provider: msg91 (Virtual Number)</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Sender Mobile (MSISDN)</label>
+                <input
+                  type="text"
+                  value={smsPhone}
+                  onChange={(e) => setSmsPhone(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-900"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Active Hold / Tracking Shortcut</label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cmd = lastConfirmCode ? `Y ${lastConfirmCode}` : 'Y';
+                      setSmsInputText(cmd);
+                      handleSendInboundSms(cmd);
+                    }}
+                    className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-mono font-bold cursor-pointer"
+                  >
+                    Send `{lastConfirmCode ? `Y ${lastConfirmCode}` : 'Y'}`
+                  </button>
+                  {lastProviderMsgId && (
+                    <button
+                      type="button"
+                      onClick={() => handleSendInboundSms(smsInputText, lastProviderMsgId)}
+                      title="Re-send exact same provider_msg_id to test idempotency"
+                      className="py-1.5 px-2.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[11px] font-mono font-bold cursor-pointer"
+                    >
+                      Replay Dup ID
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Grammar Presets */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: '1. Book MED', cmd: 'OPD DHJ01 MED' },
+                { label: '2. Confirm Hold', cmd: lastConfirmCode ? `Y ${lastConfirmCode}` : 'Y' },
+                { label: 'Hindi: DIL KAL', cmd: 'OPD SBMC01 DIL KAL' },
+                { label: 'Fuzzy: DHJ1 HADDY', cmd: 'OPD DHJ1 HADDY AAJ' },
+                { label: 'LIST MED', cmd: 'LIST MED' },
+                { label: 'STATUS', cmd: lastSmsTrackingId ? `STATUS ${lastSmsTrackingId}` : 'STATUS' },
+                { label: 'CANCEL', cmd: lastSmsTrackingId ? `CANCEL ${lastSmsTrackingId}` : 'N' },
+                { label: 'HELP / MADAD', cmd: 'MADAD' }
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    setSmsInputText(preset.cmd);
+                    handleSendInboundSms(preset.cmd);
+                  }}
+                  className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-[#0b2b82] hover:text-white text-slate-700 text-[11px] font-mono font-semibold border border-slate-200 transition-colors cursor-pointer"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* SMS Chat Thread Window */}
+            <div className="bg-slate-900 rounded-xl p-4 h-80 overflow-y-auto space-y-3 text-xs">
+              {smsTurns.length === 0 ? (
+                <div className="text-slate-400 text-center py-12 space-y-2">
+                  <div className="font-mono text-emerald-400 font-bold">MedVeda 2-Way SMS Helpline (+91 98765 00108)</div>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    Click any preset above or type <code className="text-white">OPD DHJ01 MED</code> below to trigger the 10-minute slot hold &amp; confirmation loop.
+                  </p>
+                </div>
+              ) : (
+                smsTurns.map((turn, idx) => {
+                  const inboundText = turn.inbound?.text || turn.inbound?.rawText || '';
+                  const outboundText = turn.replyText || turn.outboundSms?.text || turn.outboundSms?.rendered || '';
+                  return (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-end">
+                        <div className="bg-[#0b2b82] text-white px-3.5 py-2 rounded-2xl rounded-tr-xs max-w-xs font-mono">
+                          <div className="text-[10px] text-blue-200 flex items-center justify-between gap-3">
+                            <span>{turn.inbound?.msisdn || smsPhone}</span>
+                            <span>{turn.provider || turn.inbound?.provider}</span>
+                          </div>
+                          <div className="font-bold mt-0.5">{inboundText}</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-start">
+                        <div className="bg-slate-800 text-slate-100 border border-slate-700 px-3.5 py-2.5 rounded-2xl rounded-tl-xs max-w-md space-y-1">
+                          <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-emerald-400">
+                            <span>MDVEDA &bull; {turn.actionTaken}</span>
+                            <span>{turn.duplicate ? 'DUPLICATE (IDEMPOTENT)' : `${outboundText.length}/160 chars`}</span>
+                          </div>
+                          <div className="font-mono text-xs leading-relaxed text-white">
+                            {outboundText}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* SMS Composer Bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendInboundSms();
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={smsInputText}
+                onChange={(e) => setSmsInputText(e.target.value)}
+                placeholder="Type SMS command e.g. OPD DHJ01 MED or Y 4821..."
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-bold text-slate-900"
+              />
+              <button
+                type="submit"
+                disabled={smsSending}
+                className="px-5 py-2.5 rounded-xl bg-[#0b2b82] hover:bg-[#071c59] text-white text-xs font-bold cursor-pointer"
+              >
+                {smsSending ? 'Sending...' : 'Send SMS'}
+              </button>
+            </form>
+          </div>
+
+          {/* Right 6 Columns: Live Deterministic Parser JSON & SMS Outbox/DLT Audit */}
+          <div className="lg:col-span-6 space-y-5">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  Live Deterministic SMS Parser Output (Agent A4)
+                </h3>
+                {smsLiveParsed && (
+                  <span className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded ${
+                    smsLiveParsed.confidence >= 0.75
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                  }`}>
+                    Intent: {smsLiveParsed.intent} &bull; Conf: {smsLiveParsed.confidence}
+                  </span>
+                )}
+              </div>
+              <pre className="bg-slate-900 text-emerald-400 p-3.5 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed">
+                {smsLiveParsed ? JSON.stringify(smsLiveParsed, null, 2) : 'Type an SMS command to inspect parser output...'}
+              </pre>
+            </div>
+
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  Live `sms_inbox` &amp; `sms_outbox` Audit Log ({smsMessagesLog.length})
+                </h3>
+                <button
+                  type="button"
+                  onClick={refreshSmsLog}
+                  className="text-xs font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                {smsMessagesLog.map((msg) => (
+                  <div
+                    key={`${msg.direction}-${msg.id}`}
+                    className={`p-2.5 rounded-lg border text-[11px] font-mono ${
+                      msg.direction === 'INBOUND'
+                        ? 'bg-slate-50 border-slate-200 text-slate-800'
+                        : 'bg-emerald-50/50 border-emerald-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span className="font-bold text-slate-800">
+                        {msg.direction} &bull; {msg.msisdn}
+                      </span>
+                      <span>
+                        {msg.direction === 'INBOUND'
+                          ? `Intent: ${msg.intent || 'N/A'} (${msg.confidence ?? ''})`
+                          : `DLT: ${msg.templateId || 'N/A'} • ${(msg.text || '').length} chars`}
+                      </span>
+                    </div>
+                    <div className="mt-1 font-semibold">{msg.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 4: HOSPITAL TOKEN COUNTER & LIVE QUEUE CONSOLE (FACILITY ONLY)    */}
+      {/* ===================================================================== */}
+      {isFacilityView && activeChannelTab === 'counter_queue' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left 5 Columns: Counter Lookup, Check-Char Validator & OPD Slip Printer */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  Hospital Token Counter Lookup (`POST /v1/counter/lookup`)
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const badId = 'MV-7K4Q-9X9';
+                    setCounterTrackingInput(badId);
+                    handleCounterLookup(badId, '');
+                  }}
+                  className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+                >
+                  Test Mistyped Check-Char
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Tracking ID (`MV-XXXX-XXX` or `MVXXXXXXX`)
+                  </label>
+                  <input
+                    type="text"
+                    value={counterTrackingInput}
+                    onChange={(e) => setCounterTrackingInput(e.target.value)}
+                    placeholder="e.g. MV-7K4Q-9X2"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-black uppercase text-slate-900"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      Phone Last 4 Digits (SMS Verify)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={counterPhoneLast4}
+                      onChange={(e) => setCounterPhoneLast4(e.target.value)}
+                      placeholder="3210"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      Or Signed QR Token
+                    </label>
+                    <input
+                      type="text"
+                      value={counterQrInput}
+                      onChange={(e) => setCounterQrInput(e.target.value)}
+                      placeholder="Optional QR string"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono text-slate-900"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCounterLookup()}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#0b2b82] hover:bg-[#071c59] text-white text-xs font-bold cursor-pointer"
+                >
+                  Verify Tracking ID / QR at Counter &rarr;
+                </button>
+              </div>
+
+              {counterLookupRes && (
+                <div className={`p-4 rounded-xl border text-xs space-y-2.5 ${
+                  counterLookupRes.found
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-black uppercase">
+                      {counterLookupRes.found
+                        ? '✓ Booking Verified'
+                        : counterLookupRes.validCheckChar === false
+                          ? '✗ Checksum Failed (Mistyped ID Rejected)'
+                          : '✗ Booking Not Found'}
+                    </span>
+                    <span className="font-mono text-[11px]">
+                      Check-Char: {counterLookupRes.validCheckChar ? 'VALID' : 'INVALID'}
+                    </span>
+                  </div>
+
+                  {!counterLookupRes.found && (
+                    <div className="font-semibold">{counterLookupRes.reason || counterLookupRes.error}</div>
+                  )}
+
+                  {counterLookupRes.found && counterLookupRes.booking && (
+                    <>
+                      <div className="bg-white p-3 rounded-lg border border-emerald-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-black text-sm text-[#0b2b82]">
+                            {counterLookupRes.booking.trackingId}
+                          </span>
+                          <span className="text-lg font-black font-mono text-slate-900">
+                            Token #{String(counterLookupRes.booking.tokenNumber || counterLookupRes.booking.estimatedTokenNumber || 1).padStart(2, '0')}
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900">
+                          {counterLookupRes.booking.facilityName} &bull; {counterLookupRes.booking.departmentName} ({counterLookupRes.booking.roomNumber})
+                        </div>
+                        <div className="text-slate-600">
+                          Patient (Masked): <strong>{counterLookupRes.booking.maskedPatientName}</strong> &bull; Phone Last 4: <strong className="font-mono">{counterLookupRes.booking.phoneLast4}</strong>
+                        </div>
+                        <div className="text-slate-600">
+                          Channel: <strong className="font-mono">{counterLookupRes.booking.channel}</strong> &bull; Status: <strong className="font-mono">{counterLookupRes.booking.status}</strong>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCounterMarkArrived(counterLookupRes.booking.trackingId)}
+                        className="w-full py-2.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer"
+                      >
+                        Mark ARRIVED &amp; Print Hospital OPD Slip &rarr;
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {counterArriveSlip?.slip && (
+                <div className="p-4 rounded-xl bg-white border-2 border-dashed border-slate-800 space-y-2 text-xs font-mono">
+                  <div className="text-center border-b border-slate-300 pb-2">
+                    <div className="font-black text-sm text-slate-900">{counterArriveSlip.slip.facilityName}</div>
+                    <div className="text-[10px] text-slate-500">OFFICIAL OPD REGISTRATION SLIP &bull; {counterArriveSlip.slip.slipNumber}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <div>TOKEN: <strong>#{String(counterArriveSlip.slip.tokenNumber).padStart(2, '0')}</strong></div>
+                    <div>ID: <strong>{counterArriveSlip.slip.trackingId}</strong></div>
+                    <div>DEPT: <strong>{counterArriveSlip.slip.deptCode} ({counterArriveSlip.slip.roomNumber})</strong></div>
+                    <div>SESSION: <strong>{counterArriveSlip.slip.session}</strong></div>
+                    <div>PATIENT: <strong>{counterArriveSlip.slip.patientMaskedName}</strong></div>
+                    <div>PHONE: <strong>****{counterArriveSlip.slip.phoneLast4}</strong></div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-emerald-700 font-bold">
+                    <span>STATUS: ARRIVED AT COUNTER</span>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-2.5 py-1 rounded bg-slate-900 text-white cursor-pointer"
+                    >
+                      Print Slip
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right 7 Columns: Live Departmental Queue Dashboard */}
+          <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">
+                  Live OPD Departmental Queue (`GET /v1/admin/queue`)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Real-time token allocation across Web, QR Walk-In, and 2-Way SMS channels.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedFacilityCode}
+                  onChange={(e) => setSelectedFacilityCode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+                >
+                  {facilities.map((f) => (
+                    <option key={f.code} value={f.code}>{f.code}</option>
+                  ))}
+                </select>
+                <select
+                  value={queueDeptFilter}
+                  onChange={(e) => setQueueDeptFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+                >
+                  <option value="ALL">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d.code} value={d.code}>{d.code} &mdash; {d.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={refreshAdminQueue}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+                >
+                  {queueLoading ? '...' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {adminQueueData && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Total Cap</span>
+                    <span className="text-lg font-black font-mono text-slate-900">{adminQueueData.summary?.totalCapacity || 0}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+                    <span className="text-[10px] font-bold uppercase text-amber-800 block">SMS Reserve</span>
+                    <span className="text-lg font-black font-mono text-amber-900">{adminQueueData.summary?.reservedSmsQuota || 0}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200">
+                    <span className="text-[10px] font-bold uppercase text-[#0b2b82] block">Confirmed</span>
+                    <span className="text-lg font-black font-mono text-[#0b2b82]">{adminQueueData.summary?.confirmedCount || 0}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                    <span className="text-[10px] font-bold uppercase text-emerald-800 block">Arrived</span>
+                    <span className="text-lg font-black font-mono text-emerald-800">{adminQueueData.summary?.arrivedCount || 0}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
+                    <span className="text-[10px] font-bold uppercase text-purple-800 block">10m Holds</span>
+                    <span className="text-lg font-black font-mono text-purple-900">{adminQueueData.summary?.pendingHoldCount || 0}</span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500">
+                        <th className="py-2 px-2">Token</th>
+                        <th className="py-2 px-2">Tracking ID</th>
+                        <th className="py-2 px-2">Dept / Session</th>
+                        <th className="py-2 px-2">Patient (Masked)</th>
+                        <th className="py-2 px-2">Channel</th>
+                        <th className="py-2 px-2">Status</th>
+                        <th className="py-2 px-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(adminQueueData.queue || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
+                            No bookings in queue yet for {selectedFacilityCode} ({queueDeptFilter}) on {selectedDate}. Create a Web, QR, or SMS booking to see it live here.
+                          </td>
+                        </tr>
+                      ) : (
+                        (adminQueueData.queue || []).map((row) => (
+                          <tr key={row.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-2 font-mono font-black text-[#0b2b82]">
+                              #{String(row.tokenNumber || row.estimatedTokenNumber || '-').padStart(2, '0')}
+                            </td>
+                            <td className="py-2.5 px-2 font-mono font-bold text-slate-900">
+                              {row.trackingId}
+                            </td>
+                            <td className="py-2.5 px-2">
+                              <span className="font-bold">{row.deptCode}</span> &bull; <span className="text-slate-500">{row.session}</span>
+                            </td>
+                            <td className="py-2.5 px-2">
+                              {row.maskedPatientName} <span className="font-mono text-slate-400">(**{row.phoneLast4})</span>
+                            </td>
+                            <td className="py-2.5 px-2">
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                                {row.channel}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-2">
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                                row.status === 'ARRIVED'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : row.status === 'CONFIRMED'
+                                    ? 'bg-blue-100 text-[#0b2b82]'
+                                    : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {row.status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              {row.status === 'CONFIRMED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCounterTrackingInput(row.trackingId);
+                                    setCounterPhoneLast4(row.phoneLast4 || '');
+                                    handleCounterMarkArrived(row.trackingId, row.phoneLast4);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold cursor-pointer"
+                                >
+                                  Mark Arrived
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onOpenBookAppointments, onBackToHome }) {
+  const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
 
   if (isAshaWorker) {
     const ashaName = currentUser?.name || 'Anita Devi';
@@ -4934,20 +7976,30 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Assisted Teleconsultation &amp; Specialist Queue
+              Assisted Teleconsultation &amp; Hospital OPD Appointments
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Authenticated as <strong>{ashaName}</strong> ({subCenter}). Record worker-verified vitals from your ASHA kit, assist rural patients with local dialect translation, and connect directly to PHC/Medical College specialists.
+              Authenticated as <strong>{ashaName}</strong> ({subCenter}). Record worker-verified vitals from your ASHA kit, book hospital OPD tokens (Web/QR/2-Way SMS), or connect directly to PHC/Medical College specialists.
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+            {onOpenBookAppointments && (
+              <button
+                type="button"
+                onClick={onOpenBookAppointments}
+                className="px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <span>Book Appointments (Hospital OPD &amp; SMS)</span>
+                <span>&rarr;</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onSelectPath('worker')}
               className="px-4 py-2.5 rounded-lg bg-[#0b2b82] hover:bg-[#071c59] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-2"
             >
-              <span>Start Assisted Patient Booking &amp; Vitals Intake</span>
+              <span>Start Assisted Video Teleconsult</span>
               <span>&rarr;</span>
             </button>
             <button
@@ -5052,198 +8104,61 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
     );
   }
 
-  if (showWorkerLogin) {
-    return (
-      <div className="max-w-xl mx-auto space-y-6 animate-in fade-in duration-200">
-        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-2xs">
-          <div className="mb-6 pb-4 border-b border-slate-100">
-            <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block mb-1">
-              Assisted Intake &bull; Frontline Worker Authentication
-            </span>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Frontline Worker Login
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              Authenticate with your Health Worker ID and PIN to start assisted patient teleconsultation.
-            </p>
-          </div>
-
-          <form onSubmit={handleWorkerLogin} className="space-y-4">
-            {loginError && (
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-800">
-                {loginError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Frontline Health Worker ID / Mobile No.
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={workerId}
-                  onChange={(e) => setWorkerId(e.target.value)}
-                  placeholder="e.g. ASHA-JH-HZB-0142 or 9431158201"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-semibold text-slate-900 text-sm focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82] transition-all bg-white"
-                  required
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono">
-                  Govt ID
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Password / Security PIN
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-xs font-semibold text-[#0b2b82] hover:underline cursor-pointer"
-                >
-                  {showPassword ? 'Hide PIN' : 'Show PIN'}
-                </button>
-              </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={workerPassword}
-                onChange={(e) => setWorkerPassword(e.target.value)}
-                placeholder="Enter your security password or PIN"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-semibold text-slate-900 text-sm focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82] transition-all bg-white"
-                required
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setWorkerId('ASHA-JH-HZB-0142');
-                  setWorkerPassword('asha@2026');
-                  setLoginError('');
-                }}
-                className="text-xs font-semibold text-[#0b2b82] hover:text-[#071c59] underline underline-offset-2 transition-colors cursor-pointer"
-              >
-                Autofill demo credentials (ASHA Anita Devi)
-              </button>
-            </div>
-
-            <div className="pt-2 space-y-2">
-              <button
-                type="submit"
-                disabled={isAuthenticating}
-                className="w-full py-3 bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold text-xs sm:text-sm rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
-              >
-                {isAuthenticating ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Verifying Health Worker Credentials...</span>
-                  </>
-                ) : (
-                  <span>Continue to Patient Intake &rarr;</span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowWorkerLogin(false);
-                  setLoginError('');
-                }}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-              >
-                &larr; Back to Path Selection
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative max-w-5xl mx-auto py-6 sm:py-8 px-4 sm:px-6 animate-in fade-in duration-300">
-      {/* Background soft ambient glow & watermark */}
+      {/* Background soft ambient glow */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-50/50 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-50/40 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Header section matching reference image */}
+      {/* Header section for Doctor Visits */}
       <div className="mb-8">
         <span className="text-xs font-bold text-[#1565C0] uppercase tracking-widest block mb-2">
-          TELECONSULTATION &bull; PRIORITY QUEUE
+          DOCTOR VISITS &bull; OPD APPOINTMENTS &amp; TELECONSULTATION
         </span>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
-          How would you like to consult?
+          Doctor Visits &amp; Book Appointments
         </h1>
         <p className="text-sm sm:text-base text-slate-500 font-normal">
-          Choose the option that works best for you. Both routes connect to the same verified clinical queue.
+          Book physical hospital OPD tokens from home (Channel 1 — Web / PWA) or consult a verified specialist online.
         </p>
       </div>
 
-      {/* Two Comparison Cards matching reference image */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Card 1: Assisted consultation */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-blue-200">
+      {/* Two Primary Cards Grid: 1. Book Appointments (OPD) + 2. Direct Doctor Teleconsultation */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Card 1: Book Appointments (Channel 1 — Patient Web/PWA Booking from Home) */}
+        <div className="rounded-2xl border-2 border-[#0b2b82] bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between transition-all hover:shadow-md">
           <div>
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <line x1="19" y1="8" x2="19" y2="14" />
-                      <line x1="22" y1="11" x2="16" y2="11" />
-                    </svg>
-                  </div>
-                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1 rounded-full uppercase tracking-wide">
-                    ASHA / HEALTH WORKER
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
-                  Assisted consultation
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-normal">
-                  A trained frontline worker helps you share symptoms, record vitals and connect with a doctor.
-                </p>
-              </div>
-
-              {/* Photo on right */}
-              <div className="w-36 sm:w-44 h-28 sm:h-32 shrink-0 rounded-xl overflow-hidden shadow-2xs border border-slate-100">
-                <img
-                  src="teleconsult-assisted.jpg"
-                  alt="Assisted consultation with ASHA worker"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-[11px] font-bold text-white bg-[#0b2b82] px-3 py-1 rounded-full uppercase tracking-wide">
+                BOOK APPOINTMENTS &bull; CHANNEL 1
+              </span>
+              <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                Book from Home (Web / PWA)
+              </span>
             </div>
 
-            {/* Feature Checklist Box */}
-            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 space-y-2.5 mb-6">
+            <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
+              Book Appointments
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-normal mb-5">
+              Select a public or district hospital, choose an OPD specialty department and session window (Morning / Afternoon), and receive an instant digital OPD token pass with a signed QR code.
+            </p>
+
+            <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-4 space-y-3 mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                  </svg>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0 font-mono font-black text-xs">
+                  #01
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-slate-700">
-                  Worker-verified vitals
+                  Sequential OPD Token, Crockford Base32 ID (<code className="font-mono">MV-XXXX-XXX</code>) &amp; Signed Counter QR
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    <line x1="8" y1="10" x2="8.01" y2="10" strokeWidth="3" />
-                    <line x1="12" y1="10" x2="12.01" y2="10" strokeWidth="3" />
-                    <line x1="16" y1="10" x2="16.01" y2="10" strokeWidth="3" />
-                  </svg>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 font-mono font-black text-xs">
+                  DLT
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-slate-700">
-                  Help with language and technology
+                  Instant confirmed booking or 10-minute slot hold with TRAI DLT SMS confirmation
                 </span>
               </div>
             </div>
@@ -5251,40 +8166,40 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
 
           <button
             type="button"
-            onClick={() => setShowWorkerLogin(true)}
-            className="w-full py-3.5 px-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
+            onClick={() => onOpenBookAppointments && onOpenBookAppointments()}
+            className="w-full py-3.5 px-4 bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
           >
-            <span>Continue with a health worker</span>
+            <span>Open Book Appointments</span>
             <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
           </button>
         </div>
 
-        {/* Card 2: Consult on your own */}
+        {/* Card 2: Patient Direct Teleconsultation */}
         <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-slate-300">
           <div>
-            <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
                     </svg>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-wide">
-                    PATIENT DIRECT
+                  <span className="text-[11px] font-bold text-[#1565C0] bg-blue-50 border border-blue-100 px-3 py-1 rounded-full uppercase tracking-wide">
+                    DIRECT TELECONSULTATION
                   </span>
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
                   Consult on your own
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-normal">
-                  Book and join a consultation from your phone or computer, wherever you are.
+                  Book and join a live video/audio specialist consultation from your phone or computer.
                 </p>
               </div>
 
               {/* Photo on right */}
-              <div className="w-36 sm:w-44 h-28 sm:h-32 shrink-0 rounded-xl overflow-hidden shadow-2xs border border-slate-100">
+              <div className="w-full sm:w-36 h-28 shrink-0 rounded-xl overflow-hidden shadow-2xs border border-slate-100">
                 <img
                   src="teleconsult-direct.jpg"
                   alt="Direct consultation on your phone"
@@ -5294,7 +8209,7 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
             </div>
 
             {/* Feature Checklist Box */}
-            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 space-y-2.5 mb-6">
+            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-4 space-y-3 mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                   <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5303,7 +8218,7 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
                   </svg>
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-slate-700">
-                  Share symptoms and vitals
+                  Share symptoms and vitals directly with your specialist
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -5314,7 +8229,7 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
                   </svg>
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-slate-700">
-                  Automatic emergency warning checks
+                  Automatic emergency warning checks &amp; priority slot booking
                 </span>
               </div>
             </div>
@@ -5322,10 +8237,10 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
 
           <button
             type="button"
-            onClick={() => onSelectPath('self')}
-            className="w-full py-3.5 px-4 bg-[#0f1f3d] hover:bg-slate-900 text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
+            onClick={() => onSelectPath('patient')}
+            className="w-full py-3.5 px-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
           >
-            <span>Continue on my own</span>
+            <span>Continue to Video Teleconsult</span>
             <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
           </button>
         </div>
@@ -5338,7 +8253,7 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <span>Both options use the same verified clinical queue and secure medical records.</span>
+        <span>Connected to the unified OPD token counter, 2-way SMS gateway, and ABDM digital health records.</span>
       </div>
 
       {/* Back Link */}
@@ -5369,6 +8284,22 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
   const [riskFlags, setRiskFlags] = useState(['Hypertension']);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState(null);
+  const [liveRoster, setLiveRoster] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(getApiUrl('/api/doctors/roster'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.doctors) && data.doctors.length > 0) {
+          setLiveRoster(data.doctors);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const SPECIALTY_OPTIONS = [
     { id: 'Neurology', label: 'Neurology', code: 'NE', desc: 'Brain, stroke, epilepsy, nerve disorders and headache' },
@@ -5386,12 +8317,12 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
     { id: 'Gastroenterology', label: 'Gastroenterology', code: 'GE', desc: 'Liver, stomach, jaundice, ulcers and digestive care' }
   ];
 
-  const availableDoctorsList = [
+  const defaultDoctorsPool = [
     {
       id: 'doc_1',
       name: 'Dr. Priya Sharma',
       degrees: 'MBBS, MD, DM',
-      specialty: 'Neurologist',
+      specialty: 'Neurology',
       rating: 4.9,
       experience: '12 years experience',
       image: 'doctor-priya.jpg',
@@ -5404,7 +8335,7 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
       id: 'doc_2',
       name: 'Dr. Sameer K. Jha',
       degrees: 'MBBS, MD',
-      specialty: 'Neurologist',
+      specialty: 'Neurology',
       rating: 4.8,
       experience: '9 years experience',
       image: 'doctor-sameer.jpg',
@@ -5417,7 +8348,7 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
       id: 'doc_3',
       name: 'Dr. Ananya Verma',
       degrees: 'MBBS, DM',
-      specialty: 'Neurologist',
+      specialty: 'Neurology',
       rating: 4.7,
       experience: '8 years experience',
       image: 'doctor-ananya.jpg',
@@ -5428,12 +8359,53 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
     }
   ];
 
+  const availableDoctorsList = useMemo(() => {
+    const images = ['doctor-priya.jpg', 'doctor-sameer.jpg', 'doctor-ananya.jpg'];
+    const combinedPool = [...defaultDoctorsPool];
+
+    const extraSource = liveRoster.length > 0 ? liveRoster : (typeof MOCK_DOCTORS !== 'undefined' ? MOCK_DOCTORS : []);
+    extraSource.forEach((doc, idx) => {
+      if (!combinedPool.some((d) => d.name === doc.name)) {
+        combinedPool.push({
+          id: doc.id || `doc_roster_${idx}`,
+          name: doc.name,
+          degrees: doc.qualification || 'MBBS, MD',
+          specialty: doc.specialty || 'General Medicine',
+          rating: doc.rating || 4.8,
+          experience: `${doc.experienceYears || 10} years experience`,
+          image: images[idx % images.length],
+          isRecommended: idx === 0,
+          availabilityText: doc.availableToday !== false ? 'Available today' : 'Available tomorrow',
+          availabilityColor: doc.availableToday !== false ? 'text-emerald-600' : 'text-slate-500',
+          isVerified: true
+        });
+      }
+    });
+
+    const filtered = combinedPool.filter((d) =>
+      typeof matchesSpecialty === 'function'
+        ? matchesSpecialty(d.specialty, selectedSpecialty)
+        : d.specialty.toLowerCase().includes(selectedSpecialty.toLowerCase())
+    );
+
+    if (filtered.length > 0) {
+      return filtered.map((d, i) => ({ ...d, isRecommended: i === 0 }));
+    }
+    return defaultDoctorsPool.map((d) => ({ ...d, specialty: selectedSpecialty }));
+  }, [selectedSpecialty, liveRoster]);
+
+  useEffect(() => {
+    if (availableDoctorsList.length > 0 && !availableDoctorsList.some((d) => d.id === selectedDoctorId)) {
+      setSelectedDoctorId(availableDoctorsList[0].id);
+    }
+  }, [availableDoctorsList, selectedDoctorId]);
+
   const activeDoctor = availableDoctorsList.find((d) => d.id === selectedDoctorId) || availableDoctorsList[0];
 
   const handleSymptomCheck = (text) => {
     setSymptoms(text);
     const lower = text.toLowerCase();
-    if (pathActor === 'self' && (lower.includes('chest pain') || lower.includes('face drop') || lower.includes('cant breathe') || lower.includes('unconscious'))) {
+    if ((pathActor === 'self' || pathActor === 'patient') && (lower.includes('chest pain') || lower.includes('face drop') || lower.includes('cant breathe') || lower.includes('unconscious'))) {
       setShowEmergencyModal(true);
     }
   };
@@ -5442,7 +8414,7 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
     const isCritical = symptoms.toLowerCase().includes('chest pain') || symptoms.toLowerCase().includes('face drop');
     const urgency = isCritical ? 'RED' : 'YELLOW';
 
-    const cleanAge = typeof age === 'string' ? parseInt(age.replace(/\\D/g, '')) || 48 : age;
+    const cleanAge = typeof age === 'string' ? parseInt(age.replace(/\D/g, '')) || 48 : age;
 
     const bookingPayload = {
       patientName,
@@ -5887,8 +8859,8 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
             {/* Left Column: Available Specialists (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-bold text-slate-900">Available Specialists</h3>
-                <span className="text-xs text-slate-400 font-medium">3 doctors</span>
+                <h3 className="text-sm font-bold text-slate-900">Available {selectedSpecialty} Specialists</h3>
+                <span className="text-xs text-slate-400 font-medium">{availableDoctorsList.length} doctors</span>
               </div>
 
               <div className="space-y-3.5">
@@ -6108,15 +9080,51 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
 }
 
 function ScreenTeleconsultQueue({ appointment, onJoinCall, onBack }) {
-  const [queuePos] = useState(2);
-  const [estimatedMins] = useState(8);
+  const [queuePos, setQueuePos] = useState(2);
+  const [estimatedMins, setEstimatedMins] = useState(8);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefreshQueue = () => {
+  const syncQueueState = () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 400);
+    fetch(getApiUrl('/api/v1/teleconsult/queue'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.data?.queue || [];
+        if (list.length > 0) {
+          const match = appointment?.id
+            ? list.find((item) => item.appointmentId === appointment.id || item.patientName === appointment.patientName)
+            : list[0];
+          if (match) {
+            setQueuePos(match.queuePosition || 1);
+            setEstimatedMins(match.estimatedWaitMinutes ?? 5);
+          } else {
+            setQueuePos(list.length);
+            setEstimatedMins(Math.max(4, list.length * 4));
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setTimeout(() => setIsRefreshing(false), 250);
+      });
+  };
+
+  useEffect(() => {
+    if (appointment?.id) {
+      fetch(getApiUrl('/api/v1/teleconsult/queue/join'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: appointment.id })
+      })
+        .then(() => syncQueueState())
+        .catch(() => syncQueueState());
+    } else {
+      syncQueueState();
+    }
+  }, [appointment?.id]);
+
+  const handleRefreshQueue = () => {
+    syncQueueState();
   };
 
   return (
@@ -6214,10 +9222,12 @@ function ScreenTeleconsultQueue({ appointment, onJoinCall, onBack }) {
   );
 }
 
-function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation }) {
+function ScreenTeleconsultCall({ appointment, pathActor, onSessionStart, onCompleteConsultation }) {
   const [callMode, setCallMode] = useState('video'); // 'video' | 'audio' | 'chat'
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [sessionId, setSessionId] = useState('CON-JH-8842');
+  const [durationSec, setDurationSec] = useState(0);
   const [vitals, setVitals] = useState([
     { type: 'bp', label: 'Blood Pressure', value: '138/88', unit: 'mmHg', source: pathActor === 'worker' ? 'worker_verified' : 'self_reported' },
     { type: 'spo2', label: 'SpO2 Saturation', value: '98', unit: '%', source: pathActor === 'worker' ? 'worker_verified' : 'self_reported' },
@@ -6226,39 +9236,104 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
   ]);
   const [newVitalType, setNewVitalType] = useState('glucose');
   const [newVitalValue, setNewVitalValue] = useState('110');
+  const docName = appointment?.doctorName || 'Dr. Priya Sharma';
+  const docInitials = getDoctorInitials(docName);
   const [messages, setMessages] = useState([
-    { id: '1', sender: 'doctor', senderName: 'Dr. Priya Sharma', text: 'Hello, I can see your video clearly. Please tell me about the headache symptoms.', time: '10:01 AM' },
-    { id: '2', sender: pathActor, senderName: pathActor === 'worker' ? 'ASHA Anita Kumari' : 'Anita Devi', text: 'Namaste Doctor. The headache is mainly on the right side temple, started 3 days ago.', time: '10:02 AM' }
+    { id: '1', sender: 'doctor', senderName: docName, text: 'Hello, I can see your video clearly. Please tell me about the symptoms.', time: '10:01 AM' },
+    { id: '2', sender: pathActor, senderName: pathActor === 'worker' ? 'ASHA Anita Kumari' : (appointment?.patientName || 'Patient'), text: 'Namaste Doctor. The symptoms started 3 days ago.', time: '10:02 AM' }
   ]);
   const [chatInput, setChatInput] = useState('');
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDurationSec((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(getApiUrl('/api/v1/teleconsult/session/start'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId: appointment?.id || 'APT-LIVE',
+        patientName: appointment?.patientName || 'Sita Devi',
+        doctorName: docName,
+        mode: 'video'
+      })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const startedId = json?.data?.session?.id;
+        if (!cancelled && startedId) {
+          setSessionId(startedId);
+          if (onSessionStart) onSessionStart(startedId);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [appointment?.id]);
+
+  const switchCallMode = (mode) => {
+    setCallMode(mode);
+    if (sessionId) {
+      fetch(getApiUrl(`/api/v1/teleconsult/session/${sessionId}/mode`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      }).catch(() => {});
+    }
+  };
+
+  const formatDuration = (secs) => {
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   const sendChatMessage = () => {
     if (!chatInput.trim()) return;
+    const senderName = pathActor === 'worker' ? 'ASHA Anita Kumari' : (appointment?.patientName || 'Patient');
     const msg = {
       id: String(Date.now()),
       sender: pathActor,
-      senderName: pathActor === 'worker' ? 'ASHA Anita Kumari' : 'Anita Devi',
+      senderName,
       text: chatInput,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMessages([...messages, msg]);
     setChatInput('');
+    if (sessionId) {
+      fetch(getApiUrl(`/api/v1/teleconsult/session/${sessionId}/message`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: pathActor, senderName, text: msg.text })
+      }).catch(() => {});
+    }
   };
 
   const addVital = () => {
     if (!newVitalValue) return;
     const labelMap = { glucose: 'Blood Glucose', bp: 'Blood Pressure', spo2: 'SpO2', temp: 'Temperature' };
     const unitMap = { glucose: 'mg/dL', bp: 'mmHg', spo2: '%', temp: 'deg F' };
-    setVitals([
-      ...vitals,
-      {
-        type: newVitalType,
-        label: labelMap[newVitalType] || newVitalType,
-        value: newVitalValue,
-        unit: unitMap[newVitalType] || '',
-        source: pathActor === 'worker' ? 'worker_verified' : 'self_reported'
-      }
-    ]);
+    const vitalEntry = {
+      type: newVitalType,
+      label: labelMap[newVitalType] || newVitalType,
+      value: newVitalValue,
+      unit: unitMap[newVitalType] || '',
+      source: pathActor === 'worker' ? 'worker_verified' : 'self_reported'
+    };
+    setVitals([...vitals, vitalEntry]);
+    if (sessionId) {
+      fetch(getApiUrl(`/api/v1/teleconsult/session/${sessionId}/vitals`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vitalEntry)
+      }).catch(() => {});
+    }
   };
 
   return (
@@ -6267,10 +9342,10 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
       <div className="bg-slate-900 text-white rounded-xl p-4 border border-slate-800 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="text-sm font-bold text-white">
-            {appointment?.doctorName || 'Dr. Priya Sharma'} &bull; {appointment?.specialty || 'Neurology'}
+            {docName} &bull; {appointment?.specialty || 'Neurology'}
           </h3>
           <p className="text-[11px] text-slate-400">
-            Consultation Session &bull; Duration: 04:12
+            Consultation Session ({sessionId}) &bull; Duration: {formatDuration(durationSec)}
           </p>
         </div>
 
@@ -6278,7 +9353,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
         <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-lg text-xs font-semibold">
           <button
             type="button"
-            onClick={() => setCallMode('video')}
+            onClick={() => switchCallMode('video')}
             className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
               callMode === 'video' ? 'bg-[#0b2b82] text-white' : 'text-slate-300 hover:text-white'
             }`}
@@ -6287,7 +9362,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
           </button>
           <button
             type="button"
-            onClick={() => setCallMode('audio')}
+            onClick={() => switchCallMode('audio')}
             className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
               callMode === 'audio' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white'
             }`}
@@ -6296,7 +9371,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
           </button>
           <button
             type="button"
-            onClick={() => setCallMode('chat')}
+            onClick={() => switchCallMode('chat')}
             className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
               callMode === 'chat' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white'
             }`}
@@ -6316,10 +9391,10 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
               <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
                 <div className="text-center space-y-2">
                   <div className="w-16 h-16 rounded-lg bg-slate-800 text-white flex items-center justify-center font-bold text-lg mx-auto border border-slate-700">
-                    PS
+                    {docInitials}
                   </div>
-                  <h4 className="text-base font-bold text-white">Dr. Priya Sharma</h4>
-                  <span className="text-xs text-slate-400 block">MD Neurology &bull; Live Telehealth Stream</span>
+                  <h4 className="text-base font-bold text-white">{docName}</h4>
+                  <span className="text-xs text-slate-400 block">{appointment?.specialty || 'Neurology'} &bull; Live Telehealth Stream</span>
                 </div>
               </div>
 
@@ -6361,7 +9436,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
 
                 <button
                   type="button"
-                  onClick={() => setCallMode('chat')}
+                  onClick={() => switchCallMode('chat')}
                   className="px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-semibold cursor-pointer"
                 >
                   Chat
@@ -6379,9 +9454,9 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
 
               <div className="space-y-3">
                 <div className="w-16 h-16 rounded-lg bg-slate-800 text-white flex items-center justify-center text-base font-bold mx-auto border border-slate-700">
-                  PS
+                  {docInitials}
                 </div>
-                <h4 className="text-lg font-bold text-white">Dr. Priya Sharma &bull; Voice Active</h4>
+                <h4 className="text-lg font-bold text-white">{docName} &bull; Voice Active</h4>
                 <p className="text-xs text-slate-400">High-clarity low-latency audio connected</p>
 
                 {/* Audio meter */}
@@ -6414,7 +9489,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">Session In-App Chat</h4>
-                  <p className="text-[11px] text-slate-400 font-mono">Consultation ID: CON-JH-8842</p>
+                  <p className="text-[11px] text-slate-400 font-mono">Consultation ID: {sessionId}</p>
                 </div>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
                   Encrypted Session
@@ -6528,7 +9603,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
 
           <button
             type="button"
-            onClick={() => onCompleteConsultation(vitals)}
+            onClick={() => onCompleteConsultation(vitals, sessionId)}
             className="w-full py-3.5 bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold rounded-lg text-xs sm:text-sm shadow-2xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Complete Call &amp; Proceed to Clinical Documentation</span>
@@ -6540,7 +9615,7 @@ function ScreenTeleconsultCall({ appointment, pathActor, onCompleteConsultation 
   );
 }
 
-function ScreenDoctorDocumentation({ appointment, vitals, onSaveDocumentation }) {
+function ScreenDoctorDocumentation({ appointment, sessionId, vitals, onSaveDocumentation }) {
   const [diagnosis, setDiagnosis] = useState('Tension-type Headache / Cervical Muscular Strain');
   const [doctorNotes, setDoctorNotes] = useState('Patient alert and oriented. Cranial nerve examination intact. SBP 138 mmHg. Advised rest, hydration, and short-term analgesia.');
   const [prescription, setPrescription] = useState([
@@ -6553,7 +9628,13 @@ function ScreenDoctorDocumentation({ appointment, vitals, onSaveDocumentation })
   const [followUpDays] = useState(7);
 
   const handleFinalize = () => {
-    onSaveDocumentation({
+    const activeSessionId = sessionId || 'CON-JH-2026-9042';
+    const docPayload = {
+      sessionId: activeSessionId,
+      consultId: activeSessionId,
+      doctorName: appointment?.doctorName || 'Dr. Priya Sharma',
+      specialty: appointment?.specialty || 'Neurology',
+      patientName: appointment?.patientName || 'Sita Devi',
       diagnosis,
       doctorNotes,
       prescription,
@@ -6563,7 +9644,36 @@ function ScreenDoctorDocumentation({ appointment, vitals, onSaveDocumentation })
       followUpFlag,
       followUpDays,
       vitals
-    });
+    };
+
+    fetch(getApiUrl(`/api/v1/teleconsult/session/${activeSessionId}/complete`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(docPayload)
+    }).catch(() => {});
+
+    if (diagnosticOrderFlag) {
+      fetch(getApiUrl('/api/diagnostics/orders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actor_role: 'doctor',
+          patient_name: appointment?.patientName || 'Sita Devi',
+          patient_age: appointment?.patientAge || 48,
+          patient_gender: appointment?.patientSex || 'Female',
+          ordering_doctor: appointment?.doctorName || 'Dr. Priya Sharma',
+          ordering_facility: 'MedVeda Telehealth Grid',
+          priority: 'URGENT',
+          clinical_indication: diagnosis,
+          tests: [
+            { test_code: 'HEM-01', test_name: 'Complete Blood Count (CBC)', category: 'Hematology' },
+            { test_code: 'BIO-04', test_name: 'Serum Electrolytes Panel', category: 'Biochemistry' }
+          ]
+        })
+      }).catch(() => {});
+    }
+
+    onSaveDocumentation(docPayload);
   };
 
   return (
@@ -6701,7 +9811,9 @@ function ScreenDoctorDocumentation({ appointment, vitals, onSaveDocumentation })
 
 function ScreenConsultationSummary({ consultationData, onRestart, onGoHome }) {
   const [copied, setCopied] = useState(false);
-  const consultId = 'CON-JH-2026-9042';
+  const consultId = consultationData?.consultId || consultationData?.sessionId || 'CON-JH-2026-9042';
+  const doctorName = consultationData?.doctorName || 'Dr. Priya Sharma, MD';
+  const specialty = consultationData?.specialty || 'Neurology';
 
   const diagnosis = consultationData?.diagnosis || 'Tension-type Headache / Cervical Muscular Strain';
   const doctorNotes = consultationData?.doctorNotes || 'Patient alert and oriented. Cranial nerve exam intact. SBP 138 mmHg. Advised rest, hydration, and short-term analgesia.';
@@ -6722,8 +9834,8 @@ function ScreenConsultationSummary({ consultationData, onRestart, onGoHome }) {
               <span className="text-[10px] font-bold tracking-wider text-[#0b2b82] uppercase bg-slate-100 px-2 py-0.5 rounded">
                 Official Digital Consultation Record
               </span>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-1">Dr. Priya Sharma, MD</h3>
-              <p className="text-xs text-slate-500">Department of Neurology &bull; SBMC&amp;H Regional Grid</p>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-1">{doctorName}</h3>
+              <p className="text-xs text-slate-500">Department of {specialty} &bull; SBMC&amp;H Regional Grid</p>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-mono font-semibold text-slate-400 uppercase">Consult ID</div>
@@ -6762,18 +9874,18 @@ function ScreenConsultationSummary({ consultationData, onRestart, onGoHome }) {
             {/* Verification Block */}
             <div className="flex items-center justify-between bg-white p-3.5 rounded-lg border border-slate-200 gap-3 flex-wrap">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-900 rounded-lg p-1 flex flex-col justify-between shrink-0">
-                  <div className="flex justify-between"><div className="w-2.5 h-2.5 bg-white"></div><div className="w-2.5 h-2.5 bg-white"></div></div>
-                  <div className="flex justify-between"><div className="w-2.5 h-2.5 bg-white"></div><div className="w-1 h-1 bg-white self-end"></div></div>
+                <div className="w-12 h-12 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shrink-0">
+                  <DeterministicQrMatrixSvg value={consultId} size={40} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900">Digital Record Verification</div>
+                  <div className="text-xs font-bold text-slate-900">Digital Record Verification QR</div>
                   <div className="text-[11px] text-slate-500">Scan at any Jan Aushadhi Kendra or registered pharmacy.</div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => {
+                  navigator.clipboard?.writeText(consultId);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
@@ -7362,15 +10474,18 @@ function ReferralLoginForm({ onOpenAuthModal }) {
 }
 
 function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCurrentUser, onBack, onBackToHome, onNavigateToCareNavigator }) {
+  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
 
   const getRoleTab = (role) => {
+    if (isDoctor) return 'doctor';
     if (role === 'patient') return 'patient';
     if (role === 'facility' || role === 'admin') return 'facility';
     return 'doctor';
   };
 
   const parseHashRole = () => {
+    if (isDoctor) return 'doctor';
     if (isHospitalFacility) return 'facility';
     const hash = window.location.hash || '';
     if (hash === '#referrals-patient') return 'patient';
@@ -7382,6 +10497,7 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
   };
 
   const getInitialTab = () => {
+    if (isDoctor) return 'doctor';
     if (isHospitalFacility) return 'facility';
     const hashRole = parseHashRole();
     if (hashRole) return hashRole;
@@ -7392,10 +10508,12 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
   const [activeTabRole, setActiveTabRole] = useState(getInitialTab);
 
   useEffect(() => {
-    if (isHospitalFacility && activeTabRole !== 'facility') {
+    if (isDoctor && activeTabRole !== 'doctor') {
+      setActiveTabRole('doctor');
+    } else if (isHospitalFacility && activeTabRole !== 'facility') {
       setActiveTabRole('facility');
     }
-  }, [isHospitalFacility, activeTabRole]);
+  }, [isDoctor, isHospitalFacility, activeTabRole]);
 
   const [referrals, setReferrals] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, rejected: 0, completed: 0 });
@@ -8214,7 +11332,19 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
       {/* Prominent Role View Switcher Navigation Bar */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 flex items-center justify-between overflow-x-auto gap-4">
-          {isHospitalFacility ? (
+          {isDoctor ? (
+            <div className="flex items-center gap-2.5 py-2.5">
+              <span className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0b2b82] text-white shadow-2xs whitespace-nowrap flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Referring Doctor Workbench (Doctor View Only)
+              </span>
+              <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                {currentUser?.registrationNo || 'MCI-2018-847291'}
+              </span>
+            </div>
+          ) : isHospitalFacility ? (
             <div className="flex items-center gap-2.5 py-2.5">
               <span className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0b2b82] text-white shadow-2xs whitespace-nowrap">
                 Facility Inbound Queue (Hospital View Only)
@@ -8280,7 +11410,9 @@ function ScreenReferralManagement({ actorRole, setActorRole, currentUser, setCur
 
       {/* Main Content Body */}
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-8 py-6">
-        {isHospitalFacility ? (
+        {isDoctor ? (
+          renderDoctorView()
+        ) : isHospitalFacility ? (
           renderFacilityView()
         ) : (
           <>
@@ -8776,19 +11908,22 @@ function ScreenHighRiskFollowUp({
   onNavigateToCareNavigator,
   onNavigateToReferrals
 }) {
+  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
   const [activeTabRole, setActiveTabRole] = useState(
-    isHospitalFacility ? 'facility' : isAshaWorker ? 'worker' : actorRole === 'patient' ? 'patient' : (actorRole || 'doctor')
+    isDoctor ? 'doctor' : isHospitalFacility ? 'facility' : isAshaWorker ? 'worker' : actorRole === 'patient' ? 'patient' : (actorRole || 'doctor')
   );
 
   useEffect(() => {
-    if (isHospitalFacility && activeTabRole !== 'facility') {
+    if (isDoctor && activeTabRole !== 'doctor') {
+      setActiveTabRole('doctor');
+    } else if (isHospitalFacility && activeTabRole !== 'facility') {
       setActiveTabRole('facility');
     } else if (isAshaWorker && activeTabRole !== 'worker') {
       setActiveTabRole('worker');
     }
-  }, [isHospitalFacility, isAshaWorker, activeTabRole]);
+  }, [isDoctor, isHospitalFacility, isAshaWorker, activeTabRole]);
 
   // Multi-Tenant Isolation Filter States
   const [selectedDoctor, setSelectedDoctor] = useState('ALL');
@@ -9405,8 +12540,19 @@ function ScreenHighRiskFollowUp({
       {/* Role Navigation Bar with Multi-Tenant Profile Switchers */}
       {actorRole !== 'patient' && (
         <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between flex-wrap gap-3">
-          {/* Role Tabs */}
-          {isHospitalFacility ? (
+          {isDoctor ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#0b2b82] text-white shadow-2xs flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Doctor Monitoring Center (Doctor View Only)
+              </span>
+              <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                {currentUser?.registrationNo || 'MCI-2018-847291'}
+              </span>
+            </div>
+          ) : isHospitalFacility ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#0b2b82] text-white shadow-2xs">
                 Facility Alert Desk (Hospital View Only)
@@ -11265,9 +14411,10 @@ function ScreenInteroperableRecords({
     }
   })();
 
+  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
   const isPatientLoggedIn = Boolean(effectiveUser && (effectiveUser.role === 'patient' || (!effectiveUser.role && effectiveUser.name)));
 
-  const [activeRole, setActiveRole] = useState(actorRole || 'patient');
+  const [activeRole, setActiveRole] = useState(isDoctor ? 'doctor' : (actorRole || 'patient'));
   const [selectedPatientId, setSelectedPatientId] = useState('MV-MED-2026-1024');
   const [activeSubView, setActiveSubView] = useState('timeline'); // 'timeline' | 'chat'
   const [highlightedRecordId, setHighlightedRecordId] = useState(null);
@@ -11582,8 +14729,12 @@ function ScreenInteroperableRecords({
   }, [selectedPatientId, activeRole]);
 
   useEffect(() => {
-    if (actorRole) setActiveRole(actorRole);
-  }, [actorRole]);
+    if (isDoctor) {
+      setActiveRole('doctor');
+    } else if (actorRole) {
+      setActiveRole(actorRole);
+    }
+  }, [isDoctor, actorRole]);
 
   // Update welcome message when patient changes
   useEffect(() => {
@@ -13120,28 +16271,39 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
         {/* Role Navigation Bar & Patient Selector */}
         <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
-            {[
-              { id: 'patient', label: 'Patient (Self Access)' },
-              { id: 'doctor', label: 'Doctor (Consent Required)' },
-              { id: 'worker', label: 'ASHA Worker' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveRole(tab.id);
-                  setActorRole(tab.id);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeRole === tab.id
-                    ? 'bg-slate-900 text-white shadow-sm font-black'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                <span>{tab.label}</span>
-              </button>
-            ))}
+            {isDoctor ? (
+              <span className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#0b2b82] text-white shadow-2xs flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Clinician Record Audit & Consent View (Doctor View Only)
+              </span>
+            ) : (
+              <>
+                <span className="text-xs font-bold text-slate-500 uppercase">View As:</span>
+                {[
+                  { id: 'patient', label: 'Patient (Self Access)' },
+                  { id: 'doctor', label: 'Doctor (Consent Required)' },
+                  { id: 'worker', label: 'ASHA Worker' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveRole(tab.id);
+                      setActorRole(tab.id);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeRole === tab.id
+                        ? 'bg-slate-900 text-white shadow-sm font-black'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -15599,13 +18761,14 @@ function ScreenMedicineDiagnostics({
   onNavigateToRecords
 }) {
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
+  const isDiagnosticLab = (currentUser && (currentUser.role === 'lab_staff' || currentUser.role === 'lab' || currentUser.role === 'diagnostic' || currentUser.facilitySubtype === 'lab' || currentUser.facilitySubtype === 'diagnostic')) || actorRole === 'lab_staff' || actorRole === 'lab';
 
   const [activeTab, setActiveTab] = useState(
     isMedicineFacility
       ? 'shop_owner'
-      : actorRole === 'lab_staff'
+      : isDiagnosticLab
         ? 'lab_dashboard'
-        : actorRole === 'doctor'
+        : actorRole === 'doctor' || (currentUser && currentUser.role === 'doctor')
           ? 'doctor_orders'
           : 'medicine_search'
   );
@@ -15980,16 +19143,16 @@ function ScreenMedicineDiagnostics({
     const h = window.location.hash;
     if (isMedicineFacility || h === '#shop-owner' || actorRole === 'shop_owner') {
       setActiveTab('shop_owner');
-    } else if (h === '#lab-staff' || actorRole === 'lab_staff') {
+    } else if (isDiagnosticLab || h === '#lab-staff' || actorRole === 'lab_staff') {
       setActiveTab('lab_dashboard');
     } else if (h === '#diagnostic') {
       setActiveTab('diagnostic_search');
-    } else if (h === '#doctor-orders' || h === '#diagnostic-orders' || actorRole === 'doctor') {
+    } else if (h === '#doctor-orders' || h === '#diagnostic-orders' || actorRole === 'doctor' || (currentUser && currentUser.role === 'doctor')) {
       setActiveTab('doctor_orders');
     } else if (h === '#medicine' || h === '#feature6') {
       setActiveTab('medicine_search');
     }
-  }, [actorRole, isMedicineFacility]);
+  }, [actorRole, isMedicineFacility, isDiagnosticLab, currentUser]);
 
   useEffect(() => {
     if (activeTab === 'shop_owner') {
@@ -21104,7 +24267,9 @@ function ScreenLogin({
   const isDistrictAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin');
   const isHospitalFacility = currentUser && currentUser.role === 'facility';
   const isMedicineFacility = currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine');
+  const isDiagnosticLab = currentUser && (currentUser.role === 'lab_staff' || currentUser.role === 'lab' || currentUser.role === 'diagnostic' || currentUser.facilitySubtype === 'lab' || currentUser.facilitySubtype === 'diagnostic');
   const isAshaWorker = currentUser && currentUser.role === 'worker';
+  const isDoctor = currentUser && currentUser.role === 'doctor';
 
   if (currentUser) {
     return (
@@ -21120,7 +24285,7 @@ function ScreenLogin({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Authenticated Session</span>
             <h3 className="text-xl font-bold text-slate-900 mt-1">{currentUser.name}</h3>
             <p className="text-xs text-[#0b2b82] font-bold uppercase tracking-wide mt-0.5">{currentUser.roleLabel || currentUser.role}</p>
-            <p className="text-xs text-slate-500 font-mono mt-1">{currentUser.ashaId || currentUser.pharmacyId || currentUser.hospitalId || currentUser.abhaId}</p>
+            <p className="text-xs text-slate-500 font-mono mt-1">{currentUser.ashaId || currentUser.pharmacyId || currentUser.labId || currentUser.hospitalId || currentUser.abhaId}</p>
           </div>
           <div className="space-y-2 pt-2">
             <button
@@ -21128,7 +24293,7 @@ function ScreenLogin({
               onClick={() => onLoginSuccess(currentUser)}
               className="w-full py-3 px-4 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{isDistrictAdmin ? 'Continue to District Health Administrator Overview' : isHospitalFacility ? 'Continue to Hospital Overview' : isMedicineFacility ? 'Continue to Pharmacy Overview' : isAshaWorker ? 'Continue to ASHA Worker Overview' : 'Continue to Platform Overview'}</span>
+              <span>{isDistrictAdmin ? 'Continue to District Health Administrator Overview' : isHospitalFacility ? 'Continue to Hospital Overview' : isMedicineFacility ? 'Continue to Pharmacy Overview' : isDiagnosticLab ? 'Continue to Diagnostic Lab Overview' : isAshaWorker ? 'Continue to ASHA Worker Overview' : isDoctor ? 'Continue to Doctor Clinical Overview' : 'Continue to Platform Overview'}</span>
               <span>&rarr;</span>
             </button>
             <button
@@ -26416,9 +29581,112 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
 // --- OVERVIEW COMPONENTS ---
 // ==========================================
 
-function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
+function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
   const [showAbha, setShowAbha] = useState(false);
   const [medicineSearchQuery, setMedicineSearchQuery] = useState('');
+  const [liveAppointment, setLiveAppointment] = useState(null);
+  const [liveReferral, setLiveReferral] = useState(null);
+
+  // Interactive modals for Real Account data entry
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'appointment' | 'referral' | 'vitals' | 'prescription'
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    age: currentUser?.age || '',
+    sex: currentUser?.sex || 'Female',
+    phone: currentUser?.phone || '',
+    district: currentUser?.district || '',
+    state: currentUser?.state || '',
+    bloodGroup: currentUser?.bloodGroup || '',
+    weight: currentUser?.weight || '',
+    medicalHistory: currentUser?.medicalHistory || '',
+    emergencyContact: currentUser?.emergencyContact || '',
+    address: currentUser?.address || '',
+    email: currentUser?.email || ''
+  });
+  const [apptForm, setApptForm] = useState({
+    type: 'Teleconsult',
+    doctorName: '',
+    specialty: 'General Medicine',
+    dateStr: '',
+    timeStr: '',
+    location: ''
+  });
+  const [refForm, setRefForm] = useState({
+    receivingFacilityName: '',
+    specialtyRequired: '',
+    bedAllotted: '',
+    referringDoctor: '',
+    urgency: 'Priority',
+    reasonForReferral: '',
+    step: '1'
+  });
+  const [vitalsForm, setVitalsForm] = useState({
+    bp: currentUser?.customData?.vitals?.bp || '',
+    glucose: currentUser?.customData?.vitals?.glucose || '',
+    heartRate: currentUser?.customData?.vitals?.heartRate || '',
+    spo2: currentUser?.customData?.vitals?.spo2 || '',
+    weight: currentUser?.customData?.vitals?.weight || currentUser?.weight || '',
+    cholesterol: currentUser?.customData?.vitals?.cholesterol || '',
+    hemoglobin: currentUser?.customData?.vitals?.hemoglobin || '',
+    lastCheckup: currentUser?.customData?.vitals?.lastCheckup || ''
+  });
+  const [rxForm, setRxForm] = useState({
+    name: '',
+    dosage: '',
+    frequency: 'Once daily'
+  });
+
+  useEffect(() => {
+    setProfileForm({
+      name: currentUser?.name || '',
+      age: currentUser?.age || '',
+      sex: currentUser?.sex || 'Female',
+      phone: currentUser?.phone || '',
+      district: currentUser?.district || '',
+      state: currentUser?.state || '',
+      bloodGroup: currentUser?.bloodGroup || '',
+      weight: currentUser?.weight || '',
+      medicalHistory: currentUser?.medicalHistory || '',
+      emergencyContact: currentUser?.emergencyContact || '',
+      address: currentUser?.address || '',
+      email: currentUser?.email || ''
+    });
+    setVitalsForm({
+      bp: currentUser?.customData?.vitals?.bp || '',
+      glucose: currentUser?.customData?.vitals?.glucose || '',
+      heartRate: currentUser?.customData?.vitals?.heartRate || '',
+      spo2: currentUser?.customData?.vitals?.spo2 || '',
+      weight: currentUser?.customData?.vitals?.weight || currentUser?.weight || '',
+      cholesterol: currentUser?.customData?.vitals?.cholesterol || '',
+      hemoglobin: currentUser?.customData?.vitals?.hemoglobin || '',
+      lastCheckup: currentUser?.customData?.vitals?.lastCheckup || ''
+    });
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isPrototype) return;
+    let cancelled = false;
+    fetch(getApiUrl('/api/v1/teleconsult/queue'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.data?.queue || [];
+        if (!cancelled && list.length > 0) setLiveAppointment(list[0]);
+      })
+      .catch(() => {});
+
+    fetch(getApiUrl('/api/referrals'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.referrals || [];
+        if (!cancelled && list.length > 0) setLiveReferral(list[0]);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrototype]);
 
   // Scroll trigger animation observer
   useEffect(() => {
@@ -26444,42 +29712,155 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
     setView('feature6');
   };
 
+  const rawAbha = currentUser?.abhaNumber || currentUser?.identifier || (isPrototype ? '91-4829-1092-4820' : 'Not Linked');
+  const maskedAbha = rawAbha.length > 4 ? `•••••-${rawAbha.slice(-4)}` : rawAbha;
+  const displayPatientName = currentUser?.name || (isPrototype ? 'Anita Devi' : 'Patient');
+
+  const customAppointments = currentUser?.customData?.appointments || [];
+  const customReferrals = currentUser?.customData?.referrals || [];
+  const customVitals = currentUser?.customData?.vitals || null;
+  const customPrescriptions = currentUser?.customData?.prescriptions || [];
+
+  const activeReferral = isPrototype
+    ? (liveReferral || {
+        referralId: 'REF-2026-8942',
+        receivingFacilityName: 'RIMS Medical College',
+        specialtyRequired: 'Cardiology',
+        bedAllotted: 'Ward 4B',
+        referringDoctor: 'Dr. Ananya Roy',
+        urgency: 'Tier 2 - Urgent',
+        reasonForReferral: 'Priority & Reporting - Tomorrow by 10:00 AM',
+        status: 'accepted',
+        step: 3
+      })
+    : (customReferrals[0] || null);
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    onUpdateUser({
+      ...currentUser,
+      ...profileForm,
+      customData: {
+        ...(currentUser.customData || {}),
+        vitals: {
+          ...(currentUser.customData?.vitals || {}),
+          weight: profileForm.weight || currentUser.customData?.vitals?.weight || ''
+        }
+      }
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddAppointment = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    const newAppt = {
+      id: `APT-${Date.now().toString().slice(-4)}`,
+      ...apptForm,
+      status: 'Confirmed'
+    };
+    onUpdateUser({
+      ...currentUser,
+      customData: {
+        ...(currentUser.customData || {}),
+        appointments: [newAppt, ...customAppointments]
+      }
+    });
+    setApptForm({ type: 'Teleconsult', doctorName: '', specialty: 'General Medicine', dateStr: '', timeStr: '', location: '' });
+    setActiveModal(null);
+  };
+
+  const handleAddReferral = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    const newRef = {
+      referralId: `REF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      ...refForm,
+      step: Number(refForm.step || 1),
+      status: 'accepted'
+    };
+    onUpdateUser({
+      ...currentUser,
+      customData: {
+        ...(currentUser.customData || {}),
+        referrals: [newRef, ...customReferrals]
+      }
+    });
+    setActiveModal(null);
+  };
+
+  const handleSaveVitals = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    onUpdateUser({
+      ...currentUser,
+      weight: vitalsForm.weight || currentUser.weight,
+      customData: {
+        ...(currentUser.customData || {}),
+        vitals: { ...vitalsForm }
+      }
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddPrescription = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    const newRx = {
+      id: `RX-${Date.now().toString().slice(-4)}`,
+      ...rxForm
+    };
+    onUpdateUser({
+      ...currentUser,
+      customData: {
+        ...(currentUser.customData || {}),
+        prescriptions: [...customPrescriptions, newRx]
+      }
+    });
+    setRxForm({ name: '', dosage: '', frequency: 'Once daily' });
+    setActiveModal(null);
+  };
+
+  const missingOptionalFields = [];
+  if (!currentUser?.bloodGroup) missingOptionalFields.push('Blood Group');
+  if (!currentUser?.weight && !customVitals?.weight) missingOptionalFields.push('Weight');
+  if (!currentUser?.medicalHistory) missingOptionalFields.push('Medical History');
+  if (!currentUser?.emergencyContact) missingOptionalFields.push('Emergency Contact');
+
   return (
     <div className="p-4 sm:p-6 lg:p-7 bg-[#f8fafc] min-h-screen space-y-8 sm:space-y-9 max-w-7xl mx-auto" style={{ zoom: 1.25 }}>
 
-      {/* Hero Welcome Banner (Light Panoramic with Smiling Patient) */}
+      {/* Hero Welcome Banner */}
       <div className="fade-in-section is-visible relative overflow-hidden rounded-2xl border border-sky-100/90 shadow-2xs bg-[#f4f9fd]">
-        {/* Background Image: patient-hero-banner.jpg */}
         <div className="absolute inset-0 z-0">
           <img
             src="patient-hero-banner.jpg"
             alt="Clinic Care Desk"
             className="w-full h-full object-cover object-[right_center]"
           />
-          {/* Subtle curved gradient wash to ensure crystal-clear text readability on left */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent sm:from-white/95 sm:via-white/40 sm:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent sm:from-white/95 sm:via-white/55 sm:to-transparent" />
         </div>
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 min-h-[220px]">
           {/* Left Text Block */}
           <div className="max-w-xl space-y-2.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-100/80 text-emerald-800 border border-emerald-200 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Active Patient Session
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border shadow-2xs ${
+                isPrototype
+                  ? 'bg-amber-100/90 text-amber-900 border-amber-300'
+                  : 'bg-emerald-100/80 text-emerald-800 border-emerald-200'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isPrototype ? 'bg-amber-600' : 'bg-emerald-500'}`}></span>
+                {isPrototype ? 'Prototype Demo Session' : 'Verified Real Patient Account'}
               </span>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono bg-white/90 text-slate-700 border border-slate-200 shadow-2xs">
-                <span>ABHA ID {showAbha ? '91-4829-1092-4820' : '•••••- 4820'}</span>
+                <span>ID: {showAbha ? rawAbha : maskedAbha}</span>
                 <button
                   type="button"
                   onClick={() => setShowAbha(!showAbha)}
                   className="text-[11px] text-[#1565C0] hover:underline font-semibold flex items-center gap-1 cursor-pointer ml-1"
-                  title={showAbha ? 'Hide ABHA ID' : 'Show ABHA ID'}
                 >
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
                   <span>{showAbha ? 'Hide' : 'Show'}</span>
                 </button>
               </div>
@@ -26487,31 +29868,66 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
 
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                Good morning, Patient!
+                Good morning, {displayPatientName}!
               </h1>
-              <p className="text-sm sm:text-base font-bold text-slate-800 mt-0.5">
-                Your health, all in one place.
+              <p className="text-xs sm:text-sm font-bold text-slate-700 mt-1 flex flex-wrap items-center gap-2">
+                {currentUser?.age ? <span>{currentUser.age} yrs</span> : null}
+                {currentUser?.sex ? <span>&bull; {currentUser.sex}</span> : null}
+                {(currentUser?.district || currentUser?.state) ? (
+                  <span>&bull; {[currentUser?.district, currentUser?.state].filter(Boolean).join(', ')}</span>
+                ) : null}
+                {currentUser?.phone ? <span>&bull; {currentUser.phone}</span> : null}
               </p>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-600 max-w-lg leading-relaxed">
-              Manage your appointments, track your care, access your health records, prescriptions and more — anytime, anywhere.
-            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-semibold">
+                Blood Group: <strong className="text-slate-900">{currentUser?.bloodGroup || (isPrototype ? 'B+' : 'Not added')}</strong>
+              </span>
+              <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-semibold">
+                History: <strong className="text-slate-900">{currentUser?.medicalHistory || (isPrototype ? 'Hypertension (5 yrs)' : 'None added')}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('profile')}
+                className="text-[11px] px-3 py-1 rounded-lg bg-[#1565C0] hover:bg-blue-700 text-white font-bold transition-colors cursor-pointer shadow-2xs"
+              >
+                {missingOptionalFields.length > 0 && !isPrototype ? '+ Complete Profile Details' : 'Edit Profile'}
+              </button>
+            </div>
           </div>
 
           {/* Right Floating Card: Your Health Account */}
           <div className="shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex items-center justify-end">
-            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100/90 flex items-center gap-3.5 max-w-sm">
-              <div className="w-10 h-10 rounded-xl bg-[#edf5ff] border border-blue-100 text-[#1565C0] flex items-center justify-center shrink-0 shadow-2xs">
-                <svg className="w-5 h-5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                  <polyline points="8 11 10.5 8.5 12 13 13.5 10.5 15.5 12" />
-                </svg>
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100/90 flex flex-col gap-2 max-w-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[#edf5ff] border border-blue-100 text-[#1565C0] flex items-center justify-center shrink-0 shadow-2xs">
+                  <svg className="w-5 h-5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                    <polyline points="8 11 10.5 8.5 12 13 13.5 10.5 15.5 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="font-bold text-[#0b2b82] text-sm tracking-tight">Your Health Account</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {isPrototype ? 'Demo Mode • Pre-loaded sample data' : 'Real Mode • Zero fake data'}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-[#0b2b82] text-sm tracking-tight">Your Health Account</div>
-                <div className="text-xs text-slate-500 mt-0.5">Secure &bull; Private &bull; Always with you</div>
-              </div>
+              {!isPrototype && missingOptionalFields.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-amber-700 font-medium">
+                    Optional not added: {missingOptionalFields.slice(0, 2).join(', ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('profile')}
+                    className="text-[11px] font-bold text-[#1565C0] hover:underline shrink-0 cursor-pointer"
+                  >
+                    + Add Now
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -26526,7 +29942,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
 
         {/* Row 1: 3 Equal Quick Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card 1: Book Appointment */}
           <div
             onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
             className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
@@ -26549,7 +29964,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
             </div>
           </div>
 
-          {/* Card 2: Check Symptoms */}
           <div
             onClick={() => { setView('feature1'); setScreen(1); }}
             className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
@@ -26569,7 +29983,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
             </div>
           </div>
 
-          {/* Card 3: Medical Records */}
           <div
             onClick={() => setView('feature5')}
             className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
@@ -26595,7 +30008,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
 
         {/* Row 2: Medicine Search (2 cols) & MediBot AI (1 col) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card 4: Medicine Search (spans 2 columns) */}
           <div className="md:col-span-2 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex items-center gap-3">
@@ -26635,7 +30047,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
             </form>
           </div>
 
-          {/* Card 5: MediBot AI (spans 1 column) */}
           <div
             onClick={() => setView('feature10')}
             className="p-5 rounded-2xl bg-sky-50/70 hover:bg-sky-50 border border-sky-200/80 shadow-2xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
@@ -26663,376 +30074,434 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
 
       {/* Section: Upcoming Appointments */}
       <div className="fade-in-section space-y-3.5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="text-lg font-black text-slate-900 tracking-tight">Upcoming Appointments</h2>
             <p className="text-xs sm:text-sm text-slate-500">Your scheduled consultations and care visits</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setView('feature2')}
-            className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
-          >
-            <span>View All</span>
-            <span>&rarr;</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Appointment 1: Teleconsult */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Teleconsult</h4>
-                  <p className="text-[11px] text-slate-500">Neurology Department</p>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="text-xl font-black text-[#1565C0]">15 OCT</div>
-                <p className="text-xs font-bold text-slate-800 mt-0.5">Dr. Verma</p>
-                <p className="text-[11px] text-slate-500">10:30 AM</p>
-                <span className="inline-block mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Confirmed
-                </span>
-              </div>
-            </div>
-
+          <div className="flex items-center gap-3">
+            {!isPrototype && (
+              <button
+                type="button"
+                onClick={() => setActiveModal('appointment')}
+                className="px-3 py-1.5 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                + Add Appointment
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }}
-              className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              onClick={() => setView('feature2')}
+              className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
             >
-              <span>Join Call</span>
+              <span>View All</span>
               <span>&rarr;</span>
             </button>
           </div>
-
-          {/* Appointment 2: ASHA Follow-up */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">ASHA Follow-up</h4>
-                  <p className="text-[11px] text-slate-500">Community Care Visit</p>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="text-xl font-black text-emerald-700">18 OCT</div>
-                <p className="text-xs font-bold text-slate-800 mt-0.5">Sunita Devi</p>
-                <p className="text-[11px] text-slate-500">Ranchi Rural Sector</p>
-                <span className="inline-block mt-2 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  Field Visit
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setView('feature4')}
-              className="mt-4 w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-emerald-200/60"
-            >
-              <span>View Details</span>
-              <span>&rarr;</span>
-            </button>
-          </div>
-
-          {/* Appointment 3: Book Appointment CTA */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Book Appointment</h4>
-                  <p className="text-[11px] text-slate-500">Get the care you need</p>
-                </div>
-              </div>
-
-              <div className="p-4 my-2 rounded-xl bg-slate-50/70 border border-slate-100 text-center flex flex-col items-center justify-center">
-                <svg className="w-6 h-6 text-[#1565C0] mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <p className="text-xs text-slate-600 font-medium">Choose a doctor, date and convenient time.</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
-              className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <span>Book New Slot +</span>
-            </button>
-          </div>
         </div>
+
+        {isPrototype ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Prototype Appointment 1 */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Teleconsult</h4>
+                    <p className="text-[11px] text-slate-500">{liveAppointment?.specialty || 'Neurology'} Department</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl font-black text-[#1565C0]">
+                    {liveAppointment?.scheduledTime ? liveAppointment.scheduledTime.split('·')[0].trim().toUpperCase() : '15 OCT'}
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 mt-0.5">{liveAppointment?.doctorName || 'Dr. Verma'}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {liveAppointment?.scheduledTime?.includes('·') ? liveAppointment.scheduledTime.split('·')[1].trim() : '10:30 AM'}
+                  </p>
+                  <span className="inline-block mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {liveAppointment ? `Queue #${liveAppointment.queuePosition || 1} Confirmed` : 'Confirmed'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }}
+                className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <span>Join Call</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+
+            {/* Prototype Appointment 2 */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">ASHA Follow-up</h4>
+                    <p className="text-[11px] text-slate-500">Community Care Visit</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl font-black text-emerald-700">18 OCT</div>
+                  <p className="text-xs font-bold text-slate-800 mt-0.5">Sunita Devi</p>
+                  <p className="text-[11px] text-slate-500">Ranchi Rural Sector</p>
+                  <span className="inline-block mt-2 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                    Field Visit
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setView('feature4')}
+                className="mt-4 w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-emerald-200/60"
+              >
+                <span>View Details</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+
+            {/* Book Appointment CTA */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Book Appointment</h4>
+                    <p className="text-[11px] text-slate-500">Get the care you need</p>
+                  </div>
+                </div>
+                <div className="p-4 my-2 rounded-xl bg-slate-50/70 border border-slate-100 text-center flex flex-col items-center justify-center">
+                  <p className="text-xs text-slate-600 font-medium">Choose a doctor, date and convenient time.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
+                className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <span>Book New Slot +</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {customAppointments.length === 0 ? (
+              <div className="md:col-span-2 bg-white rounded-2xl border border-dashed border-slate-300 p-6 flex flex-col items-center justify-center text-center">
+                <p className="text-sm font-bold text-slate-800">No upcoming appointments added yet</p>
+                <p className="text-xs text-slate-500 mt-1 max-w-md">
+                  Your real patient account starts clean with zero pre-filled appointments. Add an existing appointment or book a teleconsultation slot.
+                </p>
+                <div className="flex items-center gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('appointment')}
+                    className="px-4 py-2 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                  >
+                    + Add Appointment Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer"
+                  >
+                    Book Teleconsult &rarr;
+                  </button>
+                </div>
+              </div>
+            ) : (
+              customAppointments.map((apt) => (
+                <div key={apt.id} className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-[#1565C0] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                        {apt.type}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        {apt.status || 'Scheduled'}
+                      </span>
+                    </div>
+                    <div className="text-lg font-black text-slate-900 mt-2">{apt.dateStr || 'Upcoming'}</div>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{apt.doctorName}</p>
+                    <p className="text-[11px] text-slate-500">{apt.specialty} {apt.timeStr ? `• ${apt.timeStr}` : ''}</p>
+                    {apt.location && <p className="text-[11px] text-slate-400 mt-0.5">{apt.location}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setView('feature2')}
+                    className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors"
+                  >
+                    Open Consultation &rarr;
+                  </button>
+                </div>
+              ))
+            )}
+
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Schedule New Consultation</h4>
+                <p className="text-xs text-slate-500 mt-1">Connect with a specialist doctor or log an upcoming clinic visit.</p>
+              </div>
+              <div className="space-y-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('appointment')}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  + Add Appointment Record
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
+                  className="w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Book Teleconsult Slot +
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Section: Your Referral Status */}
       <div className="fade-in-section space-y-3.5">
-        <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">Your Referral Status</h2>
-          <p className="text-xs sm:text-sm text-slate-500">Track your hospital referral, bed allotment and care journey timeline.</p>
-        </div>
-
-        {/* Two Columns: Your Care Journey & Referral Status at a Glance */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (5 cols): Your Care Journey with Continuous Completion Line */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 14 14" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Your Care Journey</h3>
-                  <p className="text-xs text-slate-500">Admission &amp; Transfer Timeline</p>
-                </div>
-              </div>
-              <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-                In Transit &bull; Step 3 of 4
-              </span>
-            </div>
-
-            {/* Vertical Connected Progress Timeline with Completion Line */}
-            <div className="relative pl-6 space-y-4 my-2">
-              {/* Continuous vertical completion line behind steps */}
-              <div className="absolute left-[13px] top-4 bottom-4 w-0.5 bg-slate-200">
-                {/* Active progress fill from Step 1 to Step 3 */}
-                <div className="w-full bg-gradient-to-b from-emerald-500 via-emerald-500 to-[#1565C0] h-[72%]" />
-              </div>
-
-              {/* Step 1: Completed */}
-              <div className="relative flex items-start gap-3.5 group">
-                <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black ring-4 ring-white shadow-2xs shrink-0">
-                  ✓
-                </div>
-                <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200/90">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-slate-900">1. Referral Issued</h5>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Completed
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Civil Hospital Ranchi</p>
-                </div>
-              </div>
-
-              {/* Step 2: Completed */}
-              <div className="relative flex items-start gap-3.5 group">
-                <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black ring-4 ring-white shadow-2xs shrink-0">
-                  ✓
-                </div>
-                <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200/90">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-slate-900">2. Bed Confirmed</h5>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Completed
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Semi-Private 4B-12</p>
-                </div>
-              </div>
-
-              {/* Step 3: Active In Progress */}
-              <div className="relative flex items-start gap-3.5 group">
-                <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-[#1565C0] text-white flex items-center justify-center text-xs font-black ring-4 ring-blue-100 shadow-xs shrink-0 animate-pulse">
-                  3
-                </div>
-                <div className="flex-1 bg-[#F0F7FF] p-3 rounded-xl border border-[#1565C0]/40 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-[#1565C0]">3. Transit &amp; Check-In</h5>
-                    <span className="text-[10px] font-bold text-[#1565C0] bg-blue-100 px-2 py-0.5 rounded-full">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 font-medium mt-0.5">In Progress (Active)</p>
-                </div>
-              </div>
-
-              {/* Step 4: Scheduled */}
-              <div className="relative flex items-start gap-3.5 opacity-60">
-                <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold ring-4 ring-white shrink-0">
-                  4
-                </div>
-                <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-slate-700">4. Intake Evaluation</h5>
-                    <span className="text-[10px] font-medium text-slate-400">
-                      Upcoming
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Scheduled 10:00 AM</p>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight">Your Referral Status</h2>
+            <p className="text-xs sm:text-sm text-slate-500">Track your hospital referral, bed allotment and care journey timeline.</p>
           </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">Emergency &amp; facility pass validated with ABDM M2</span>
+          {!isPrototype && (
             <button
               type="button"
-              onClick={() => setView('feature3')}
-              className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
+              onClick={() => setActiveModal('referral')}
+              className="px-3 py-1.5 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
             >
-              <span>View Full Pass &amp; Timeline</span>
-              <span>&rarr;</span>
+              + Add / Log Referral Pass
             </button>
-          </div>
+          )}
         </div>
 
-        {/* Right Column (7 cols): Referral Status at a Glance */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+        {!activeReferral ? (
+          <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center space-y-3">
+            <h3 className="text-sm font-bold text-slate-800">No Active Hospital Referral</h3>
+            <p className="text-xs text-slate-500 max-w-lg mx-auto">
+              You do not have any hospital referral passes logged yet. If a doctor has referred you to a higher facility or you want to track an existing referral pass, add it below.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setActiveModal('referral')}
+                className="px-4 py-2 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Referral Details
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('feature3')}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer"
+              >
+                Open Referral Module &rarr;
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column (5 cols): Your Care Journey */}
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 14 14" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Your Care Journey</h3>
+                      <p className="text-xs text-slate-500">Admission &amp; Transfer Timeline</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                    Step {activeReferral.step || 3} of 4
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Referral Status at a Glance</h3>
-                  <p className="text-xs text-slate-500">Track your hospital referral and admission</p>
+
+                <div className="relative pl-6 space-y-4 my-2">
+                  <div className="absolute left-[13px] top-4 bottom-4 w-0.5 bg-slate-200">
+                    <div className="w-full bg-gradient-to-b from-emerald-500 via-emerald-500 to-[#1565C0] h-[72%]" />
+                  </div>
+                  <div className="relative flex items-start gap-3.5">
+                    <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black ring-4 ring-white shadow-2xs shrink-0">✓</div>
+                    <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200/90">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-slate-900">1. Referral Issued</h5>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Completed</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{activeReferral.referringDoctor || 'Referring Physician'}</p>
+                    </div>
+                  </div>
+                  <div className="relative flex items-start gap-3.5">
+                    <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black ring-4 ring-white shadow-2xs shrink-0">✓</div>
+                    <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200/90">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-slate-900">2. Bed Confirmed</h5>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Confirmed</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{activeReferral.bedAllotted || 'Bed Reserved'}</p>
+                    </div>
+                  </div>
+                  <div className="relative flex items-start gap-3.5">
+                    <div className="absolute -left-6 top-1 w-7 h-7 rounded-full bg-[#1565C0] text-white flex items-center justify-center text-xs font-black ring-4 ring-blue-100 shadow-xs shrink-0">3</div>
+                    <div className="flex-1 bg-[#F0F7FF] p-3 rounded-xl border border-[#1565C0]/40 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-[#1565C0]">3. Transit &amp; Check-In</h5>
+                        <span className="text-[10px] font-bold text-[#1565C0] bg-blue-100 px-2 py-0.5 rounded-full">Active</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 font-medium mt-0.5">{activeReferral.receivingFacilityName}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Bed Allotted &bull; In Transit
-                </span>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500">ABDM M2 Linked Pass</span>
                 <button
                   type="button"
                   onClick={() => setView('feature3')}
-                  className="text-xs font-bold text-[#1565C0] hover:underline"
+                  className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
                 >
-                  View Full Pass &rarr;
+                  <span>View Full Pass &amp; Timeline</span>
+                  <span>&rarr;</span>
                 </button>
               </div>
             </div>
 
-            {/* Hospital Photo & Details */}
-            <div className="p-4 sm:p-5 space-y-3.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hospital &amp; Referral Details</div>
-              
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-2xs h-44 bg-slate-900 group">
-                <img
-                  src="rims-hospital.jpg"
-                  alt="RIMS Medical College"
-                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
-                />
-              </div>
-
+            {/* Right Column (7 cols): Referral Status at a Glance */}
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between">
+                <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-slate-100">
                   <div>
-                    <h4 className="text-base font-bold text-slate-900">RIMS Medical College</h4>
-                    <p className="text-xs text-slate-500">Cardiology Ward 4B</p>
+                    <h3 className="text-sm font-bold text-slate-900">Referral Status at a Glance</h3>
+                    <p className="text-xs text-slate-500">Track your hospital referral and admission</p>
                   </div>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    ABDM M2 Linked
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setView('feature3')}
+                    className="text-xs font-bold text-[#1565C0] hover:underline"
+                  >
+                    View Full Pass &rarr;
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Pass Token</span>
-                    <span className="font-mono font-bold text-slate-900 mt-0.5 block">REF-2026-8942</span>
+                <div className="p-4 sm:p-5 space-y-3.5">
+                  <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-2xs h-40 bg-slate-900">
+                    <img
+                      src="rims-hospital.jpg"
+                      alt={activeReferral.receivingFacilityName}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Attending Specialist</span>
-                    <span className="font-bold text-slate-900 mt-0.5 block truncate">Dr. Ananya Roy</span>
-                    <span className="text-[10px] text-slate-500 block truncate">Interventional Cardiology</span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900">{activeReferral.receivingFacilityName}</h4>
+                      <p className="text-xs text-slate-500">{activeReferral.specialtyRequired} &bull; {activeReferral.bedAllotted || 'General Ward'}</p>
+                    </div>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ABDM M2 Linked
+                    </span>
                   </div>
+                  <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Pass Token</span>
+                      <span className="font-mono font-bold text-slate-900 mt-0.5 block">{activeReferral.referralId}</span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Attending Specialist</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block truncate">{activeReferral.referringDoctor || 'Duty Specialist'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 sm:p-5 pt-0">
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
+                  <span className="font-bold text-rose-800">{activeReferral.urgency || 'Priority'}</span>
+                  <span className="text-slate-600 font-medium">{activeReferral.reasonForReferral || 'Clinical Referral'}</span>
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="p-4 sm:p-5 pt-0">
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                <span className="font-bold text-rose-800">Tier 2 - Urgent</span>
-              </div>
-              <span className="text-slate-600 font-medium">Priority &amp; Reporting - Tomorrow by 10:00 AM</span>
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
       </div>
 
       {/* Section: Health Summary & Vitals */}
       <div className="fade-in-section bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-              </div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">Health Summary &amp; Vitals</h3>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">An overview of your health readings and reports</p>
+            <h3 className="text-base font-black text-slate-900 tracking-tight">Health Summary &amp; Vitals</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isPrototype ? 'Sample vital readings for prototype demonstration' : 'Your logged vital signs and clinical measurements'}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setView('feature5')}
-            className="text-xs font-bold text-[#1565C0] hover:underline self-start sm:self-center"
-          >
-            Full Record &rarr;
-          </button>
+          <div className="flex items-center gap-3">
+            {!isPrototype && (
+              <button
+                type="button"
+                onClick={() => setActiveModal('vitals')}
+                className="px-3 py-1.5 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                + Log / Update Vitals
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setView('feature5')}
+              className="text-xs font-bold text-[#1565C0] hover:underline"
+            >
+              Full Record &rarr;
+            </button>
+          </div>
         </div>
 
         {/* Row 1: 4 Vital Readings */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 hover:border-blue-300 transition-colors">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Blood Pressure</span>
-              <svg className="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Blood Pressure</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {isPrototype ? '120/80' : (customVitals?.bp || 'Not added')}
             </div>
-            <div className="text-xl font-black text-slate-900">
-              120/80
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">mmHg &bull; Normal range*</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">mmHg</p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 hover:border-blue-300 transition-colors">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Blood Glucose</span>
-              <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/></svg>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Blood Glucose</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {isPrototype ? '95' : (customVitals?.glucose || 'Not added')}
             </div>
-            <div className="text-xl font-black text-slate-900">
-              95
-            </div>
-            <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">Fasting reading*</p>
+            <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">mg/dL</p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 hover:border-blue-300 transition-colors">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Resting Heart Rate</span>
-              <svg className="w-3.5 h-3.5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Resting Heart Rate</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {isPrototype ? '72 bpm' : (customVitals?.heartRate ? `${customVitals.heartRate} bpm` : 'Not added')}
             </div>
-            <div className="text-xl font-black text-slate-900">
-              72 <span className="text-xs font-normal text-slate-500">bpm</span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">Latest reading</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Pulse rate</p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 hover:border-blue-300 transition-colors">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Oxygen Saturation</span>
-              <svg className="w-3.5 h-3.5 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-            </div>
-            <div className="text-xl font-black text-slate-900">
-              98%
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Oxygen Saturation</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {isPrototype ? '98%' : (customVitals?.spo2 ? `${customVitals.spo2}%` : 'Not added')}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">SpO2 &bull; Room air</p>
           </div>
@@ -27042,166 +30511,2992 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen }) {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Body Weight</span>
-            <div className="text-base font-black text-slate-900 mt-0.5">— <span className="text-xs font-normal text-slate-500">kg</span></div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">Latest measurement</span>
+            <div className="text-base font-black text-slate-900 mt-0.5">
+              {customVitals?.weight || currentUser?.weight || '—'} <span className="text-xs font-normal text-slate-500">kg</span>
+            </div>
           </div>
 
           <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Cholesterol</span>
-            <div className="text-base font-black text-slate-900 mt-0.5">— <span className="text-xs font-normal text-slate-500">mg/dL</span></div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">Latest lipid panel</span>
+            <div className="text-base font-black text-slate-900 mt-0.5">
+              {customVitals?.cholesterol || '—'} <span className="text-xs font-normal text-slate-500">mg/dL</span>
+            </div>
           </div>
 
           <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Hemoglobin</span>
-            <div className="text-base font-black text-slate-900 mt-0.5">— <span className="text-xs font-normal text-slate-500">g/dL</span></div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">Latest CBC report</span>
+            <div className="text-base font-black text-slate-900 mt-0.5">
+              {customVitals?.hemoglobin || '—'} <span className="text-xs font-normal text-slate-500">g/dL</span>
+            </div>
           </div>
 
           <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Last Check-up</span>
-            <div className="text-sm font-bold text-[#1565C0] mt-0.5">View Date</div>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">Last recorded visit</span>
+            <div className="text-sm font-bold text-[#1565C0] mt-0.5">
+              {customVitals?.lastCheckup || 'Not recorded'}
+            </div>
           </div>
         </div>
 
         {/* Row 3: Active Prescriptions Strip */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/90 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">Active Prescriptions</h4>
-                <p className="text-[11px] text-slate-500">2 medicines in your prescription list</p>
-              </div>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h4 className="text-xs font-bold text-slate-900">Active Prescriptions</h4>
+              <p className="text-[11px] text-slate-500">
+                {isPrototype
+                  ? '2 medicines in your prototype prescription list'
+                  : `${customPrescriptions.length} medicine(s) in your prescription list`}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setView('feature6')}
-              className="text-xs font-bold text-[#1565C0] hover:underline"
-            >
-              View All &rarr;
-            </button>
+            <div className="flex items-center gap-3">
+              {!isPrototype && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('prescription')}
+                  className="text-xs font-bold text-[#1565C0] hover:underline cursor-pointer"
+                >
+                  + Add Medicine
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setView('feature6')}
+                className="text-xs font-bold text-[#1565C0] hover:underline"
+              >
+                View Pharmacy &rarr;
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-500">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/></svg>
-              </div>
-              <div>
+          {isPrototype ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                 <span className="font-bold text-slate-800">Metformin</span>
-                <span className="text-[11px] text-slate-500 ml-2">500 mg</span>
+                <span className="text-[11px] text-slate-500">500 mg</span>
               </div>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-500">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/></svg>
-              </div>
-              <div>
+              <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                 <span className="font-bold text-slate-800">Atorvastatin</span>
-                <span className="text-[11px] text-slate-500 ml-2">10 mg</span>
+                <span className="text-[11px] text-slate-500">10 mg</span>
               </div>
             </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setView('feature6')}
-            className="w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs flex items-center justify-center gap-2"
-          >
-            <span>Search &amp; Refill</span>
-            <span>&rarr;</span>
-          </button>
+          ) : customPrescriptions.length === 0 ? (
+            <div className="p-4 rounded-lg bg-white border border-dashed border-slate-300 text-center">
+              <p className="text-xs text-slate-500">No active prescriptions added yet.</p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('prescription')}
+                className="mt-2 px-3 py-1.5 rounded-lg bg-[#1565C0] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Prescription Medication
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {customPrescriptions.map((rx) => (
+                <div key={rx.id} className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                  <span className="font-bold text-slate-800">{rx.name}</span>
+                  <span className="text-[11px] text-slate-500">{rx.dosage} &bull; {rx.frequency}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Interactive Modals for Real Patient Data & Profile */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900">
+                {activeModal === 'profile' && 'Update Patient Profile & Optional Health Info'}
+                {activeModal === 'appointment' && 'Add Appointment Record'}
+                {activeModal === 'referral' && 'Log Hospital Referral Pass'}
+                {activeModal === 'vitals' && 'Log / Update Health Vitals'}
+                {activeModal === 'prescription' && 'Add Active Prescription'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {activeModal === 'profile' && (
+              <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
+                    <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Age (Years) *</label>
+                    <input type="number" required value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Sex *</label>
+                    <select value={profileForm.sex} onChange={(e) => setProfileForm({ ...profileForm, sex: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Phone *</label>
+                    <input type="text" required value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">District *</label>
+                    <input type="text" required value={profileForm.district} onChange={(e) => setProfileForm({ ...profileForm, district: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">State *</label>
+                    <input type="text" required value={profileForm.state} onChange={(e) => setProfileForm({ ...profileForm, state: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Blood Group (Optional)</label>
+                    <input type="text" placeholder="e.g. O+, B+" value={profileForm.bloodGroup} onChange={(e) => setProfileForm({ ...profileForm, bloodGroup: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Weight in kg (Optional)</label>
+                    <input type="text" placeholder="e.g. 62" value={profileForm.weight} onChange={(e) => setProfileForm({ ...profileForm, weight: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Known Medical Conditions / Allergies (Optional)</label>
+                  <input type="text" placeholder="e.g. Hypertension, Type 2 Diabetes, Penicillin allergy" value={profileForm.medicalHistory} onChange={(e) => setProfileForm({ ...profileForm, medicalHistory: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Emergency Contact (Optional)</label>
+                    <input type="text" placeholder="Name & Mobile" value={profileForm.emergencyContact} onChange={(e) => setProfileForm({ ...profileForm, emergencyContact: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Residential Address (Optional)</label>
+                    <input type="text" placeholder="Village / Ward / Block" value={profileForm.address} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white font-bold">Save Profile</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'appointment' && (
+              <form onSubmit={handleAddAppointment} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Visit Type *</label>
+                    <select value={apptForm.type} onChange={(e) => setApptForm({ ...apptForm, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                      <option value="Teleconsult">Teleconsult</option>
+                      <option value="OPD Clinic Visit">OPD Clinic Visit</option>
+                      <option value="Follow-up Visit">Follow-up Visit</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Doctor / Provider Name *</label>
+                    <input type="text" required placeholder="e.g. Dr. R.K. Sinha" value={apptForm.doctorName} onChange={(e) => setApptForm({ ...apptForm, doctorName: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Department / Specialty *</label>
+                    <input type="text" required placeholder="e.g. General Medicine" value={apptForm.specialty} onChange={(e) => setApptForm({ ...apptForm, specialty: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Date *</label>
+                    <input type="text" required placeholder="e.g. 24 OCT" value={apptForm.dateStr} onChange={(e) => setApptForm({ ...apptForm, dateStr: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Time</label>
+                    <input type="text" placeholder="e.g. 11:00 AM" value={apptForm.timeStr} onChange={(e) => setApptForm({ ...apptForm, timeStr: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Hospital / Location</label>
+                    <input type="text" placeholder="e.g. District Hospital" value={apptForm.location} onChange={(e) => setApptForm({ ...apptForm, location: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white font-bold">Add Appointment</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'referral' && (
+              <form onSubmit={handleAddReferral} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Receiving Hospital *</label>
+                    <input type="text" required placeholder="e.g. RIMS Ranchi" value={refForm.receivingFacilityName} onChange={(e) => setRefForm({ ...refForm, receivingFacilityName: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Specialty / Department *</label>
+                    <input type="text" required placeholder="e.g. Cardiology" value={refForm.specialtyRequired} onChange={(e) => setRefForm({ ...refForm, specialtyRequired: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Ward / Bed Allotted</label>
+                    <input type="text" placeholder="e.g. Ward 3A / Bed 12" value={refForm.bedAllotted} onChange={(e) => setRefForm({ ...refForm, bedAllotted: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Referring Doctor</label>
+                    <input type="text" placeholder="e.g. Dr. S. K. Verma" value={refForm.referringDoctor} onChange={(e) => setRefForm({ ...refForm, referringDoctor: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Referral Reason / Notes</label>
+                  <input type="text" placeholder="e.g. Specialist evaluation required" value={refForm.reasonForReferral} onChange={(e) => setRefForm({ ...refForm, reasonForReferral: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white font-bold">Save Referral</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'vitals' && (
+              <form onSubmit={handleSaveVitals} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Blood Pressure (mmHg)</label>
+                    <input type="text" placeholder="e.g. 120/80" value={vitalsForm.bp} onChange={(e) => setVitalsForm({ ...vitalsForm, bp: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Blood Glucose (mg/dL)</label>
+                    <input type="text" placeholder="e.g. 98" value={vitalsForm.glucose} onChange={(e) => setVitalsForm({ ...vitalsForm, glucose: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Heart Rate (bpm)</label>
+                    <input type="text" placeholder="e.g. 74" value={vitalsForm.heartRate} onChange={(e) => setVitalsForm({ ...vitalsForm, heartRate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">SpO2 (%)</label>
+                    <input type="text" placeholder="e.g. 98" value={vitalsForm.spo2} onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Body Weight (kg)</label>
+                    <input type="text" placeholder="e.g. 64" value={vitalsForm.weight} onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Hemoglobin (g/dL)</label>
+                    <input type="text" placeholder="e.g. 13.2" value={vitalsForm.hemoglobin} onChange={(e) => setVitalsForm({ ...vitalsForm, hemoglobin: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Cholesterol (mg/dL)</label>
+                    <input type="text" placeholder="e.g. 175" value={vitalsForm.cholesterol} onChange={(e) => setVitalsForm({ ...vitalsForm, cholesterol: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Last Check-up Date</label>
+                    <input type="text" placeholder="e.g. 10 Oct 2026" value={vitalsForm.lastCheckup} onChange={(e) => setVitalsForm({ ...vitalsForm, lastCheckup: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white font-bold">Save Vitals</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'prescription' && (
+              <form onSubmit={handleAddPrescription} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Medicine Name *</label>
+                  <input type="text" required placeholder="e.g. Amlodipine" value={rxForm.name} onChange={(e) => setRxForm({ ...rxForm, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Dosage *</label>
+                    <input type="text" required placeholder="e.g. 5 mg" value={rxForm.dosage} onChange={(e) => setRxForm({ ...rxForm, dosage: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Frequency</label>
+                    <input type="text" placeholder="e.g. Once daily after meals" value={rxForm.frequency} onChange={(e) => setRxForm({ ...rxForm, frequency: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#1565C0] text-white font-bold">Add Medicine</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-function DoctorOverview({ setView, setScreen, setTeleconsultScreen }) {
+function DoctorOverview({ setView, setScreen, setTeleconsultScreen, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
+  const docName = currentUser?.doctorName || currentUser?.name || (isPrototype ? 'Dr. Priya Sharma' : 'Doctor');
+  const qualification = currentUser?.qualification || (isPrototype ? 'MBBS, MD (General Medicine)' : 'Qualification not added');
+  const regNo = currentUser?.registrationNo || currentUser?.identifier || (isPrototype ? 'MCI-2018-847291 (Jharkhand Medical Council)' : 'Reg. No. pending');
+  const facility = currentUser?.facility || (isPrototype ? 'PHC Katkamsandi & District Sadar Hospital, Hazaribagh' : 'Facility not specified');
+  const designation = currentUser?.designation || (isPrototype ? 'Medical Officer & Specialist Physician' : 'Attending Physician');
+
+  const prototypeQueue = [
+    {
+      id: 'TC-01',
+      name: 'Sunita Soren (32F)',
+      location: 'Barkagaon',
+      complaint: '32-week pregnancy with pedal edema, throbbing headache & BP 146/94 mmHg',
+      urgency: 'High Priority',
+      urgencyClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      assisted: 'ASHA Anita Devi',
+      waitTime: '4m ago'
+    },
+    {
+      id: 'TC-02',
+      name: 'Ramesh Mahto (48M)',
+      location: 'Katkamsandi Bazar',
+      complaint: 'Post-angioplasty 3-month review, exertional tightness, BP 138/88 mmHg',
+      urgency: 'Urgent',
+      urgencyClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      assisted: null,
+      waitTime: '11m ago'
+    },
+    {
+      id: 'TC-03',
+      name: 'Mangal Oraon (62M)',
+      location: 'Dhengura Gram Panchayat',
+      complaint: 'Cough x 3 weeks, evening low-grade fever, 4kg weight loss (Presumptive TB)',
+      urgency: 'High Priority',
+      urgencyClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      assisted: 'ANM Rekha Tirkey',
+      waitTime: '18m ago'
+    }
+  ];
+
+  const [liveQueue, setLiveQueue] = useState(isPrototype ? prototypeQueue : (currentUser?.customData?.queue || []));
+  const [referralStats, setReferralStats] = useState(
+    isPrototype
+      ? { pending: 3, accepted: 2, completed: 7 }
+      : {
+          pending: currentUser?.customData?.pendingReferrals ?? 0,
+          accepted: currentUser?.customData?.acceptedReferrals ?? 0,
+          completed: currentUser?.customData?.completedConsults ?? 0
+        }
+  );
+  const [followupStats, setFollowupStats] = useState(
+    isPrototype
+      ? { criticalAlerts: 2 }
+      : { criticalAlerts: (currentUser?.customData?.fieldAlerts || []).length }
+  );
+
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'queue' | 'alert'
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    qualification: currentUser?.qualification || '',
+    registrationNo: currentUser?.registrationNo || currentUser?.identifier || '',
+    facility: currentUser?.facility || '',
+    designation: currentUser?.designation || '',
+    specialty: currentUser?.specialty || '',
+    opdTimings: currentUser?.opdTimings || '',
+    experienceYears: currentUser?.experienceYears || '',
+    languages: currentUser?.languages || '',
+    phone: currentUser?.phone || '',
+    district: currentUser?.district || '',
+    state: currentUser?.state || ''
+  });
+  const [queueForm, setQueueForm] = useState({
+    name: '',
+    location: '',
+    complaint: '',
+    urgency: 'Routine'
+  });
+  const [alertForm, setAlertForm] = useState({
+    patientInfo: '',
+    summary: '',
+    severity: 'High Priority'
+  });
+
+  useEffect(() => {
+    if (!isPrototype) {
+      setLiveQueue(currentUser?.customData?.queue || []);
+      setReferralStats({
+        pending: currentUser?.customData?.pendingReferrals ?? 0,
+        accepted: currentUser?.customData?.acceptedReferrals ?? 0,
+        completed: currentUser?.customData?.completedConsults ?? 0
+      });
+      setFollowupStats({
+        criticalAlerts: (currentUser?.customData?.fieldAlerts || []).length
+      });
+      return;
+    }
+    let cancelled = false;
+    fetch(getApiUrl('/api/v1/teleconsult/queue'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const q = json?.data?.queue;
+        if (!cancelled && Array.isArray(q) && q.length > 0) {
+          setLiveQueue(
+            q.map((item, idx) => ({
+              id: item.queueId || `TC-0${idx + 1}`,
+              name: `${item.patientName || 'Patient'} (${item.patientAge || 35}y)`,
+              location: item.facilityName || 'PHC Rural Hub',
+              complaint: item.chiefComplaint || 'Clinical teleconsultation requested',
+              urgency: item.urgency === 'EMERGENCY' || item.urgency === 'PRIORITY' ? 'High Priority' : 'Routine',
+              urgencyClass:
+                item.urgency === 'EMERGENCY' || item.urgency === 'PRIORITY'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200',
+              assisted: item.actorType === 'worker' ? 'ASHA Assisted' : null,
+              waitTime: `${item.estimatedWaitMinutes || 5}m est.`
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+
+    fetch(getApiUrl('/api/referrals/stats'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.data) {
+          setReferralStats({
+            pending: json.data.pending ?? 3,
+            accepted: json.data.accepted ?? 2,
+            completed: json.data.completed ?? 7
+          });
+        }
+      })
+      .catch(() => {});
+
+    fetch(getApiUrl('/api/followups/stats'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.data) {
+          setFollowupStats({
+            criticalAlerts: json.data.unacknowledgedAlerts ?? json.data.criticalCount ?? 2
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrototype, currentUser]);
+
+  const handleSaveDoctorProfile = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    onUpdateUser({
+      ...currentUser,
+      ...profileForm,
+      doctorName: profileForm.name
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddQueuePatient = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    const currentList = currentUser.customData?.queue || [];
+    const newItem = {
+      id: `TC-0${currentList.length + 1}`,
+      name: queueForm.name,
+      location: queueForm.location || currentUser.district || 'OPD',
+      complaint: queueForm.complaint,
+      urgency: queueForm.urgency,
+      urgencyClass: queueForm.urgency === 'High Priority' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200',
+      assisted: null,
+      waitTime: 'Just added'
+    };
+    onUpdateUser({
+      ...currentUser,
+      customData: {
+        ...(currentUser.customData || {}),
+        queue: [newItem, ...currentList]
+      }
+    });
+    setQueueForm({ name: '', location: '', complaint: '', urgency: 'Routine' });
+    setActiveModal(null);
+  };
+
+  const handleAddFieldAlert = (e) => {
+    e.preventDefault();
+    if (!onUpdateUser || !currentUser) return;
+    const currentAlerts = currentUser.customData?.fieldAlerts || [];
+    const newAlert = {
+      id: `ALT-${Date.now().toString().slice(-4)}`,
+      patientInfo: alertForm.patientInfo,
+      summary: alertForm.summary,
+      severity: alertForm.severity,
+      time: 'Just logged'
+    };
+    onUpdateUser({
+      ...currentUser,
+      customData: {
+        ...(currentUser.customData || {}),
+        fieldAlerts: [newAlert, ...currentAlerts]
+      }
+    });
+    setAlertForm({ patientInfo: '', summary: '', severity: 'High Priority' });
+    setActiveModal(null);
+  };
+
+  const customFieldAlerts = isPrototype
+    ? [
+        {
+          id: 'alt-1',
+          patientInfo: 'Sita Devi (27F • Katkamsandi)',
+          time: 'Today 08:30 AM',
+          summary: 'BP 148/96 mmHg with pedal edema logged by ASHA Anita Devi. High maternal risk.',
+          severity: 'High Priority'
+        },
+        {
+          id: 'alt-2',
+          patientInfo: 'Birsa Munda (56M • Pelawal)',
+          time: 'Yesterday',
+          summary: 'Uncontrolled RBS 284 mg/dL with missed Metformin dose. Needs medication adjustment.',
+          severity: 'Moderate'
+        }
+      ]
+    : (currentUser?.customData?.fieldAlerts || []);
+
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      <h2 className="text-xl font-bold text-slate-900 mb-6">Doctor Overview</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Key Metrics */}
-        <div className="bg-[#0b2b82] text-white p-6 rounded-xl border border-blue-900 shadow-2xs md:col-span-3 flex justify-around items-center">
-          <div className="text-center">
-            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Today's Patients</p>
-            <p className="text-3xl font-black">12</p>
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
+      {/* Doctor Official Credential Banner */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-16 h-16 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#0b2b82] shrink-0 overflow-hidden shadow-2xs">
+              {isPrototype ? (
+                <img
+                  src="doctor-priya.jpg"
+                  alt={docName}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-blue-100 text-[#0b2b82] font-black text-xl">
+                  Dr
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                  {isPrototype ? 'Prototype Doctor Session' : 'Verified Real Doctor Session'}
+                </span>
+                <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  {regNo}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {docName}
+              </h1>
+              <p className="text-xs sm:text-sm font-semibold text-[#0b2b82] mt-0.5">
+                {qualification} &bull; {designation}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                <span>{facility}</span>
+                {currentUser?.specialty && <span>&bull; Specialty: <strong>{currentUser.specialty}</strong></span>}
+                {currentUser?.opdTimings && <span>&bull; OPD: <strong>{currentUser.opdTimings}</strong></span>}
+              </p>
+              {!isPrototype && (!currentUser?.specialty || !currentUser?.opdTimings) && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('profile')}
+                  className="mt-2 text-[11px] font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                >
+                  + Add Optional Profile Info (Specialty, OPD Timings, Experience)
+                </button>
+              )}
+            </div>
           </div>
-          <div className="w-px h-12 bg-blue-700"></div>
-          <div className="text-center">
-            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Pending Referrals</p>
-            <p className="text-3xl font-black">3</p>
-          </div>
-          <div className="w-px h-12 bg-blue-700"></div>
-          <div className="text-center">
-            <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Critical Follow-ups</p>
-            <p className="text-3xl font-black text-amber-200">2</p>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveModal('profile')}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer"
+            >
+              Edit Profile
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('feature2')}
+              className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <span>Open Teleconsultation Desk</span>
+              <span>&rarr;</span>
+            </button>
           </div>
         </div>
 
-        {/* Schedule */}
-        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200 md:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M9 14l2 2 4-4" /></svg>
-              <span>Today's Schedule</span>
-            </h3>
-            <button onClick={() => setView('feature2')} className="text-xs font-semibold text-[#0b2b82] hover:underline">Manage Queue</button>
+        {/* Clinical KPI Matrix */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Teleconsult Queue</p>
+            <p className="text-2xl font-black text-[#0b2b82] mt-0.5">{liveQueue.length} Waiting</p>
+            <p className="text-[10px] text-emerald-700 font-semibold mt-1">
+              {liveQueue[0]?.name ? `Next: ${liveQueue[0].name}` : 'No patients waiting'}
+            </p>
           </div>
-          <div className="space-y-2.5">
-            {[
-              { time: '09:00 AM', name: 'Ravi Kumar', type: 'Follow-up', status: 'Completed' },
-              { time: '10:30 AM', name: 'Anita Devi', type: 'Teleconsult', status: 'Next' },
-              { time: '11:15 AM', name: 'Suresh Singh', type: 'New Patient', status: 'Waiting' }
-            ].map((pt, i) => (
-              <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${pt.status === 'Next' ? 'border-[#0b2b82] bg-slate-50' : 'border-slate-200 bg-white'}`}>
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-slate-500 w-16">{pt.time}</div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{pt.name}</h4>
-                    <p className="text-[11px] text-slate-500">{pt.type}</p>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Today's Completed</p>
+            <p className="text-2xl font-black text-slate-900 mt-0.5">{referralStats.completed} Consults</p>
+            <p className="text-[10px] text-slate-500 mt-1">{isPrototype ? 'Avg duration: 6.4 mins' : 'Real session log'}</p>
+          </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Referrals</p>
+            <p className="text-2xl font-black text-amber-600 mt-0.5">{referralStats.pending} Cases</p>
+            <p className="text-[10px] text-slate-500 mt-1">{referralStats.accepted} Accepted</p>
+          </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">High-Risk Alerts</p>
+            <p className="text-2xl font-black text-rose-600 mt-0.5">{followupStats.criticalAlerts} Critical</p>
+            <p className="text-[10px] text-rose-700 font-semibold mt-1">
+              {followupStats.criticalAlerts > 0 ? 'Requires clinical review' : 'No unacknowledged alerts'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Dedicated Doctor Modules Action Cards */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+          <span>Doctor Clinical Modules</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Exclusive Clinical Scope</span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            onClick={() => setView('feature2')}
+            className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-xs hover:border-[#0b2b82] transition-all cursor-pointer flex flex-col justify-between group"
+          >
+            <div>
+              <span className="text-[10px] font-bold font-mono text-teal-700 uppercase">MOD 02</span>
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] mt-0.5">Teleconsultation</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Accept requests, call next patient, conduct video call, and prescribe medication with digital EMR Rx.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#0b2b82]">
+              <span>Open Desk &rarr;</span>
+              <span className="px-2 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px]">{liveQueue.length} Waiting</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setView('feature3')}
+            className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-xs hover:border-[#0b2b82] transition-all cursor-pointer flex flex-col justify-between group"
+          >
+            <div>
+              <span className="text-[10px] font-bold font-mono text-amber-700 uppercase">MOD 03</span>
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] mt-0.5">Referral Management</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Referring doctor workbench. Issue closed-loop tertiary passes and track hospital bed allotments.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#0b2b82]">
+              <span>Doctor View &rarr;</span>
+              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px]">{referralStats.pending} Pending</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setView('feature4')}
+            className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-xs hover:border-[#0b2b82] transition-all cursor-pointer flex flex-col justify-between group"
+          >
+            <div>
+              <span className="text-[10px] font-bold font-mono text-rose-700 uppercase">MOD 04</span>
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] mt-0.5">High-Risk Follow-Up</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Specialist monitoring center. Review ASHA door-to-door vitals breach alerts, maternal risks &amp; clinical actions.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#0b2b82]">
+              <span>Doctor View &rarr;</span>
+              <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[10px]">{followupStats.criticalAlerts} Critical</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setView('feature5')}
+            className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-xs hover:border-[#0b2b82] transition-all cursor-pointer flex flex-col justify-between group"
+          >
+            <div>
+              <span className="text-[10px] font-bold font-mono text-purple-700 uppercase">MOD 05</span>
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] mt-0.5">Health Records</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Longitudinal patient health history (ABDM FHIR), diagnostic lab reports, clinical timeline and AI record chat.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#0b2b82]">
+              <span>Doctor View Only &rarr;</span>
+              <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px]">ABDM FHIR</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Teleconsult Queue & Live OPD Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Today's Teleconsultation Queue</h3>
+              <p className="text-xs text-slate-500">Incoming patient consultations awaiting doctor review</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {!isPrototype && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('queue')}
+                  className="px-3 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+                >
+                  + Add Patient to Queue
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setView('feature2')}
+                className="text-xs font-bold text-[#0b2b82] hover:underline"
+              >
+                Open Full Desk &rarr;
+              </button>
+            </div>
+          </div>
+
+          {liveQueue.length === 0 ? (
+            <div className="p-8 rounded-xl border border-dashed border-slate-300 text-center space-y-2">
+              <p className="text-sm font-bold text-slate-800">No patients in your teleconsultation queue yet</p>
+              <p className="text-xs text-slate-500">Add a walk-in/teleconsult patient to your queue or open the Teleconsultation Desk.</p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('queue')}
+                className="mt-2 px-4 py-2 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Patient to Queue
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {liveQueue.slice(0, 6).map((p, idx) => (
+                <div key={idx} className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-all bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-slate-500">{p.id}</span>
+                      <h4 className="text-sm font-bold text-slate-900">{p.name}</h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${p.urgencyClass}`}>{p.urgency}</span>
+                      {p.assisted && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {p.assisted}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 line-clamp-1">{p.complaint}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-slate-400 font-medium">{p.waitTime}</span>
+                    <button
+                      type="button"
+                      onClick={() => setView('feature2')}
+                      className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-[#071f60] text-white text-xs font-bold rounded-lg shadow-2xs transition-all cursor-pointer"
+                    >
+                      Start Consult &rarr;
+                    </button>
                   </div>
                 </div>
-                <div>
-                  {pt.status === 'Next' ? (
-                    <button onClick={() => { setView('feature2'); setTeleconsultScreen('doctor'); }} className="px-3 py-1.5 bg-[#0b2b82] text-white text-[11px] font-semibold rounded-lg shadow-2xs">Start Consult</button>
-                  ) : pt.status === 'Completed' ? (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Completed</span>
-                  ) : (
-                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Waiting</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white p-6 rounded-xl shadow-2xs border border-slate-200">
-          <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>Actions</span>
-          </h3>
-          <div className="space-y-2.5">
-            <button onClick={() => setView('feature5')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
-              Patient Records <span>&rarr;</span>
-            </button>
-            <button onClick={() => setView('feature3')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
-              Manage Referrals <span>&rarr;</span>
-            </button>
-            <button onClick={() => setView('feature4')} className="w-full text-left p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] font-semibold text-xs transition-colors flex items-center justify-between">
-              High-Risk Follow-ups <span>&rarr;</span>
+        {/* Clinical Quick Tasks & Alerts */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Urgent Field Alerts</h3>
+              {!isPrototype ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('alert')}
+                  className="text-xs font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                >
+                  + Add Alert
+                </button>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                  {customFieldAlerts.length} Actions
+                </span>
+              )}
+            </div>
+
+            {customFieldAlerts.length === 0 ? (
+              <div className="p-4 rounded-lg border border-dashed border-slate-300 text-center space-y-2">
+                <p className="text-xs text-slate-500">No urgent field alerts logged for your account.</p>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('alert')}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer"
+                >
+                  + Log Field Alert
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2.5 text-xs">
+                {customFieldAlerts.map((alt) => (
+                  <div key={alt.id} className="p-3 rounded-lg bg-rose-50/50 border border-rose-200 space-y-1">
+                    <div className="flex items-center justify-between font-bold text-rose-900">
+                      <span>{alt.patientInfo}</span>
+                      <span className="text-[10px]">{alt.time}</span>
+                    </div>
+                    <p className="text-rose-700 text-[11px]">{alt.summary}</p>
+                    <button
+                      type="button"
+                      onClick={() => setView('feature4')}
+                      className="mt-1 text-[11px] font-bold text-rose-800 underline hover:text-rose-950 cursor-pointer block"
+                    >
+                      Review High-Risk Follow-Up &rarr;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-2xs space-y-3">
+            <h3 className="text-base font-bold text-slate-900">Hospital Referrals Workbench</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {isPrototype
+                ? 'Sheikh Bhikhari Medical College & Hospital (SBMC&H) has acknowledged your referral for Patient Sunita Devi (ICU Bed 04 reserved).'
+                : 'Issue new tertiary hospital referrals or track bed allotments for your referred patients.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setView('feature3')}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+            >
+              Open Referral Management (Doctor View) &rarr;
             </button>
           </div>
         </div>
       </div>
+
+      {/* Doctor Interactive Modals */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900">
+                {activeModal === 'profile' && 'Edit Doctor Profile & Credentials'}
+                {activeModal === 'queue' && 'Add Patient to Teleconsultation Queue'}
+                {activeModal === 'alert' && 'Log High-Risk Field Alert'}
+              </h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer">✕</button>
+            </div>
+
+            {activeModal === 'profile' && (
+              <form onSubmit={handleSaveDoctorProfile} className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Doctor Full Name *</label>
+                    <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">MCI / NMC Reg. No. *</label>
+                    <input type="text" required value={profileForm.registrationNo} onChange={(e) => setProfileForm({ ...profileForm, registrationNo: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Qualification *</label>
+                    <input type="text" required placeholder="e.g. MBBS, MD" value={profileForm.qualification} onChange={(e) => setProfileForm({ ...profileForm, qualification: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Designation *</label>
+                    <input type="text" required placeholder="e.g. Senior Medical Officer" value={profileForm.designation} onChange={(e) => setProfileForm({ ...profileForm, designation: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Hospital / PHC Facility *</label>
+                    <input type="text" required value={profileForm.facility} onChange={(e) => setProfileForm({ ...profileForm, facility: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Specialty (Optional)</label>
+                    <input type="text" placeholder="e.g. Internal Medicine" value={profileForm.specialty} onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">OPD Timings (Optional)</label>
+                    <input type="text" placeholder="e.g. Mon-Sat 09:00 AM - 02:00 PM" value={profileForm.opdTimings} onChange={(e) => setProfileForm({ ...profileForm, opdTimings: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Experience Years (Optional)</label>
+                    <input type="text" placeholder="e.g. 8 Years" value={profileForm.experienceYears} onChange={(e) => setProfileForm({ ...profileForm, experienceYears: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold">Save Profile</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'queue' && (
+              <form onSubmit={handleAddQueuePatient} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Patient Name &amp; Age *</label>
+                  <input type="text" required placeholder="e.g. Rajesh Kumar (45M)" value={queueForm.name} onChange={(e) => setQueueForm({ ...queueForm, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Location / Village</label>
+                    <input type="text" placeholder="e.g. Sadar Block" value={queueForm.location} onChange={(e) => setQueueForm({ ...queueForm, location: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Urgency</label>
+                    <select value={queueForm.urgency} onChange={(e) => setQueueForm({ ...queueForm, urgency: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                      <option value="Routine">Routine</option>
+                      <option value="High Priority">High Priority</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Chief Complaint *</label>
+                  <input type="text" required placeholder="e.g. Fever for 4 days, headache" value={queueForm.complaint} onChange={(e) => setQueueForm({ ...queueForm, complaint: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold">Add to Queue</button>
+                </div>
+              </form>
+            )}
+
+            {activeModal === 'alert' && (
+              <form onSubmit={handleAddFieldAlert} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Patient Name, Age &amp; Block *</label>
+                  <input type="text" required placeholder="e.g. Kavita Devi (29F • Ichak)" value={alertForm.patientInfo} onChange={(e) => setAlertForm({ ...alertForm, patientInfo: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Clinical Risk / Vital Breach Summary *</label>
+                  <input type="text" required placeholder="e.g. BP 150/95 mmHg, gestational hypertension follow-up" value={alertForm.summary} onChange={(e) => setAlertForm({ ...alertForm, summary: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold">Save Alert</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ==========================================
+// --- DOCTOR TELECONSULTATION PORTAL (MODULE 02 DOCTOR SIDE) ---
+// ==========================================
+
+const PATIENT_HEALTH_RECORDS_DB = {
+  'Sunita Soren': {
+    aiSummary: '32w ANC Review: Baseline 28w BP was 122/78 mmHg. Recent pathology shows trace proteinuria with mild gestational anemia (Hb 9.8 g/dL). Normal level-II USG. Known Penicillin & Sulfa allergy.',
+    records: [
+      {
+        id: 'rec_ss_01',
+        title: 'Antenatal Care (ANC) Card & Maternal Registration',
+        recordType: 'encounter',
+        category: 'Clinical Assessment',
+        source: 'medveda_internal',
+        sourceBadge: 'MedVeda PHC Record',
+        facilityName: 'Sub-Center Barkagaon (Ayushman Arogya Mandir)',
+        doctorName: 'ANM Sunita Devi & CHO Pelawal',
+        date: '12 Aug 2026',
+        summary: 'Gravida 2, Para 1, Living 1. Gestational age: 28 weeks. Fundal height corresponds to dates. FHR: 142 bpm regular. Blood Group: B+ve. Weight: 58 kg. Baseline BP at week 28: 122/78 mmHg.',
+        details: {
+          'Obstetric History': 'G2 P1 L1, previous full-term normal vaginal delivery 3 years ago (healthy child)',
+          'Gestational Age': '28 Weeks 3 Days',
+          'Fundal Height': '28 cm, longitudinal lie, cephalic presentation',
+          'Fetal Heart Rate': '142 bpm (Regular, normal variability)',
+          'Maternal Baseline Vitals': 'BP: 122/78 mmHg, Pulse: 80 bpm, Pallor: Nil',
+          'Risk Flags': 'Pedal edema onset noticed in 31st week; advised salt restriction and weekly monitoring'
+        }
+      },
+      {
+        id: 'rec_ss_02',
+        title: 'Obstetric Ultrasound (USG) Level-II Scan Report',
+        recordType: 'lab_report',
+        category: 'Diagnostic Radiology',
+        source: 'abha',
+        sourceBadge: 'ABDM FHIR Bundle',
+        facilityName: 'District Sadar Hospital Ultrasound Unit, Hazaribagh',
+        doctorName: 'Dr. R. K. Mahato (Senior Radiologist)',
+        date: '28 Jul 2026',
+        summary: 'Single live intrauterine gestation in cephalic presentation. Normal liquor volume (AFI: 13.2 cm). Placenta: Posterior, Grade-II maturity. No gross congenital anomalies detected.',
+        details: {
+          'Fetal Biometry': 'BPD: 72mm (28w5d), FL: 54mm (28w3d), AC: 242mm (28w4d)',
+          'Estimated Fetal Weight': '1,450 grams (± 150g, 50th percentile)',
+          'Amniotic Fluid Index (AFI)': '13.2 cm (Normal adequate pool)',
+          'Placental Location': 'Posterior wall, Grade II maturity, well away from internal os',
+          'Doppler Study': 'Umbilical artery PI: 0.98, RI: 0.62 (Normal diastolic flow, no notching)'
+        }
+      },
+      {
+        id: 'rec_ss_03',
+        title: 'Urine Routine & Microscopic Pathology Report',
+        recordType: 'lab_report',
+        category: 'Diagnostic Pathology',
+        source: 'abha',
+        sourceBadge: 'ABDM Diagnostic',
+        facilityName: 'PHC Barkagaon Diagnostic Pathology Hub',
+        doctorName: 'Dr. S. K. Roy (Pathologist)',
+        date: '05 Aug 2026',
+        summary: 'Urine Protein / Albumin: Trace (+/-). Pus cells: 2-3 / HPF. Sugar: Nil. Microscopic hematuria: Absent.',
+        details: {
+          'Protein / Albumin': 'Trace (+/-) [Slight borderline proteinuria noted]',
+          'Urine Glucose / Sugar': 'Nil (Normal)',
+          'Specific Gravity': '1.018',
+          'Pus Cells (Leukocytes)': '2-3 / HPF (Within normal limits)',
+          'Epithelial Cells': '1-2 / HPF',
+          'Casts & Crystals': 'Nil seen'
+        }
+      },
+      {
+        id: 'rec_ss_04',
+        title: 'Complete Blood Count (CBC) with Peripheral Smear',
+        recordType: 'lab_report',
+        category: 'Hematology',
+        source: 'abha',
+        sourceBadge: 'ABDM Diagnostic',
+        facilityName: 'PHC Barkagaon Diagnostic Pathology Hub',
+        doctorName: 'Dr. S. K. Roy (Pathologist)',
+        date: '05 Aug 2026',
+        summary: 'Hemoglobin: 9.8 g/dL (Mild Gestational Anemia). TLC: 8,400 /cumm. Platelets: 2.15 Lakhs/cumm.',
+        details: {
+          'Hemoglobin (Hb)': '9.8 g/dL (Ref: 11.0 - 14.0 g/dL) [MILD ANEMIA]',
+          'Total Leukocyte Count (TLC)': '8,400 /cumm (Ref: 4,000 - 11,000)',
+          'Platelet Count': '2,15,000 /cumm (Ref: 1,50,000 - 4,50,000)',
+          'Peripheral Smear': 'Normocytic normochromic red cells with occasional microcytes'
+        }
+      },
+      {
+        id: 'rec_ss_05',
+        title: 'Antenatal Nutritional Prophylaxis Prescription',
+        recordType: 'prescription',
+        category: 'Outpatient Rx',
+        source: 'manual',
+        sourceBadge: 'Govt PHC Outpatient',
+        facilityName: 'PHC Barkagaon OPD',
+        doctorName: 'Dr. A. K. Verma',
+        date: '12 Aug 2026',
+        summary: 'Tab IFA (Red) 100mg elemental iron 1 daily x 30 days. Tab Calcium 500mg + Vit D3 1 daily x 30 days. Tetanus Toxoid (TT-2) intramuscular given.',
+        details: {
+          'Medication 1': 'Tab Iron & Folic Acid (IFA Red) - 1 tab at bedtime with water (not milk)',
+          'Medication 2': 'Tab Calcium Carbonate 500mg - 1 tab after afternoon meal',
+          'Immunization': 'Tetanus & Diphtheria (Td / TT) Dose 2 administered left deltoid IM'
+        }
+      }
+    ]
+  },
+  'Ramesh Mahto': {
+    aiSummary: 'Post-PTCA Follow-up: DES stent placed to proximal LAD (May 2026). Recent Lipid profile shows elevated LDL (154 mg/dL vs post-PCI target < 70). Baseline ECG confirms evolved anteroseptal MI without acute ischemia.',
+    records: [
+      {
+        id: 'rec_rm_01',
+        title: 'Inpatient Discharge Summary: Post-PTCA & Primary PCI',
+        recordType: 'encounter',
+        category: 'Discharge Summary',
+        source: 'medveda_internal',
+        sourceBadge: 'Tertiary Hospital Record',
+        facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H), Hazaribagh',
+        doctorName: 'Dr. Priya Sharma & Interventional Cardiology Team',
+        date: '22 May 2026',
+        summary: 'Admitted with Acute Anterior Wall STEMI. Underwent successful Primary PTCA + Stenting to Proximal LAD with 3.0 x 24mm Drug-Eluting Stent (DES). Post-PCI TIMI-3 flow achieved. LVEF: 48%. Uneventful 4-day recovery.',
+        details: {
+          'Admission Diagnosis': 'Acute Anterior Wall ST-Elevation Myocardial Infarction (STEMI)',
+          'Procedure': 'Primary PCI to Proximal LAD using Everolimus-Eluting Stent (3.0 x 24mm) at 14 atm',
+          'Angiography Findings': 'LAD: 95% thrombotic stenosis proximal segment. LCx: Minor 20% plaques. RCA: Dominant, normal.',
+          'Post-Procedure Status': 'Good distal run-off, TIMI-3 flow restored, no residual dissection or thrombus',
+          'Echocardiogram (2D Echo)': 'LVEF: 48%, hypokinesia of anterior & apical segments',
+          'Discharge Meds': 'Dual Antiplatelet Therapy (DAPT - Aspirin 75mg + Ticagrelor 90mg), Atorvastatin 40mg, Telmisartan 40mg, Metoprolol 25mg'
+        }
+      },
+      {
+        id: 'rec_rm_02',
+        title: 'Comprehensive Lipid Profile & Serum Electrolytes',
+        recordType: 'lab_report',
+        category: 'Diagnostic Biochemistry',
+        source: 'abha',
+        sourceBadge: 'ABDM FHIR Bundle',
+        facilityName: 'Apollo Diagnostics & Health Grid (HIP-0842)',
+        doctorName: 'Dr. S. K. Roy (Pathologist)',
+        date: '03 Jul 2026',
+        summary: 'Total Cholesterol: 242 mg/dL [ELEVATED]. LDL Cholesterol: 154 mg/dL [HIGH - Target < 70 post-PCI]. HDL: 38 mg/dL [LOW]. Serum Triglycerides: 210 mg/dL.',
+        details: {
+          'Total Cholesterol': '242 mg/dL (Desirable: < 200) [HIGH]',
+          'LDL Cholesterol': '154 mg/dL (Post-PCI Target: < 55-70 mg/dL) [HIGH PRIORITY]',
+          'HDL Cholesterol': '38 mg/dL (Normal: > 40 mg/dL) [LOW]',
+          'Triglycerides': '210 mg/dL (Normal: < 150 mg/dL) [ELEVATED]',
+          'Serum Potassium (K+)': '4.2 mEq/L (Normal: 3.5 - 5.1 mEq/L)',
+          'Serum Creatinine': '1.02 mg/dL (eGFR: 82 mL/min/1.73m2)'
+        }
+      },
+      {
+        id: 'rec_rm_03',
+        title: '12-Lead Electrocardiogram (ECG) Report',
+        recordType: 'lab_report',
+        category: 'Diagnostic Cardiology',
+        source: 'abha',
+        sourceBadge: 'ABDM Diagnostic',
+        facilityName: 'District Sadar Hospital Cardiology Clinic',
+        doctorName: 'Dr. Priya Sharma (Cardiologist)',
+        date: '03 Jul 2026',
+        summary: 'Normal sinus rhythm, heart rate 74 bpm. Pathological Q-waves present in leads V1 to V3 consistent with evolved anteroseptal MI. No acute ST re-elevation or dynamic T-wave inversions.',
+        details: {
+          'Heart Rate & Rhythm': '74 bpm, Normal Sinus Rhythm (NSR)',
+          'PR Interval': '160 ms (Normal)',
+          'QRS Duration': '88 ms (Narrow QRS)',
+          'QT / QTc': '412 / 438 ms (Normal)',
+          'Ischemic Changes': 'Pathologic Q-waves in V1-V3 (evolved infarct). T-wave flat in V4. No acute injury current.'
+        }
+      },
+      {
+        id: 'rec_rm_04',
+        title: 'Physical Outpatient Prescription (Camera OCR)',
+        recordType: 'prescription',
+        category: 'Cardiology Clinic Rx',
+        source: 'manual',
+        sourceBadge: 'Outpatient OCR',
+        facilityName: 'Dr. Verma Heart Clinic, Hazaribagh',
+        doctorName: 'Dr. A. K. Verma (Consultant Cardiologist)',
+        date: '15 Jul 2026',
+        summary: 'Tab Telmisartan 40mg 1-0-0 (Morning). Tab Atorvastatin 20mg 0-0-1 (Night). Tab Ecosprin 75mg 0-1-0 (After lunch). Low salt, low fat dietary counselling given.',
+        details: {
+          'Telmisartan 40mg': '1 tab once daily in morning before breakfast (for BP control & myocardial remodeling)',
+          'Atorvastatin 20mg': '1 tab once daily at bedtime (statin lipid therapy)',
+          'Ecosprin (Aspirin) 75mg': '1 tab once daily after lunch with water'
+        }
+      },
+      {
+        id: 'rec_rm_05',
+        title: 'COVID-19 Vaccination Digital Certificate',
+        recordType: 'encounter',
+        category: 'Immunization Record',
+        source: 'cowin',
+        sourceBadge: 'CoWIN Trust Gateway',
+        facilityName: 'District Sadar Hospital Vaccination Centre',
+        doctorName: 'ANM Meena Kumari',
+        date: '20 Nov 2025',
+        summary: 'Beneficiary COW-JH-9431128901. Vaccine: COVAXIN (Inactivated SARS-CoV-2). Both doses completed. Digital signature verified.',
+        details: {
+          'Vaccine Type': 'COVAXIN (Bharat Biotech)',
+          'Dose 1 Date': '18 Aug 2025 (Batch: BB-2025-0914)',
+          'Dose 2 Date': '20 Nov 2025 (Batch: BB-2025-1102)',
+          'Verification': 'Digitally signed by Ministry of Health & Family Welfare (MoHFW)'
+        }
+      }
+    ]
+  },
+  'Mangal Oraon': {
+    aiSummary: 'Suspected TB Investigation: Chest X-ray reveals cavitary infiltrates in right upper lobe. Spot sputum smear positive for AFB (1+). Unintentional weight loss (4 kg in 4 weeks) documented.',
+    records: [
+      {
+        id: 'rec_mo_01',
+        title: 'Chest Radiograph (X-Ray PA View) Radiology Report',
+        recordType: 'lab_report',
+        category: 'Diagnostic Radiology',
+        source: 'abha',
+        sourceBadge: 'ABDM Diagnostic',
+        facilityName: 'District Tuberculosis Centre (DTC) / Sadar Hospital',
+        doctorName: 'Dr. R. K. Mahato (Radiologist)',
+        date: '10 Aug 2026',
+        summary: 'Infiltrative fibro-cavitary opacities and patchy consolidation in right upper lobe. No pleural effusion. Heart size normal. Findings highly suspicious of Active Pulmonary Tuberculosis.',
+        details: {
+          'Right Lung Field': 'Patchy heterogeneous infiltrates with small 1.5 cm cavity in right apical-posterior segment',
+          'Left Lung Field': 'Clear, normal broncho-vascular markings',
+          'Costophrenic Angles': 'Bilateral CP angles sharp and clear',
+          'Cardiac Silhouette': 'Normal cardiothoracic ratio (CTR 0.44)',
+          'Impression': 'Active Pulmonary Kochs / Tuberculosis involving right upper zone. Advise CBNAAT.'
+        }
+      },
+      {
+        id: 'rec_mo_02',
+        title: 'Sputum Smear Examination for Acid Fast Bacilli (AFB)',
+        recordType: 'lab_report',
+        category: 'Diagnostic Microbiology',
+        source: 'medveda_internal',
+        sourceBadge: 'Govt NTEP Lab',
+        facilityName: 'Designated Microscopy Centre (DMC) Katkamsandi',
+        doctorName: 'Senior Treatment Supervisor (STS) / Lab Tech',
+        date: '12 Aug 2026',
+        summary: 'Ziehl-Neelsen (ZN) acid fast staining. Sample 1: 1+ Positive (10-99 AFB seen per 100 oil immersion fields). Sample 2 dispatched for molecular GeneXpert / CBNAAT testing.',
+        details: {
+          'Method': 'Ziehl-Neelsen Cold Acid Fast Staining',
+          'Sample 1 (Spot)': 'Positive 1+ (10 to 99 AFB per 100 oil fields)',
+          'Sample 2 (Early Morning)': 'Awaiting CBNAAT GeneXpert automation report for Rifampicin sensitivity',
+          'NTEP Nikshay ID': 'NKSH-2026-JH-88192'
+        }
+      },
+      {
+        id: 'rec_mo_03',
+        title: 'Primary Health Centre OPD Clinical Card & Weight Log',
+        recordType: 'encounter',
+        category: 'Outpatient Encounter',
+        source: 'medveda_internal',
+        sourceBadge: 'PHC OPD Record',
+        facilityName: 'PHC Katkamsandi OPD',
+        doctorName: 'Medical Officer in Charge',
+        date: '20 Jul 2026',
+        summary: 'Presenting complaint: Persistent productive cough x 3 weeks. Documented progressive weight loss: 55 kg (1 month ago) -> 51 kg today. Refractory to Amoxicillin course prescribed by local RMP.',
+        details: {
+          'Clinical Notes': 'Low grade fever with nocturnal sweats, poor appetite. Bilateral crepitations in right suprascapular area.',
+          'Weight History': 'Weight dropped from 55 kg to 51 kg over 4 weeks',
+          'Previous Treatment': 'Cap Amoxicillin 500mg taken for 5 days without symptomatic relief'
+        }
+      }
+    ]
+  },
+  'Pooja Kumari': {
+    aiSummary: 'Adolescent Anemia Profile: Microcytic hypochromic anemia (Hb 8.6 g/dL, MCV 68 fl). Serum ferritin depleted (11 ng/mL). School health examination noted Grade-II pallor and koilonychia.',
+    records: [
+      {
+        id: 'rec_pk_01',
+        title: 'Complete Blood Count (CBC) with Peripheral Blood Smear',
+        recordType: 'lab_report',
+        category: 'Hematology',
+        source: 'abha',
+        sourceBadge: 'ABDM Diagnostic',
+        facilityName: 'District Sadar Hospital Pathology Laboratory',
+        doctorName: 'Dr. S. K. Roy (Pathologist)',
+        date: '02 Aug 2026',
+        summary: 'Hemoglobin: 8.6 g/dL [MODERATE ANEMIA]. MCV: 68 fl [MICROCYTIC]. MCH: 22 pg [HYPOCHROMIC]. Peripheral smear confirms Microcytic Hypochromic Red Cells with pencil cells.',
+        details: {
+          'Hemoglobin (Hb)': '8.6 g/dL (Normal: 12.0 - 15.0 g/dL) [MODERATE ANEMIA]',
+          'RBC Count': '3.8 million /uL',
+          'Mean Corpuscular Volume (MCV)': '68 fl (Normal: 80 - 100 fl) [LOW - Microcytic]',
+          'Mean Corpuscular Hemoglobin (MCH)': '22 pg (Normal: 27 - 33 pg) [LOW - Hypochromic]',
+          'Total Leukocyte Count (TLC)': '6,800 /cumm (Normal)',
+          'Platelet Count': '2,80,000 /cumm (Normal)'
+        }
+      },
+      {
+        id: 'rec_pk_02',
+        title: 'Serum Ferritin & Iron Profile Panel',
+        recordType: 'lab_report',
+        category: 'Diagnostic Biochemistry',
+        source: 'abha',
+        sourceBadge: 'ABDM FHIR Bundle',
+        facilityName: 'District Diagnostic Hub, Hazaribagh',
+        doctorName: 'Dr. S. K. Roy (Pathologist)',
+        date: '02 Aug 2026',
+        summary: 'Serum Ferritin: 11 ng/mL [CRITICALLY LOW - Depleted iron stores]. Total Iron Binding Capacity (TIBC): 440 ug/dL [ELEVATED]. Transferrin Saturation: 9% [LOW].',
+        details: {
+          'Serum Ferritin': '11 ng/mL (Reference: 15 - 150 ng/mL) [DEPLETED STORES]',
+          'Serum Iron': '38 ug/dL (Reference: 60 - 170 ug/dL) [LOW]',
+          'Total Iron Binding Capacity (TIBC)': '440 ug/dL (Reference: 250 - 400 ug/dL) [HIGH]',
+          'Transferrin Saturation': '9 % (Reference: 20 - 50 %) [LOW]',
+          'Clinical Interpretation': 'Classic Iron Deficiency Anemia with depleted bone marrow stores'
+        }
+      },
+      {
+        id: 'rec_pk_03',
+        title: 'School Health & Adolescent Screening Card (RBSK Scheme)',
+        recordType: 'encounter',
+        category: 'Community Screening',
+        source: 'medveda_internal',
+        sourceBadge: 'Govt RBSK Screening',
+        facilityName: 'Rashtriya Bal Swasthya Karyakram (RBSK Team-4)',
+        doctorName: 'Dr. Meena (RBSK Medical Officer)',
+        date: '14 Jun 2026',
+        summary: 'Screened at Govt Girls High School Pelawal. Height: 154 cm, Weight: 42 kg, BMI: 17.7 kg/m2. Pallor Grade-II present. Koilonychia noted. Recommended adolescent IFA supplementation and deworming.',
+        details: {
+          'Nutritional Assessment': 'Mild undernutrition, pallor +2, brittle nails, koilonychia',
+          'Vitals': 'BP: 104/68 mmHg, Pulse: 88 bpm',
+          'Recommendations': 'Deworming with Albendazole 400mg + daily therapeutic oral iron course'
+        }
+      }
+    ]
+  }
+};
+
+function ScreenDoctorTeleconsultation({
+  currentUser,
+  actorRole,
+  onBackToOverview,
+  onNavigateToReferrals,
+  onNavigateToFollowUps,
+  onNavigateToRecords
+}) {
+  const [subScreen, setSubScreen] = useState('queue'); // 'queue' | 'consult' | 'summary'
+  const [isOnDuty, setIsOnDuty] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  const playChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.65);
+    } catch (e) {}
+  };
+
+  const initialQueue = [
+    {
+      id: 'TC-2026-881',
+      token: 'TC-01',
+      name: 'Sunita Soren',
+      age: 32,
+      gender: 'Female',
+      village: 'Barkagaon, Hazaribagh',
+      abhaId: '91-2890-1423-8891@sbx',
+      assisted: true,
+      ashaName: 'Anita Devi (ASHA Katkamsandi)',
+      complaint: '32-week pregnancy with bilateral pedal edema, frontal throbbing headache & elevated BP readings',
+      vitals: { bp: '146/94 mmHg', pulse: '88 bpm', spo2: '97%', temp: '98.6°F', rbs: '122 mg/dL', weight: '58 kg' },
+      urgency: 'HIGH PRIORITY',
+      urgencyBadge: 'bg-rose-50 text-rose-700 border-rose-200',
+      waitTime: '4m ago',
+      allergies: 'Penicillin & Sulfa Drugs',
+      suggestedDiagnosis: 'Gestational Hypertension (O13.9)',
+      suggestedRx: [
+        { medicineName: 'Tab Labetalol 100mg', dosage: '100mg', frequency: '1-0-1 (Twice Daily)', durationDays: '14 Days', instructions: 'Take with water after meals' },
+        { medicineName: 'Tab Calcium Carbonate 500mg + Vit D3', dosage: '500mg', frequency: '0-1-0 (Afternoon)', durationDays: '30 Days', instructions: 'After lunch' },
+        { medicineName: 'Tab Iron & Folic Acid (IFA Red)', dosage: '100mg elemental Fe', frequency: '0-0-1 (Night)', durationDays: '30 Days', instructions: 'Take after dinner, avoid milk' }
+      ],
+      suggestedLabs: ['Complete Blood Count (CBC)', 'Urine Routine & Albumin', 'Serum Creatinine & Uric Acid'],
+      suggestedAdvice: 'Strict left lateral bed rest. Restrict dietary sodium. Daily BP monitoring at Ayushman Arogya Mandir. Immediate hospital reporting if visual blurring or epigastric pain occurs.'
+    },
+    {
+      id: 'TC-2026-882',
+      token: 'TC-02',
+      name: 'Ramesh Mahto',
+      age: 48,
+      gender: 'Male',
+      village: 'Katkamsandi Bazar',
+      abhaId: 'ramesh.mahto@abdm',
+      assisted: false,
+      ashaName: null,
+      complaint: 'Post-PTCA stent 3-month review; mild exertional chest heaviness walking uphill; BP mildly elevated',
+      vitals: { bp: '138/88 mmHg', pulse: '74 bpm', spo2: '98%', temp: '98.4°F', rbs: '112 mg/dL', weight: '68 kg' },
+      urgency: 'URGENT REVIEW',
+      urgencyBadge: 'bg-amber-50 text-amber-700 border-amber-200',
+      waitTime: '11m ago',
+      allergies: 'No Known Drug Allergies (NKDA)',
+      suggestedDiagnosis: 'Essential Hypertension with CAD (Post-PTCA Follow-up)',
+      suggestedRx: [
+        { medicineName: 'Tab Telmisartan 40mg', dosage: '40mg', frequency: '1-0-0 (Morning)', durationDays: '30 Days', instructions: 'Before breakfast' },
+        { medicineName: 'Tab Atorvastatin 20mg', dosage: '20mg', frequency: '0-0-1 (Night)', durationDays: '30 Days', instructions: 'Before bedtime' },
+        { medicineName: 'Tab Ecosprin 75mg', dosage: '75mg', frequency: '0-1-0 (Afternoon)', durationDays: '30 Days', instructions: 'After lunch with water' }
+      ],
+      suggestedLabs: ['Lipid Profile', 'Serum Creatinine', 'ECG (12-Lead)'],
+      suggestedAdvice: 'Low salt, low cholesterol diet. 30 mins gentle morning walking on flat track. Maintain daily BP diary.'
+    },
+    {
+      id: 'TC-2026-883',
+      token: 'TC-03',
+      name: 'Mangal Oraon',
+      age: 62,
+      gender: 'Male',
+      village: 'Dhengura Gram Panchayat',
+      abhaId: 'mangal.oraon@abdm',
+      assisted: true,
+      ashaName: 'Smt. Rekha Tirkey (ANM / ASHA)',
+      complaint: 'Productive cough x 3 weeks, evening low-grade fever with chills, anorexia and 4 kg weight loss in 1 month',
+      vitals: { bp: '124/78 mmHg', pulse: '84 bpm', spo2: '95%', temp: '99.8°F', rbs: '136 mg/dL', weight: '51 kg' },
+      urgency: 'HIGH PRIORITY',
+      urgencyBadge: 'bg-rose-50 text-rose-700 border-rose-200',
+      waitTime: '18m ago',
+      allergies: 'NKDA',
+      suggestedDiagnosis: 'Presumptive Pulmonary Tuberculosis (TB Screening)',
+      suggestedRx: [
+        { medicineName: 'Tab Paracetamol 650mg', dosage: '650mg', frequency: 'SOS (When Needed)', durationDays: '5 Days', instructions: 'Take for fever > 100°F' },
+        { medicineName: 'Syp Ambroxol + Levosalbutamol', dosage: '5 ml', frequency: '1-0-1 (Twice Daily)', durationDays: '5 Days', instructions: 'After meals for cough relief' }
+      ],
+      suggestedLabs: ['Sputum for CBNAAT / GeneXpert', 'Chest X-Ray PA View', 'Complete Blood Count (CBC)'],
+      suggestedAdvice: 'Urgent Sputum CBNAAT at Designated Microscopy Center (DMC) Katkamsandi. Maintain mask precautions. High protein diet.'
+    },
+    {
+      id: 'TC-2026-884',
+      token: 'TC-04',
+      name: 'Pooja Kumari',
+      age: 19,
+      gender: 'Female',
+      village: 'Pelawal Tola',
+      abhaId: 'pooja.k@abdm',
+      assisted: true,
+      ashaName: 'Anita Devi',
+      complaint: 'Extreme generalized weakness, postural lightheadedness, pale conjunctiva (+2), fatigue interfering with studies',
+      vitals: { bp: '102/68 mmHg', pulse: '90 bpm', spo2: '99%', temp: '98.2°F', rbs: '92 mg/dL', weight: '42 kg' },
+      urgency: 'ROUTINE',
+      urgencyBadge: 'bg-slate-100 text-slate-700 border-slate-200',
+      waitTime: '25m ago',
+      allergies: 'Ciprofloxacin',
+      suggestedDiagnosis: 'Moderate Iron Deficiency Anemia (Clinical Presentation)',
+      suggestedRx: [
+        { medicineName: 'Tab Iron & Folic Acid (IFA Red)', dosage: '100mg elemental Fe', frequency: '0-0-1 (Night)', durationDays: '60 Days', instructions: 'Take with lemon water after dinner' },
+        { medicineName: 'Tab Albendazole 400mg', dosage: '400mg', frequency: 'Single Dose Stat', durationDays: '1 Day', instructions: 'Chew at bedtime for deworming' }
+      ],
+      suggestedLabs: ['Complete Blood Count (CBC) with Peripheral Smear', 'Serum Ferritin'],
+      suggestedAdvice: 'Incorporate jaggery, drumstick leaves, and sprouted lentils in daily food. Avoid tea/coffee within 2 hours of meals.'
+    }
+  ];
+
+  const [queue, setQueue] = useState(initialQueue);
+  const [completedList, setCompletedList] = useState([]);
+  const [activePatient, setActivePatient] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(getApiUrl('/api/v1/teleconsult/queue'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const liveQ = json?.data?.queue;
+        if (!cancelled && Array.isArray(liveQ) && liveQ.length > 0) {
+          const mapped = liveQ.map((item, idx) => ({
+            id: item.queueId || `TC-LIVE-${idx + 1}`,
+            token: `TC-0${idx + 1}`,
+            name: item.patientName || 'Patient',
+            age: item.patientAge || 35,
+            gender: item.patientGender || 'Female',
+            village: item.facilityName || 'PHC Rural Hub',
+            abhaId: item.patientPhone || '91-2890-1423-8891@sbx',
+            assisted: item.actorType === 'worker',
+            ashaName: item.actorType === 'worker' ? 'Anita Devi (ASHA Worker)' : null,
+            complaint: item.chiefComplaint || 'Clinical teleconsultation requested',
+            vitals: { bp: '132/84 mmHg', pulse: '82 bpm', spo2: '98%', temp: '98.6°F', rbs: '114 mg/dL', weight: '58 kg' },
+            urgency: item.urgency === 'EMERGENCY' || item.urgency === 'PRIORITY' ? 'HIGH PRIORITY' : 'ROUTINE',
+            urgencyBadge:
+              item.urgency === 'EMERGENCY' || item.urgency === 'PRIORITY'
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : 'bg-slate-100 text-slate-700 border-slate-200',
+            waitTime: `${item.estimatedWaitMinutes || 5}m ago`,
+            allergies: 'NKDA',
+            suggestedDiagnosis: 'Clinical Teleconsultation Assessment',
+            suggestedRx: initialQueue[0].suggestedRx,
+            suggestedLabs: ['Complete Blood Count (CBC)', 'Fasting Blood Sugar'],
+            suggestedAdvice: 'Maintain hydration, take prescribed medications on time, and report if red flag symptoms occur.'
+          }));
+          setQueue((prev) => {
+            const existingNames = new Set(mapped.map((m) => m.name.toLowerCase()));
+            return [...mapped, ...prev.filter((p) => !existingNames.has(p.name.toLowerCase()))];
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // In-call & Prescription state
+  const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [diagnosis, setDiagnosis] = useState('');
+  const [doctorNotes, setDoctorNotes] = useState('');
+  const [prescriptionList, setPrescriptionList] = useState([]);
+  const [selectedLabs, setSelectedLabs] = useState([]);
+  const [customLabInput, setCustomLabInput] = useState('');
+  const [advice, setAdvice] = useState('');
+  const [followUpDays, setFollowUpDays] = useState(7);
+  const [referralFlag, setReferralFlag] = useState(false);
+  const [signedPrescription, setSignedPrescription] = useState(null);
+
+  // Patient Health Records & ABDM Integration States
+  const [recordsFilter, setRecordsFilter] = useState('all'); // 'all' | 'lab' | 'prescription' | 'encounter'
+  const [selectedRecordModal, setSelectedRecordModal] = useState(null);
+  const [importedRecords, setImportedRecords] = useState({});
+  const [isSyncingAbdm, setIsSyncingAbdm] = useState(false);
+  const [abdmSyncToast, setAbdmSyncToast] = useState(null);
+
+  const handleImportRecord = (rec) => {
+    setImportedRecords((prev) => ({ ...prev, [rec.id]: true }));
+    setDoctorNotes((prev) => {
+      const summaryText = `[Imported EMR: ${rec.title} (${rec.date}) - ${rec.facilityName}]: ${rec.summary}`;
+      return prev ? `${prev}\n\n${summaryText}` : summaryText;
+    });
+  };
+
+  const handleSyncAbdmGateway = () => {
+    setIsSyncingAbdm(true);
+    setTimeout(() => {
+      setIsSyncingAbdm(false);
+      setAbdmSyncToast('ABDM Sandbox Sync Complete: 5 FHIR Care Bundles verified and linked with current session.');
+      setTimeout(() => setAbdmSyncToast(null), 4500);
+    }, 850);
+  };
+
+  // Form for adding individual medicine
+  const [newMed, setNewMed] = useState({
+    name: 'Tab Labetalol 100mg',
+    dosage: '100mg',
+    frequency: '1-0-1 (Twice Daily)',
+    timing: 'After Meals',
+    duration: '14 Days',
+    instructions: 'Take after meals with water'
+  });
+
+  // Call timer effect
+  useEffect(() => {
+    let interval = null;
+    if (subScreen === 'consult') {
+      interval = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setCallDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [subScreen]);
+
+  const formatTimer = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleStartConsult = (patient) => {
+    playChime();
+    setActivePatient(patient);
+    setDiagnosis(patient.suggestedDiagnosis || 'Clinical Consultation');
+    setDoctorNotes(`Patient present via teleconsultation with ASHA worker. Vitals checked: BP ${patient.vitals.bp}, Pulse ${patient.vitals.pulse}, SpO2 ${patient.vitals.spo2}. Symptoms: ${patient.complaint}.`);
+    setPrescriptionList(patient.suggestedRx ? [...patient.suggestedRx] : []);
+    setSelectedLabs(patient.suggestedLabs ? [...patient.suggestedLabs] : []);
+    setAdvice(patient.suggestedAdvice || 'Follow standard clinical precautions and report if symptoms persist.');
+    setFollowUpDays(patient.urgency.includes('HIGH') ? 3 : 7);
+    setReferralFlag(false);
+    setSubScreen('consult');
+  };
+
+  const handleCallNextPatient = () => {
+    if (queue.length > 0) {
+      handleStartConsult(queue[0]);
+    } else {
+      alert("No more patients currently waiting in the queue.");
+    }
+  };
+
+  const handleAddMedicine = (e) => {
+    if (e) e.preventDefault();
+    if (!newMed.name.trim()) return;
+    setPrescriptionList([
+      ...prescriptionList,
+      {
+        medicineName: newMed.name,
+        dosage: newMed.dosage,
+        frequency: newMed.frequency,
+        durationDays: newMed.duration,
+        instructions: `${newMed.timing} • ${newMed.instructions}`
+      }
+    ]);
+    setNewMed({
+      name: 'Tab Paracetamol 650mg',
+      dosage: '650mg',
+      frequency: 'SOS (When Needed)',
+      timing: 'After Meals',
+      duration: '5 Days',
+      instructions: 'Take when fever or pain occurs'
+    });
+  };
+
+  const handleRemoveMedicine = (idx) => {
+    setPrescriptionList(prescriptionList.filter((_, i) => i !== idx));
+  };
+
+  const handleToggleLab = (labName) => {
+    if (selectedLabs.includes(labName)) {
+      setSelectedLabs(selectedLabs.filter((l) => l !== labName));
+    } else {
+      setSelectedLabs([...selectedLabs, labName]);
+    }
+  };
+
+  const handleAddCustomLab = (e) => {
+    if (e) e.preventDefault();
+    if (!customLabInput.trim()) return;
+    if (!selectedLabs.includes(customLabInput.trim())) {
+      setSelectedLabs([...selectedLabs, customLabInput.trim()]);
+    }
+    setCustomLabInput('');
+  };
+
+  const handleSignAndIssuePrescription = async () => {
+    if (!diagnosis.trim()) {
+      alert("Please provide a clinical diagnosis before finalizing the prescription.");
+      return;
+    }
+    if (prescriptionList.length === 0) {
+      if (!confirm("No medicines have been added to the prescription pad. Proceed with clinical advice only?")) {
+        return;
+      }
+    }
+
+    const rxId = `RX-JH-HZB-${Date.now().toString().slice(-6)}`;
+    const doctorName = currentUser?.doctorName || currentUser?.name || 'Dr. Priya Sharma';
+    const rxRecord = {
+      rxId,
+      timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      doctorName,
+      qualification: currentUser?.qualification || 'MBBS, MD (General Medicine)',
+      regNo: currentUser?.registrationNo || 'MCI-2018-847291',
+      facility: currentUser?.facility || 'PHC Katkamsandi & District Sadar Hospital',
+      patient: activePatient,
+      diagnosis,
+      doctorNotes,
+      medicines: [...prescriptionList],
+      labs: [...selectedLabs],
+      advice,
+      followUpDays,
+      referralFlag,
+      durationMinutes: formatTimer(callDuration)
+    };
+
+    try {
+      await fetch(getApiUrl(`/api/v1/teleconsult/session/${encodeURIComponent(activePatient?.id || rxId)}/complete`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctorNotes,
+          diagnosis,
+          prescription: prescriptionList.map((p) => ({
+            medicineName: p.medicineName,
+            dosage: p.dosage,
+            frequency: p.frequency,
+            durationDays: parseInt(p.durationDays, 10) || 5,
+            instructions: p.instructions
+          })),
+          followUpDays: Number(followUpDays) || 7,
+          referralFlag,
+          diagnosticOrderFlag: selectedLabs.length > 0
+        })
+      });
+
+      if (referralFlag) {
+        await fetch(getApiUrl('/api/referrals'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientName: activePatient?.name || 'Patient',
+            patientAge: activePatient?.age || 35,
+            patientGender: activePatient?.gender || 'Female',
+            referringFacilityName: rxRecord.facility,
+            referringDoctor: doctorName,
+            receivingFacilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+            specialtyRequired: 'General Medicine',
+            urgency: activePatient?.urgency?.includes('HIGH') ? 'emergency' : 'priority',
+            provisionalDiagnosis: diagnosis,
+            reasonForReferral: doctorNotes || activePatient?.complaint || 'Escalated from Doctor Teleconsultation Desk',
+            vitalsSummary: activePatient?.vitals || {}
+          })
+        }).catch(() => {});
+      }
+
+      if (selectedLabs.length > 0) {
+        await fetch(getApiUrl('/api/diagnostics/orders'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientName: activePatient?.name || 'Patient',
+            patientAge: activePatient?.age || 35,
+            patientGender: activePatient?.gender || 'Female',
+            orderedByDoctor: doctorName,
+            OrderingFacility: rxRecord.facility,
+            testName: selectedLabs.join(', '),
+            clinicalNotes: diagnosis,
+            urgency: activePatient?.urgency?.includes('HIGH') ? 'urgent' : 'routine'
+          })
+        }).catch(() => {});
+      }
+    } catch (_e) {}
+
+    setSignedPrescription(rxRecord);
+    setCompletedList([rxRecord, ...completedList]);
+    setQueue(queue.filter((p) => p.id !== activePatient.id));
+    setSubScreen('summary');
+  };
+
+  const filteredQueue = queue.filter((p) => {
+    if (filter === 'priority') return p.urgency.includes('HIGH') || p.urgency.includes('URGENT');
+    if (filter === 'assisted') return p.assisted;
+    return true;
+  });
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
+      {/* ========================================================================= */}
+      {/* 1. DOCTOR TELECONSULTATION QUEUE & DESK (subScreen === 'queue') */}
+      {/* ========================================================================= */}
+      {subScreen === 'queue' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Top Status & Controls Header */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                  {isOnDuty ? 'DOCTOR TELECONSULTATION DESK &bull; LIVE ON DUTY' : 'DESK PAUSED'}
+                </span>
+                <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  Dr. Priya Sharma &bull; MCI-2018-847291
+                </span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                Doctor Teleconsultation &amp; OPD Queue
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review waiting patient requests from rural Sub-Centers, call next patient, conduct video calls, and issue signed prescriptions.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsOnDuty(!isOnDuty)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  isOnDuty
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-slate-100 border-slate-300 text-slate-600'
+                }`}
+              >
+                {isOnDuty ? 'Status: Accepting Calls' : 'Status: Paused'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCallNextPatient}
+                disabled={queue.length === 0}
+                className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#071f60] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <svg className="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Call Next Patient</span>
+                <span className="px-1.5 py-0.2 rounded bg-white/20 text-[10px]">{queue[0]?.token || 'None'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Next Up Hero Card */}
+          {queue.length > 0 && (
+            <div className="bg-gradient-to-r from-blue-900 via-[#0b2b82] to-indigo-950 text-white rounded-xl p-6 shadow-xs border border-blue-800 relative overflow-hidden">
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded bg-white/20 text-white font-mono text-xs font-bold">
+                      NEXT IN LINE: {queue[0].token}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-900 text-[10px] font-black uppercase tracking-wider">
+                      {queue[0].urgency}
+                    </span>
+                    <span className="text-blue-200 text-xs">Waiting {queue[0].waitTime}</span>
+                  </div>
+
+                  <h3 className="text-2xl font-black">{queue[0].name} ({queue[0].age}{queue[0].gender === 'Female' ? 'F' : 'M'})</h3>
+                  <p className="text-xs text-blue-200 flex items-center gap-2">
+                    <span>{queue[0].village}</span>
+                    <span>&bull;</span>
+                    <span className="font-mono text-blue-100">{queue[0].abhaId}</span>
+                    {queue[0].assisted && (
+                      <>
+                        <span>&bull;</span>
+                        <span className="text-emerald-300 font-semibold">{queue[0].ashaName}</span>
+                      </>
+                    )}
+                  </p>
+
+                  <p className="text-xs text-white bg-white/10 p-2.5 rounded-lg border border-white/15 max-w-2xl leading-relaxed">
+                    <strong>Chief Complaint:</strong> {queue[0].complaint}
+                  </p>
+
+                  <div className="flex items-center gap-3 text-xs pt-1 flex-wrap">
+                    <span className="bg-white/15 px-2.5 py-1 rounded font-mono">BP: {queue[0].vitals.bp}</span>
+                    <span className="bg-white/15 px-2.5 py-1 rounded font-mono">Pulse: {queue[0].vitals.pulse}</span>
+                    <span className="bg-white/15 px-2.5 py-1 rounded font-mono">SpO2: {queue[0].vitals.spo2}</span>
+                    <span className="bg-white/15 px-2.5 py-1 rounded font-mono">Temp: {queue[0].vitals.temp}</span>
+                    <span className="bg-rose-500/80 text-white font-bold px-2.5 py-1 rounded">Allergies: {queue[0].allergies}</span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleStartConsult(queue[0])}
+                    className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+                  >
+                    <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    <span>Accept Request &amp; Start Call</span>
+                  </button>
+                  <p className="text-[10px] text-blue-300 text-center">Encrypted 1080p Telemedicine Room</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Queue Filter Tabs & Stats */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-slate-500 uppercase mr-1">Filter Queue:</span>
+                {[
+                  { id: 'all', label: `All Waiting (${queue.length})` },
+                  { id: 'priority', label: `High Priority (${queue.filter(p => p.urgency.includes('HIGH') || p.urgency.includes('URGENT')).length})` },
+                  { id: 'assisted', label: `ASHA Assisted (${queue.filter(p => p.assisted).length})` },
+                  { id: 'completed', label: `Completed Today (${completedList.length})` }
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setFilter(t.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      filter === t.id
+                        ? 'bg-[#0b2b82] text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-xs text-slate-500">
+                Avg Response: <strong className="text-slate-800">4.2 mins</strong> &bull; Completed: <strong className="text-emerald-700">{completedList.length} Rx Dispatched</strong>
+              </div>
+            </div>
+
+            {/* Waiting Requests Table */}
+            {filter !== 'completed' ? (
+              <div className="space-y-3">
+                {filteredQueue.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    No patient consultations currently matching this filter.
+                  </div>
+                ) : (
+                  filteredQueue.map((patient, index) => (
+                    <div
+                      key={patient.id}
+                      className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                    >
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-[#0b2b82] bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded">
+                            {patient.token}
+                          </span>
+                          <h4 className="text-sm font-bold text-slate-900">
+                            {patient.name} ({patient.age}{patient.gender === 'Female' ? 'F' : 'M'})
+                          </h4>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${patient.urgencyBadge}`}>
+                            {patient.urgency}
+                          </span>
+                          {patient.assisted && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                              <span>{patient.ashaName}</span>
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-400 ml-auto md:ml-0 font-medium">
+                            Waiting {patient.waitTime}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-600 line-clamp-1">
+                          <strong>Presentation:</strong> {patient.complaint}
+                        </p>
+
+                        <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                          <span className="bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono text-[11px]">BP: {patient.vitals.bp}</span>
+                          <span className="bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono text-[11px]">Pulse: {patient.vitals.pulse}</span>
+                          <span className="bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono text-[11px]">SpO2: {patient.vitals.spo2}</span>
+                          <span className="bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono text-[11px]">Temp: {patient.vitals.temp}</span>
+                          <span className="text-rose-700 font-semibold text-[11px]">Allergy: {patient.allergies}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartConsult(patient)}
+                          className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                          <span>Accept &amp; Consult</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              /* Completed Today List */
+              <div className="space-y-3">
+                {completedList.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    No consultations completed in this session yet.
+                  </div>
+                ) : (
+                  completedList.map((item, idx) => (
+                    <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-emerald-50/30 flex items-center justify-between gap-3 text-xs">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{item.patient?.name}</span>
+                          <span className="font-mono text-slate-500">({item.rxId})</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Rx Signed</span>
+                        </div>
+                        <p className="text-slate-600 mt-0.5"><strong>Diagnosis:</strong> {item.diagnosis}</p>
+                        <p className="text-slate-500 text-[11px] font-mono mt-0.5">{item.medicines?.length || 0} Meds Prescribed &bull; {item.timestamp}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignedPrescription(item);
+                          setSubScreen('summary');
+                        }}
+                        className="px-3 py-1.5 bg-white border border-slate-200 hover:border-[#0b2b82] text-[#0b2b82] font-bold rounded-lg cursor-pointer"
+                      >
+                        View Rx &rarr;
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. DOCTOR ACTIVE VIDEO CONSULTATION & DIGITAL PRESCRIPTION PAD (subScreen === 'consult') */}
+      {/* ========================================================================= */}
+      {subScreen === 'consult' && activePatient && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Top In-Call Session Control Bar */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                    ACTIVE TELECONSULTATION:
+                  </span>
+                  <span className="text-sm font-black text-[#0b2b82]">
+                    {activePatient.name} ({activePatient.age}{activePatient.gender === 'Female' ? 'F' : 'M'})
+                  </span>
+                  <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+                    {activePatient.token}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {activePatient.village} &bull; {activePatient.assisted ? `Field Assisted by ${activePatient.ashaName}` : 'Direct Mobile Call'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 font-mono text-xs font-bold text-slate-800">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                <span>REC &bull; {formatTimer(callDuration)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubScreen('queue')}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg cursor-pointer"
+              >
+                &larr; Return to Queue
+              </button>
+              <button
+                type="button"
+                onClick={handleSignAndIssuePrescription}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Finalize &amp; Sign Prescription</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Two-Panel Layout: Left Video & Clinical Exam, Right Prescription Pad */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* LEFT COLUMN: LIVE VIDEO CALL & PATIENT VITALS (5 Cols) */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Simulated Live Video Room Box */}
+              <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-md relative">
+                {/* Simulated WebRTC HD Feed */}
+                <div className="h-64 sm:h-72 w-full bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col items-center justify-center p-4 relative text-center">
+                  {/* Subtle video noise / animated scanning line */}
+                  <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none"></div>
+
+                  <div className="relative z-10 space-y-2">
+                    <div className="w-20 h-20 rounded-full bg-slate-800 border-2 border-emerald-500/70 mx-auto flex items-center justify-center shadow-lg relative">
+                      <svg className="w-10 h-10 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900"></span>
+                    </div>
+                    <div>
+                      <h4 className="text-white font-bold text-sm">{activePatient.name}</h4>
+                      <p className="text-[11px] text-emerald-400 font-mono">
+                        {activePatient.assisted ? 'Sub-Center Katkamsandi Telehealth Node' : 'Direct Mobile Video Link'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Doctor PIP in bottom right */}
+                  <div className="absolute bottom-3 right-3 w-24 h-20 rounded-lg bg-slate-800 border-2 border-slate-700 overflow-hidden shadow-md flex flex-col items-center justify-center text-center p-1">
+                    <img
+                      src="doctor-priya.jpg"
+                      alt="Doctor Self"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                    <span className="absolute bottom-1 left-1 right-1 text-[8px] bg-slate-950/80 text-white font-bold px-1 rounded truncate">
+                      Dr. Priya (You)
+                    </span>
+                  </div>
+
+                  {/* Latency & Encryption Status */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-slate-900/80 border border-slate-700 text-[10px] text-emerald-400 font-mono">
+                      1080p &bull; 24ms &bull; WebRTC Encrypted
+                    </span>
+                  </div>
+                </div>
+
+                {/* Call Controls Bar */}
+                <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-around">
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(!isMuted)}
+                    className={`p-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    }`}
+                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsVideoMuted(!isVideoMuted)}
+                    className={`p-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isVideoMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    }`}
+                    title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={playChime}
+                    className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer"
+                    title="Audio Test Chime"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubScreen('queue')}
+                    className="p-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                    title="End Call and Leave"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-Time Verified Vitals Banner */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-[#0b2b82]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    <span>Patient Vitals &bull; Intake by ASHA</span>
+                  </h4>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Verified</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Blood Pressure</span>
+                    <span className="text-sm font-black text-rose-700 font-mono">{activePatient.vitals.bp}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Pulse</span>
+                    <span className="text-sm font-black text-slate-900 font-mono">{activePatient.vitals.pulse}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">SpO2</span>
+                    <span className="text-sm font-black text-emerald-700 font-mono">{activePatient.vitals.spo2}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Body Temp</span>
+                    <span className="text-sm font-black text-slate-900 font-mono">{activePatient.vitals.temp}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Random Sugar</span>
+                    <span className="text-sm font-black text-slate-900 font-mono">{activePatient.vitals.rbs}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-center">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Weight</span>
+                    <span className="text-sm font-black text-slate-900 font-mono">{activePatient.vitals.weight}</span>
+                  </div>
+                </div>
+
+                {/* Critical Allergy Alert */}
+                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2 text-xs">
+                  <svg className="w-4 h-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  <span className="font-bold text-rose-900">
+                    Known Drug Allergy: <span className="text-rose-700 font-black underline">{activePatient.allergies}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Doctor Clinical Examination Notes */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                  Doctor Clinical Observations &amp; In-Call Notes
+                </label>
+                <textarea
+                  rows={4}
+                  value={doctorNotes}
+                  onChange={(e) => setDoctorNotes(e.target.value)}
+                  placeholder="Record your clinical observations, examination findings, and patient history..."
+                  className="w-full p-3 rounded-lg border border-slate-300 text-xs font-medium focus:ring-1 focus:ring-[#0b2b82] text-slate-900 leading-relaxed outline-none"
+                />
+              </div>
+
+              {/* ACCESS PATIENT HEALTH RECORDS & ABDM EMR HISTORY (DOCTOR VIEW) */}
+              {activePatient && (() => {
+                const patEntry = PATIENT_HEALTH_RECORDS_DB[activePatient.name] || PATIENT_HEALTH_RECORDS_DB['Sunita Soren'];
+                const allRecs = patEntry ? patEntry.records : [];
+                const aiSummary = patEntry ? patEntry.aiSummary : 'No prior records indexed.';
+                const filteredRecs = allRecs.filter((rec) => {
+                  if (recordsFilter === 'all') return true;
+                  if (recordsFilter === 'lab') return rec.recordType === 'lab_report';
+                  if (recordsFilter === 'prescription') return rec.recordType === 'prescription';
+                  if (recordsFilter === 'encounter') return rec.recordType === 'encounter';
+                  return true;
+                });
+
+                return (
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3.5">
+                    {/* Header Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            ABDM Longitudinal EMR
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
+                          <svg className="w-4 h-4 text-[#0b2b82]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                          </svg>
+                          <span>Patient Health Records (Doctor View)</span>
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onNavigateToRecords) {
+                              onNavigateToRecords();
+                            } else {
+                              window.location.hash = '#feature5';
+                            }
+                          }}
+                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] font-bold text-[11px] rounded-lg border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          title="Open Full Interoperable Records Studio (MOD 05)"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          <span>Open Full Records (MOD 05)</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ABDM Consent & ABHA Identifier Badge */}
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ABHA Address:</span>
+                        <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {activePatient.abhaId || '91-2890-1423-8891@sbx'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                          ABDM Consent Active
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleSyncAbdmGateway}
+                          disabled={isSyncingAbdm}
+                          className="text-[10px] font-bold text-[#0b2b82] hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          {isSyncingAbdm ? (
+                            <span>Syncing...</span>
+                          ) : (
+                            <span>↻ Pull ABDM Sync</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sync Toast Notification */}
+                    {abdmSyncToast && (
+                      <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-900 flex items-center justify-between animate-in fade-in">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                          <span>{abdmSyncToast}</span>
+                        </div>
+                        <button type="button" onClick={() => setAbdmSyncToast(null)} className="text-emerald-700 font-bold ml-2">✕</button>
+                      </div>
+                    )}
+
+                    {/* AI Clinical Synthesizer Summary */}
+                    <div className="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200/80 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-[#0b2b82] text-[11px] mb-1">
+                        <svg className="w-3.5 h-3.5 text-[#0b2b82]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        <span>AI Longitudinal Synthesis:</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                        {aiSummary}
+                      </p>
+                    </div>
+
+                    {/* Record Category Tabs */}
+                    <div className="flex gap-1 overflow-x-auto pb-0.5 pt-0.5">
+                      {[
+                        { id: 'all', label: `All (${allRecs.length})` },
+                        { id: 'lab', label: `Lab & USG (${allRecs.filter(r => r.recordType === 'lab_report').length})` },
+                        { id: 'prescription', label: `Past Rx (${allRecs.filter(r => r.recordType === 'prescription').length})` },
+                        { id: 'encounter', label: `Encounters (${allRecs.filter(r => r.recordType === 'encounter').length})` }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setRecordsFilter(tab.id)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                            recordsFilter === tab.id
+                              ? 'bg-[#0b2b82] text-white shadow-2xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Interactive Records List */}
+                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                      {filteredRecs.length === 0 ? (
+                        <div className="p-4 rounded-lg border border-dashed border-slate-300 text-center text-xs text-slate-400">
+                          No records in this category.
+                        </div>
+                      ) : (
+                        filteredRecs.map((rec) => {
+                          const isImported = Boolean(importedRecords[rec.id]);
+                          return (
+                            <div
+                              key={rec.id}
+                              className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all space-y-2 group"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2">
+                                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 text-xs">
+                                    {rec.recordType === 'lab_report' ? '🧪' : rec.recordType === 'prescription' ? '📋' : '🏥'}
+                                  </div>
+                                  <div>
+                                    <h5 className="text-xs font-bold text-slate-900 leading-tight">
+                                      {rec.title}
+                                    </h5>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                      {rec.facilityName} &bull; <span className="font-semibold text-slate-700">{rec.doctorName}</span>
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  <span className="text-[10px] font-mono text-slate-500 font-semibold block">
+                                    {rec.date}
+                                  </span>
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    {rec.sourceBadge}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-[11px] text-slate-600 leading-relaxed bg-white p-2 rounded border border-slate-100">
+                                {rec.summary}
+                              </p>
+
+                              <div className="flex items-center justify-between gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRecordModal(rec)}
+                                  className="text-[11px] font-bold text-[#0b2b82] hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>Inspect Record</span>
+                                  <span>&rarr;</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleImportRecord(rec)}
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded transition-colors cursor-pointer flex items-center gap-1 ${
+                                    isImported
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                                  }`}
+                                >
+                                  {isImported ? (
+                                    <>
+                                      <span>✓</span>
+                                      <span>Imported to Notes</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>+</span>
+                                      <span>Import to Notes</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* RIGHT COLUMN: DIGITAL PRESCRIPTION STUDIO (PRESCRIPTION PAD) (7 Cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="bg-white rounded-xl border-2 border-indigo-100 p-6 shadow-xs space-y-5">
+                {/* Official Prescription Header */}
+                <div className="border-b-2 border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-[#0b2b82]"></span>
+                      <h3 className="text-lg font-black text-[#0b2b82] tracking-tight">
+                        DEPARTMENT OF HEALTH &bull; OFFICIAL DIGITAL PRESCRIPTION PAD
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      <strong>Dr. Priya Sharma</strong>, MBBS, MD &bull; Reg: <span className="font-mono font-semibold">MCI-2018-847291</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      PHC Katkamsandi &bull; Ayushman Bharat Digital Mission (ABDM)
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded block">
+                      Rx No: RX-JH-{activePatient.token}-2026
+                    </span>
+                    <span className="text-[10px] text-slate-400">Date: {new Date().toLocaleDateString('en-IN')}</span>
+                  </div>
+                </div>
+
+                {/* 1. Clinical Diagnosis (ICD-10) */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                    <span>1. Clinical Diagnosis / Impression</span>
+                    <span className="text-[10px] text-[#0b2b82] font-semibold">ICD-10 Classification</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                    placeholder="e.g. Gestational Hypertension (O13.9) / Acute Bronchitis"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-bold text-slate-900 text-xs focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82] outline-none"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] text-slate-400 font-semibold">Quick Picks:</span>
+                    {[
+                      'Gestational Hypertension (O13.9)',
+                      'Essential Hypertension (I10)',
+                      'Type 2 Diabetes Mellitus (E11.9)',
+                      'Iron Deficiency Anemia (D50.9)',
+                      'Acute Respiratory Infection (J06.9)'
+                    ].map((d, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setDiagnosis(d)}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Medication Prescriber (Rx Drugs) */}
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-base text-[#0b2b82] font-serif font-black italic">Rx</span>
+                      <span>2. Prescribed Medications ({prescriptionList.length})</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Jan Aushadhi Linked
+                    </span>
+                  </div>
+
+                  {/* Medicines Table / List */}
+                  <div className="space-y-2">
+                    {prescriptionList.length === 0 ? (
+                      <div className="p-4 rounded-lg border border-dashed border-slate-300 text-center text-xs text-slate-400">
+                        No medications added yet. Use the prescriber form below to add drugs.
+                      </div>
+                    ) : (
+                      prescriptionList.map((med, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{med.medicineName}</span>
+                              <span className="text-[11px] font-mono text-slate-500">({med.dosage})</span>
+                              <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-blue-100 text-[#0b2b82]">
+                                {med.frequency}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">&bull; {med.durationDays}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 italic">
+                              Instructions: {med.instructions}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedicine(idx)}
+                            className="text-xs font-bold text-rose-600 hover:text-rose-800 p-1 cursor-pointer"
+                            title="Remove Medicine"
+                          >
+                            &times; Remove
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Quick Add Medicine Card */}
+                  <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                    <span className="text-[11px] font-bold text-slate-700 block uppercase tracking-wider">
+                      + Add Drug to Prescription Pad
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Medicine Name</label>
+                        <select
+                          value={newMed.name}
+                          onChange={(e) => setNewMed({ ...newMed, name: e.target.value })}
+                          className="w-full p-2 bg-white rounded border border-slate-300 font-semibold text-xs text-slate-900 outline-none"
+                        >
+                          <option value="Tab Labetalol 100mg">Tab Labetalol 100mg (Antihypertensive)</option>
+                          <option value="Tab Paracetamol 650mg">Tab Paracetamol 650mg (Analgesic / Antipyretic)</option>
+                          <option value="Tab Iron & Folic Acid (IFA Red)">Tab Iron &amp; Folic Acid (IFA Red 100mg Fe)</option>
+                          <option value="Tab Calcium Carbonate 500mg + Vit D3">Tab Calcium Carbonate 500mg + Vit D3</option>
+                          <option value="Tab Telmisartan 40mg">Tab Telmisartan 40mg (ARB Antihypertensive)</option>
+                          <option value="Tab Atorvastatin 20mg">Tab Atorvastatin 20mg (Lipid Lowering)</option>
+                          <option value="Tab Metformin 500mg">Tab Metformin 500mg (Antidiabetic)</option>
+                          <option value="Tab Pantoprazole 40mg">Tab Pantoprazole 40mg (Proton Pump Inhibitor)</option>
+                          <option value="Tab Cetirizine 10mg">Tab Cetirizine 10mg (Antihistaminic)</option>
+                          <option value="ORS Electrolyte Sachet (WHO Formula)">ORS Electrolyte Sachet (WHO Formula)</option>
+                          <option value="Tab Albendazole 400mg">Tab Albendazole 400mg (Deworming)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Frequency &bull; Dosage</label>
+                        <select
+                          value={newMed.frequency}
+                          onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })}
+                          className="w-full p-2 bg-white rounded border border-slate-300 font-semibold text-xs text-slate-900 outline-none"
+                        >
+                          <option value="1-0-1 (Twice Daily)">1-0-1 (Twice Daily &bull; Morning &amp; Night)</option>
+                          <option value="1-0-0 (Once Daily Morning)">1-0-0 (Once Daily &bull; Morning)</option>
+                          <option value="0-0-1 (Once Daily Night)">0-0-1 (Once Daily &bull; Bedtime)</option>
+                          <option value="1-1-1 (Thrice Daily)">1-1-1 (Thrice Daily &bull; Morning, Noon, Night)</option>
+                          <option value="SOS (When Needed for Symptoms)">SOS (When Needed for Symptoms)</option>
+                          <option value="Single Dose Stat">Single Dose Stat</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Duration</label>
+                        <select
+                          value={newMed.duration}
+                          onChange={(e) => setNewMed({ ...newMed, duration: e.target.value })}
+                          className="w-full p-2 bg-white rounded border border-slate-300 font-semibold text-xs text-slate-900 outline-none"
+                        >
+                          <option value="3 Days">3 Days</option>
+                          <option value="5 Days">5 Days</option>
+                          <option value="7 Days">7 Days</option>
+                          <option value="14 Days">14 Days</option>
+                          <option value="30 Days">30 Days</option>
+                          <option value="60 Days">60 Days</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Timing &bull; Special Directions</label>
+                        <input
+                          type="text"
+                          value={newMed.instructions}
+                          onChange={(e) => setNewMed({ ...newMed, instructions: e.target.value })}
+                          placeholder="e.g. Take after meals with lukewarm water"
+                          className="w-full p-2 bg-white rounded border border-slate-300 text-xs text-slate-900 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddMedicine}
+                      className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                    >
+                      + Add Medicine to Prescription
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Diagnostic Investigations & Orders */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                    3. Diagnostic Lab Orders &amp; Investigations
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      'Complete Blood Count (CBC)',
+                      'Urine Routine & Albumin',
+                      'Serum Creatinine & Uric Acid',
+                      'Liver Function Test (LFT)',
+                      'Obstetric Ultrasound (USG)',
+                      'Lipid Profile',
+                      'Blood Sugar Fasting & PP',
+                      'ECG (12-Lead)'
+                    ].map((test, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleToggleLab(test)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                          selectedLabs.includes(test)
+                            ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {selectedLabs.includes(test) ? '✓ ' : '+ '}
+                        {test}
+                      </button>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleAddCustomLab} className="flex gap-2 pt-1">
+                    <input
+                      type="text"
+                      value={customLabInput}
+                      onChange={(e) => setCustomLabInput(e.target.value)}
+                      placeholder="Add custom test or diagnostic procedure..."
+                      className="flex-1 px-3 py-1.5 text-xs rounded border border-slate-300 outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded border border-slate-200 cursor-pointer"
+                    >
+                      Add Test
+                    </button>
+                  </form>
+                </div>
+
+                {/* 4. Lifestyle & Dietary Advice */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                    4. Dietary &amp; Clinical Advice
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={advice}
+                    onChange={(e) => setAdvice(e.target.value)}
+                    placeholder="Provide dietary guidelines, lifestyle precautions, and emergency alert signs..."
+                    className="w-full p-2.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 leading-relaxed outline-none"
+                  />
+                </div>
+
+                {/* 5. Follow-up & Tertiary Escalation */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1">
+                      Next Follow-up In:
+                    </label>
+                    <select
+                      value={followUpDays}
+                      onChange={(e) => setFollowUpDays(Number(e.target.value))}
+                      className="w-full p-2 bg-white rounded border border-slate-300 text-xs font-bold text-slate-800 outline-none"
+                    >
+                      <option value={3}>In 3 Days (Urgent Follow-Up)</option>
+                      <option value={7}>In 7 Days (1 Week)</option>
+                      <option value={14}>In 14 Days (2 Weeks)</option>
+                      <option value={30}>In 30 Days (1 Month)</option>
+                    </select>
+                  </div>
+
+                  <div
+                    onClick={() => setReferralFlag(!referralFlag)}
+                    className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between transition-colors ${
+                      referralFlag ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <span className="text-xs font-bold block">Tertiary Hospital Referral</span>
+                      <span className="text-[10px] text-slate-500">Route to SBMC&H Medical College</span>
+                    </div>
+                    <span className={`text-xs font-black px-2 py-0.5 rounded ${referralFlag ? 'bg-amber-200 text-amber-900' : 'bg-slate-200 text-slate-600'}`}>
+                      {referralFlag ? 'YES' : 'NO'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Final Sign & Dispatch Button */}
+                <div className="pt-4 border-t-2 border-slate-100 flex items-center justify-between gap-3">
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    ABDM Cryptographic Signature &bull; e-Sign Validated
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSignAndIssuePrescription}
+                    className="px-6 py-3 bg-[#0b2b82] hover:bg-[#071f60] text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer uppercase tracking-wider"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Sign &amp; Issue Prescription</span>
+                    <span>&rarr;</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CLINICAL RECORD INSPECTION MODAL */}
+          {selectedRecordModal && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                {/* Modal Header */}
+                <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 to-blue-50/50 border-b border-slate-200 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#0b2b82] text-white">
+                        {selectedRecordModal.sourceBadge || 'ABDM FHIR'}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                        {selectedRecordModal.date}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Digitally Verified
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
+                      {selectedRecordModal.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Issued by: <strong>{selectedRecordModal.facilityName}</strong> &bull; {selectedRecordModal.doctorName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRecordModal(null)}
+                    className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer shrink-0"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-5 overflow-y-auto space-y-4 text-xs">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                      Clinical Summary &amp; Impression
+                    </span>
+                    <p className="text-xs font-semibold text-slate-800 leading-relaxed">
+                      {selectedRecordModal.summary}
+                    </p>
+                  </div>
+
+                  {selectedRecordModal.details && (
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                        Structured Clinical Parameters &amp; Lab Values
+                      </span>
+                      <div className="space-y-1.5">
+                        {Object.entries(selectedRecordModal.details).map(([k, v], idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                            <span className="font-bold text-slate-700">{k}</span>
+                            <span className="font-semibold text-slate-900 font-mono text-right">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ABDM Security Footer */}
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span>Health Information Provider (HIP) signature validated. ABDM Care Consent ID: <code>CNS-JH-2026-8910</code></span>
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRecordModal(null)}
+                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-100 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleImportRecord(selectedRecordModal);
+                      setSelectedRecordModal(null);
+                    }}
+                    className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>+ Import Findings into Clinical Notes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. PRESCRIPTION RECEIPT & SUMMARY (subScreen === 'summary') */}
+      {/* ========================================================================= */}
+      {subScreen === 'summary' && signedPrescription && (
+        <div className="max-w-4xl mx-auto w-full space-y-6 animate-in zoom-in-95 duration-200">
+          {/* Success Ribbon */}
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold">
+                ✓
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-emerald-900">
+                  Prescription Successfully Issued &amp; Dispatched!
+                </h4>
+                <p className="text-xs text-emerald-700">
+                  Digital Rx pushed to Patient's ABDM PHR Health Locker &amp; Jan Aushadhi Katkamsandi Pharmacy.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-3.5 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg cursor-pointer"
+              >
+                Print / Save PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleCallNextPatient}
+                className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Call Next Patient &rarr;
+              </button>
+            </div>
+          </div>
+
+          {/* Printable Official Medical Prescription Slip */}
+          <div className="bg-white rounded-xl border border-slate-300 p-8 shadow-sm space-y-6 print:m-0 print:border-none print:shadow-none">
+            {/* Slip Header */}
+            <div className="border-b-2 border-slate-900 pb-4 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                  DEPARTMENT OF HEALTH, MEDICAL EDUCATION &amp; FAMILY WELFARE &bull; GOVT OF JHARKHAND
+                </span>
+                <h2 className="text-2xl font-black text-[#0b2b82] tracking-tight">
+                  AYUSHMAN BHARAT TELEMEDICINE CENTRE
+                </h2>
+                <p className="text-xs font-semibold text-slate-700">
+                  {signedPrescription.facility} &bull; Dist. Hazaribagh, Jharkhand - 825319
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-base font-black text-slate-900 block font-mono">
+                  {signedPrescription.rxId}
+                </span>
+                <span className="text-xs text-slate-500">{signedPrescription.timestamp}</span>
+              </div>
+            </div>
+
+            {/* Doctor & Patient Two-Column Matrix */}
+            <div className="grid grid-cols-2 gap-4 text-xs pb-4 border-b border-slate-200">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consulting Physician</span>
+                <h4 className="font-bold text-slate-900 text-sm">{signedPrescription.doctorName}</h4>
+                <p className="text-slate-600">{signedPrescription.qualification}</p>
+                <p className="text-slate-500 font-mono">MCI Reg: {signedPrescription.regNo}</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Patient Details</span>
+                <h4 className="font-bold text-slate-900 text-sm">
+                  {signedPrescription.patient?.name} ({signedPrescription.patient?.age} Yrs &bull; {signedPrescription.patient?.gender})
+                </h4>
+                <p className="text-slate-600">{signedPrescription.patient?.village}</p>
+                <p className="text-slate-500 font-mono">ABHA: {signedPrescription.patient?.abhaId}</p>
+              </div>
+            </div>
+
+            {/* Clinical Diagnosis & Vitals */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                <div>
+                  <span className="text-slate-500 font-bold mr-2">DIAGNOSIS:</span>
+                  <strong className="text-[#0b2b82] font-black text-sm">{signedPrescription.diagnosis}</strong>
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-600">
+                  <span>BP: {signedPrescription.patient?.vitals?.bp}</span> &bull;
+                  <span>Pulse: {signedPrescription.patient?.vitals?.pulse}</span> &bull;
+                  <span>SpO2: {signedPrescription.patient?.vitals?.spo2}</span>
+                </div>
+              </div>
+
+              {signedPrescription.doctorNotes && (
+                <div className="text-xs text-slate-700 bg-white p-3 rounded-lg border border-slate-200 leading-relaxed">
+                  <span className="font-bold text-slate-900 block mb-0.5">Clinical Examination Notes:</span>
+                  {signedPrescription.doctorNotes}
+                </div>
+              )}
+            </div>
+
+            {/* Rx Medications Table */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5 font-serif italic text-base">
+                <span>Rx</span>
+                <span className="font-sans not-italic text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Prescribed Medicines
+                </span>
+              </h4>
+
+              <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
+                <thead className="bg-slate-100 text-slate-700 font-bold">
+                  <tr>
+                    <th className="p-2.5 border-b border-slate-200">#</th>
+                    <th className="p-2.5 border-b border-slate-200">Medicine Name</th>
+                    <th className="p-2.5 border-b border-slate-200">Dosage</th>
+                    <th className="p-2.5 border-b border-slate-200">Frequency</th>
+                    <th className="p-2.5 border-b border-slate-200">Duration</th>
+                    <th className="p-2.5 border-b border-slate-200">Directions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {signedPrescription.medicines?.map((m, i) => (
+                    <tr key={i} className="hover:bg-slate-50">
+                      <td className="p-2.5 font-mono text-slate-400">{i + 1}</td>
+                      <td className="p-2.5 font-bold text-slate-900">{m.medicineName}</td>
+                      <td className="p-2.5 font-mono text-slate-600">{m.dosage}</td>
+                      <td className="p-2.5 font-semibold text-[#0b2b82]">{m.frequency}</td>
+                      <td className="p-2.5 font-mono text-slate-600">{m.durationDays}</td>
+                      <td className="p-2.5 text-slate-600 italic">{m.instructions}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Lab Orders & Advice */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
+                  Diagnostic Tests Ordered:
+                </span>
+                {signedPrescription.labs?.length > 0 ? (
+                  <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                    {signedPrescription.labs.map((lab, i) => (
+                      <li key={i}>{lab}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-slate-400 italic">None ordered.</span>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
+                  Advice &amp; Follow-up:
+                </span>
+                <p className="text-slate-700 leading-relaxed">{signedPrescription.advice}</p>
+                <p className="text-[#0b2b82] font-bold mt-1">
+                  &bull; Review in {signedPrescription.followUpDays} days
+                </p>
+                {signedPrescription.referralFlag && (
+                  <p className="text-rose-700 font-bold">
+                    &bull; Flagged for Tertiary Hospital Escalation
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Digital Seal & Signature */}
+            <div className="pt-6 border-t-2 border-slate-200 flex items-end justify-between">
+              <div className="space-y-1">
+                <span className="inline-block px-2.5 py-1 rounded bg-slate-100 text-[10px] font-mono text-slate-600 border border-slate-200">
+                  ABDM Verified Timestamp &bull; {signedPrescription.timestamp}
+                </span>
+                <p className="text-[10px] text-slate-400">
+                  This is a legally valid computer-generated e-Prescription under Section 5 of the Information Technology Act, 2000.
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="font-serif italic font-bold text-sm text-[#0b2b82]">
+                  Dr. Priya Sharma
+                </div>
+                <div className="w-32 border-b border-slate-400 my-0.5 mx-auto"></div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  MCI Reg No: {signedPrescription.regNo}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Bar at Bottom */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setSubScreen('queue')}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+            >
+              &larr; Return to Teleconsult Queue
+            </button>
+            <button
+              type="button"
+              onClick={onBackToOverview}
+              className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071f60] text-white font-bold text-xs rounded-xl cursor-pointer"
+            >
+              Return to Doctor Overview &rarr;
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -29069,6 +35364,7 @@ function FeaturesSideNavbar({
     currentUser.facilitySubtype === 'lab' ||
     currentUser.facilitySubtype === 'diagnostic'
   )) || actorRole === 'lab_staff' || actorRole === 'lab';
+  const isDoctor = (currentUser && currentUser.role === 'doctor') || actorRole === 'doctor';
 
   const availableModules = isDistrictAdmin
     ? [
@@ -29114,6 +35410,16 @@ function FeaturesSideNavbar({
           description: 'Hospital ID card, inpatient & ICU telemetry, inbound referrals & alerts',
           badge: 'Hospital ID',
           badgeClass: 'bg-blue-50 text-blue-700 border-blue-200'
+        },
+        {
+          id: 'feature2',
+          code: 'MOD 02',
+          shortCode: '02',
+          label: 'Book Appointments (OPD Ops)',
+          shortLabel: 'Book Appointments',
+          description: 'QR Walk-In Posters, 2-Way SMS Booking Loop & Hospital Token Counter Console',
+          badge: 'QR • SMS • Counter',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         },
         {
           id: 'feature3',
@@ -29169,6 +35475,49 @@ function FeaturesSideNavbar({
           badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }
       ]
+    : isDiagnosticLab
+    ? [
+        {
+          id: 'overview',
+          code: 'MOD 00',
+          shortCode: '00',
+          label: 'Diagnostic Lab Overview',
+          shortLabel: 'Lab Overview',
+          description: "Monitor your lab's daily activity, samples & orders",
+          badge: 'Lab Ops',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        },
+        {
+          id: 'feature6',
+          code: 'MOD 06',
+          shortCode: '06',
+          label: 'Diagnostic Lab & Orders',
+          shortLabel: 'Lab & Orders',
+          description: 'Diagnostic center test catalog, sample queue & pathology result uploads',
+          badge: 'Lab View',
+          badgeClass: 'bg-teal-50 text-teal-700 border-teal-200'
+        },
+        {
+          id: 'feature5',
+          code: 'MOD 05',
+          shortCode: '05',
+          label: 'Health Records (ABDM)',
+          shortLabel: 'Health Records',
+          description: 'Interoperable FHIR health records & diagnostic report linking',
+          badge: 'ABDM FHIR',
+          badgeClass: 'bg-purple-50 text-purple-700 border-purple-200'
+        },
+        {
+          id: 'feature7',
+          code: 'MOD 07',
+          shortCode: '07',
+          label: 'Facility Dashboard',
+          shortLabel: 'Lab Dashboard',
+          description: 'Lab facility operations, equipment readiness & turnaround telemetry',
+          badge: 'Operations',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200'
+        }
+      ]
     : isAshaWorker
     ? [
         {
@@ -29212,36 +35561,105 @@ function FeaturesSideNavbar({
           badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }
       ]
-    : (isDiagnosticLab
-      ? FEATURE_NAV_MODULES.map(m => {
-          if (m.id === 'overview') {
-            return {
-              ...m,
-              label: 'Diagnostic Lab Overview',
-              shortLabel: 'Lab Overview',
-              description: "Monitor your lab's daily activity, samples & orders",
-              badge: 'Lab Ops',
-              badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            };
-          }
-          return m;
-        })
-      : (actorRole === 'patient'
-        ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
-        : FEATURE_NAV_MODULES).map(m => {
-          if (m.id === 'overview' && actorRole === 'patient') {
-            return {
-              ...m,
-              label: 'Patient Overview',
-              shortLabel: 'Overview',
-              description: 'Personal health portal, records & referrals'
-            };
-          }
-          return m;
-        })
-      );
+    : isDoctor
+    ? [
+        {
+          id: 'overview',
+          code: 'MOD 00',
+          shortCode: '00',
+          label: 'Doctor Clinical Overview',
+          shortLabel: 'Doctor Overview',
+          description: 'Doctor profile, clinical duty roster, active teleconsult queue & referrals summary',
+          badge: 'Doctor View',
+          badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+        },
+        {
+          id: 'feature2',
+          code: 'MOD 02',
+          shortCode: '02',
+          label: 'Teleconsultation Desk',
+          shortLabel: 'Teleconsultation',
+          description: 'Doctor Teleconsultation Portal: accept incoming requests, call next patient & digital prescription pad',
+          badge: 'Doctor Portal',
+          badgeClass: 'bg-teal-50 text-teal-700 border-teal-200'
+        },
+        {
+          id: 'feature3',
+          code: 'MOD 03',
+          shortCode: '03',
+          label: 'Referral Management (Doctor View)',
+          shortLabel: 'Referral Mgmt',
+          description: 'Referring doctor workbench, outbound specialist referrals & hospital admission tracker',
+          badge: 'Doctor View',
+          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200'
+        },
+        {
+          id: 'feature4',
+          code: 'MOD 04',
+          shortCode: '04',
+          label: 'High-Risk Follow-Up (Doctor View)',
+          shortLabel: 'High-Risk Follow-up',
+          description: 'Specialist clinical monitoring center, ASHA field vital alert escalation & intervention',
+          badge: 'Doctor View',
+          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200'
+        },
+        {
+          id: 'feature5',
+          code: 'MOD 05',
+          shortCode: '05',
+          label: 'Health Records (Doctor View Only)',
+          shortLabel: 'Health Records',
+          description: 'Patient longitudinal ABDM FHIR health records, lab reports & clinical history lookup',
+          badge: 'Doctor View',
+          badgeClass: 'bg-purple-50 text-purple-700 border-purple-200'
+        }
+      ]
+    : (actorRole === 'patient'
+      ? FEATURE_NAV_MODULES.filter(m => m.id !== 'feature9')
+      : FEATURE_NAV_MODULES).map(m => {
+        if (m.id === 'overview' && actorRole === 'patient') {
+          return {
+            ...m,
+            label: 'Patient Overview',
+            shortLabel: 'Overview',
+            description: 'Personal health portal, records & referrals'
+          };
+        }
+        return m;
+      });
 
-  const isPatient = actorRole === 'patient';
+  const isPatient = !isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isDiagnosticLab && !isAshaWorker && !isDoctor && actorRole === 'patient';
+  const roleWorkspaceTitle = isDistrictAdmin
+    ? 'DISTRICT ADMIN WORKSPACE'
+    : isHospitalFacility
+    ? 'HOSPITAL FACILITY WORKSPACE'
+    : isMedicineFacility
+    ? 'PHARMACY WORKSPACE'
+    : isDiagnosticLab
+    ? 'DIAGNOSTIC LAB WORKSPACE'
+    : isAshaWorker
+    ? 'ASHA WORKER WORKSPACE'
+    : isDoctor
+    ? 'CLINICAL DOCTOR WORKSPACE'
+    : 'PLATFORM WORKSPACE';
+  const roleAccountTitle = (currentUser && currentUser.name) || (
+    isDistrictAdmin ? 'District Health Admin' :
+    isHospitalFacility ? 'Hospital Facility' :
+    isMedicineFacility ? 'Medicine Shop' :
+    isDiagnosticLab ? 'Diagnostic Lab' :
+    isAshaWorker ? 'ASHA Field Worker' :
+    isDoctor ? 'Medical Officer' :
+    'My Account'
+  );
+  const roleAccountSubtitle = (currentUser && currentUser.roleLabel) || (
+    isDistrictAdmin ? 'District Command & Audit' :
+    isHospitalFacility ? 'Facility Operations' :
+    isMedicineFacility ? 'Inventory & Orders' :
+    isDiagnosticLab ? 'Pathology & Lab Queue' :
+    isAshaWorker ? 'Community Outreach' :
+    isDoctor ? 'Clinical Consultations' :
+    'Profile & settings'
+  );
 
   const patientSections = [
     {
@@ -29532,58 +35950,103 @@ function FeaturesSideNavbar({
               className="flex-1 overflow-y-auto no-scrollbar [&::-webkit-scrollbar]:hidden p-3 space-y-2"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {patientSections.map((sec, secIdx) => (
-                <div key={sec.title}>
-                  <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1 pb-0.5">
-                    {sec.title}
+              {isPatient ? (
+                patientSections.map((sec, secIdx) => (
+                  <div key={sec.title}>
+                    <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1 pb-0.5">
+                      {sec.title}
+                    </div>
+                    <div className="space-y-0.5">
+                      {sec.items.map((item) => {
+                        const isActive = isPatientItemActive(item);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handlePatientSelectModule(item)}
+                            className={`w-full text-left rounded-lg px-2.5 py-1.5 flex items-center gap-2.5 transition-colors cursor-pointer ${
+                              isActive
+                                ? 'bg-[#edf5ff] text-[#1565C0] font-semibold'
+                                : 'text-slate-600 hover:bg-slate-50 font-medium'
+                            }`}
+                          >
+                            <PatientNavIcon name={item.icon} className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#1565C0]' : 'text-slate-500'}`} />
+                            <span className="text-xs truncate flex-1">{item.label}</span>
+                            {isActive && (
+                              <span className="w-[3px] h-3.5 rounded-full bg-[#1565C0] shrink-0" />
+                            )}
+                            {!isActive && item.hasChevron && (
+                              <svg className="w-3 h-3 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="9 18 15 12 9 6" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {secIdx < patientSections.length - 1 && (
+                      <div className="h-px bg-slate-100 my-1.5 mx-1" />
+                    )}
                   </div>
-                  <div className="space-y-0.5">
-                    {sec.items.map((item) => {
-                      const isActive = isPatientItemActive(item);
+                ))
+              ) : (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1 pb-1.5">
+                    {roleWorkspaceTitle}
+                  </div>
+                  <div className="space-y-1">
+                    {filteredModules.map((m) => {
+                      const isActive = currentView === m.id;
                       return (
                         <button
-                          key={item.id}
+                          key={m.id}
                           type="button"
-                          onClick={() => handlePatientSelectModule(item)}
-                          className={`w-full text-left rounded-lg px-2.5 py-1.5 flex items-center gap-2.5 transition-colors cursor-pointer ${
+                          onClick={() => handleSelectModule(m.id)}
+                          className={`w-full text-left rounded-lg px-2.5 py-2 flex items-center gap-2.5 transition-colors cursor-pointer ${
                             isActive
-                              ? 'bg-[#edf5ff] text-[#1565C0] font-semibold'
-                              : 'text-slate-600 hover:bg-slate-50 font-medium'
+                              ? 'bg-[#edf5ff] text-[#0b2b82] font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50 font-medium'
                           }`}
                         >
-                          <PatientNavIcon name={item.icon} className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#1565C0]' : 'text-slate-500'}`} />
-                          <span className="text-xs truncate flex-1">{item.label}</span>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            isActive ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            <ModuleIcon id={m.id} className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold truncate">{m.label}</div>
+                            <div className="text-[10px] text-slate-400 truncate">{m.description}</div>
+                          </div>
                           {isActive && (
-                            <span className="w-[3px] h-3.5 rounded-full bg-[#1565C0] shrink-0" />
-                          )}
-                          {!isActive && item.hasChevron && (
-                            <svg className="w-3 h-3 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
+                            <span className="w-[3px] h-4 rounded-full bg-[#0b2b82] shrink-0" />
                           )}
                         </button>
                       );
                     })}
                   </div>
-                  {secIdx < patientSections.length - 1 && (
-                    <div className="h-px bg-slate-100 my-1.5 mx-1" />
-                  )}
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="p-2.5 border-t border-slate-200 bg-white flex items-center shrink-0">
               <button
                 type="button"
-                onClick={() => { handlePatientSelectModule(patientAccountItem); setMobileDrawerOpen(false); }}
+                onClick={() => {
+                  if (isPatient) {
+                    handlePatientSelectModule(patientAccountItem);
+                  } else {
+                    setView('overview');
+                  }
+                  setMobileDrawerOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-50 transition-colors text-left cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 text-[#1565C0] flex items-center justify-center shrink-0">
                   <PatientNavIcon name="account" className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-slate-800">My Account</div>
-                  <div className="text-[10px] text-slate-400">Profile &amp; settings</div>
+                  <div className="text-xs font-semibold text-slate-800 truncate">{isPatient ? 'My Account' : roleAccountTitle}</div>
+                  <div className="text-[10px] text-slate-400 truncate">{isPatient ? 'Profile & settings' : roleAccountSubtitle}</div>
                 </div>
                 <svg className="w-3.5 h-3.5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -29648,72 +36111,133 @@ function FeaturesSideNavbar({
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {/* Top Sections */}
-          <div className="space-y-0.5">
-            {patientSections.map((sec, secIdx) => (
-              <div key={sec.title}>
-                {!collapsed && (
-                  <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1.5 pb-0.5">
-                    {sec.title}
-                  </div>
-                )}
-                <div className="space-y-0.5">
-                  {sec.items.map((item) => {
-                    const isActive = isPatientItemActive(item);
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handlePatientSelectModule(item)}
-                        title={item.label}
-                        className={`w-full text-left rounded-lg transition-all duration-150 flex items-center group cursor-pointer ${
-                          collapsed
-                            ? 'p-2 justify-center'
-                            : 'px-2.5 py-1.5 gap-2.5'
-                        } ${
-                          isActive
-                            ? 'bg-[#edf5ff] text-[#1565C0] font-semibold'
-                            : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-medium'
-                        }`}
-                      >
-                        <PatientNavIcon
-                          name={item.icon}
-                          className={`w-[18px] h-[18px] shrink-0 transition-transform group-hover:scale-105 ${
-                            isActive ? 'text-[#1565C0]' : 'text-slate-500 group-hover:text-slate-700'
+          {isPatient ? (
+            <div className="space-y-0.5">
+              {patientSections.map((sec, secIdx) => (
+                <div key={sec.title}>
+                  {!collapsed && (
+                    <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1.5 pb-0.5">
+                      {sec.title}
+                    </div>
+                  )}
+                  <div className="space-y-0.5">
+                    {sec.items.map((item) => {
+                      const isActive = isPatientItemActive(item);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handlePatientSelectModule(item)}
+                          title={item.label}
+                          className={`w-full text-left rounded-lg transition-all duration-150 flex items-center group cursor-pointer ${
+                            collapsed
+                              ? 'p-2 justify-center'
+                              : 'px-2.5 py-1.5 gap-2.5'
+                          } ${
+                            isActive
+                              ? 'bg-[#edf5ff] text-[#1565C0] font-semibold'
+                              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-medium'
                           }`}
-                        />
-                        {!collapsed && (
-                          <>
-                            <span className="text-[13px] truncate flex-1">{item.label}</span>
-                            {isActive && (
-                              <span className="w-1.5 h-4.5 rounded-full bg-[#1565C0] shrink-0 ml-auto" />
-                            )}
-                            {!isActive && item.hasChevron && (
-                              <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="9 18 15 12 9 6" />
-                              </svg>
-                            )}
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
+                        >
+                          <PatientNavIcon
+                            name={item.icon}
+                            className={`w-[18px] h-[18px] shrink-0 transition-transform group-hover:scale-105 ${
+                              isActive ? 'text-[#1565C0]' : 'text-slate-500 group-hover:text-slate-700'
+                            }`}
+                          />
+                          {!collapsed && (
+                            <>
+                              <span className="text-[13px] truncate flex-1">{item.label}</span>
+                              {isActive && (
+                                <span className="w-1.5 h-4.5 rounded-full bg-[#1565C0] shrink-0 ml-auto" />
+                              )}
+                              {!isActive && item.hasChevron && (
+                                <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                              )}
+                            </>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {secIdx < patientSections.length - 1 && (
+                    <div className="h-px bg-slate-100 my-1 mx-1" />
+                  )}
                 </div>
-                {secIdx < patientSections.length - 1 && (
-                  <div className="h-px bg-slate-100 my-1 mx-1" />
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {!collapsed && (
+                <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1.5 pb-1">
+                  {roleWorkspaceTitle}
+                </div>
+              )}
+              {filteredModules.map((m) => {
+                const isActive = currentView === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectModule(m.id)}
+                    title={`${m.code}: ${m.label} — ${m.description}`}
+                    className={`w-full text-left rounded-lg transition-all duration-150 flex items-center group cursor-pointer ${
+                      collapsed
+                        ? 'p-2 justify-center'
+                        : 'px-2.5 py-2 gap-2.5'
+                    } ${
+                      isActive
+                        ? 'bg-[#edf5ff] text-[#0b2b82] font-semibold'
+                        : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-medium'
+                    }`}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                        isActive
+                          ? 'bg-[#0b2b82] text-white'
+                          : 'bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-[#0b2b82]'
+                      }`}
+                    >
+                      <ModuleIcon id={m.id} className="w-4 h-4" />
+                    </div>
+                    {!collapsed && (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12.5px] font-semibold leading-tight truncate">
+                            {m.label}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-normal truncate mt-0.5">
+                            {m.badge || m.code}
+                          </div>
+                        </div>
+                        {isActive && (
+                          <span className="w-1.5 h-4.5 rounded-full bg-[#0b2b82] shrink-0 ml-auto" />
+                        )}
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          {/* Bottom Footer: My Account (Cleanly sits at the bottom like the reference screenshot) */}
-          <div className={`pt-2 pb-0.5 shrink-0 ${collapsed ? 'flex justify-center' : ''}`}>
+          {/* Bottom Footer: My Account / Role Account */}
+          <div className={`pt-2 pb-0.5 border-t border-slate-100 shrink-0 ${collapsed ? 'flex justify-center' : ''}`}>
             <button
               type="button"
-              onClick={() => handlePatientSelectModule(patientAccountItem)}
+              onClick={() => {
+                if (isPatient) {
+                  handlePatientSelectModule(patientAccountItem);
+                } else {
+                  setView('overview');
+                }
+              }}
               className={`w-full flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer ${
                 collapsed ? 'justify-center p-1' : ''
               }`}
-              title="My Account (Profile & Settings)"
+              title={isPatient ? 'My Account (Profile & Settings)' : `${roleAccountTitle} (${roleAccountSubtitle})`}
             >
               <div className="w-8 h-8 rounded-full bg-[#edf5ff] text-[#1565C0] flex items-center justify-center shrink-0">
                 <PatientNavIcon name="account" className="w-4 h-4 text-[#1565C0]" />
@@ -29722,10 +36246,10 @@ function FeaturesSideNavbar({
                 <>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors truncate">
-                      My Account
+                      {isPatient ? 'My Account' : roleAccountTitle}
                     </div>
                     <div className="text-[10px] text-slate-400 font-normal truncate">
-                      Profile &amp; settings
+                      {isPatient ? 'Profile & settings' : roleAccountSubtitle}
                     </div>
                   </div>
                   <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -29750,39 +36274,239 @@ function DistrictHealthAdminOverview({
   setScreen,
   setTeleconsultScreen,
   currentUser,
+  onUpdateUser,
   actorRole,
   setActorRole,
   showRoleSwitcher = false,
   onSwitchTab
 }) {
+  const isPrototype = currentUser?.isPrototype !== false;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeStockTab, setActiveStockTab] = useState('all'); // 'all' | 'critical' | 'warning'
   const [stockRebalanceNotice, setStockRebalanceNotice] = useState(null);
+  const [liveOverview, setLiveOverview] = useState(null);
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'stock' | 'facility' | 'approval'
+
+  const customData = currentUser?.customData || {};
+
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    designation: currentUser?.designation || '',
+    cadre: currentUser?.cadre || '',
+    district: currentUser?.district || '',
+    state: currentUser?.state || '',
+    phone: currentUser?.phone || '',
+    email: currentUser?.email || currentUser?.abhaId || '',
+    headquarters: currentUser?.headquarters || '',
+    jurisdictionArea: currentUser?.jurisdictionArea || '',
+    population: currentUser?.population || '',
+    blocksCount: currentUser?.blocksCount || '',
+    facilitiesCount: currentUser?.facilitiesCount || ''
+  });
+
+  const [stockForm, setStockForm] = useState({
+    name: '',
+    category: 'Essential Drug',
+    facility: '',
+    currentStock: '',
+    unit: 'vials',
+    bufferThreshold: '',
+    daysOfCover: '',
+    status: 'CRITICAL',
+    actionNeeded: '',
+    fromFacility: 'District Central Store',
+    rebalanceQty: ''
+  });
+
+  const [facilityForm, setFacilityForm] = useState({
+    name: '',
+    tier: 'Block Community Health Center',
+    totalBeds: '',
+    occupiedBeds: '',
+    icuAvailable: '',
+    stockCompliance: '90%',
+    doctorsOnDuty: '',
+    readiness: 'Operational 24x7'
+  });
+
+  const [approvalForm, setApprovalForm] = useState({
+    title: '',
+    department: 'District Health Administration',
+    actionText: 'Review in Command Center'
+  });
+
+  const fetchCommandCenterOverview = () => {
+    if (!isPrototype) return;
+    fetch(getApiUrl('/api/command-center/overview?district=Hazaribagh'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data) setLiveOverview(json.data);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchCommandCenterOverview();
+  }, [isPrototype]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    fetchCommandCenterOverview();
     setTimeout(() => {
       setIsRefreshing(false);
     }, 600);
   };
 
   const handleTriggerRebalance = (drugName, facilityFrom, facilityTo, quantity) => {
+    fetch(getApiUrl('/api/command-center/rebalance'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resourceType: drugName,
+        sourceFacilityId: facilityFrom,
+        targetFacilityId: facilityTo,
+        quantity: parseInt(quantity, 10) || 10,
+        priority: 'URGENT'
+      })
+    }).catch(() => {});
     setStockRebalanceNotice(`Emergency rebalance requisition dispatched: ${quantity} of ${drugName} from ${facilityFrom} to ${facilityTo}. Request synchronized with MV-DAC Command Center.`);
     setTimeout(() => {
       setStockRebalanceNotice(null);
     }, 6500);
   };
 
-  const adminName = currentUser?.name || 'Dr. S. K. Verma';
-  const adminDesignation = currentUser?.designation || 'District Health Administrator & Chief Medical Officer';
-  const adminAbhaId = currentUser?.abhaId || 'dho.hazaribagh@gov.in';
-  const adminCadre = 'Gazetted Health Service Class-I (ID: DHA-JH-HAZ-2024-049)';
-  const adminPhone = currentUser?.phone || '+91-6546-264210';
-  const adminEmail = currentUser?.email || 'dho.hazaribagh@gov.in';
-  const adminDistrict = currentUser?.district || 'Hazaribagh';
-  const adminState = currentUser?.state || 'Jharkhand';
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        ...profileForm
+      });
+    }
+    setActiveModal(null);
+  };
 
-  const stockItems = [
+  const handleAddStockWarning = (e) => {
+    e.preventDefault();
+    if (!stockForm.name.trim() || !stockForm.facility.trim()) return;
+    const statusClass =
+      stockForm.status === 'CRITICAL' || stockForm.status === 'DEPLETED'
+        ? 'bg-rose-50 text-rose-700 border-rose-200'
+        : stockForm.status === 'WARNING'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    const newItem = {
+      id: `stk_${Date.now()}`,
+      name: stockForm.name.trim(),
+      category: stockForm.category.trim() || 'Essential Medicine',
+      facility: stockForm.facility.trim(),
+      currentStock: Number(stockForm.currentStock) || 0,
+      unit: stockForm.unit.trim() || 'units',
+      bufferThreshold: Number(stockForm.bufferThreshold) || 50,
+      daysOfCover: Number(stockForm.daysOfCover) || 2.0,
+      status: stockForm.status,
+      statusClass,
+      actionNeeded: stockForm.actionNeeded.trim() || 'Replenish buffer stock from District Store',
+      fromFacility: stockForm.fromFacility.trim() || 'District Central Store',
+      toFacility: stockForm.facility.trim(),
+      rebalanceQty: stockForm.rebalanceQty.trim() || `25 ${stockForm.unit || 'units'}`
+    };
+    const nextList = [newItem, ...(customData.stockItems || [])];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, stockItems: nextList }
+      });
+    }
+    setStockForm({
+      name: '',
+      category: 'Essential Drug',
+      facility: '',
+      currentStock: '',
+      unit: 'vials',
+      bufferThreshold: '',
+      daysOfCover: '',
+      status: 'CRITICAL',
+      actionNeeded: '',
+      fromFacility: 'District Central Store',
+      rebalanceQty: ''
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddFacility = (e) => {
+    e.preventDefault();
+    if (!facilityForm.name.trim()) return;
+    const newFac = {
+      name: facilityForm.name.trim(),
+      tier: facilityForm.tier.trim() || 'Public Health Facility',
+      totalBeds: Number(facilityForm.totalBeds) || 0,
+      occupiedBeds: Number(facilityForm.occupiedBeds) || 0,
+      icuAvailable: Number(facilityForm.icuAvailable) || 0,
+      stockCompliance: facilityForm.stockCompliance.trim() || '100%',
+      doctorsOnDuty: Number(facilityForm.doctorsOnDuty) || 1,
+      readiness: facilityForm.readiness.trim() || 'Operational 24x7'
+    };
+    const nextFacilities = [...(customData.districtFacilities || []), newFac];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, districtFacilities: nextFacilities }
+      });
+    }
+    setFacilityForm({
+      name: '',
+      tier: 'Block Community Health Center',
+      totalBeds: '',
+      occupiedBeds: '',
+      icuAvailable: '',
+      stockCompliance: '90%',
+      doctorsOnDuty: '',
+      readiness: 'Operational 24x7'
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddApproval = (e) => {
+    e.preventDefault();
+    if (!approvalForm.title.trim()) return;
+    const newApp = {
+      id: `app_${Date.now()}`,
+      title: approvalForm.title.trim(),
+      department: approvalForm.department.trim() || 'District Health Administration',
+      time: 'Just now',
+      actionText: approvalForm.actionText.trim() || 'Open Command Center'
+    };
+    const nextApprovals = [newApp, ...(customData.pendingApprovals || [])];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, pendingApprovals: nextApprovals }
+      });
+    }
+    setApprovalForm({
+      title: '',
+      department: 'District Health Administration',
+      actionText: 'Review in Command Center'
+    });
+    setActiveModal(null);
+  };
+
+  const adminName = currentUser?.name || (isPrototype ? 'Dr. S. K. Verma' : 'Authenticated District Officer');
+  const adminDesignation = currentUser?.designation || (isPrototype ? 'District Health Administrator & Chief Medical Officer' : 'Not added');
+  const adminAbhaId = currentUser?.abhaId || (isPrototype ? 'dho.hazaribagh@gov.in' : 'Not added');
+  const adminCadre = currentUser?.cadre || (isPrototype ? 'Gazetted Health Service Class-I (ID: DHA-JH-HAZ-2024-049)' : 'Not added');
+  const adminPhone = currentUser?.phone || (isPrototype ? '+91-6546-264210' : 'Not added');
+  const adminEmail = currentUser?.email || currentUser?.abhaId || (isPrototype ? 'dho.hazaribagh@gov.in' : 'Not added');
+  const adminDistrict = currentUser?.district || (isPrototype ? 'Hazaribagh' : 'Not added');
+  const adminState = currentUser?.state || (isPrototype ? 'Jharkhand' : 'Not added');
+  const adminHeadquarters = currentUser?.headquarters || (isPrototype ? 'Civil Surgeon Directorate, Sadar Hospital Campus' : 'Not added');
+  const jurisdictionArea = currentUser?.jurisdictionArea || (isPrototype ? '4,313 km²' : 'Not added');
+  const districtPopulation = currentUser?.population || (isPrototype ? '1,734,495' : 'Not added');
+  const blocksCount = currentUser?.blocksCount || (isPrototype ? '16 Blocks' : 'Not added');
+  const facilitiesCount = currentUser?.facilitiesCount || (isPrototype ? '274 Facilities' : 'Not added');
+
+  const prototypeStockItems = [
     {
       id: 'asv',
       name: 'Anti-Snake Venom (ASV Polyvalent 10mL)',
@@ -29865,13 +36589,15 @@ function DistrictHealthAdminOverview({
     }
   ];
 
+  const stockItems = isPrototype ? prototypeStockItems : (customData.stockItems || []);
+
   const filteredStock = stockItems.filter(s => {
     if (activeStockTab === 'critical') return s.status === 'CRITICAL' || s.status === 'DEPLETED';
     if (activeStockTab === 'warning') return s.status === 'WARNING';
     return true;
   });
 
-  const districtFacilities = [
+  const prototypeDistrictFacilities = [
     {
       name: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
       tier: 'Tertiary Medical College',
@@ -29924,7 +36650,9 @@ function DistrictHealthAdminOverview({
     }
   ];
 
-  const pendingApprovals = [
+  const districtFacilities = isPrototype ? prototypeDistrictFacilities : (customData.districtFacilities || []);
+
+  const prototypePendingApprovals = [
     {
       id: 'app_01',
       title: 'PM-JAY Tertiary Surgical Claim Pre-Authorizations (14 Claims)',
@@ -29951,6 +36679,17 @@ function DistrictHealthAdminOverview({
     }
   ];
 
+  const pendingApprovals = isPrototype
+    ? prototypePendingApprovals
+    : (customData.pendingApprovals || []).map((item) => ({
+        ...item,
+        route: () => setView('feature9')
+      }));
+
+  const totalRosterBeds = districtFacilities.reduce((acc, f) => acc + (Number(f.totalBeds) || 0), 0);
+  const totalRosterOccupied = districtFacilities.reduce((acc, f) => acc + (Number(f.occupiedBeds) || 0), 0);
+  const totalRosterIcu = districtFacilities.reduce((acc, f) => acc + (Number(f.icuAvailable) || 0), 0);
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
       {/* Top Header Banner */}
@@ -29958,12 +36697,12 @@ function DistrictHealthAdminOverview({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                Operational &bull; Real-Time DHIS2 &amp; ABDM Sync
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold border ${isPrototype ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isPrototype ? 'bg-amber-500' : 'bg-emerald-600 animate-pulse'}`}></span>
+                {isPrototype ? 'Prototype Demo Mode • Pre-loaded District Telemetry' : 'Real Administrator Account • Clean Workspace'}
               </span>
               <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                Govt of Jharkhand &bull; Directorate of Health Services
+                {adminState !== 'Not added' ? `Govt of ${adminState}` : 'District Health Administration'} &bull; Directorate of Health Services
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -29975,6 +36714,15 @@ function DistrictHealthAdminOverview({
           </div>
 
           <div className="flex items-center gap-2.5 self-start md:self-center flex-wrap">
+            {!isPrototype && (
+              <button
+                type="button"
+                onClick={() => setActiveModal('profile')}
+                className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>Edit Profile &amp; Jurisdiction</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleRefresh}
@@ -29987,7 +36735,7 @@ function DistrictHealthAdminOverview({
               <span>Refresh District Telemetry</span>
             </button>
             <span className="text-xs font-semibold px-3 py-2 bg-slate-50 text-slate-700 rounded-lg border border-slate-200">
-              {adminDistrict} District (Chota Nagpur)
+              {adminDistrict} District
             </span>
             {showRoleSwitcher && onSwitchTab && (
               <button
@@ -30027,7 +36775,6 @@ function DistrictHealthAdminOverview({
       {/* Skeleton Loaders during Refresh */}
       {isRefreshing ? (
         <div className="space-y-6 animate-pulse">
-          {/* Skeleton Profile and Jurisdiction (2 Columns) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
               <div className="flex items-center gap-4">
@@ -30041,51 +36788,25 @@ function DistrictHealthAdminOverview({
                 <div className="h-3 bg-slate-200 rounded w-full"></div>
                 <div className="h-3 bg-slate-200 rounded w-4/5"></div>
                 <div className="h-3 bg-slate-200 rounded w-3/4"></div>
-                <div className="h-3 bg-slate-200 rounded w-5/6"></div>
               </div>
             </div>
-
             <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
               <div className="h-5 bg-slate-200 rounded w-1/2"></div>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="h-16 bg-slate-200 rounded"></div>
                 <div className="h-16 bg-slate-200 rounded"></div>
-                <div className="h-16 bg-slate-200 rounded"></div>
-                <div className="h-16 bg-slate-200 rounded"></div>
               </div>
-            </div>
-          </div>
-
-          {/* Skeleton 4 Core KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(idx => (
-              <div key={idx} className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 shadow-2xs">
-                <div className="h-3 bg-slate-200 rounded w-1/2"></div>
-                <div className="h-7 bg-slate-200 rounded w-3/4"></div>
-                <div className="h-3 bg-slate-200 rounded w-2/3"></div>
-              </div>
-            ))}
-          </div>
-
-          {/* Skeleton Stock Warnings */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
-            <div className="h-5 bg-slate-200 rounded w-1/3"></div>
-            <div className="space-y-2.5">
-              <div className="h-14 bg-slate-200 rounded w-full"></div>
-              <div className="h-14 bg-slate-200 rounded w-full"></div>
-              <div className="h-14 bg-slate-200 rounded w-full"></div>
             </div>
           </div>
         </div>
       ) : (
         <>
-          {/* SECTION 1: ADMINISTRATOR PROFILE & DISTRICT CATCHMENT (2 Columns, matching Home Feature Cards) */}
+          {/* SECTION 1: ADMINISTRATOR PROFILE & DISTRICT CATCHMENT */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Card A: District Health Administrator Profile Card */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group">
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  {/* Administrator Profile Picture / Professional Avatar */}
                   <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-[#0b2b82] flex items-center justify-center text-[#0b2b82] shrink-0 relative shadow-2xs">
                     <svg className="w-9 h-9 text-[#0b2b82]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -30096,8 +36817,8 @@ function DistrictHealthAdminOverview({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug truncate">{adminName}</h3>
-                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shrink-0" title="Class-I Health Administrator">
-                        Class-I Gazetted
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shrink-0">
+                        {isPrototype ? 'Class-I Gazetted (Demo)' : 'Verified Officer'}
                       </span>
                     </div>
                     <p className="text-xs font-semibold text-[#0b2b82] mt-0.5">{adminDesignation}</p>
@@ -30105,25 +36826,28 @@ function DistrictHealthAdminOverview({
                   </div>
                 </div>
 
-                {/* Structured Key Details (Clean Rows with Hover Placeholders, No Clutter Dash Boxes) */}
                 <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Officer Administrative Jurisdiction">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Jurisdiction</span>
                     <span className="text-slate-900 font-semibold">{adminDistrict} District, {adminState}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Official Government Communication Address">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Official Portal Email</span>
                     <span className="text-slate-900 font-mono font-medium">{adminEmail}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Direct Administrative Control Room">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Direct Line / Control Room</span>
                     <span className="text-slate-900 font-semibold">{adminPhone}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-50" title="Permanent Camp Office Location">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Headquarters / Camp Office</span>
-                    <span className="text-slate-900 font-medium text-right truncate max-w-[220px]">Civil Surgeon Directorate, Sadar Hospital Campus</span>
+                    {adminHeadquarters === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-[#0b2b82] font-bold hover:underline cursor-pointer">+ Add Headquarters</button>
+                    ) : (
+                      <span className="text-slate-900 font-medium text-right truncate max-w-[220px]">{adminHeadquarters}</span>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between py-1" title="National Digital Health Mission Cryptographic Authority">
+                  <div className="flex items-center justify-between py-1">
                     <span className="text-slate-500 font-medium">ABDM Health Admin Key</span>
                     <span className="text-emerald-700 font-semibold text-right">NDHM Level 4 Verified (M1-M3)</span>
                   </div>
@@ -30131,9 +36855,13 @@ function DistrictHealthAdminOverview({
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium" title="District Health Society Authorization Active">
-                  Verified Official &bull; Govt of Jharkhand
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('profile')}
+                  className="text-[11px] font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                >
+                  Edit Officer Profile
+                </button>
                 <button
                   type="button"
                   onClick={() => setView('feature9')}
@@ -30157,41 +36885,62 @@ function DistrictHealthAdminOverview({
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
                         District Healthcare Jurisdiction
                       </h4>
-                      <p className="text-xs text-slate-500">{adminDistrict} District, {adminState} (PIN: 825301)</p>
+                      <p className="text-xs text-slate-500">{adminDistrict} District, {adminState}</p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shrink-0" title="Geographic boundary active">
-                    North Chota Nagpur
-                  </span>
+                  {!isPrototype && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('profile')}
+                      className="text-xs font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                    >
+                      + Add / Edit Specs
+                    </button>
+                  )}
                 </div>
 
-                {/* Location Specs: 2x2 Clean Metric Boxes */}
                 <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="District Surface Area and Geocoordinates">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Jurisdiction Area</span>
-                    <span className="text-base font-bold text-slate-900 block mt-0.5">4,313 km²</span>
-                    <span className="text-[10px] text-slate-500">23.99° N, 85.36° E</span>
+                    {jurisdictionArea === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add Area</button>
+                    ) : (
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">{jurisdictionArea}</span>
+                    )}
+                    <span className="text-[10px] text-slate-500">{adminDistrict} Catchment</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Census Projected Population">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">District Population</span>
-                    <span className="text-base font-bold text-slate-900 block mt-0.5">1,734,495</span>
-                    <span className="text-[10px] text-slate-500">84.1% Rural &bull; 15.9% Urban</span>
+                    {districtPopulation === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add Population</button>
+                    ) : (
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">{districtPopulation}</span>
+                    )}
+                    <span className="text-[10px] text-slate-500">Covered Citizens</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Sub-District Administrative Blocks">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Administrative Blocks</span>
-                    <span className="text-base font-bold text-slate-900 block mt-0.5">16 Blocks</span>
-                    <span className="text-[10px] text-slate-500 truncate block">Katkamsandi, Barhi, Chauparan...</span>
+                    {blocksCount === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add Blocks</button>
+                    ) : (
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">{blocksCount}</span>
+                    )}
+                    <span className="text-[10px] text-slate-500 truncate block">Sub-district blocks</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200" title="Total Public Health Facilities in District">
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Network Facilities</span>
-                    <span className="text-base font-bold text-slate-900 block mt-0.5">274 Facilities</span>
-                    <span className="text-[10px] text-slate-500 truncate block">1 Med Coll + 1 DH + 16 CHC + 42 PHC</span>
+                    {facilitiesCount === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add Facility Count</button>
+                    ) : (
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">{facilitiesCount}</span>
+                    )}
+                    <span className="text-[10px] text-slate-500 truncate block">Registered in roster: {districtFacilities.length}</span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">100% Public Facilities GPS Mapped</span>
+                <span className="text-[11px] text-slate-500 font-medium">Public Facilities GIS Mapped</span>
                 <button
                   type="button"
                   onClick={() => setView('feature9')}
@@ -30204,66 +36953,78 @@ function DistrictHealthAdminOverview({
             </div>
           </div>
 
-          {/* SECTION 2: 4 CORE DISTRICT HEALTH KPIS (4 Columns, Never 3 in a Row) */}
+          {/* SECTION 2: 4 CORE DISTRICT HEALTH KPIS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Pan-District Inpatient and ICU Bed Occupancy">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bed Occupancy</span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">80.5% Load</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    {isPrototype ? '80.5% Load' : totalRosterBeds > 0 ? `${Math.round((totalRosterOccupied / totalRosterBeds) * 100)}% Load` : 'No Roster Data'}
+                  </span>
                 </div>
-                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">684 / 850</p>
-                <p className="text-xs text-slate-600 mt-1 font-medium">Beds occupied across 18 hospitals</p>
+                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">
+                  {isPrototype ? '684 / 850' : `${totalRosterOccupied} / ${totalRosterBeds}`}
+                </p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">
+                  {isPrototype ? 'Beds occupied across 18 hospitals' : `Beds across ${districtFacilities.length} added facilities`}
+                </p>
               </div>
               <p className="text-[11px] text-emerald-700 font-semibold pt-2 border-t border-slate-100">
-                42 ICU beds currently ready
+                {isPrototype ? '42 ICU beds currently ready' : `${totalRosterIcu} ICU beds available`}
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Epidemiological Outbreak Early Warning System">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Disease Surveillance</span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Baseline Level 1</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stock Alerts</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {stockItems.filter(s => s.status === 'CRITICAL' || s.status === 'DEPLETED').length} Critical
+                  </span>
                 </div>
-                <p className="text-2xl font-black text-slate-900 tracking-tight">2 Clusters</p>
-                <p className="text-xs text-slate-600 mt-1 font-medium">Active watches in Katkamsandi &amp; Barhi</p>
+                <p className="text-2xl font-black text-slate-900 tracking-tight">{stockItems.length} Tracked</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">
+                  {isPrototype ? 'Active watches in Katkamsandi & Barhi' : 'District drug buffer watches'}
+                </p>
               </div>
               <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                CDC EARS / CUSUM monitored
+                Buffer threshold monitored
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Reproductive and Child Health Coverage">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">MCH Immunization</span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">On Target</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Facility Roster</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
                 </div>
-                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">93.4%</p>
-                <p className="text-xs text-slate-600 mt-1 font-medium">12,480 children tracked this month</p>
+                <p className="text-2xl font-black text-[#0b2b82] tracking-tight">{districtFacilities.length}</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">
+                  {isPrototype ? '5 key referral centers listed' : 'Facilities added to district roster'}
+                </p>
               </div>
               <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                Logged by 1,420 ASHA workers
+                {districtFacilities.reduce((acc, f) => acc + (Number(f.doctorsOnDuty) || 0), 0)} doctors on duty
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group" title="Dial 108 Emergency Medical Response Fleet">
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-3 group">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Emergency 108 Fleet</span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">28 Active Units</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending Approvals</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{pendingApprovals.length} Queue</span>
                 </div>
-                <p className="text-2xl font-black text-slate-900 tracking-tight">14.2 min</p>
-                <p className="text-xs text-slate-600 mt-1 font-medium">Average district rural response time</p>
+                <p className="text-2xl font-black text-slate-900 tracking-tight">{pendingApprovals.length}</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">Administrative directives awaiting action</p>
               </div>
               <p className="text-[11px] text-emerald-700 font-semibold pt-2 border-t border-slate-100">
-                22 BLS + 6 ALS vehicles operational
+                Synchronized with Command Center
               </p>
             </div>
           </div>
 
-          {/* SECTION 3: STOCK WARNINGS OVERVIEW (CRUCIAL USER REQUIREMENT) */}
+          {/* SECTION 3: STOCK WARNINGS OVERVIEW */}
           <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
               <div>
@@ -30276,14 +37037,20 @@ function DistrictHealthAdminOverview({
                       District Medicine &amp; Emergency Stock Warnings
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Buffer threshold compliance monitored across 16 CHCs, 42 PHCs and District Warehouse (Buffer Norm: 15-30 Days Cover)
+                      Buffer threshold compliance monitored across district facilities (Buffer Norm: 15-30 Days Cover)
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="flex items-center gap-1.5 self-start sm:self-center">
+              <div className="flex items-center gap-1.5 self-start sm:self-center flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('stock')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer"
+                >
+                  + Add Stock Item
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveStockTab('all')}
@@ -30293,7 +37060,7 @@ function DistrictHealthAdminOverview({
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
-                  All Items ({stockItems.length})
+                  All ({stockItems.length})
                 </button>
                 <button
                   type="button"
@@ -30304,7 +37071,7 @@ function DistrictHealthAdminOverview({
                       : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
                   }`}
                 >
-                  Critical (2)
+                  Critical ({stockItems.filter(s => s.status === 'CRITICAL' || s.status === 'DEPLETED').length})
                 </button>
                 <button
                   type="button"
@@ -30315,62 +37082,76 @@ function DistrictHealthAdminOverview({
                       : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
                   }`}
                 >
-                  Warnings (2)
+                  Warnings ({stockItems.filter(s => s.status === 'WARNING').length})
                 </button>
               </div>
             </div>
 
-            {/* Stock Warning Rows */}
-            <div className="space-y-3">
-              {filteredStock.map((stock) => (
-                <div
-                  key={stock.id}
-                  className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
-                  title={`${stock.name}: Current stock ${stock.currentStock} ${stock.unit} at ${stock.facility}. Buffer norm is ${stock.bufferThreshold} ${stock.unit}. Action: ${stock.actionNeeded}`}
+            {filteredStock.length === 0 ? (
+              <div className="p-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                <p className="text-sm font-bold text-slate-800">No Stock Warnings Added Yet</p>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Real administrator accounts start with a clean stock ledger. Add district medicine buffer warnings or stock items to monitor and trigger rebalances.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('stock')}
+                  className="mt-2 px-4 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
                 >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-900 text-sm">{stock.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${stock.statusClass}`}>
-                        {stock.status}
-                      </span>
-                      <span className="text-[11px] text-slate-500 font-medium">
-                        &bull; {stock.category}
-                      </span>
+                  + Add Stock Warning Item
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredStock.map((stock) => (
+                  <div
+                    key={stock.id}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900 text-sm">{stock.name}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${stock.statusClass}`}>
+                          {stock.status}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          &bull; {stock.category}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-600 text-xs flex-wrap">
+                        <span>Facility: <strong className="text-slate-800">{stock.facility}</strong></span>
+                        <span>Stock: <strong className="text-slate-900">{stock.currentStock} {stock.unit}</strong></span>
+                        <span>Cover: <strong className={stock.daysOfCover < 3 ? 'text-rose-700 font-bold' : stock.daysOfCover < 7 ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{stock.daysOfCover} Days</strong></span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 italic mt-0.5">
+                        {stock.actionNeeded}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-3 text-slate-600 text-xs flex-wrap">
-                      <span>Facility: <strong className="text-slate-800">{stock.facility}</strong></span>
-                      <span>Stock: <strong className="text-slate-900">{stock.currentStock} {stock.unit}</strong></span>
-                      <span>Cover: <strong className={stock.daysOfCover < 3 ? 'text-rose-700 font-bold' : stock.daysOfCover < 7 ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{stock.daysOfCover} Days</strong></span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 italic mt-0.5">
-                      {stock.actionNeeded}
-                    </p>
-                  </div>
 
-                  <div className="shrink-0 flex items-center gap-2">
-                    {stock.status !== 'ADEQUATE' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleTriggerRebalance(stock.name, stock.fromFacility, stock.toFacility, stock.rebalanceQty)}
-                        className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                      >
-                        <span>Trigger Rebalance</span>
-                        <span>&rarr;</span>
-                      </button>
-                    ) : (
-                      <span className="text-xs text-emerald-700 font-semibold px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200">
-                        Buffer Compliant
-                      </span>
-                    )}
+                    <div className="shrink-0 flex items-center gap-2">
+                      {stock.status !== 'ADEQUATE' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerRebalance(stock.name, stock.fromFacility, stock.toFacility, stock.rebalanceQty)}
+                          className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <span>Trigger Rebalance</span>
+                          <span>&rarr;</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-emerald-700 font-semibold px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200">
+                          Buffer Compliant
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs flex-wrap gap-2">
               <span className="text-slate-500 font-medium">
-                Overall District Buffer Compliance Index: <strong className="text-slate-800">84.6%</strong> (Target: 95.0%)
+                District Buffer Monitoring Active
               </span>
               <button
                 type="button"
@@ -30383,12 +37164,10 @@ function DistrictHealthAdminOverview({
             </div>
           </div>
 
-          {/* SECTION 4: DIRECT COMMAND GATEWAYS (2 Cards in a row, NEVER 3!) */}
+          {/* SECTION 4: DIRECT COMMAND GATEWAYS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Gateway 1: District Command Center (MV-DAC) */}
             <div
               onClick={() => setView('feature9')}
-              title="District Admin Command Center: Pan-district epidemiological surveillance, shortage forecasting, and inter-hospital transfer coordination"
               className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group cursor-pointer"
             >
               <div className="space-y-3">
@@ -30427,10 +37206,8 @@ function DistrictHealthAdminOverview({
               </button>
             </div>
 
-            {/* Gateway 2: Government Health Schemes (Admin View) */}
             <div
               onClick={() => setView('feature8')}
-              title="Government Health Schemes Administration: Scheme quota allocation, audit log verification, and hospital empanelment oversight"
               className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-4 group cursor-pointer"
             >
               <div className="space-y-3">
@@ -30470,102 +37247,144 @@ function DistrictHealthAdminOverview({
             </div>
           </div>
 
-          {/* SECTION 5: DISTRICT FACILITIES STATUS & PENDING ACTION ITEMS (2 Columns) */}
+          {/* SECTION 5: DISTRICT FACILITIES STATUS & PENDING ACTION ITEMS */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Operational Status Table (2 cols wide on desktop) */}
             <div className="lg:col-span-2 bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 leading-snug">
                     District Healthcare Facility Operational Roster
                   </h3>
                   <p className="text-xs text-slate-500">Live operational readiness across primary referral and secondary tier centers</p>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
-                  5 Key Centers
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('facility')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0b2b82] hover:bg-[#071a4f] text-white transition-colors cursor-pointer"
+                  >
+                    + Add Facility
+                  </button>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+                    {districtFacilities.length} Centers
+                  </span>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
-                      <th className="py-2.5 pr-3">Facility Name</th>
-                      <th className="py-2.5 px-3">Beds</th>
-                      <th className="py-2.5 px-3">ICU</th>
-                      <th className="py-2.5 px-3">Stock %</th>
-                      <th className="py-2.5 px-3">Doctors</th>
-                      <th className="py-2.5 pl-3 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {districtFacilities.map((fac, idx) => (
-                      <tr
-                        key={idx}
-                        className="hover:bg-slate-50/60 transition-colors"
-                        title={`${fac.name} (${fac.tier}): ${fac.occupiedBeds}/${fac.totalBeds} beds occupied, ${fac.icuAvailable} ICU beds available, ${fac.doctorsOnDuty} doctors on active roster.`}
-                      >
-                        <td className="py-3 pr-3 font-semibold text-slate-900">
-                          <span className="block truncate max-w-[220px]">{fac.name}</span>
-                          <span className="text-[10px] text-slate-500 font-normal block">{fac.tier}</span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-700">
-                          {fac.occupiedBeds} / {fac.totalBeds}
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-emerald-700">
-                          {fac.icuAvailable}
-                        </td>
-                        <td className="py-3 px-3 text-slate-700">
-                          {fac.stockCompliance}
-                        </td>
-                        <td className="py-3 px-3 text-slate-700">
-                          {fac.doctorsOnDuty}
-                        </td>
-                        <td className="py-3 pl-3 text-right">
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {fac.readiness}
-                          </span>
-                        </td>
+              {districtFacilities.length === 0 ? (
+                <div className="p-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                  <p className="text-sm font-bold text-slate-800">No Facilities in Roster Yet</p>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Add hospitals, CHCs, or PHCs under your jurisdiction to track bed occupancy, ICU capacity, and doctors on duty.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('facility')}
+                    className="mt-2 px-4 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    + Add First Facility to Roster
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
+                        <th className="py-2.5 pr-3">Facility Name</th>
+                        <th className="py-2.5 px-3">Beds</th>
+                        <th className="py-2.5 px-3">ICU</th>
+                        <th className="py-2.5 px-3">Stock %</th>
+                        <th className="py-2.5 px-3">Doctors</th>
+                        <th className="py-2.5 pl-3 text-right">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {districtFacilities.map((fac, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 pr-3 font-semibold text-slate-900">
+                            <span className="block truncate max-w-[220px]">{fac.name}</span>
+                            <span className="text-[10px] text-slate-500 font-normal block">{fac.tier}</span>
+                          </td>
+                          <td className="py-3 px-3 text-slate-700">
+                            {fac.occupiedBeds} / {fac.totalBeds}
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-emerald-700">
+                            {fac.icuAvailable}
+                          </td>
+                          <td className="py-3 px-3 text-slate-700">
+                            {fac.stockCompliance}
+                          </td>
+                          <td className="py-3 px-3 text-slate-700">
+                            {fac.doctorsOnDuty}
+                          </td>
+                          <td className="py-3 pl-3 text-right">
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {fac.readiness}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
-            {/* Pending Administrative Action Items (1 col wide on desktop) */}
+            {/* Pending Administrative Action Items */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <h3 className="text-base font-bold text-slate-900 leading-snug">
                     Action Items &amp; Approvals
                   </h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
-                    3 Pending
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('approval')}
+                      className="text-[11px] font-bold text-[#0b2b82] hover:underline cursor-pointer"
+                    >
+                      + Add
+                    </button>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                      {pendingApprovals.length} Pending
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  {pendingApprovals.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={item.route}
-                      className="p-3 rounded-lg border border-slate-200 hover:border-[#0b2b82]/40 bg-slate-50 hover:bg-white transition-all cursor-pointer space-y-1.5"
-                      title={`${item.title} - ${item.department} (${item.time})`}
+                {pendingApprovals.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-700">No Pending Approvals</p>
+                    <p className="text-[11px] text-slate-500">Log administrative directives or claim approvals to track here.</p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('approval')}
+                      className="px-3 py-1.5 bg-[#0b2b82] text-white text-xs font-bold rounded-lg cursor-pointer"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold text-slate-900 text-xs leading-snug">{item.title}</p>
+                      + Add Approval Item
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {pendingApprovals.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={item.route}
+                        className="p-3 rounded-lg border border-slate-200 hover:border-[#0b2b82]/40 bg-slate-50 hover:bg-white transition-all cursor-pointer space-y-1.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900 text-xs leading-snug">{item.title}</p>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>{item.department}</span>
+                          <span>{item.time}</span>
+                        </div>
+                        <div className="pt-1 flex items-center text-[11px] font-semibold text-[#0b2b82]">
+                          <span>{item.actionText} &rarr;</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span>{item.department}</span>
-                        <span>{item.time}</span>
-                      </div>
-                      <div className="pt-1 flex items-center text-[11px] font-semibold text-[#0b2b82]">
-                        <span>{item.actionText} &rarr;</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100">
@@ -30582,6 +37401,190 @@ function DistrictHealthAdminOverview({
           </div>
         </>
       )}
+
+      {/* MODALS FOR REAL ACCOUNT DATA ENTRY */}
+      {activeModal === 'profile' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit District Administrator &amp; Jurisdiction Profile</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Officer Name *</label>
+                  <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Designation *</label>
+                  <input type="text" required value={profileForm.designation} onChange={(e) => setProfileForm({ ...profileForm, designation: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Service Cadre / Officer ID *</label>
+                  <input type="text" required value={profileForm.cadre} onChange={(e) => setProfileForm({ ...profileForm, cadre: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Direct Phone *</label>
+                  <input type="text" required value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">District *</label>
+                  <input type="text" required value={profileForm.district} onChange={(e) => setProfileForm({ ...profileForm, district: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">State *</label>
+                  <input type="text" required value={profileForm.state} onChange={(e) => setProfileForm({ ...profileForm, state: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Headquarters / Camp Office</label>
+                  <input type="text" placeholder="e.g. Civil Surgeon Office" value={profileForm.headquarters} onChange={(e) => setProfileForm({ ...profileForm, headquarters: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jurisdiction Area (km²)</label>
+                  <input type="text" placeholder="e.g. 4,313 km²" value={profileForm.jurisdictionArea} onChange={(e) => setProfileForm({ ...profileForm, jurisdictionArea: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">District Population</label>
+                  <input type="text" placeholder="e.g. 1,734,000" value={profileForm.population} onChange={(e) => setProfileForm({ ...profileForm, population: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Administrative Blocks</label>
+                  <input type="text" placeholder="e.g. 16 Blocks" value={profileForm.blocksCount} onChange={(e) => setProfileForm({ ...profileForm, blocksCount: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Total Network Facilities</label>
+                  <input type="text" placeholder="e.g. 274 Facilities" value={profileForm.facilitiesCount} onChange={(e) => setProfileForm({ ...profileForm, facilitiesCount: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'stock' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add District Medicine Stock Warning</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddStockWarning} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Medicine / Biologic Name *</label>
+                  <input type="text" required placeholder="e.g. Anti-Snake Venom (ASV 10mL)" value={stockForm.name} onChange={(e) => setStockForm({ ...stockForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Facility Name *</label>
+                  <input type="text" required placeholder="e.g. CHC Katkamsandi" value={stockForm.facility} onChange={(e) => setStockForm({ ...stockForm, facility: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Status *</label>
+                  <select value={stockForm.status} onChange={(e) => setStockForm({ ...stockForm, status: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="DEPLETED">DEPLETED</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ADEQUATE">ADEQUATE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Current Stock Quantity *</label>
+                  <input type="number" required placeholder="e.g. 12" value={stockForm.currentStock} onChange={(e) => setStockForm({ ...stockForm, currentStock: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Days of Cover *</label>
+                  <input type="number" step="0.1" required placeholder="e.g. 2.5" value={stockForm.daysOfCover} onChange={(e) => setStockForm({ ...stockForm, daysOfCover: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Recommended Action</label>
+                  <input type="text" placeholder="e.g. Dispatch 25 vials from District Warehouse" value={stockForm.actionNeeded} onChange={(e) => setStockForm({ ...stockForm, actionNeeded: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Stock Warning</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'facility' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Facility to District Roster</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddFacility} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Facility Name *</label>
+                  <input type="text" required placeholder="e.g. Sub-District Hospital Barhi" value={facilityForm.name} onChange={(e) => setFacilityForm({ ...facilityForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Facility Tier *</label>
+                  <input type="text" required placeholder="e.g. Secondary District Hospital" value={facilityForm.tier} onChange={(e) => setFacilityForm({ ...facilityForm, tier: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Total Beds *</label>
+                  <input type="number" required placeholder="e.g. 100" value={facilityForm.totalBeds} onChange={(e) => setFacilityForm({ ...facilityForm, totalBeds: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Occupied Beds *</label>
+                  <input type="number" required placeholder="e.g. 72" value={facilityForm.occupiedBeds} onChange={(e) => setFacilityForm({ ...facilityForm, occupiedBeds: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Available ICU Beds *</label>
+                  <input type="number" required placeholder="e.g. 8" value={facilityForm.icuAvailable} onChange={(e) => setFacilityForm({ ...facilityForm, icuAvailable: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Doctors on Duty *</label>
+                  <input type="number" required placeholder="e.g. 12" value={facilityForm.doctorsOnDuty} onChange={(e) => setFacilityForm({ ...facilityForm, doctorsOnDuty: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Stock Compliance %</label>
+                  <input type="text" placeholder="e.g. 92%" value={facilityForm.stockCompliance} onChange={(e) => setFacilityForm({ ...facilityForm, stockCompliance: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Facility</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'approval' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Pending Approval / Action Item</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddApproval} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Approval / Directive Title *</label>
+                <input type="text" required placeholder="e.g. PM-JAY Claim Batch Review" value={approvalForm.title} onChange={(e) => setApprovalForm({ ...approvalForm, title: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Department / Cell *</label>
+                <input type="text" required placeholder="e.g. Ayushman Bharat Cell" value={approvalForm.department} onChange={(e) => setApprovalForm({ ...approvalForm, department: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Item</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -30589,45 +37592,88 @@ function DistrictHealthAdminOverview({
 // ============================================================================
 // HOSPITAL OVERVIEW COMPONENT (WITH HOSPITAL ID FEATURE CARD & TELEMETRY)
 // ============================================================================
-function HospitalOverview({ setView, currentUser }) {
+function HospitalOverview({ setView, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedTime, setLastSyncedTime] = useState('Just now');
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'referral' | 'alert' | 'department'
+
+  const customData = currentUser?.customData || {};
 
   const hospitalProfile = {
-    facilityName: currentUser?.facilityName || currentUser?.name || 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-    hospitalId: currentUser?.hospitalId || 'HFR-IN-JH-2026-0104',
-    abhaId: currentUser?.abhaId || 'admin.sbmch@abdm',
-    pmjayCode: currentUser?.pmjayCode || 'PMJAY-JH-HAZ-0014',
-    tier: currentUser?.tier || currentUser?.designation || 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)',
-    medicalSuperintendent: currentUser?.medicalSuperintendent || 'Dr. R. K. Mishra, MS (Ortho), Chief Medical Superintendent',
-    accreditation: currentUser?.accreditation || 'NABH Accredited & ABDM M1-M3 Verified',
-    address: currentUser?.address || 'NH-33, Ranchi-Patna Highway, Hazaribagh, Jharkhand - 825301',
-    district: currentUser?.district || 'Hazaribagh',
-    state: currentUser?.state || 'Jharkhand',
-    phone: currentUser?.phone || '+91-6546-263108',
-    emergencyHelpline: currentUser?.emergencyHelpline || '108 / +91-6546-263199 (24x7 Trauma Control)',
-    email: currentUser?.email || 'cms.sbmch.hazaribagh@jharkhand.gov.in',
-    ownership: currentUser?.ownership || 'Department of Health, Medical Education & Family Welfare, Govt. of Jharkhand',
-    totalBeds: currentUser?.totalBeds || 500,
-    occupiedBeds: currentUser?.occupiedBeds || 432,
-    icuTotal: currentUser?.icuTotal || 42,
-    icuAvailable: currentUser?.icuAvailable || 18,
-    emergencyBays: currentUser?.emergencyBays || '24 / 24 Operational',
-    oxygenCapacity: currentUser?.oxygenCapacity || '2 PSA Plants (2,000 LPM) + 12 KL LMO Tank'
+    facilityName: currentUser?.facilityName || currentUser?.name || (isPrototype ? 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)' : 'Hospital Facility'),
+    hospitalId: currentUser?.hospitalId || (isPrototype ? 'HFR-IN-JH-2026-0104' : 'Not added'),
+    abhaId: currentUser?.abhaId || (isPrototype ? 'admin.sbmch@abdm' : 'Not added'),
+    pmjayCode: currentUser?.pmjayCode || (isPrototype ? 'PMJAY-JH-HAZ-0014' : 'Not added'),
+    tier: currentUser?.tier || currentUser?.designation || (isPrototype ? 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)' : 'Not added'),
+    medicalSuperintendent: currentUser?.medicalSuperintendent || (isPrototype ? 'Dr. R. K. Mishra, MS (Ortho), Chief Medical Superintendent' : 'Not added'),
+    accreditation: currentUser?.accreditation || (isPrototype ? 'NABH Accredited & ABDM M1-M3 Verified' : 'ABDM HFR Registered'),
+    address: currentUser?.address || (isPrototype ? 'NH-33, Ranchi-Patna Highway, Hazaribagh, Jharkhand - 825301' : 'Not added'),
+    district: currentUser?.district || (isPrototype ? 'Hazaribagh' : 'Not added'),
+    state: currentUser?.state || (isPrototype ? 'Jharkhand' : 'Not added'),
+    phone: currentUser?.phone || (isPrototype ? '+91-6546-263108' : 'Not added'),
+    emergencyHelpline: currentUser?.emergencyHelpline || currentUser?.phone || (isPrototype ? '108 / +91-6546-263199 (24x7 Trauma Control)' : 'Not added'),
+    email: currentUser?.email || currentUser?.abhaId || (isPrototype ? 'cms.sbmch.hazaribagh@jharkhand.gov.in' : 'Not added'),
+    ownership: currentUser?.ownership || (isPrototype ? 'Department of Health, Medical Education & Family Welfare, Govt. of Jharkhand' : 'Healthcare Facility'),
+    totalBeds: currentUser?.totalBeds !== undefined && currentUser?.totalBeds !== null && currentUser?.totalBeds !== '' ? Number(currentUser.totalBeds) : (isPrototype ? 500 : 0),
+    occupiedBeds: currentUser?.occupiedBeds !== undefined && currentUser?.occupiedBeds !== null && currentUser?.occupiedBeds !== '' ? Number(currentUser.occupiedBeds) : (isPrototype ? 432 : 0),
+    icuTotal: currentUser?.icuTotal !== undefined && currentUser?.icuTotal !== null && currentUser?.icuTotal !== '' ? Number(currentUser.icuTotal) : (isPrototype ? 42 : 0),
+    icuAvailable: currentUser?.icuAvailable !== undefined && currentUser?.icuAvailable !== null && currentUser?.icuAvailable !== '' ? Number(currentUser.icuAvailable) : (isPrototype ? 18 : 0),
+    emergencyBays: currentUser?.emergencyBays || (isPrototype ? '24 / 24 Operational' : 'Not added'),
+    oxygenCapacity: currentUser?.oxygenCapacity || (isPrototype ? '2 PSA Plants (2,000 LPM) + 12 KL LMO Tank' : 'Not added')
   };
 
-  const occupancyPct = Math.round((hospitalProfile.occupiedBeds / hospitalProfile.totalBeds) * 100);
-  const generalBedsFree = (hospitalProfile.totalBeds - hospitalProfile.occupiedBeds) - hospitalProfile.icuAvailable;
+  const occupancyPct = hospitalProfile.totalBeds > 0
+    ? Math.round((hospitalProfile.occupiedBeds / hospitalProfile.totalBeds) * 100)
+    : 0;
+  const generalBedsFree = Math.max(0, (hospitalProfile.totalBeds - hospitalProfile.occupiedBeds) - hospitalProfile.icuAvailable);
 
-  const handleRefreshTelemetry = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setLastSyncedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }, 500);
-  };
+  const [profileForm, setProfileForm] = useState({
+    facilityName: currentUser?.facilityName || currentUser?.name || '',
+    hospitalId: currentUser?.hospitalId || '',
+    tier: currentUser?.tier || '',
+    medicalSuperintendent: currentUser?.medicalSuperintendent || '',
+    address: currentUser?.address || '',
+    district: currentUser?.district || '',
+    state: currentUser?.state || '',
+    phone: currentUser?.phone || '',
+    pmjayCode: currentUser?.pmjayCode || '',
+    totalBeds: currentUser?.totalBeds ?? '',
+    occupiedBeds: currentUser?.occupiedBeds ?? '',
+    icuTotal: currentUser?.icuTotal ?? '',
+    icuAvailable: currentUser?.icuAvailable ?? '',
+    oxygenCapacity: currentUser?.oxygenCapacity || '',
+    emergencyBays: currentUser?.emergencyBays || ''
+  });
 
-  const inboundReferralsSnapshot = [
+  const [referralForm, setReferralForm] = useState({
+    patientName: '',
+    condition: '',
+    fromFacility: '',
+    department: 'Emergency & Trauma',
+    urgency: 'EMERGENCY',
+    eta: '15 mins',
+    bedStatus: 'Bed Reserved'
+  });
+
+  const [alertForm, setAlertForm] = useState({
+    patientName: '',
+    riskScore: '82',
+    riskLevel: 'HIGH',
+    trigger: '',
+    ashaWorker: '',
+    status: 'Unacknowledged Escalation'
+  });
+
+  const [deptForm, setDeptForm] = useState({
+    dept: '',
+    head: '',
+    beds: '',
+    waitTime: '10 mins',
+    status: 'Optimal'
+  });
+
+  const [prototypeInboundReferrals, setPrototypeInboundReferrals] = useState([
     {
       id: 'REF-2026-8901',
       patientName: 'Ramesh Mahto (48y/M)',
@@ -30658,9 +37704,9 @@ function HospitalOverview({ setView, currentUser }) {
       eta: 'Arrived at Triage Desk',
       bedStatus: 'O2 Bed #19 Allotted'
     }
-  ];
+  ]);
 
-  const highRiskAlertsSnapshot = [
+  const [prototypeHighRiskAlerts, setPrototypeHighRiskAlerts] = useState([
     {
       id: 'ALT-901',
       patientName: 'Anita Devi (P-1088)',
@@ -30688,14 +37734,181 @@ function HospitalOverview({ setView, currentUser }) {
       ashaWorker: 'ASHA Meena Kumari (Churchu)',
       status: 'ANC Outreach Dispatched'
     }
-  ];
+  ]);
 
-  const departmentReadinessList = [
+  const loadHospitalLiveSnapshots = () => {
+    if (!isPrototype) return;
+    fetch(getApiUrl('/api/referrals'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.data?.referrals;
+        if (Array.isArray(list) && list.length > 0) {
+          setPrototypeInboundReferrals(
+            list.slice(0, 4).map((r) => ({
+              id: r.referralId,
+              patientName: `${r.patientName} (${r.patientAge}y/${r.patientGender?.[0] || 'M'})`,
+              condition: `${r.provisionalDiagnosis} • ${r.reasonForReferral}`,
+              fromFacility: `${r.referringFacilityName} (${r.referringDoctor})`,
+              department: r.specialtyRequired || 'Emergency Triage',
+              urgency: String(r.urgency || 'PRIORITY').toUpperCase(),
+              eta: r.status === 'admitted' ? 'Admitted in Ward' : r.status === 'accepted' ? '15 mins (In Transit)' : 'Awaiting Bed Allotment',
+              bedStatus: r.bedAllotted || 'Bed Allotment Pending'
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+
+    fetch(getApiUrl('/api/followups/alerts'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.data?.alerts;
+        if (Array.isArray(list) && list.length > 0) {
+          setPrototypeHighRiskAlerts(
+            list.slice(0, 3).map((a) => ({
+              id: a.alertId,
+              patientName: `${a.patientName} (${a.patientId})`,
+              riskScore: a.severity === 'critical' ? 88 : 76,
+              riskLevel: String(a.severity || 'HIGH').toUpperCase(),
+              trigger: a.triggerReason || a.recommendedAction,
+              ashaWorker: 'ASHA Field Surveillance',
+              status: a.acknowledged ? 'Acknowledged' : 'Unacknowledged Escalation'
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadHospitalLiveSnapshots();
+  }, [isPrototype]);
+
+  const handleRefreshTelemetry = () => {
+    setIsRefreshing(true);
+    loadHospitalLiveSnapshots();
+    setTimeout(() => {
+      setIsRefreshing(false);
+      setLastSyncedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }, 500);
+  };
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        ...profileForm,
+        name: profileForm.facilityName || currentUser.name,
+        totalBeds: profileForm.totalBeds !== '' ? Number(profileForm.totalBeds) : 0,
+        occupiedBeds: profileForm.occupiedBeds !== '' ? Number(profileForm.occupiedBeds) : 0,
+        icuTotal: profileForm.icuTotal !== '' ? Number(profileForm.icuTotal) : 0,
+        icuAvailable: profileForm.icuAvailable !== '' ? Number(profileForm.icuAvailable) : 0
+      });
+    }
+    setActiveModal(null);
+  };
+
+  const handleAddReferral = (e) => {
+    e.preventDefault();
+    if (!referralForm.patientName.trim()) return;
+    const newRef = {
+      id: `REF-${Date.now().toString().slice(-4)}`,
+      patientName: referralForm.patientName.trim(),
+      condition: referralForm.condition.trim() || 'Clinical Evaluation',
+      fromFacility: referralForm.fromFacility.trim() || 'Referring PHC/CHC',
+      department: referralForm.department.trim() || 'General Ward',
+      urgency: referralForm.urgency,
+      eta: referralForm.eta.trim() || '15 mins',
+      bedStatus: referralForm.bedStatus.trim() || 'Bed Allotted'
+    };
+    const nextList = [newRef, ...(customData.inboundReferrals || [])];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, inboundReferrals: nextList }
+      });
+    }
+    setReferralForm({
+      patientName: '',
+      condition: '',
+      fromFacility: '',
+      department: 'Emergency & Trauma',
+      urgency: 'EMERGENCY',
+      eta: '15 mins',
+      bedStatus: 'Bed Reserved'
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddAlert = (e) => {
+    e.preventDefault();
+    if (!alertForm.patientName.trim()) return;
+    const newAlert = {
+      id: `ALT-${Date.now().toString().slice(-3)}`,
+      patientName: alertForm.patientName.trim(),
+      riskScore: Number(alertForm.riskScore) || 80,
+      riskLevel: alertForm.riskLevel,
+      trigger: alertForm.trigger.trim() || 'High-risk vital sign alert',
+      ashaWorker: alertForm.ashaWorker.trim() || 'Field Health Worker',
+      status: alertForm.status
+    };
+    const nextList = [newAlert, ...(customData.highRiskAlerts || [])];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, highRiskAlerts: nextList }
+      });
+    }
+    setAlertForm({
+      patientName: '',
+      riskScore: '82',
+      riskLevel: 'HIGH',
+      trigger: '',
+      ashaWorker: '',
+      status: 'Unacknowledged Escalation'
+    });
+    setActiveModal(null);
+  };
+
+  const handleAddDept = (e) => {
+    e.preventDefault();
+    if (!deptForm.dept.trim()) return;
+    const newDept = {
+      dept: deptForm.dept.trim(),
+      head: deptForm.head.trim() || 'Duty Consultant',
+      beds: deptForm.beds.trim() || '0 / 10 Occupied',
+      waitTime: deptForm.waitTime.trim() || '05 mins',
+      status: deptForm.status
+    };
+    const nextList = [...(customData.departments || []), newDept];
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, departments: nextList }
+      });
+    }
+    setDeptForm({
+      dept: '',
+      head: '',
+      beds: '',
+      waitTime: '10 mins',
+      status: 'Optimal'
+    });
+    setActiveModal(null);
+  };
+
+  const inboundReferralsSnapshot = isPrototype ? prototypeInboundReferrals : (customData.inboundReferrals || []);
+  const highRiskAlertsSnapshot = isPrototype ? prototypeHighRiskAlerts : (customData.highRiskAlerts || []);
+
+  const prototypeDepartmentReadinessList = [
     { dept: 'Emergency & Trauma Casualty', head: 'Dr. V. K. Prasad', beds: '19 / 24 Occupied', waitTime: '04 mins (Zero Delay)', status: 'Optimal' },
     { dept: 'Cardiology & Cath Lab (CCU)', head: 'Dr. Priya Sharma', beds: '14 / 18 Occupied', waitTime: '11 mins', status: 'Active Standby' },
     { dept: 'Maternal CEmONC & NICU', head: 'Dr. S. Chatterjee', beds: '28 / 32 Occupied', waitTime: '08 mins', status: 'High Load' },
     { dept: 'General Medicine & Infectious Ward', head: 'Dr. M. K. Barnwal', beds: '112 / 130 Occupied', waitTime: '19 mins', status: 'Optimal' }
   ];
+
+  const departmentReadinessList = isPrototype ? prototypeDepartmentReadinessList : (customData.departments || []);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
@@ -30703,9 +37916,9 @@ function HospitalOverview({ setView, currentUser }) {
       <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-              ABDM HFR Verified Facility &bull; Synced {lastSyncedTime}
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded border ${isPrototype ? 'bg-amber-50 text-amber-800 border-amber-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isPrototype ? 'bg-amber-500' : 'bg-emerald-600'}`}></span>
+              {isPrototype ? `Prototype Demo Facility • Synced ${lastSyncedTime}` : `Real Hospital Account • Synced ${lastSyncedTime}`}
             </span>
             <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
               {hospitalProfile.hospitalId}
@@ -30720,6 +37933,15 @@ function HospitalOverview({ setView, currentUser }) {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          {!isPrototype && (
+            <button
+              type="button"
+              onClick={() => setActiveModal('profile')}
+              className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-2xs"
+            >
+              Edit Profile &amp; Capacity
+            </button>
+          )}
           <button
             type="button"
             onClick={handleRefreshTelemetry}
@@ -30730,6 +37952,14 @@ function HospitalOverview({ setView, currentUser }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span>{isRefreshing ? 'Syncing HFR...' : 'Refresh Telemetry'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView('feature2')}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+          >
+            Book Appointments (QR &bull; SMS &bull; Counter)
           </button>
 
           <button
@@ -30769,10 +37999,7 @@ function HospitalOverview({ setView, currentUser }) {
           {/* SECTION 1: HOSPITAL ID FEATURE CARD & INFRASTRUCTURE MATRIX (2 Columns) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* FEATURE CARD 1: HOSPITAL ID */}
-            <div
-              title="Hospital ID Card: Official ABDM Health Facility Registry (HFR) credentials, empanelment, and nodal authority"
-              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-5 group"
-            >
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-5 group">
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -30802,7 +38029,7 @@ function HospitalOverview({ setView, currentUser }) {
                   </span>
                 </div>
 
-                {/* Hospital ID Metadata Grid (2x3) */}
+                {/* Hospital ID Metadata Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">ABDM HFR ID &amp; Handle</span>
@@ -30811,8 +38038,12 @@ function HospitalOverview({ setView, currentUser }) {
                   </div>
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">PM-JAY &amp; Accreditation</span>
-                    <span className="font-mono font-bold text-slate-900 mt-0.5 block">{hospitalProfile.pmjayCode}</span>
-                    <span className="text-[11px] text-emerald-700 font-semibold">{hospitalProfile.accreditation}</span>
+                    {hospitalProfile.pmjayCode === 'Not added' ? (
+                      <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add PM-JAY Code</button>
+                    ) : (
+                      <span className="font-mono font-bold text-slate-900 mt-0.5 block">{hospitalProfile.pmjayCode}</span>
+                    )}
+                    <span className="text-[11px] text-emerald-700 font-semibold block">{hospitalProfile.accreditation}</span>
                   </div>
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Medical Superintendent</span>
@@ -30833,16 +38064,15 @@ function HospitalOverview({ setView, currentUser }) {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Digital Signature: <strong className="text-slate-700 font-mono">FHIR-R4-HIP-HIU-ENABLED</strong></span>
+                <button type="button" onClick={() => setActiveModal('profile')} className="font-bold text-[#0b2b82] hover:underline cursor-pointer">
+                  Edit Hospital Details
+                </button>
                 <span className="font-semibold text-[#0b2b82]">District: {hospitalProfile.district}, {hospitalProfile.state}</span>
               </div>
             </div>
 
             {/* FEATURE CARD 2: HOSPITAL INFRASTRUCTURE & LIVE CAPACITY MATRIX */}
-            <div
-              title="Live Hospital Capacity & Life-Support Matrix: Real-time inpatient beds, ICU ventilators, PSA oxygen generation, and clinical staffing"
-              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-5 group"
-            >
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all flex flex-col justify-between space-y-5 group">
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -30854,7 +38084,6 @@ function HospitalOverview({ setView, currentUser }) {
                         <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                           Capacity Matrix
                         </span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">Readiness Score: 92/100</span>
                       </div>
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1">
                         Hospital Infrastructure &amp; Bed Telemetry
@@ -30864,51 +38093,74 @@ function HospitalOverview({ setView, currentUser }) {
                       </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                    <span>24x7 Trauma</span>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('profile')}
+                    className="text-xs font-bold text-[#0b2b82] hover:underline shrink-0 cursor-pointer"
+                  >
+                    + Update Capacity
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Inpatient Bed Census</span>
-                      <span className="text-[11px] font-bold text-[#0b2b82]">{occupancyPct}% Occupied</span>
+                {!isPrototype && hospitalProfile.totalBeds === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                    <p className="text-sm font-bold text-slate-800">Hospital Bed &amp; ICU Capacity Not Added Yet</p>
+                    <p className="text-xs text-slate-500">
+                      Add your total inpatient beds, occupied beds, ICU beds, and oxygen capacity to display live telemetry.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('profile')}
+                      className="mt-1 px-4 py-2 bg-[#0b2b82] text-white text-xs font-bold rounded-lg cursor-pointer"
+                    >
+                      + Add Bed &amp; ICU Capacity
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Inpatient Bed Census</span>
+                        <span className="text-[11px] font-bold text-[#0b2b82]">{occupancyPct}% Occupied</span>
+                      </div>
+                      <span className="text-base font-black text-slate-900 mt-1 block">
+                        {hospitalProfile.occupiedBeds} / {hospitalProfile.totalBeds} Beds Active
+                      </span>
+                      <span className="text-[11px] text-emerald-700 font-semibold">
+                        {generalBedsFree} General Ward + {hospitalProfile.icuAvailable} ICU Beds Free
+                      </span>
                     </div>
-                    <span className="text-base font-black text-slate-900 mt-1 block">
-                      {hospitalProfile.occupiedBeds} / {hospitalProfile.totalBeds} Beds Active
-                    </span>
-                    <span className="text-[11px] text-emerald-700 font-semibold">
-                      {generalBedsFree} General Ward + {hospitalProfile.icuAvailable} ICU Beds Free
-                    </span>
-                  </div>
 
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ICU &amp; Ventilator Readiness</span>
-                      <span className="text-[11px] font-bold text-emerald-700">Available</span>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ICU &amp; Ventilator Readiness</span>
+                        <span className="text-[11px] font-bold text-emerald-700">Available</span>
+                      </div>
+                      <span className="text-base font-black text-slate-900 mt-1 block">
+                        {hospitalProfile.icuAvailable} / {hospitalProfile.icuTotal} ICU Beds Ready
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Critical Care Unit Active
+                      </span>
                     </div>
-                    <span className="text-base font-black text-slate-900 mt-1 block">
-                      {hospitalProfile.icuAvailable} / {hospitalProfile.icuTotal} ICU Beds Ready
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      24 Invasive Ventilators &bull; 14 BiPAP Units
-                    </span>
-                  </div>
 
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Medical Oxygen &amp; Life Support</span>
-                    <span className="font-bold text-slate-800 mt-1 block">{hospitalProfile.oxygenCapacity}</span>
-                    <span className="text-[11px] text-emerald-700 font-semibold">Pressure: 4.8 Bar (96h Buffer Reserve)</span>
-                  </div>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Medical Oxygen &amp; Life Support</span>
+                      {hospitalProfile.oxygenCapacity === 'Not added' ? (
+                        <button type="button" onClick={() => setActiveModal('profile')} className="text-xs font-bold text-[#0b2b82] mt-1 hover:underline cursor-pointer">+ Add Oxygen Capacity</button>
+                      ) : (
+                        <span className="font-bold text-slate-800 mt-1 block">{hospitalProfile.oxygenCapacity}</span>
+                      )}
+                      <span className="text-[11px] text-emerald-700 font-semibold block">Life Support Monitored</span>
+                    </div>
 
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Clinical Roster &amp; Blood Bank</span>
-                    <span className="font-bold text-slate-800 mt-1 block">42 Doctors &bull; 118 Nurses On-Shift</span>
-                    <span className="text-[11px] text-slate-500">Blood Bank: 164 Units &bull; 6 Modular OTs</span>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Specialty Departments</span>
+                      <span className="font-bold text-slate-800 mt-1 block">{departmentReadinessList.length} Active Units</span>
+                      <button type="button" onClick={() => setActiveModal('department')} className="text-[11px] text-[#0b2b82] font-bold hover:underline cursor-pointer">+ Add Department</button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -30927,7 +38179,7 @@ function HospitalOverview({ setView, currentUser }) {
             </div>
           </div>
 
-          {/* SECTION 2: 4 CORE HOSPITAL OPERATIONAL KPIS (4 Columns) */}
+          {/* SECTION 2: 4 CORE HOSPITAL OPERATIONAL KPIS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div
               onClick={() => setView('feature7')}
@@ -30949,11 +38201,13 @@ function HospitalOverview({ setView, currentUser }) {
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Inbound Smart Referrals</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">2 Emergency</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                  {inboundReferralsSnapshot.filter(r => r.urgency === 'EMERGENCY').length} Emergency
+                </span>
               </div>
-              <p className="text-2xl font-black text-[#0b2b82]">5 Active</p>
+              <p className="text-2xl font-black text-[#0b2b82]">{inboundReferralsSnapshot.length} Active</p>
               <p className="text-xs text-slate-500 mt-1">
-                2 ALS ambulances in-transit &bull; 3 beds pre-locked
+                {inboundReferralsSnapshot.length > 0 ? 'Inbound referrals queued for bed allotment' : 'No active inbound referrals'}
               </p>
             </div>
 
@@ -30965,9 +38219,9 @@ function HospitalOverview({ setView, currentUser }) {
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">High-Risk Escalations</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">Score &ge; 70</span>
               </div>
-              <p className="text-2xl font-black text-rose-700">3 Alerts</p>
+              <p className="text-2xl font-black text-rose-700">{highRiskAlertsSnapshot.length} Alerts</p>
               <p className="text-xs text-slate-500 mt-1">
-                Triggered by ASHA home follow-up observations
+                Triggered by follow-up observations
               </p>
             </div>
 
@@ -30976,19 +38230,19 @@ function HospitalOverview({ setView, currentUser }) {
               className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-[#0b2b82]/40 transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">OPD &amp; Triage Queue</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Normal Flow</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Departments</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Operational</span>
               </div>
-              <p className="text-2xl font-black text-slate-900">28 Waiting</p>
+              <p className="text-2xl font-black text-slate-900">{departmentReadinessList.length} Units</p>
               <p className="text-xs text-slate-500 mt-1">
-                Avg triage wait: <strong className="text-slate-800">11 mins</strong> &bull; 04 mins Emergency
+                Specialty departments configured
               </p>
             </div>
           </div>
 
-          {/* SECTION 3: INBOUND REFERRALS & HIGH-RISK FOLLOW-UP ALERTS SNAPSHOT (2 Columns) */}
+          {/* SECTION 3: INBOUND REFERRALS & HIGH-RISK FOLLOW-UP ALERTS SNAPSHOT */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Left Column: Smart Referrals (Facility Inbound Queue Preview) */}
+            {/* Left Column: Smart Referrals */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
@@ -30996,50 +38250,73 @@ function HospitalOverview({ setView, currentUser }) {
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-bold text-slate-900">Inbound Smart Referrals Queue</h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-[#0b2b82] border border-slate-200">
-                        Facility View Only
+                        Facility View
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Incoming PHC/CHC patient transfers requiring bed allotment and specialist intake
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setView('feature3')}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    View All &rarr;
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('referral')}
+                      className="px-3 py-1.5 bg-[#0b2b82] text-white font-bold text-xs rounded-lg cursor-pointer"
+                    >
+                      + Log Referral
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView('feature3')}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+                    >
+                      View All &rarr;
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {inboundReferralsSnapshot.map((ref) => (
-                    <div
-                      key={ref.id}
-                      onClick={() => setView('feature3')}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-[#0b2b82]/40 transition-all cursor-pointer space-y-1.5"
+                {inboundReferralsSnapshot.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-700">No Inbound Referrals Yet</p>
+                    <p className="text-[11px] text-slate-500">Log incoming patient referrals or open the Smart Referrals module to manage transfers.</p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('referral')}
+                      className="px-3.5 py-1.5 bg-[#0b2b82] text-white text-xs font-bold rounded-lg cursor-pointer"
                     >
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-xs">{ref.patientName}</span>
-                          <span className="text-[11px] font-mono text-slate-500">{ref.id}</span>
+                      + Add Inbound Referral
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {inboundReferralsSnapshot.map((ref) => (
+                      <div
+                        key={ref.id}
+                        onClick={() => setView('feature3')}
+                        className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-[#0b2b82]/40 transition-all cursor-pointer space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-xs">{ref.patientName}</span>
+                            <span className="text-[11px] font-mono text-slate-500">{ref.id}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            ref.urgency === 'EMERGENCY'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {ref.urgency} &bull; {ref.eta}
+                          </span>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          ref.urgency === 'EMERGENCY'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}>
-                          {ref.urgency} &bull; {ref.eta}
-                        </span>
+                        <p className="text-xs font-semibold text-slate-800">{ref.condition}</p>
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                          <span>From: {ref.fromFacility}</span>
+                          <span className="font-semibold text-[#0b2b82]">{ref.bedStatus}</span>
+                        </div>
                       </div>
-                      <p className="text-xs font-semibold text-slate-800">{ref.condition}</p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                        <span>From: {ref.fromFacility}</span>
-                        <span className="font-semibold text-[#0b2b82]">{ref.bedStatus}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button
@@ -31052,7 +38329,7 @@ function HospitalOverview({ setView, currentUser }) {
               </button>
             </div>
 
-            {/* Right Column: High-Risk Follow-Up (Facility Alert Desk Preview) */}
+            {/* Right Column: High-Risk Follow-Up */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
@@ -31060,43 +38337,66 @@ function HospitalOverview({ setView, currentUser }) {
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-bold text-slate-900">High-Risk Follow-Up Escalations</h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-[#0b2b82] border border-slate-200">
-                        Facility View Only
+                        Facility View
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Post-discharge and catchment patients flagged by ASHA field workers with deteriorating vitals
+                      Post-discharge and catchment patients flagged with deteriorating vitals
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setView('feature4')}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    Alert Desk &rarr;
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('alert')}
+                      className="px-3 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-lg cursor-pointer"
+                    >
+                      + Log Alert
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView('feature4')}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+                    >
+                      Alert Desk &rarr;
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {highRiskAlertsSnapshot.map((alert) => (
-                    <div
-                      key={alert.id}
-                      onClick={() => setView('feature4')}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-[#0b2b82]/40 transition-all cursor-pointer space-y-1.5"
+                {highRiskAlertsSnapshot.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-700">No High-Risk Escalations Logged</p>
+                    <p className="text-[11px] text-slate-500">Add a high-risk patient alert or open the Follow-Up Alert Desk.</p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('alert')}
+                      className="px-3.5 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg cursor-pointer"
                     >
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 text-xs">{alert.patientName}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
-                          Risk Score: {alert.riskScore}/100 ({alert.riskLevel})
-                        </span>
+                      + Add High-Risk Alert
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {highRiskAlertsSnapshot.map((alert) => (
+                      <div
+                        key={alert.id}
+                        onClick={() => setView('feature4')}
+                        className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-[#0b2b82]/40 transition-all cursor-pointer space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 text-xs">{alert.patientName}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                            Risk Score: {alert.riskScore}/100 ({alert.riskLevel})
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-rose-800">{alert.trigger}</p>
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                          <span>Reported by: {alert.ashaWorker}</span>
+                          <span className="font-semibold text-[#0b2b82]">{alert.status}</span>
+                        </div>
                       </div>
-                      <p className="text-xs font-semibold text-rose-800">{alert.trigger}</p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                        <span>Reported by: {alert.ashaWorker}</span>
-                        <span className="font-semibold text-[#0b2b82]">{alert.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button
@@ -31110,7 +38410,7 @@ function HospitalOverview({ setView, currentUser }) {
             </div>
           </div>
 
-          {/* SECTION 4: DEPARTMENT READINESS TABLE & HOSPITAL WORKSPACE GATEWAYS (2 Columns) */}
+          {/* SECTION 4: DEPARTMENT READINESS TABLE & HOSPITAL WORKSPACE GATEWAYS */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Department Readiness Table */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
@@ -31119,47 +38419,65 @@ function HospitalOverview({ setView, currentUser }) {
                   <h3 className="text-base font-bold text-slate-900">Departmental Bed &amp; Triage Readiness</h3>
                   <p className="text-xs text-slate-500">Real-time specialty unit status across {hospitalProfile.facilityName}</p>
                 </div>
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
-                  4 Core Units
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('department')}
+                  className="px-3 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+                >
+                  + Add Unit
+                </button>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">Specialty Department</th>
-                      <th className="p-3">Bed Occupancy</th>
-                      <th className="p-3">OPD / ER Wait</th>
-                      <th className="p-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {departmentReadinessList.map((d, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80">
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900">{d.dept}</div>
-                          <div className="text-[11px] text-slate-500">Unit Head: {d.head}</div>
-                        </td>
-                        <td className="p-3 font-semibold text-slate-800">{d.beds}</td>
-                        <td className="p-3 text-slate-600">{d.waitTime}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            d.status === 'High Load'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          }`}>
-                            {d.status}
-                          </span>
-                        </td>
+              {departmentReadinessList.length === 0 ? (
+                <div className="p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center space-y-2">
+                  <p className="text-xs font-bold text-slate-700">No Specialty Departments Added Yet</p>
+                  <p className="text-[11px] text-slate-500">Add hospital specialty units (e.g. Emergency, General Medicine, ICU, Maternity) to track bed occupancy and wait times.</p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('department')}
+                    className="px-3.5 py-1.5 bg-[#0b2b82] text-white text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    + Add Specialty Department
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="p-3">Specialty Department</th>
+                        <th className="p-3">Bed Occupancy</th>
+                        <th className="p-3">OPD / ER Wait</th>
+                        <th className="p-3">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {departmentReadinessList.map((d, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/80">
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900">{d.dept}</div>
+                            <div className="text-[11px] text-slate-500">Unit Head: {d.head}</div>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-800">{d.beds}</td>
+                          <td className="p-3 text-slate-600">{d.waitTime}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              d.status === 'High Load'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              {d.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
-            {/* Hospital Workspace Modules Directory (2x2 Grid of the 4 Hospital Views) */}
+            {/* Hospital Workspace Modules Directory */}
             <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Authorized Hospital Facility Modules</h3>
@@ -31229,6 +38547,186 @@ function HospitalOverview({ setView, currentUser }) {
           </div>
         </>
       )}
+
+      {/* MODALS FOR REAL HOSPITAL FACILITY DATA ENTRY */}
+      {activeModal === 'profile' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit Hospital Profile &amp; Bed Capacity</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Hospital Legal Name *</label>
+                  <input type="text" required value={profileForm.facilityName} onChange={(e) => setProfileForm({ ...profileForm, facilityName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">ABDM HFR Hospital ID *</label>
+                  <input type="text" required value={profileForm.hospitalId} onChange={(e) => setProfileForm({ ...profileForm, hospitalId: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Hospital Tier *</label>
+                  <input type="text" required value={profileForm.tier} onChange={(e) => setProfileForm({ ...profileForm, tier: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Medical Superintendent *</label>
+                  <input type="text" required value={profileForm.medicalSuperintendent} onChange={(e) => setProfileForm({ ...profileForm, medicalSuperintendent: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Switchboard / Helpline *</label>
+                  <input type="text" required value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Total Inpatient Beds</label>
+                  <input type="number" min="0" placeholder="e.g. 200" value={profileForm.totalBeds} onChange={(e) => setProfileForm({ ...profileForm, totalBeds: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Occupied Inpatient Beds</label>
+                  <input type="number" min="0" placeholder="e.g. 140" value={profileForm.occupiedBeds} onChange={(e) => setProfileForm({ ...profileForm, occupiedBeds: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Total ICU Beds</label>
+                  <input type="number" min="0" placeholder="e.g. 20" value={profileForm.icuTotal} onChange={(e) => setProfileForm({ ...profileForm, icuTotal: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Available ICU Beds</label>
+                  <input type="number" min="0" placeholder="e.g. 8" value={profileForm.icuAvailable} onChange={(e) => setProfileForm({ ...profileForm, icuAvailable: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">PM-JAY Code</label>
+                  <input type="text" placeholder="e.g. PMJAY-JH-0042" value={profileForm.pmjayCode} onChange={(e) => setProfileForm({ ...profileForm, pmjayCode: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Oxygen Capacity</label>
+                  <input type="text" placeholder="e.g. 1 PSA Plant (1000 LPM)" value={profileForm.oxygenCapacity} onChange={(e) => setProfileForm({ ...profileForm, oxygenCapacity: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Emergency Casualty Bays</label>
+                  <input type="text" placeholder="e.g. 12 / 12 Operational" value={profileForm.emergencyBays} onChange={(e) => setProfileForm({ ...profileForm, emergencyBays: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Save Hospital Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'referral' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Log Inbound Patient Referral</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddReferral} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Name &amp; Age *</label>
+                <input type="text" required placeholder="e.g. Mohan Kumar (52y/M)" value={referralForm.patientName} onChange={(e) => setReferralForm({ ...referralForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Clinical Condition / Diagnosis *</label>
+                <input type="text" required placeholder="e.g. Acute Chest Pain / Suspected ACS" value={referralForm.condition} onChange={(e) => setReferralForm({ ...referralForm, condition: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Referring Facility *</label>
+                <input type="text" required placeholder="e.g. PHC Katkamsandi" value={referralForm.fromFacility} onChange={(e) => setReferralForm({ ...referralForm, fromFacility: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Urgency</label>
+                  <select value={referralForm.urgency} onChange={(e) => setReferralForm({ ...referralForm, urgency: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="EMERGENCY">EMERGENCY</option>
+                    <option value="PRIORITY">PRIORITY</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Bed Allotment</label>
+                  <input type="text" placeholder="e.g. ICU Bed #02" value={referralForm.bedStatus} onChange={(e) => setReferralForm({ ...referralForm, bedStatus: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Referral</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'alert' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Log High-Risk Escalation Alert</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddAlert} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Name *</label>
+                <input type="text" required placeholder="e.g. Sita Devi (P-201)" value={alertForm.patientName} onChange={(e) => setAlertForm({ ...alertForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Clinical Trigger / Vital Deterioration *</label>
+                <input type="text" required placeholder="e.g. BP 170/110 mmHg + Severe Headache" value={alertForm.trigger} onChange={(e) => setAlertForm({ ...alertForm, trigger: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Risk Score (0-100)</label>
+                  <input type="number" min="1" max="100" value={alertForm.riskScore} onChange={(e) => setAlertForm({ ...alertForm, riskScore: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Reported By</label>
+                  <input type="text" placeholder="e.g. ASHA Field Worker" value={alertForm.ashaWorker} onChange={(e) => setAlertForm({ ...alertForm, ashaWorker: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-rose-600 text-white font-bold cursor-pointer">Add Alert</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'department' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Specialty Department Unit</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddDept} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Department Name *</label>
+                <input type="text" required placeholder="e.g. General Medicine & Ward" value={deptForm.dept} onChange={(e) => setDeptForm({ ...deptForm, dept: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Unit Head / HOD *</label>
+                <input type="text" required placeholder="e.g. Dr. A. K. Verma" value={deptForm.head} onChange={(e) => setDeptForm({ ...deptForm, head: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Bed Occupancy *</label>
+                  <input type="text" required placeholder="e.g. 18 / 25 Occupied" value={deptForm.beds} onChange={(e) => setDeptForm({ ...deptForm, beds: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Average Wait Time</label>
+                  <input type="text" placeholder="e.g. 10 mins" value={deptForm.waitTime} onChange={(e) => setDeptForm({ ...deptForm, waitTime: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Department</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -31236,13 +38734,17 @@ function HospitalOverview({ setView, currentUser }) {
 // ============================================================================
 // PHARMACY OVERVIEW (Medicine Shop Facility Exclusive Overview)
 // ============================================================================
-function PharmacyOverview({ setView, currentUser }) {
-  const [activeShopId, setActiveShopId] = useState((currentUser && currentUser.shopId) || 'shop_01');
+function PharmacyOverview({ setView, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
+  const customData = currentUser?.customData || {};
+
+  const [activeShopId, setActiveShopId] = useState((currentUser && currentUser.shopId) || (isPrototype ? 'shop_01' : 'real_shop'));
   const [allShops, setAllShops] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isPrototype);
   const [toastMsg, setToastMsg] = useState(null);
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'sku' | 'order_req' | 'batch'
 
   // Interactive Store Control Toggles
   const [isShopOpen, setIsShopOpen] = useState(true);
@@ -31255,23 +38757,172 @@ function PharmacyOverview({ setView, currentUser }) {
   };
 
   const pharmacyProfile = {
-    facilityName: (currentUser && (currentUser.facilityName || currentUser.name)) || 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi',
-    pharmacyId: (currentUser && currentUser.pharmacyId) || 'HFR-PH-JH-2026-0842',
-    abhaId: (currentUser && currentUser.abhaId) || 'pharmacy.katkamsandi@abdm',
-    drugLicenseNo: (currentUser && currentUser.drugLicenseNo) || 'JH-HAZ-20B/21B-2024-0891',
-    janAushadhiCode: (currentUser && currentUser.janAushadhiCode) || 'PMBJK-JH-HAZ-0412',
-    gstin: (currentUser && currentUser.gstin) || '20AABCP4821M1Z5',
-    ownerName: (currentUser && currentUser.ownerName) || 'Rajesh Kumar Barnwal',
-    pharmacistName: (currentUser && currentUser.pharmacistName) || 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)',
-    timings: (currentUser && currentUser.timings) || '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Counter',
-    address: (currentUser && currentUser.address) || 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319',
-    coordinates: (currentUser && currentUser.coordinates) || '23.9980° N, 85.3450° E',
-    phone: (currentUser && currentUser.phone) || '+91-94311-88201',
-    email: (currentUser && currentUser.email) || 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in',
-    coldChainTemp: '4.4°C (WHO Safe Range: 2.0°C – 8.0°C)'
+    facilityName: (currentUser && (currentUser.facilityName || currentUser.name)) || (isPrototype ? 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi' : 'Registered Medicine Shop'),
+    pharmacyId: (currentUser && currentUser.pharmacyId) || (isPrototype ? 'HFR-PH-JH-2026-0842' : 'Not added'),
+    abhaId: (currentUser && currentUser.abhaId) || (isPrototype ? 'pharmacy.katkamsandi@abdm' : 'Not added'),
+    drugLicenseNo: (currentUser && currentUser.drugLicenseNo) || (isPrototype ? 'JH-HAZ-20B/21B-2024-0891' : 'Not added'),
+    janAushadhiCode: (currentUser && currentUser.janAushadhiCode) || (isPrototype ? 'PMBJK-JH-HAZ-0412' : 'Not added'),
+    gstin: (currentUser && currentUser.gstin) || (isPrototype ? '20AABCP4821M1Z5' : 'Not added'),
+    ownerName: (currentUser && currentUser.ownerName) || (isPrototype ? 'Rajesh Kumar Barnwal' : 'Not added'),
+    pharmacistName: (currentUser && currentUser.pharmacistName) || (isPrototype ? 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)' : 'Not added'),
+    timings: (currentUser && currentUser.timings) || (isPrototype ? '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Counter' : 'Not added'),
+    address: (currentUser && currentUser.address) || (isPrototype ? 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319' : 'Not added'),
+    coordinates: (currentUser && currentUser.coordinates) || (isPrototype ? '23.9980° N, 85.3450° E' : 'Not added'),
+    phone: (currentUser && currentUser.phone) || (isPrototype ? '+91-94311-88201' : 'Not added'),
+    email: (currentUser && currentUser.email) || (isPrototype ? 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in' : 'Not added'),
+    coldChainTemp: (currentUser && currentUser.coldChainTemp) || (isPrototype ? '4.4°C (WHO Safe Range: 2.0°C – 8.0°C)' : 'Not calibrated')
+  };
+
+  const [profileForm, setProfileForm] = useState({
+    facilityName: currentUser?.facilityName || currentUser?.name || '',
+    ownerName: currentUser?.ownerName || '',
+    pharmacistName: currentUser?.pharmacistName || '',
+    drugLicenseNo: currentUser?.drugLicenseNo || '',
+    pharmacyId: currentUser?.pharmacyId || '',
+    janAushadhiCode: currentUser?.janAushadhiCode || '',
+    gstin: currentUser?.gstin || '',
+    timings: currentUser?.timings || '',
+    phone: currentUser?.phone || '',
+    address: currentUser?.address || '',
+    coordinates: currentUser?.coordinates || '',
+    coldChainTemp: currentUser?.coldChainTemp || ''
+  });
+
+  const [skuForm, setSkuForm] = useState({
+    medicineName: '',
+    genericName: '',
+    dosageForm: 'Tablet',
+    strength: '500mg',
+    quantity: '',
+    minBuffer: '30',
+    price: '',
+    batchNo: ''
+  });
+
+  const [orderReqForm, setOrderReqForm] = useState({
+    patientName: '',
+    patientPhone: '',
+    medicineName: '',
+    quantityRequested: '10',
+    prescriptionRef: '',
+    urgency: 'Routine Refill'
+  });
+
+  const [batchForm, setBatchForm] = useState({
+    batchNo: '',
+    medicine: '',
+    expiryDate: '',
+    daysRemaining: '45 Days',
+    qty: '',
+    action: 'FEFO Priority Dispense'
+  });
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        name: profileForm.facilityName || currentUser.name,
+        facilityName: profileForm.facilityName || currentUser.facilityName,
+        ownerName: profileForm.ownerName,
+        pharmacistName: profileForm.pharmacistName,
+        drugLicenseNo: profileForm.drugLicenseNo,
+        pharmacyId: profileForm.pharmacyId,
+        janAushadhiCode: profileForm.janAushadhiCode,
+        gstin: profileForm.gstin,
+        timings: profileForm.timings,
+        phone: profileForm.phone,
+        address: profileForm.address,
+        coordinates: profileForm.coordinates,
+        coldChainTemp: profileForm.coldChainTemp
+      });
+    }
+    setActiveModal(null);
+    triggerToast('Pharmacy profile updated.');
+  };
+
+  const handleAddSku = (e) => {
+    e.preventDefault();
+    if (!skuForm.medicineName.trim()) return;
+    const qty = Number(skuForm.quantity || 0);
+    const newItem = {
+      inventoryId: `SKU-${Date.now().toString().slice(-4)}`,
+      medicineName: skuForm.medicineName.trim(),
+      genericName: skuForm.genericName.trim() || skuForm.medicineName.trim(),
+      dosageForm: skuForm.dosageForm,
+      strength: skuForm.strength,
+      quantity: qty,
+      minBuffer: Number(skuForm.minBuffer || 30),
+      status: qty <= 0 ? 'out_of_stock' : 'in_stock',
+      price: Number(skuForm.price || 20),
+      batchNo: skuForm.batchNo.trim() || 'BATCH-NEW'
+    };
+    if (onUpdateUser && currentUser) {
+      const nextInv = [newItem, ...(customData.inventory || [])];
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, inventory: nextInv }
+      });
+    }
+    setSkuForm({ medicineName: '', genericName: '', dosageForm: 'Tablet', strength: '500mg', quantity: '', minBuffer: '30', price: '', batchNo: '' });
+    setActiveModal(null);
+    triggerToast(`Added ${newItem.medicineName} to store catalog.`);
+  };
+
+  const handleAddOrderReq = (e) => {
+    e.preventDefault();
+    if (!orderReqForm.patientName.trim() || !orderReqForm.medicineName.trim()) return;
+    const newOrd = {
+      orderId: `ORD-PH-${Date.now().toString().slice(-4)}`,
+      patientName: orderReqForm.patientName.trim(),
+      patientPhone: orderReqForm.patientPhone.trim() || 'Not provided',
+      medicineName: orderReqForm.medicineName.trim(),
+      quantityRequested: Number(orderReqForm.quantityRequested || 10),
+      prescriptionRef: orderReqForm.prescriptionRef.trim() || 'Walk-in / Direct e-Rx',
+      requestedAt: new Date().toISOString(),
+      status: 'requested',
+      urgency: orderReqForm.urgency
+    };
+    if (onUpdateUser && currentUser) {
+      const nextOrds = [newOrd, ...(customData.orders || [])];
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, orders: nextOrds }
+      });
+    }
+    setOrderReqForm({ patientName: '', patientPhone: '', medicineName: '', quantityRequested: '10', prescriptionRef: '', urgency: 'Routine Refill' });
+    setActiveModal(null);
+    triggerToast(`Logged order request for ${newOrd.patientName}.`);
+  };
+
+  const handleAddBatch = (e) => {
+    e.preventDefault();
+    if (!batchForm.batchNo.trim() || !batchForm.medicine.trim()) return;
+    const newBatch = {
+      batchNo: batchForm.batchNo.trim(),
+      medicine: batchForm.medicine.trim(),
+      expiryDate: batchForm.expiryDate.trim() || 'Upcoming',
+      daysRemaining: batchForm.daysRemaining.trim() || '30 Days',
+      qty: batchForm.qty.trim() || '50 Units',
+      action: batchForm.action
+    };
+    if (onUpdateUser && currentUser) {
+      const nextBatches = [newBatch, ...(customData.nearExpiryBatches || [])];
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, nearExpiryBatches: nextBatches }
+      });
+    }
+    setBatchForm({ batchNo: '', medicine: '', expiryDate: '', daysRemaining: '45 Days', qty: '', action: 'FEFO Priority Dispense' });
+    setActiveModal(null);
+    triggerToast(`Added batch ${newBatch.batchNo} to FEFO monitor.`);
   };
 
   const fetchPharmacyData = async (shopIdToLoad = activeShopId) => {
+    if (!isPrototype) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [shopsRes, invRes, ordRes] = await Promise.all([
@@ -31300,12 +38951,21 @@ function PharmacyOverview({ setView, currentUser }) {
 
   useEffect(() => {
     fetchPharmacyData(activeShopId);
-  }, [activeShopId]);
+  }, [activeShopId, isPrototype]);
 
-  // Supplementary realistic Stock-Out & Low-Stock items so the shop owner always sees actionable warnings
+  // Supplementary realistic Stock-Out & Low-Stock items for Prototype Demo mode only
   const [localAlertOverrides, setLocalAlertOverrides] = useState({});
 
   const combinedInventory = useMemo(() => {
+    if (!isPrototype) {
+      const userItems = Array.isArray(customData.inventory) ? [...customData.inventory] : [];
+      return userItems.map((item) => {
+        if (localAlertOverrides[item.inventoryId]) {
+          return { ...item, ...localAlertOverrides[item.inventoryId] };
+        }
+        return item;
+      });
+    }
     const baseItems = Array.isArray(inventory) ? [...inventory] : [];
     const supplementalAlerts = [
       {
@@ -31383,7 +39043,7 @@ function PharmacyOverview({ setView, currentUser }) {
       }
       return item;
     });
-  }, [inventory, localAlertOverrides]);
+  }, [inventory, localAlertOverrides, isPrototype, customData.inventory]);
 
   const stockOutItems = useMemo(
     () => combinedInventory.filter((i) => i.status === 'out_of_stock' || Number(i.quantity || 0) <= 0),
@@ -31398,10 +39058,19 @@ function PharmacyOverview({ setView, currentUser }) {
     [combinedInventory]
   );
 
-  // Combine API orders with realistic fallback orders if API has fewer than 3 orders
+  // Combine API orders with realistic fallback orders if Prototype Mode
   const [localOrderStatuses, setLocalOrderStatuses] = useState({});
 
   const displayOrders = useMemo(() => {
+    if (!isPrototype) {
+      const userOrders = Array.isArray(customData.orders) ? [...customData.orders] : [];
+      return userOrders.map((ord) => {
+        if (localOrderStatuses[ord.orderId]) {
+          return { ...ord, ...localOrderStatuses[ord.orderId] };
+        }
+        return ord;
+      });
+    }
     const baseOrders = Array.isArray(orders) ? [...orders] : [];
     const fallbackOrders = [
       {
@@ -31456,7 +39125,7 @@ function PharmacyOverview({ setView, currentUser }) {
       }
       return ord;
     });
-  }, [orders, localOrderStatuses]);
+  }, [orders, localOrderStatuses, isPrototype, customData.orders]);
 
   // Quick Restock Handler for Stock-Out & Less-Stock items
   const handleQuickRestock = async (item, addQty = 100) => {
@@ -31466,7 +39135,15 @@ function PharmacyOverview({ setView, currentUser }) {
       [item.inventoryId]: { quantity: newQty, status: 'in_stock' }
     }));
 
-    if (!String(item.inventoryId).startsWith('sup_')) {
+    if (!isPrototype && onUpdateUser && currentUser) {
+      const updatedInv = (customData.inventory || []).map((i) =>
+        i.inventoryId === item.inventoryId ? { ...i, quantity: newQty, status: 'in_stock' } : i
+      );
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, inventory: updatedInv }
+      });
+    } else if (isPrototype && !String(item.inventoryId).startsWith('sup_')) {
       try {
         await fetch(getApiUrl(`/api/shop/${activeShopId}/inventory/${item.inventoryId}`), {
           method: 'PUT',
@@ -31502,7 +39179,15 @@ function PharmacyOverview({ setView, currentUser }) {
       [ord.orderId]: { status: newStatus, ownerNotes: notes }
     }));
 
-    if (!String(ord.orderId).startsWith('ORD-PH-')) {
+    if (!isPrototype && onUpdateUser && currentUser) {
+      const updatedOrds = (customData.orders || []).map((o) =>
+        o.orderId === ord.orderId ? { ...o, status: newStatus, ownerNotes: notes } : o
+      );
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, orders: updatedOrds }
+      });
+    } else if (isPrototype && !String(ord.orderId).startsWith('ORD-PH-')) {
       try {
         await fetch(getApiUrl(`/api/shop/${activeShopId}/orders/${ord.orderId}`), {
           method: 'PUT',
@@ -31528,32 +39213,34 @@ function PharmacyOverview({ setView, currentUser }) {
 
   const pendingOrdersCount = displayOrders.filter((o) => o.status === 'requested').length;
 
-  const nearExpiryBatches = [
-    {
-      batchNo: 'CEF-2409X',
-      medicine: 'Ceftriaxone 1g IV Injection',
-      expiryDate: '15 Nov 2026',
-      daysRemaining: '36 Days',
-      qty: '42 Vials',
-      action: 'FEFO Priority Dispense'
-    },
-    {
-      batchNo: 'AZM-2410B',
-      medicine: 'Azithromycin Oral Suspension 200mg/5mL',
-      expiryDate: '28 Nov 2026',
-      daysRemaining: '49 Days',
-      qty: '18 Bottles',
-      action: 'FEFO Priority Dispense'
-    },
-    {
-      batchNo: 'MET-2411D',
-      medicine: 'Metformin Hydrochloride 500mg SR',
-      expiryDate: '12 Dec 2026',
-      daysRemaining: '63 Days',
-      qty: '140 Strips',
-      action: 'Normal Rotation'
-    }
-  ];
+  const nearExpiryBatches = isPrototype
+    ? [
+        {
+          batchNo: 'CEF-2409X',
+          medicine: 'Ceftriaxone 1g IV Injection',
+          expiryDate: '15 Nov 2026',
+          daysRemaining: '36 Days',
+          qty: '42 Vials',
+          action: 'FEFO Priority Dispense'
+        },
+        {
+          batchNo: 'AZM-2410B',
+          medicine: 'Azithromycin Oral Suspension 200mg/5mL',
+          expiryDate: '28 Nov 2026',
+          daysRemaining: '49 Days',
+          qty: '18 Bottles',
+          action: 'FEFO Priority Dispense'
+        },
+        {
+          batchNo: 'MET-2411D',
+          medicine: 'Metformin Hydrochloride 500mg SR',
+          expiryDate: '12 Dec 2026',
+          daysRemaining: '63 Days',
+          qty: '140 Strips',
+          action: 'Normal Rotation'
+        }
+      ]
+    : (customData.nearExpiryBatches || []);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
@@ -31602,7 +39289,7 @@ function PharmacyOverview({ setView, currentUser }) {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            {allShops.length > 0 && (
+            {isPrototype && allShops.length > 0 && (
               <select
                 value={activeShopId}
                 onChange={(e) => setActiveShopId(e.target.value)}
@@ -31617,10 +39304,10 @@ function PharmacyOverview({ setView, currentUser }) {
             )}
             <button
               type="button"
-              onClick={() => fetchPharmacyData(activeShopId)}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+              onClick={() => setActiveModal('sku')}
+              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
             >
-              Refresh Telemetry
+              + Add Medicine SKU
             </button>
             <button
               type="button"
@@ -31655,10 +39342,17 @@ function PharmacyOverview({ setView, currentUser }) {
                   {pharmacyProfile.facilityName}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  ABDM HFR Facility Registry &bull; State Drug Control Directorate, Jharkhand
+                  ABDM HFR Facility Registry &bull; State Drug Control Directorate
                 </p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveModal('profile')}
+              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+            >
+              Edit Profile
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -31923,14 +39617,27 @@ function PharmacyOverview({ setView, currentUser }) {
                 Depleted medicines (0 units in store) requiring urgent replenishment
               </p>
             </div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
-              {stockOutItems.length} Stock-Out
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveModal('sku')}
+              className="text-xs font-bold px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+            >
+              + Log SKU / Stock
+            </button>
           </div>
 
           {stockOutItems.length === 0 ? (
-            <div className="p-6 text-center bg-emerald-50/50 rounded-xl border border-emerald-200 text-xs text-emerald-800 font-semibold">
-              Zero stock-out medicines! All catalog items have positive stock on hand.
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <p className="text-xs font-bold text-slate-700">
+                {combinedInventory.length === 0 ? 'No store medicine SKUs added yet' : 'Zero stock-out medicines! All catalog items have positive stock on hand.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('sku')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Medicine SKU
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -31985,8 +39692,17 @@ function PharmacyOverview({ setView, currentUser }) {
           </div>
 
           {lowStockItems.length === 0 ? (
-            <div className="p-6 text-center bg-emerald-50/50 rounded-xl border border-emerald-200 text-xs text-emerald-800 font-semibold">
-              All in-stock medicines are above minimum safety buffer levels.
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <p className="text-xs font-bold text-slate-700">
+                {combinedInventory.length === 0 ? 'No low-stock medicines recorded yet' : 'All in-stock medicines are above minimum safety buffer levels.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('sku')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Medicine SKU
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -32044,6 +39760,13 @@ function PharmacyOverview({ setView, currentUser }) {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
+              onClick={() => setActiveModal('order_req')}
+              className="px-3 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+            >
+              + Log Order Request
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 const next = !isAcceptingOrders;
                 setIsAcceptingOrders(next);
@@ -32071,86 +39794,100 @@ function PharmacyOverview({ setView, currentUser }) {
           </div>
         </div>
 
-        <div className="space-y-3">
-          {displayOrders.map((ord) => {
-            const isAccepted = ord.status === 'confirmed';
-            const isRejected = ord.status === 'cancelled';
-            return (
-              <div
-                key={ord.orderId}
-                className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-[#0b2b82]">{ord.orderId}</span>
-                    <strong className="text-slate-900 text-sm">{ord.patientName}</strong>
-                    <span className="text-slate-500 font-mono">({ord.patientPhone})</span>
-                    {ord.urgency && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200">
-                        {ord.urgency}
+        {displayOrders.length === 0 ? (
+          <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+            <p className="text-xs font-bold text-slate-700">No medicine reservation requests received yet</p>
+            <p className="text-[11px] text-slate-500">Log a walk-in or teleconsult prescription reservation request below.</p>
+            <button
+              type="button"
+              onClick={() => setActiveModal('order_req')}
+              className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+            >
+              + Log Order Request
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayOrders.map((ord) => {
+              const isAccepted = ord.status === 'confirmed';
+              const isRejected = ord.status === 'cancelled';
+              return (
+                <div
+                  key={ord.orderId}
+                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-[#0b2b82]">{ord.orderId}</span>
+                      <strong className="text-slate-900 text-sm">{ord.patientName}</strong>
+                      <span className="text-slate-500 font-mono">({ord.patientPhone})</span>
+                      {ord.urgency && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200">
+                          {ord.urgency}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded border ${
+                          isAccepted
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : isRejected
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {isAccepted ? 'Accepted (24h Hold)' : isRejected ? 'Rejected' : 'Pending Decision'}
                       </span>
-                    )}
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded border ${
-                        isAccepted
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : isRejected
-                            ? 'bg-rose-50 text-rose-800 border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}
-                    >
-                      {isAccepted ? 'Accepted (24h Hold)' : isRejected ? 'Rejected' : 'Pending Decision'}
-                    </span>
+                    </div>
+
+                    <div className="text-slate-700 font-medium">
+                      Medicine Requested: <strong className="text-slate-900">{ord.medicineName}</strong> &bull; Quantity: <strong className="text-[#0b2b82]">{ord.quantityRequested} units</strong>
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
+                      {ord.prescriptionRef && <span>e-Rx Ref: <strong>{ord.prescriptionRef}</strong></span>}
+                      <span>Requested: {new Date(ord.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {ord.ownerNotes && <span className="italic text-slate-600">&bull; {ord.ownerNotes}</span>}
+                    </div>
                   </div>
 
-                  <div className="text-slate-700 font-medium">
-                    Medicine Requested: <strong className="text-slate-900">{ord.medicineName}</strong> &bull; Quantity: <strong className="text-[#0b2b82]">{ord.quantityRequested} units</strong>
-                  </div>
-
-                  <div className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
-                    {ord.prescriptionRef && <span>e-Rx Ref: <strong>{ord.prescriptionRef}</strong></span>}
-                    <span>Requested: {new Date(ord.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    {ord.ownerNotes && <span className="italic text-slate-600">&bull; {ord.ownerNotes}</span>}
+                  {/* Accept / Reject Segmented Toggle */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => handleOrderDecision(ord, 'confirmed')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isAccepted
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Accept</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOrderDecision(ord, 'cancelled')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isRejected
+                            ? 'bg-rose-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-rose-700 hover:bg-rose-50'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Reject</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Accept / Reject Segmented Toggle */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => handleOrderDecision(ord, 'confirmed')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isAccepted
-                          ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'
-                      }`}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Accept</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOrderDecision(ord, 'cancelled')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isRejected
-                          ? 'bg-rose-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-rose-700 hover:bg-rose-50'
-                      }`}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      <span>Reject</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* SECTION 5: NEAR-EXPIRY BATCH AUDIT & AUTHORIZED PHARMACY WORKSPACES */}
@@ -32162,43 +39899,60 @@ function PharmacyOverview({ setView, currentUser }) {
               <h3 className="text-base font-bold text-slate-900">Near-Expiry Batch &amp; FEFO Compliance Monitor</h3>
               <p className="text-xs text-slate-500">First-Expiry-First-Out (FEFO) batch tracking for zero-wastage dispensing</p>
             </div>
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
-              CDSCO Schedule H/H1 Compliant
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveModal('batch')}
+              className="text-xs font-bold px-2.5 py-1 rounded bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white transition-colors cursor-pointer"
+            >
+              + Add Batch
+            </button>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="p-3">Batch &amp; Formulation</th>
-                  <th className="p-3">Expiry Window</th>
-                  <th className="p-3">Stock Qty</th>
-                  <th className="p-3">Protocol</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {nearExpiryBatches.map((b) => (
-                  <tr key={b.batchNo} className="hover:bg-slate-50/80">
-                    <td className="p-3">
-                      <div className="font-bold text-slate-900">{b.medicine}</div>
-                      <div className="text-[11px] font-mono text-slate-500">Batch: {b.batchNo}</div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-amber-800">{b.expiryDate}</div>
-                      <div className="text-[10px] text-slate-500">{b.daysRemaining}</div>
-                    </td>
-                    <td className="p-3 font-semibold text-slate-800">{b.qty}</td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0b2b82] border border-blue-200">
-                        {b.action}
-                      </span>
-                    </td>
+          {nearExpiryBatches.length === 0 ? (
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <p className="text-xs font-bold text-slate-700">No near-expiry batches logged yet</p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('batch')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Batch to FEFO Monitor
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="p-3">Batch &amp; Formulation</th>
+                    <th className="p-3">Expiry Window</th>
+                    <th className="p-3">Stock Qty</th>
+                    <th className="p-3">Protocol</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {nearExpiryBatches.map((b) => (
+                    <tr key={b.batchNo} className="hover:bg-slate-50/80">
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900">{b.medicine}</div>
+                        <div className="text-[11px] font-mono text-slate-500">Batch: {b.batchNo}</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold text-amber-800">{b.expiryDate}</div>
+                        <div className="text-[10px] text-slate-500">{b.daysRemaining}</div>
+                      </td>
+                      <td className="p-3 font-semibold text-slate-800">{b.qty}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0b2b82] border border-blue-200">
+                          {b.action}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Authorized Medicine Shop Modules (5 cols) */}
@@ -32255,6 +40009,175 @@ function PharmacyOverview({ setView, currentUser }) {
           </div>
         </div>
       </div>
+
+      {/* MODALS FOR REAL PHARMACY PROFILE & DATA ENTRY */}
+      {activeModal === 'profile' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit Pharmacy Profile &amp; Credentials</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Medicine Shop / Pharmacy Name *</label>
+                  <input type="text" required value={profileForm.facilityName} onChange={(e) => setProfileForm({ ...profileForm, facilityName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Proprietor / Owner Name *</label>
+                  <input type="text" required value={profileForm.ownerName} onChange={(e) => setProfileForm({ ...profileForm, ownerName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Registered Pharmacist *</label>
+                  <input type="text" required value={profileForm.pharmacistName} onChange={(e) => setProfileForm({ ...profileForm, pharmacistName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Drug License No. (20B/21B) *</label>
+                  <input type="text" required value={profileForm.drugLicenseNo} onChange={(e) => setProfileForm({ ...profileForm, drugLicenseNo: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">HFR Pharmacy ID</label>
+                  <input type="text" placeholder="e.g. HFR-PH-JH-2026-0842" value={profileForm.pharmacyId} onChange={(e) => setProfileForm({ ...profileForm, pharmacyId: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jan Aushadhi Code</label>
+                  <input type="text" placeholder="e.g. PMBJK-JH-0412" value={profileForm.janAushadhiCode} onChange={(e) => setProfileForm({ ...profileForm, janAushadhiCode: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">GSTIN</label>
+                  <input type="text" placeholder="e.g. 20AABCP4821M1Z5" value={profileForm.gstin} onChange={(e) => setProfileForm({ ...profileForm, gstin: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operating Timings</label>
+                  <input type="text" placeholder="e.g. 08:00 AM - 10:00 PM" value={profileForm.timings} onChange={(e) => setProfileForm({ ...profileForm, timings: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Contact Helpline</label>
+                  <input type="text" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Shop Address</label>
+                  <input type="text" value={profileForm.address} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'sku' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Medicine SKU to Store Inventory</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddSku} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Medicine Name *</label>
+                <input type="text" required placeholder="e.g. Paracetamol 650mg" value={skuForm.medicineName} onChange={(e) => setSkuForm({ ...skuForm, medicineName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Generic Composition</label>
+                <input type="text" placeholder="e.g. Acetaminophen IP 650mg" value={skuForm.genericName} onChange={(e) => setSkuForm({ ...skuForm, genericName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Quantity in Stock *</label>
+                  <input type="number" min="0" required placeholder="0 for stock-out" value={skuForm.quantity} onChange={(e) => setSkuForm({ ...skuForm, quantity: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Unit Price (₹) *</label>
+                  <input type="number" min="0" step="0.5" required placeholder="e.g. 18" value={skuForm.price} onChange={(e) => setSkuForm({ ...skuForm, price: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add SKU</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'order_req' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Log Customer Medicine Order Request</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddOrderReq} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient / Customer Name *</label>
+                <input type="text" required placeholder="e.g. Mohan Lal" value={orderReqForm.patientName} onChange={(e) => setOrderReqForm({ ...orderReqForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Phone</label>
+                <input type="text" placeholder="e.g. +91-9876543210" value={orderReqForm.patientPhone} onChange={(e) => setOrderReqForm({ ...orderReqForm, patientPhone: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Medicine Requested *</label>
+                <input type="text" required placeholder="e.g. Telmisartan 40mg" value={orderReqForm.medicineName} onChange={(e) => setOrderReqForm({ ...orderReqForm, medicineName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Quantity *</label>
+                  <input type="number" min="1" required value={orderReqForm.quantityRequested} onChange={(e) => setOrderReqForm({ ...orderReqForm, quantityRequested: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">e-Rx Reference</label>
+                  <input type="text" placeholder="e.g. RX-2026-101" value={orderReqForm.prescriptionRef} onChange={(e) => setOrderReqForm({ ...orderReqForm, prescriptionRef: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Order Request</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'batch' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Batch to FEFO Expiry Monitor</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddBatch} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Medicine Name *</label>
+                <input type="text" required placeholder="e.g. Azithromycin 500mg" value={batchForm.medicine} onChange={(e) => setBatchForm({ ...batchForm, medicine: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Batch Number *</label>
+                  <input type="text" required placeholder="e.g. AZM-2610" value={batchForm.batchNo} onChange={(e) => setBatchForm({ ...batchForm, batchNo: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Expiry Date *</label>
+                  <input type="text" required placeholder="e.g. 30 Nov 2026" value={batchForm.expiryDate} onChange={(e) => setBatchForm({ ...batchForm, expiryDate: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Stock Quantity *</label>
+                <input type="text" required placeholder="e.g. 25 Strips" value={batchForm.qty} onChange={(e) => setBatchForm({ ...batchForm, qty: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Batch</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -32264,332 +40187,445 @@ function PharmacyOverview({ setView, currentUser }) {
 // ==========================================
 function ScreenAshaServiceTracker({
   currentUser,
+  onUpdateUser,
   actorRole,
   onNavigateToFollowUps,
   onNavigateToTeleconsult,
   onBackToOverview,
   onBackToHome
 }) {
+  const isPrototype = currentUser?.isPrototype !== false;
+  const customData = currentUser?.customData || {};
+
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' | 'monthly' | 'yearly'
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [activeModal, setActiveModal] = useState(null); // 'case'
+  const [caseForm, setCaseForm] = useState({
+    patientName: '',
+    village: '',
+    category: 'Follow-Up Assessment',
+    intervention: '',
+    vitals: '',
+    doctor: '',
+    outcome: 'Solved • Stabilized'
+  });
 
-  const ashaName = currentUser?.name || 'Anita Devi';
-  const ashaId = currentUser?.ashaId || 'ASHA-JH-HZB-0142';
-  const subCenter = currentUser?.subCenter || 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)';
+  const ashaName = currentUser?.name || (isPrototype ? 'Anita Devi' : 'ASHA Field Worker');
+  const ashaId = currentUser?.ashaId || (isPrototype ? 'ASHA-JH-HZB-0142' : 'Not added');
+  const subCenter = currentUser?.subCenter || (isPrototype ? 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)' : 'Not added');
 
-  const TIMEFRAME_DATA = {
-    weekly: {
-      label: 'Weekly Cases Solved (Oct 04 – Oct 10, 2026)',
-      shortLabel: 'Weekly',
-      totalSolved: 14,
-      followUpCount: 8,
-      teleconsultCount: 4,
-      escalationCount: 2,
-      complianceRate: '100%',
-      incentiveEarned: '₹1,850',
-      cases: [
-        {
-          caseId: 'CS-W-901',
-          period: 'Today, 09:40 AM',
-          patientName: 'Ramesh Mahto (48M)',
-          village: 'Katkamsandi Bazar',
-          category: 'Follow-Up Assessment',
-          intervention: 'Post-PTCA home BP & pedal edema check; verified dual antiplatelet compliance',
-          vitals: 'BP 136/84 mmHg • SpO2 98% • Pulse 76 bpm',
-          doctor: 'Dr. Priya Sharma (MD Medicine)',
-          outcome: 'Resolved • Risk Score Reduced (78 → 58)'
-        },
-        {
-          caseId: 'CS-W-902',
-          period: 'Yesterday, 04:15 PM',
-          patientName: 'Sita Devi (27F • 32W ANC)',
-          village: 'Pelawal Tola',
-          category: 'Assisted Teleconsult',
-          intervention: 'Facilitated video consult with OB-GYN; uploaded HBNC strip & resting BP',
-          vitals: 'BP 138/88 mmHg • Hb 10.6 g/dL • FHR 142 bpm',
-          doctor: 'Dr. Anjali Verma (MS OB-GYN)',
-          outcome: 'Solved • Iron-Sucrose & Labetalol e-Rx Issued'
-        },
-        {
-          caseId: 'CS-W-903',
-          period: '08 Oct 2026',
-          patientName: 'Mangal Oraon (62M)',
-          village: 'Dhengura Gram Panchayat',
-          category: 'Assisted Teleconsult',
-          intervention: 'Khortha dialect translation for neurology teleconsult; supervised gait & speech test',
-          vitals: 'BP 142/86 mmHg • RBS 154 mg/dL • SpO2 97%',
-          doctor: 'Dr. Sameer K. Jha (DM Neurology)',
-          outcome: 'Solved • Physiotherapy & Statin Titration'
-        },
-        {
-          caseId: 'CS-W-904',
-          period: '07 Oct 2026',
-          patientName: 'Sunita Hansda (29F)',
-          village: 'Katkamsandi West',
-          category: 'Follow-Up Assessment',
-          intervention: 'Post-partum Day-14 maternal & newborn HBNC home visit; breastfeeding & cord check',
-          vitals: 'Mother BP 126/82 mmHg • Baby Wt 3.1 kg • Temp 98.4°F',
-          doctor: 'Dr. Rashmi Tiwari (OB-GYN)',
-          outcome: 'Solved • Mother & Neonate Healthy'
-        },
-        {
-          caseId: 'CS-W-905',
-          period: '06 Oct 2026',
-          patientName: 'Birsa Munda (64M)',
-          village: 'Pelawal South',
-          category: 'Emergency Escalation',
-          intervention: 'Detected acute SpO2 drop (88%) during home visit; initiated 108 ambulance referral to SBMC&H',
-          vitals: 'SpO2 88% → 95% on O2 • RR 28/min • BP 146/90',
-          doctor: 'Dr. Devendra Prasad (Pulmonology)',
-          outcome: 'Solved • Stabilized at SBMC&H Respiratory Ward'
-        },
-        {
-          caseId: 'CS-W-906',
-          period: '05 Oct 2026',
-          patientName: 'Kiran Kumari (6F)',
-          village: 'Katkamsandi East',
-          category: 'Assisted Teleconsult',
-          intervention: 'Pediatric acute fever teleconsult via ASHA tablet; dispensed ORS & paracetamol weight-dose',
-          vitals: 'Temp 100.2°F • SpO2 98% • Wt 18.2 kg',
-          doctor: 'Dr. Vikram Singh (MD Pediatrics)',
-          outcome: 'Solved • Afebrile in 24 Hours'
+  const userSolvedCases = Array.isArray(customData.solvedCases) ? customData.solvedCases : [];
+  const userFollowUpCases = userSolvedCases.filter((c) => c.category === 'Follow-Up Assessment');
+  const userTeleconsultCases = userSolvedCases.filter((c) => c.category === 'Assisted Teleconsult');
+  const userEscalationCases = userSolvedCases.filter((c) => c.category === 'Emergency Escalation');
+
+  const handleAddSolvedCase = (e) => {
+    e.preventDefault();
+    if (!caseForm.patientName.trim() || !caseForm.intervention.trim()) return;
+    const newCase = {
+      caseId: `CS-${Date.now().toString().slice(-4)}`,
+      period: 'Today',
+      patientName: caseForm.patientName.trim(),
+      village: caseForm.village.trim() || (currentUser?.villageCatchment || 'Assigned Village'),
+      category: caseForm.category,
+      intervention: caseForm.intervention.trim(),
+      vitals: caseForm.vitals.trim() || 'Vitals Verified',
+      doctor: caseForm.doctor.trim() || (currentUser?.medicalOfficer || 'PHC Medical Officer'),
+      outcome: caseForm.outcome.trim() || 'Solved'
+    };
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        customData: {
+          ...customData,
+          solvedCases: [newCase, ...userSolvedCases]
         }
-      ]
-    },
-    monthly: {
-      label: 'Monthly Cases Solved (October 2026 & Rolling 30-Day Ledger)',
-      shortLabel: 'Monthly',
-      totalSolved: 58,
-      followUpCount: 34,
-      teleconsultCount: 18,
-      escalationCount: 6,
-      complianceRate: '98.4%',
-      incentiveEarned: '₹7,400',
-      cases: [
-        {
-          caseId: 'CS-M-401',
-          period: 'Week 2, Oct 2026 (14 Cases)',
-          patientName: 'Ramesh Mahto, Sita Devi & 12 Others',
-          village: 'Katkamsandi & Pelawal Cluster',
-          category: 'Follow-Up Assessment',
-          intervention: '8 high-risk cardiac/ANC home follow-ups + 4 assisted specialist teleconsults + 2 referrals',
-          vitals: '100% Worker-Verified Digital Vitals Synced',
-          doctor: 'Dr. Priya Sharma & PHC Specialist Roster',
-          outcome: '14 / 14 Cases Solved This Week'
-        },
-        {
-          caseId: 'CS-M-402',
-          period: 'Week 1, Oct 2026 (16 Cases)',
-          patientName: 'Lakshmi Devi, Somra Munda & 14 Others',
-          village: 'Dhengura & Katkamsandi Bazar',
-          category: 'Assisted Teleconsult',
-          intervention: '9 door-to-door chronic hypertension/diabetes checks + 5 assisted video consults + 2 ANC registrations',
-          vitals: 'BP, RBS & Hb Strips Logged in ABDM',
-          doctor: 'Dr. Rajesh Verma & Dr. Anjali Verma',
-          outcome: '16 / 16 Cases Solved • Zero Missed Visits'
-        },
-        {
-          caseId: 'CS-M-403',
-          period: 'Week 4, Sep 2026 (15 Cases)',
-          patientName: 'Anita Devi (Stroke), Budhan Mahto & 13 Others',
-          village: 'Pelawal & Katkamsandi East',
-          category: 'Follow-Up Assessment',
-          intervention: 'Post-stroke neuro recovery checks, sputum TB DOTS verification & 5 pediatric teleconsults',
-          vitals: 'SpO2, BP & Adherence 98% Verified',
-          doctor: 'Dr. Sameer K. Jha & Dr. Vikram Singh',
-          outcome: '15 / 15 Cases Solved • 1 Safe Institutional Delivery'
-        },
-        {
-          caseId: 'CS-M-404',
-          period: 'Week 3, Sep 2026 (13 Cases)',
-          patientName: 'Champa Tirkey, Jageshwar Ram & 11 Others',
-          village: 'Katkamsandi Gram Panchayat',
-          category: 'Emergency Escalation',
-          intervention: 'High-risk preeclampsia stabilization, 4 teleconsults & 8 post-discharge surgical dressing follow-ups',
-          vitals: 'All Maternal & Cardiac Red Flags Cleared',
-          doctor: 'Dr. Rashmi Tiwari & Dr. Suresh Chandra',
-          outcome: '13 / 13 Cases Solved • Full Recovery'
-        }
-      ]
-    },
-    yearly: {
-      label: 'Yearly Cases Solved (FY 2026–2027 Annual Community Impact)',
-      shortLabel: 'Yearly',
-      totalSolved: 642,
-      followUpCount: 390,
-      teleconsultCount: 194,
-      escalationCount: 58,
-      complianceRate: '99.1%',
-      incentiveEarned: '₹86,500',
-      cases: [
-        {
-          caseId: 'CS-Y-2026-Q3',
-          period: 'Jul – Oct 2026 (Q3 • 178 Cases)',
-          patientName: 'Katkamsandi, Pelawal & Dhengura Catchment',
-          village: '3 Gram Panchayats (1,420 Households)',
-          category: 'Follow-Up Assessment',
-          intervention: '108 longitudinal high-risk follow-ups, 54 assisted teleconsultations & 16 emergency hospital referrals',
-          vitals: 'Zero Maternal Mortality • 99.2% Immunization',
-          doctor: 'PHC Katkamsandi & SBMC&H Hazaribagh',
-          outcome: '178 Cases Solved • Top Block ASHA Award'
-        },
-        {
-          caseId: 'CS-Y-2026-Q2',
-          period: 'Apr – Jun 2026 (Q2 • 164 Cases)',
-          patientName: 'Summer Heatwave & Vector Surveillance Beat',
-          village: 'Katkamsandi & Pelawal Villages',
-          category: 'Assisted Teleconsult',
-          intervention: '98 home dehydration/NCD follow-ups, 49 assisted teleconsults & 17 safe institutional deliveries',
-          vitals: '100% malaria/dengue slide & rapid kit sync',
-          doctor: 'Dr. Priya Sharma & District IDSP Unit',
-          outcome: '164 Cases Solved • 4.9★ Community Rating'
-        },
-        {
-          caseId: 'CS-Y-2026-Q1',
-          period: 'Jan – Mar 2026 (Q1 • 152 Cases)',
-          patientName: 'Winter Respiratory & Geriatric Care Drive',
-          village: 'Dhengura & Katkamsandi Cluster',
-          category: 'Follow-Up Assessment',
-          intervention: '94 geriatric COPD/cardiac home assessments, 46 specialist teleconsults & 12 cataract/FRU referrals',
-          vitals: 'Digital BP & Pulse Oximetry for 152 Cases',
-          doctor: 'Dr. Devendra Prasad & Dr. Rajesh Verma',
-          outcome: '152 Cases Solved • 100% Follow-Up Retention'
-        },
-        {
-          caseId: 'CS-Y-2025-Q4',
-          period: 'Oct – Dec 2025 (Q4 • 148 Cases)',
-          patientName: 'High-Risk Maternal & Newborn HBNC Cohort',
-          village: 'All 3 Catchment Panchayats',
-          category: 'Emergency Escalation',
-          intervention: '90 postnatal HBNC home visits, 45 assisted OB-GYN/pediatric teleconsults & 13 high-risk stabilizations',
-          vitals: 'Full ABDM FHIR Health Locker Linkage',
-          doctor: 'Dr. Anjali Verma & Smt. Rekha Tirkey (ANM)',
-          outcome: '148 Cases Solved • Commendation by Civil Surgeon'
-        }
-      ]
+      });
     }
+    setCaseForm({
+      patientName: '',
+      village: '',
+      category: 'Follow-Up Assessment',
+      intervention: '',
+      vitals: '',
+      doctor: '',
+      outcome: 'Solved • Stabilized'
+    });
+    setActiveModal(null);
   };
 
-  const PAST_FOLLOWUP_ASSESSMENTS = [
-    {
-      id: 'FA-2026-881',
-      date: '10 Oct 2026, 09:40 AM',
-      patientName: 'Ramesh Mahto (48M)',
-      condition: 'Post-PTCA Coronary Stent & Hypertension',
-      vitalsRecorded: 'BP: 136/84 mmHg • Pulse: 76 bpm • SpO2: 98%',
-      adherence: '4/4 Cardiac Meds Verified (Aspirin, Clopidogrel, Atorvastatin, Ramipril)',
-      riskDelta: 'Risk Score 78 → 58 (Stabilized)',
-      doctorNote: 'Reviewed by Dr. Priya Sharma — Continue weekly home BP check.'
-    },
-    {
-      id: 'FA-2026-874',
-      date: '08 Oct 2026, 11:20 AM',
-      patientName: 'Anita Devi (58F)',
-      condition: 'Ischemic Stroke Recovery & Left Hemiparesis',
-      vitalsRecorded: 'BP: 142/88 mmHg • RBS: 148 mg/dL • SpO2: 97%',
-      adherence: 'Physiotherapy exercises performed; Amlodipine & Ecosprin taken on time',
-      riskDelta: 'Risk Score 87 → 71 (Improving)',
-      doctorNote: 'Reviewed by Dr. Sameer K. Jha — Speech articulation improving.'
-    },
-    {
-      id: 'FA-2026-869',
-      date: '07 Oct 2026, 10:05 AM',
-      patientName: 'Sunita Hansda (29F)',
-      condition: 'Post-Partum Severe Preeclampsia Recovery',
-      vitalsRecorded: 'BP: 126/82 mmHg • Hb: 11.2 g/dL • No Pedal Edema',
-      adherence: 'IFA & Calcium supplementation verified; newborn weight 3.1 kg',
-      riskDelta: 'Risk Score 74 → 42 (Low Risk)',
-      doctorNote: 'Reviewed by Dr. Rashmi Tiwari — Cleared for routine monthly check.'
-    },
-    {
-      id: 'FA-2026-862',
-      date: '05 Oct 2026, 03:30 PM',
-      patientName: 'Birsa Munda (64M)',
-      condition: 'Chronic COPD & Type-2 Diabetes',
-      vitalsRecorded: 'SpO2: 95% • BP: 138/84 mmHg • Fasting Glucose: 132 mg/dL',
-      adherence: 'Tiova inhaler technique corrected by ASHA; Metformin compliance 100%',
-      riskDelta: 'Risk Score 82 → 60 (Controlled)',
-      doctorNote: 'Reviewed by Dr. Devendra Prasad — Good bronchodilator response.'
-    }
-  ];
+  const TIMEFRAME_DATA = isPrototype
+    ? {
+        weekly: {
+          label: 'Weekly Cases Solved (Oct 04 – Oct 10, 2026)',
+          shortLabel: 'Weekly',
+          totalSolved: 14,
+          followUpCount: 8,
+          teleconsultCount: 4,
+          escalationCount: 2,
+          complianceRate: '100%',
+          incentiveEarned: '₹1,850',
+          cases: [
+            {
+              caseId: 'CS-W-901',
+              period: 'Today, 09:40 AM',
+              patientName: 'Ramesh Mahto (48M)',
+              village: 'Katkamsandi Bazar',
+              category: 'Follow-Up Assessment',
+              intervention: 'Post-PTCA home BP & pedal edema check; verified dual antiplatelet compliance',
+              vitals: 'BP 136/84 mmHg • SpO2 98% • Pulse 76 bpm',
+              doctor: 'Dr. Priya Sharma (MD Medicine)',
+              outcome: 'Resolved • Risk Score Reduced (78 → 58)'
+            },
+            {
+              caseId: 'CS-W-902',
+              period: 'Yesterday, 04:15 PM',
+              patientName: 'Sita Devi (27F • 32W ANC)',
+              village: 'Pelawal Tola',
+              category: 'Assisted Teleconsult',
+              intervention: 'Facilitated video consult with OB-GYN; uploaded HBNC strip & resting BP',
+              vitals: 'BP 138/88 mmHg • Hb 10.6 g/dL • FHR 142 bpm',
+              doctor: 'Dr. Anjali Verma (MS OB-GYN)',
+              outcome: 'Solved • Iron-Sucrose & Labetalol e-Rx Issued'
+            },
+            {
+              caseId: 'CS-W-903',
+              period: '08 Oct 2026',
+              patientName: 'Mangal Oraon (62M)',
+              village: 'Dhengura Gram Panchayat',
+              category: 'Assisted Teleconsult',
+              intervention: 'Khortha dialect translation for neurology teleconsult; supervised gait & speech test',
+              vitals: 'BP 142/86 mmHg • RBS 154 mg/dL • SpO2 97%',
+              doctor: 'Dr. Sameer K. Jha (DM Neurology)',
+              outcome: 'Solved • Physiotherapy & Statin Titration'
+            },
+            {
+              caseId: 'CS-W-904',
+              period: '07 Oct 2026',
+              patientName: 'Sunita Hansda (29F)',
+              village: 'Katkamsandi West',
+              category: 'Follow-Up Assessment',
+              intervention: 'Post-partum Day-14 maternal & newborn HBNC home visit; breastfeeding & cord check',
+              vitals: 'Mother BP 126/82 mmHg • Baby Wt 3.1 kg • Temp 98.4°F',
+              doctor: 'Dr. Rashmi Tiwari (OB-GYN)',
+              outcome: 'Solved • Mother & Neonate Healthy'
+            },
+            {
+              caseId: 'CS-W-905',
+              period: '06 Oct 2026',
+              patientName: 'Birsa Munda (64M)',
+              village: 'Pelawal South',
+              category: 'Emergency Escalation',
+              intervention: 'Detected acute SpO2 drop (88%) during home visit; initiated 108 ambulance referral to SBMC&H',
+              vitals: 'SpO2 88% → 95% on O2 • RR 28/min • BP 146/90',
+              doctor: 'Dr. Devendra Prasad (Pulmonology)',
+              outcome: 'Solved • Stabilized at SBMC&H Respiratory Ward'
+            },
+            {
+              caseId: 'CS-W-906',
+              period: '05 Oct 2026',
+              patientName: 'Kiran Kumari (6F)',
+              village: 'Katkamsandi East',
+              category: 'Assisted Teleconsult',
+              intervention: 'Pediatric acute fever teleconsult via ASHA tablet; dispensed ORS & paracetamol weight-dose',
+              vitals: 'Temp 100.2°F • SpO2 98% • Wt 18.2 kg',
+              doctor: 'Dr. Vikram Singh (MD Pediatrics)',
+              outcome: 'Solved • Afebrile in 24 Hours'
+            }
+          ]
+        },
+        monthly: {
+          label: 'Monthly Cases Solved (October 2026 & Rolling 30-Day Ledger)',
+          shortLabel: 'Monthly',
+          totalSolved: 58,
+          followUpCount: 34,
+          teleconsultCount: 18,
+          escalationCount: 6,
+          complianceRate: '98.4%',
+          incentiveEarned: '₹7,400',
+          cases: [
+            {
+              caseId: 'CS-M-401',
+              period: 'Week 2, Oct 2026 (14 Cases)',
+              patientName: 'Ramesh Mahto, Sita Devi & 12 Others',
+              village: 'Katkamsandi & Pelawal Cluster',
+              category: 'Follow-Up Assessment',
+              intervention: '8 high-risk cardiac/ANC home follow-ups + 4 assisted specialist teleconsults + 2 referrals',
+              vitals: '100% Worker-Verified Digital Vitals Synced',
+              doctor: 'Dr. Priya Sharma & PHC Specialist Roster',
+              outcome: '14 / 14 Cases Solved This Week'
+            },
+            {
+              caseId: 'CS-M-402',
+              period: 'Week 1, Oct 2026 (16 Cases)',
+              patientName: 'Lakshmi Devi, Somra Munda & 14 Others',
+              village: 'Dhengura & Katkamsandi Bazar',
+              category: 'Assisted Teleconsult',
+              intervention: '9 door-to-door chronic hypertension/diabetes checks + 5 assisted video consults + 2 ANC registrations',
+              vitals: 'BP, RBS & Hb Strips Logged in ABDM',
+              doctor: 'Dr. Rajesh Verma & Dr. Anjali Verma',
+              outcome: '16 / 16 Cases Solved • Zero Missed Visits'
+            },
+            {
+              caseId: 'CS-M-403',
+              period: 'Week 4, Sep 2026 (15 Cases)',
+              patientName: 'Anita Devi (Stroke), Budhan Mahto & 13 Others',
+              village: 'Pelawal & Katkamsandi East',
+              category: 'Follow-Up Assessment',
+              intervention: 'Post-stroke neuro recovery checks, sputum TB DOTS verification & 5 pediatric teleconsults',
+              vitals: 'SpO2, BP & Adherence 98% Verified',
+              doctor: 'Dr. Sameer K. Jha & Dr. Vikram Singh',
+              outcome: '15 / 15 Cases Solved • 1 Safe Institutional Delivery'
+            },
+            {
+              caseId: 'CS-M-404',
+              period: 'Week 3, Sep 2026 (13 Cases)',
+              patientName: 'Champa Tirkey, Jageshwar Ram & 11 Others',
+              village: 'Katkamsandi Gram Panchayat',
+              category: 'Emergency Escalation',
+              intervention: 'High-risk preeclampsia stabilization, 4 teleconsults & 8 post-discharge surgical dressing follow-ups',
+              vitals: 'All Maternal & Cardiac Red Flags Cleared',
+              doctor: 'Dr. Rashmi Tiwari & Dr. Suresh Chandra',
+              outcome: '13 / 13 Cases Solved • Full Recovery'
+            }
+          ]
+        },
+        yearly: {
+          label: 'Yearly Cases Solved (FY 2026–2027 Annual Community Impact)',
+          shortLabel: 'Yearly',
+          totalSolved: 642,
+          followUpCount: 390,
+          teleconsultCount: 194,
+          escalationCount: 58,
+          complianceRate: '99.1%',
+          incentiveEarned: '₹86,500',
+          cases: [
+            {
+              caseId: 'CS-Y-2026-Q3',
+              period: 'Jul – Oct 2026 (Q3 • 178 Cases)',
+              patientName: 'Katkamsandi, Pelawal & Dhengura Catchment',
+              village: '3 Gram Panchayats (1,420 Households)',
+              category: 'Follow-Up Assessment',
+              intervention: '108 longitudinal high-risk follow-ups, 54 assisted teleconsultations & 16 emergency hospital referrals',
+              vitals: 'Zero Maternal Mortality • 99.2% Immunization',
+              doctor: 'PHC Katkamsandi & SBMC&H Hazaribagh',
+              outcome: '178 Cases Solved • Top Block ASHA Award'
+            },
+            {
+              caseId: 'CS-Y-2026-Q2',
+              period: 'Apr – Jun 2026 (Q2 • 164 Cases)',
+              patientName: 'Summer Heatwave & Vector Surveillance Beat',
+              village: 'Katkamsandi & Pelawal Villages',
+              category: 'Assisted Teleconsult',
+              intervention: '98 home dehydration/NCD follow-ups, 49 assisted teleconsults & 17 safe institutional deliveries',
+              vitals: '100% malaria/dengue slide & rapid kit sync',
+              doctor: 'Dr. Priya Sharma & District IDSP Unit',
+              outcome: '164 Cases Solved • 4.9★ Community Rating'
+            },
+            {
+              caseId: 'CS-Y-2026-Q1',
+              period: 'Jan – Mar 2026 (Q1 • 152 Cases)',
+              patientName: 'Winter Respiratory & Geriatric Care Drive',
+              village: 'Dhengura & Katkamsandi Cluster',
+              category: 'Follow-Up Assessment',
+              intervention: '94 geriatric COPD/cardiac home assessments, 46 specialist teleconsults & 12 cataract/FRU referrals',
+              vitals: 'Digital BP & Pulse Oximetry for 152 Cases',
+              doctor: 'Dr. Devendra Prasad & Dr. Rajesh Verma',
+              outcome: '152 Cases Solved • 100% Follow-Up Retention'
+            },
+            {
+              caseId: 'CS-Y-2025-Q4',
+              period: 'Oct – Dec 2025 (Q4 • 148 Cases)',
+              patientName: 'High-Risk Maternal & Newborn HBNC Cohort',
+              village: 'All 3 Catchment Panchayats',
+              category: 'Emergency Escalation',
+              intervention: '90 postnatal HBNC home visits, 45 assisted OB-GYN/pediatric teleconsults & 13 high-risk stabilizations',
+              vitals: 'Full ABDM FHIR Health Locker Linkage',
+              doctor: 'Dr. Anjali Verma & Smt. Rekha Tirkey (ANM)',
+              outcome: '148 Cases Solved • Commendation by Civil Surgeon'
+            }
+          ]
+        }
+      }
+    : {
+        weekly: {
+          label: 'Weekly Cases Solved Ledger',
+          shortLabel: 'Weekly',
+          totalSolved: userSolvedCases.length,
+          followUpCount: userFollowUpCases.length,
+          teleconsultCount: userTeleconsultCases.length,
+          escalationCount: userEscalationCases.length,
+          complianceRate: userSolvedCases.length > 0 ? '100%' : '—',
+          incentiveEarned: `₹${userSolvedCases.length * 150}`,
+          cases: userSolvedCases
+        },
+        monthly: {
+          label: 'Monthly Cases Solved Ledger',
+          shortLabel: 'Monthly',
+          totalSolved: userSolvedCases.length,
+          followUpCount: userFollowUpCases.length,
+          teleconsultCount: userTeleconsultCases.length,
+          escalationCount: userEscalationCases.length,
+          complianceRate: userSolvedCases.length > 0 ? '100%' : '—',
+          incentiveEarned: `₹${userSolvedCases.length * 150}`,
+          cases: userSolvedCases
+        },
+        yearly: {
+          label: 'Yearly Cases Solved Ledger',
+          shortLabel: 'Yearly',
+          totalSolved: userSolvedCases.length,
+          followUpCount: userFollowUpCases.length,
+          teleconsultCount: userTeleconsultCases.length,
+          escalationCount: userEscalationCases.length,
+          complianceRate: userSolvedCases.length > 0 ? '100%' : '—',
+          incentiveEarned: `₹${userSolvedCases.length * 150}`,
+          cases: userSolvedCases
+        }
+      };
 
-  const TELECONSULT_HELP_HISTORY = [
-    {
-      id: 'TH-2026-512',
-      date: '09 Oct 2026, 04:15 PM',
-      patientName: 'Sita Devi (27F • Pelawal)',
-      doctorAndSpecialty: 'Dr. Anjali Verma • Obstetrics & Gynecology',
-      ashaSupportProvided: 'Connected patient via ASHA tablet, measured BP (138/88) & fetal heart rate, translated Khortha symptoms',
-      prescriptionIssued: 'Tab Labetalol 100mg BD, IFA + Calcium, Repeat ANC ultrasound in 2 weeks',
-      status: 'Prescription Dispensed at Jan Aushadhi'
-    },
-    {
-      id: 'TH-2026-508',
-      date: '08 Oct 2026, 12:10 PM',
-      patientName: 'Mangal Oraon (62M • Dhengura)',
-      doctorAndSpecialty: 'Dr. Sameer K. Jha • Neurology (SBMC&H)',
-      ashaSupportProvided: 'Assisted camera framing for facial symmetry & arm drift check; logged glucometer reading (154 mg/dL)',
-      prescriptionIssued: 'Tab Atorvastatin 40mg HS, Clopidogrel 75mg OD, Guided home limb exercises',
-      status: 'Synced to ABDM Health Locker'
-    },
-    {
-      id: 'TH-2026-503',
-      date: '05 Oct 2026, 02:30 PM',
-      patientName: 'Kiran Kumari (6F • Katkamsandi East)',
-      doctorAndSpecialty: 'Dr. Vikram Singh • Pediatrics',
-      ashaSupportProvided: 'Recorded axillary temp (100.2°F) & pulse oximetry (98%); explained weight-based syrup dosing to mother',
-      prescriptionIssued: 'Syp Paracetamol 250mg/5ml (5ml SOS), ORS packets, Zinc 20mg OD x 14 days',
-      status: 'Child Recovered • Follow-Up Closed'
-    },
-    {
-      id: 'TH-2026-497',
-      date: '02 Oct 2026, 11:00 AM',
-      patientName: 'Somra Munda (54M • Pelawal)',
-      doctorAndSpecialty: 'Dr. Rajesh Verma • Cardiology',
-      ashaSupportProvided: 'Uploaded 6-lead portable ECG strip and resting BP (148/92 mmHg); assisted patient with audio headset',
-      prescriptionIssued: 'Tab Telmisartan 40mg OD, Tab Metoprolol 25mg OD, Low-sodium dietary chart',
-      status: 'Follow-Up Scheduled (16 Oct)'
-    }
-  ];
+  const PAST_FOLLOWUP_ASSESSMENTS = isPrototype
+    ? [
+        {
+          id: 'FA-2026-881',
+          date: '10 Oct 2026, 09:40 AM',
+          patientName: 'Ramesh Mahto (48M)',
+          condition: 'Post-PTCA Coronary Stent & Hypertension',
+          vitalsRecorded: 'BP: 136/84 mmHg • Pulse: 76 bpm • SpO2: 98%',
+          adherence: '4/4 Cardiac Meds Verified (Aspirin, Clopidogrel, Atorvastatin, Ramipril)',
+          riskDelta: 'Risk Score 78 → 58 (Stabilized)',
+          doctorNote: 'Reviewed by Dr. Priya Sharma — Continue weekly home BP check.'
+        },
+        {
+          id: 'FA-2026-874',
+          date: '08 Oct 2026, 11:20 AM',
+          patientName: 'Anita Devi (58F)',
+          condition: 'Ischemic Stroke Recovery & Left Hemiparesis',
+          vitalsRecorded: 'BP: 142/88 mmHg • RBS: 148 mg/dL • SpO2: 97%',
+          adherence: 'Physiotherapy exercises performed; Amlodipine & Ecosprin taken on time',
+          riskDelta: 'Risk Score 87 → 71 (Improving)',
+          doctorNote: 'Reviewed by Dr. Sameer K. Jha — Speech articulation improving.'
+        },
+        {
+          id: 'FA-2026-869',
+          date: '07 Oct 2026, 10:05 AM',
+          patientName: 'Sunita Hansda (29F)',
+          condition: 'Post-Partum Severe Preeclampsia Recovery',
+          vitalsRecorded: 'BP: 126/82 mmHg • Hb: 11.2 g/dL • No Pedal Edema',
+          adherence: 'IFA & Calcium supplementation verified; newborn weight 3.1 kg',
+          riskDelta: 'Risk Score 74 → 42 (Low Risk)',
+          doctorNote: 'Reviewed by Dr. Rashmi Tiwari — Cleared for routine monthly check.'
+        },
+        {
+          id: 'FA-2026-862',
+          date: '05 Oct 2026, 03:30 PM',
+          patientName: 'Birsa Munda (64M)',
+          condition: 'Chronic COPD & Type-2 Diabetes',
+          vitalsRecorded: 'SpO2: 95% • BP: 138/84 mmHg • Fasting Glucose: 132 mg/dL',
+          adherence: 'Tiova inhaler technique corrected by ASHA; Metformin compliance 100%',
+          riskDelta: 'Risk Score 82 → 60 (Controlled)',
+          doctorNote: 'Reviewed by Dr. Devendra Prasad — Good bronchodilator response.'
+        }
+      ]
+    : userFollowUpCases.map((c) => ({
+        id: c.caseId,
+        date: c.period,
+        patientName: c.patientName,
+        condition: c.intervention,
+        vitalsRecorded: c.vitals,
+        adherence: 'Verified during home visit',
+        riskDelta: c.outcome,
+        doctorNote: `Supervising Doctor: ${c.doctor}`
+      }));
 
-  const SERVICE_REVIEWS = [
-    {
-      id: 'REV-01',
-      reviewer: 'Dr. Priya Sharma, MD',
-      role: 'Medical Officer In-Charge • PHC Katkamsandi',
-      date: '09 Oct 2026',
-      rating: '5.0 / 5.0',
-      tag: 'Clinical Excellence',
-      comment: 'Anita Devi is our most dependable ASHA worker in Katkamsandi block. Her blood pressure and SpO2 logs during assisted teleconsultations are clinically accurate, and her early identification of post-PTCA and stroke red flags has prevented multiple ICU readmissions.'
-    },
-    {
-      id: 'REV-02',
-      reviewer: 'Ramesh Mahto & Family',
-      role: 'Cardiac Recovery Patient • Katkamsandi Bazar',
-      date: '08 Oct 2026',
-      rating: '5.0 / 5.0',
-      tag: 'Home Follow-Up Care',
-      comment: 'After my heart stent operation at SBMC&H, Anita Didi visited my home every week at 9 AM sharp to check my BP, verify my medicines, and connect me on video call with the cardiologist. We did not have to travel to town even once.'
-    },
-    {
-      id: 'REV-03',
-      reviewer: 'Sita Devi & Family',
-      role: 'High-Risk ANC Beneficiary • Pelawal Tola',
-      date: '07 Oct 2026',
-      rating: '5.0 / 5.0',
-      tag: 'Assisted Teleconsultation',
-      comment: 'When my feet swelled in my 8th month of pregnancy, Anita Didi brought her tablet and BP machine to our house, arranged an immediate video consultation with Dr. Anjali Verma, and got my Jan Aushadhi medicines the same evening.'
-    },
-    {
-      id: 'REV-04',
-      reviewer: 'Smt. Rekha Tirkey, ANM',
-      role: 'Supervising ANM • Sub-Center Katkamsandi',
-      date: '04 Oct 2026',
-      rating: '4.9 / 5.0',
-      tag: 'NHM Field Audit',
-      comment: 'Maintains 99%+ on-time completion across all HBNC newborn visits, high-risk maternal tracking, and NCD door-to-door screenings across 1,420 households in Katkamsandi, Pelawal, and Dhengura.'
-    }
-  ];
+  const TELECONSULT_HELP_HISTORY = isPrototype
+    ? [
+        {
+          id: 'TH-2026-512',
+          date: '09 Oct 2026, 04:15 PM',
+          patientName: 'Sita Devi (27F • Pelawal)',
+          doctorAndSpecialty: 'Dr. Anjali Verma • Obstetrics & Gynecology',
+          ashaSupportProvided: 'Connected patient via ASHA tablet, measured BP (138/88) & fetal heart rate, translated Khortha symptoms',
+          prescriptionIssued: 'Tab Labetalol 100mg BD, IFA + Calcium, Repeat ANC ultrasound in 2 weeks',
+          status: 'Prescription Dispensed at Jan Aushadhi'
+        },
+        {
+          id: 'TH-2026-508',
+          date: '08 Oct 2026, 12:10 PM',
+          patientName: 'Mangal Oraon (62M • Dhengura)',
+          doctorAndSpecialty: 'Dr. Sameer K. Jha • Neurology (SBMC&H)',
+          ashaSupportProvided: 'Assisted camera framing for facial symmetry & arm drift check; logged glucometer reading (154 mg/dL)',
+          prescriptionIssued: 'Tab Atorvastatin 40mg HS, Clopidogrel 75mg OD, Guided home limb exercises',
+          status: 'Synced to ABDM Health Locker'
+        },
+        {
+          id: 'TH-2026-503',
+          date: '05 Oct 2026, 02:30 PM',
+          patientName: 'Kiran Kumari (6F • Katkamsandi East)',
+          doctorAndSpecialty: 'Dr. Vikram Singh • Pediatrics',
+          ashaSupportProvided: 'Recorded axillary temp (100.2°F) & pulse oximetry (98%); explained weight-based syrup dosing to mother',
+          prescriptionIssued: 'Syp Paracetamol 250mg/5ml (5ml SOS), ORS packets, Zinc 20mg OD x 14 days',
+          status: 'Child Recovered • Follow-Up Closed'
+        },
+        {
+          id: 'TH-2026-497',
+          date: '02 Oct 2026, 11:00 AM',
+          patientName: 'Somra Munda (54M • Pelawal)',
+          doctorAndSpecialty: 'Dr. Rajesh Verma • Cardiology',
+          ashaSupportProvided: 'Uploaded 6-lead portable ECG strip and resting BP (148/92 mmHg); assisted patient with audio headset',
+          prescriptionIssued: 'Tab Telmisartan 40mg OD, Tab Metoprolol 25mg OD, Low-sodium dietary chart',
+          status: 'Follow-Up Scheduled (16 Oct)'
+        }
+      ]
+    : userTeleconsultCases.map((c) => ({
+        id: c.caseId,
+        date: c.period,
+        patientName: `${c.patientName} (${c.village})`,
+        doctorAndSpecialty: c.doctor,
+        ashaSupportProvided: c.intervention,
+        prescriptionIssued: c.vitals,
+        status: c.outcome
+      }));
+
+  const SERVICE_REVIEWS = isPrototype
+    ? [
+        {
+          id: 'REV-01',
+          reviewer: 'Dr. Priya Sharma, MD',
+          role: 'Medical Officer In-Charge • PHC Katkamsandi',
+          date: '09 Oct 2026',
+          rating: '5.0 / 5.0',
+          tag: 'Clinical Excellence',
+          comment: 'Anita Devi is our most dependable ASHA worker in Katkamsandi block. Her blood pressure and SpO2 logs during assisted teleconsultations are clinically accurate, and her early identification of post-PTCA and stroke red flags has prevented multiple ICU readmissions.'
+        },
+        {
+          id: 'REV-02',
+          reviewer: 'Ramesh Mahto & Family',
+          role: 'Cardiac Recovery Patient • Katkamsandi Bazar',
+          date: '08 Oct 2026',
+          rating: '5.0 / 5.0',
+          tag: 'Home Follow-Up Care',
+          comment: 'After my heart stent operation at SBMC&H, Anita Didi visited my home every week at 9 AM sharp to check my BP, verify my medicines, and connect me on video call with the cardiologist. We did not have to travel to town even once.'
+        },
+        {
+          id: 'REV-03',
+          reviewer: 'Sita Devi & Family',
+          role: 'High-Risk ANC Beneficiary • Pelawal Tola',
+          date: '07 Oct 2026',
+          rating: '5.0 / 5.0',
+          tag: 'Assisted Teleconsultation',
+          comment: 'When my feet swelled in my 8th month of pregnancy, Anita Didi brought her tablet and BP machine to our house, arranged an immediate video consultation with Dr. Anjali Verma, and got my Jan Aushadhi medicines the same evening.'
+        },
+        {
+          id: 'REV-04',
+          reviewer: 'Smt. Rekha Tirkey, ANM',
+          role: 'Supervising ANM • Sub-Center Katkamsandi',
+          date: '04 Oct 2026',
+          rating: '4.9 / 5.0',
+          tag: 'NHM Field Audit',
+          comment: 'Maintains 99%+ on-time completion across all HBNC newborn visits, high-risk maternal tracking, and NCD door-to-door screenings across 1,420 households in Katkamsandi, Pelawal, and Dhengura.'
+        }
+      ]
+    : [];
 
   const currentStats = TIMEFRAME_DATA[timeframe] || TIMEFRAME_DATA.monthly;
   const filteredCases = currentStats.cases.filter(
@@ -32609,9 +40645,11 @@ function ScreenAshaServiceTracker({
             <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-slate-100 text-[#0b2b82] border border-slate-200">
               {ashaId}
             </span>
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-              4.9 ★ Community &amp; Doctor Rating
-            </span>
+            {isPrototype && (
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                4.9 ★ Community &amp; Doctor Rating
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             ASHA Service, Assessments &amp; Cases Solved Tracker
@@ -32631,10 +40669,10 @@ function ScreenAshaServiceTracker({
           </button>
           <button
             type="button"
-            onClick={onNavigateToFollowUps}
-            className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-[#0b2b82] border border-[#0b2b82]/30 text-xs font-bold transition-colors cursor-pointer"
+            onClick={() => setActiveModal('case')}
+            className="px-3.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer"
           >
-            Open Follow-Ups
+            + Log Solved Case
           </button>
           <button
             type="button"
@@ -32661,9 +40699,9 @@ function ScreenAshaServiceTracker({
           {/* Weekly / Monthly / Yearly Segmented Toggle */}
           <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 gap-1 self-start md:self-center">
             {[
-              { id: 'weekly', label: 'Weekly (14)' },
-              { id: 'monthly', label: 'Monthly (58)' },
-              { id: 'yearly', label: 'Yearly (642)' }
+              { id: 'weekly', label: `Weekly (${TIMEFRAME_DATA.weekly.totalSolved})` },
+              { id: 'monthly', label: `Monthly (${TIMEFRAME_DATA.monthly.totalSolved})` },
+              { id: 'yearly', label: `Yearly (${TIMEFRAME_DATA.yearly.totalSolved})` }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -32756,58 +40794,72 @@ function ScreenAshaServiceTracker({
         </div>
 
         {/* Solved Cases Breakdown Table */}
-        <div className="overflow-x-auto border border-slate-200 rounded-xl">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                <th className="p-3">Case ID &amp; Period</th>
-                <th className="p-3">Patient / Cohort &amp; Village</th>
-                <th className="p-3">Service Category</th>
-                <th className="p-3">ASHA Field Intervention &amp; Vitals</th>
-                <th className="p-3">Supervising Doctor</th>
-                <th className="p-3">Clinical Outcome</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredCases.map((item) => (
-                <tr key={item.caseId} className="hover:bg-slate-50/80">
-                  <td className="p-3 whitespace-nowrap">
-                    <div className="font-mono font-bold text-[#0b2b82]">{item.caseId}</div>
-                    <div className="text-[11px] text-slate-500">{item.period}</div>
-                  </td>
-                  <td className="p-3">
-                    <div className="font-bold text-slate-900">{item.patientName}</div>
-                    <div className="text-[11px] text-slate-500">{item.village}</div>
-                  </td>
-                  <td className="p-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${
-                      item.category === 'Follow-Up Assessment'
-                        ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
-                        : item.category === 'Assisted Teleconsult'
-                        ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
-                        : 'bg-rose-50 text-rose-800 border-rose-200'
-                    }`}>
-                      {item.category}
-                    </span>
-                  </td>
-                  <td className="p-3 max-w-xs">
-                    <div className="text-slate-800 font-medium leading-snug">{item.intervention}</div>
-                    <div className="text-[10px] font-mono text-slate-500 mt-0.5">{item.vitals}</div>
-                  </td>
-                  <td className="p-3 whitespace-nowrap font-semibold text-slate-700">
-                    {item.doctor}
-                  </td>
-                  <td className="p-3">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
-                      <span>&#10003;</span>
-                      <span>{item.outcome}</span>
-                    </span>
-                  </td>
+        {filteredCases.length === 0 ? (
+          <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+            <p className="text-xs font-bold text-slate-700">No solved cases logged yet</p>
+            <p className="text-[11px] text-slate-500">Log your completed follow-up visits, assisted teleconsultations, or emergency referrals below.</p>
+            <button
+              type="button"
+              onClick={() => setActiveModal('case')}
+              className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+            >
+              + Log Solved Case
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
+                  <th className="p-3">Case ID &amp; Period</th>
+                  <th className="p-3">Patient / Cohort &amp; Village</th>
+                  <th className="p-3">Service Category</th>
+                  <th className="p-3">ASHA Field Intervention &amp; Vitals</th>
+                  <th className="p-3">Supervising Doctor</th>
+                  <th className="p-3">Clinical Outcome</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredCases.map((item) => (
+                  <tr key={item.caseId} className="hover:bg-slate-50/80">
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="font-mono font-bold text-[#0b2b82]">{item.caseId}</div>
+                      <div className="text-[11px] text-slate-500">{item.period}</div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-bold text-slate-900">{item.patientName}</div>
+                      <div className="text-[11px] text-slate-500">{item.village}</div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${
+                        item.category === 'Follow-Up Assessment'
+                          ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
+                          : item.category === 'Assisted Teleconsult'
+                          ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                          : 'bg-rose-50 text-rose-800 border-rose-200'
+                      }`}>
+                        {item.category}
+                      </span>
+                    </td>
+                    <td className="p-3 max-w-xs">
+                      <div className="text-slate-800 font-medium leading-snug">{item.intervention}</div>
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">{item.vitals}</div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap font-semibold text-slate-700">
+                      {item.doctor}
+                    </td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                        <span>&#10003;</span>
+                        <span>{item.outcome}</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* SECTION 2: 2-COLUMN DEEP DIVE — PAST FOLLOW-UP ASSESSMENTS & TELECONSULTED HELP */}
@@ -32825,37 +40877,43 @@ function ScreenAshaServiceTracker({
             </div>
             <button
               type="button"
-              onClick={onNavigateToFollowUps}
+              onClick={() => setActiveModal('case')}
               className="text-xs font-bold text-[#0b2b82] hover:underline cursor-pointer"
             >
-              Log New Visit &rarr;
+              + Log Assessment &rarr;
             </button>
           </div>
 
-          <div className="space-y-3">
-            {PAST_FOLLOWUP_ASSESSMENTS.map((fa) => (
-              <div
-                key={fa.id}
-                className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2 hover:bg-white transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] font-mono font-bold text-[#0b2b82]">{fa.id} &bull; {fa.date}</span>
-                    <h4 className="text-sm font-bold text-slate-900">{fa.patientName}</h4>
-                    <p className="text-[11px] text-slate-500">{fa.condition}</p>
+          {PAST_FOLLOWUP_ASSESSMENTS.length === 0 ? (
+            <div className="p-5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+              No follow-up assessments recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {PAST_FOLLOWUP_ASSESSMENTS.map((fa) => (
+                <div
+                  key={fa.id}
+                  className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2 hover:bg-white transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-[#0b2b82]">{fa.id} &bull; {fa.date}</span>
+                      <h4 className="text-sm font-bold text-slate-900">{fa.patientName}</h4>
+                      <p className="text-[11px] text-slate-500">{fa.condition}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                      {fa.riskDelta}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                    {fa.riskDelta}
-                  </span>
+                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-[11px] space-y-1">
+                    <div className="font-mono text-slate-700 font-semibold">{fa.vitalsRecorded}</div>
+                    <div className="text-slate-600"><strong>Adherence:</strong> {fa.adherence}</div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 italic">{fa.doctorNote}</p>
                 </div>
-                <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-[11px] space-y-1">
-                  <div className="font-mono text-slate-700 font-semibold">{fa.vitalsRecorded}</div>
-                  <div className="text-slate-600"><strong>Adherence:</strong> {fa.adherence}</div>
-                </div>
-                <p className="text-[11px] text-slate-500 italic">{fa.doctorNote}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Teleconsulted Help Ledger */}
@@ -32878,31 +40936,37 @@ function ScreenAshaServiceTracker({
             </button>
           </div>
 
-          <div className="space-y-3">
-            {TELECONSULT_HELP_HISTORY.map((th) => (
-              <div
-                key={th.id}
-                className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2 hover:bg-white transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] font-mono font-bold text-indigo-700">{th.id} &bull; {th.date}</span>
-                    <h4 className="text-sm font-bold text-slate-900">{th.patientName}</h4>
-                    <p className="text-[11px] font-semibold text-[#0b2b82]">{th.doctorAndSpecialty}</p>
+          {TELECONSULT_HELP_HISTORY.length === 0 ? (
+            <div className="p-5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+              No assisted teleconsultations recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {TELECONSULT_HELP_HISTORY.map((th) => (
+                <div
+                  key={th.id}
+                  className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2 hover:bg-white transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-indigo-700">{th.id} &bull; {th.date}</span>
+                      <h4 className="text-sm font-bold text-slate-900">{th.patientName}</h4>
+                      <p className="text-[11px] font-semibold text-[#0b2b82]">{th.doctorAndSpecialty}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200 shrink-0">
+                      {th.status}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0b2b82] border border-blue-200 shrink-0">
-                    {th.status}
-                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    <strong>ASHA Assistance:</strong> {th.ashaSupportProvided}
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-[11px] text-slate-700">
+                    <strong>e-Rx Outcome:</strong> {th.prescriptionIssued}
+                  </div>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  <strong>ASHA Assistance:</strong> {th.ashaSupportProvided}
-                </p>
-                <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-[11px] text-slate-700">
-                  <strong>e-Rx Outcome:</strong> {th.prescriptionIssued}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -32917,44 +40981,105 @@ function ScreenAshaServiceTracker({
               Verified Reviews of {ashaName}&apos;s Field Service
             </h3>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-black">
-              &#9733; 4.9 / 5.0 Overall Service Rating (148 Reviews)
-            </span>
-          </div>
+          {SERVICE_REVIEWS.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-black">
+                &#9733; 4.9 / 5.0 Overall Service Rating
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {SERVICE_REVIEWS.map((rev) => (
-            <div
-              key={rev.id}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between space-y-3"
-            >
-              <div className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">{rev.reviewer}</h4>
-                    <p className="text-[11px] text-slate-500">{rev.role}</p>
+        {SERVICE_REVIEWS.length === 0 ? (
+          <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+            No community or supervisor reviews submitted yet for this account.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {SERVICE_REVIEWS.map((rev) => (
+              <div
+                key={rev.id}
+                className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between space-y-3"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{rev.reviewer}</h4>
+                      <p className="text-[11px] text-slate-500">{rev.role}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 block">
+                        &#9733; {rev.rating}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">{rev.date}</span>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 block">
-                      &#9733; {rev.rating}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">{rev.date}</span>
-                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    &ldquo;{rev.comment}&rdquo;
+                  </p>
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  &ldquo;{rev.comment}&rdquo;
-                </p>
+                <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                  <span className="text-[#0b2b82] font-bold uppercase">{rev.tag}</span>
+                  <span>Verified ABDM Beneficiary / Supervisor Feedback</span>
+                </div>
               </div>
-              <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between text-[10px] font-semibold text-slate-500">
-                <span className="text-[#0b2b82] font-bold uppercase">{rev.tag}</span>
-                <span>Verified ABDM Beneficiary / Supervisor Feedback</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {activeModal === 'case' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Log Solved ASHA Field Case</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddSolvedCase} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Name &amp; Age *</label>
+                <input type="text" required placeholder="e.g. Sunita Devi (31F)" value={caseForm.patientName} onChange={(e) => setCaseForm({ ...caseForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Village</label>
+                  <input type="text" placeholder="e.g. Pelawal" value={caseForm.village} onChange={(e) => setCaseForm({ ...caseForm, village: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Category</label>
+                  <select value={caseForm.category} onChange={(e) => setCaseForm({ ...caseForm, category: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="Follow-Up Assessment">Follow-Up Assessment</option>
+                    <option value="Assisted Teleconsult">Assisted Teleconsult</option>
+                    <option value="Emergency Escalation">Emergency Escalation</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Field Intervention *</label>
+                <input type="text" required placeholder="e.g. Recorded home BP & verified ANC iron tablets" value={caseForm.intervention} onChange={(e) => setCaseForm({ ...caseForm, intervention: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Vitals Recorded</label>
+                <input type="text" placeholder="e.g. BP 124/80 mmHg • SpO2 98%" value={caseForm.vitals} onChange={(e) => setCaseForm({ ...caseForm, vitals: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supervising Doctor</label>
+                  <input type="text" placeholder="e.g. Dr. Priya Sharma" value={caseForm.doctor} onChange={(e) => setCaseForm({ ...caseForm, doctor: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Outcome</label>
+                  <input type="text" placeholder="e.g. Solved • Stabilized" value={caseForm.outcome} onChange={(e) => setCaseForm({ ...caseForm, outcome: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Save Case</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -32962,115 +41087,283 @@ function ScreenAshaServiceTracker({
 // ==========================================
 // --- ASHA WORKER OVERVIEW (ROLE === 'worker') ---
 // ==========================================
-function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
+function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
+  const customData = currentUser?.customData || {};
+
   const [acknowledgedReminders, setAcknowledgedReminders] = useState({});
-  const [lastSyncedAt, setLastSyncedAt] = useState('Just now • Katkamsandi Beat Synced');
+  const [lastSyncedAt, setLastSyncedAt] = useState(isPrototype ? 'Just now • Katkamsandi Beat Synced' : 'Live Session Active');
+  const [liveReminders, setLiveReminders] = useState(null);
+  const [liveTeleconsultHelps, setLiveTeleconsultHelps] = useState(null);
+  const [activeModal, setActiveModal] = useState(null); // 'profile' | 'reminder' | 'teleconsult_help'
 
-  const ashaName = currentUser?.name || 'Anita Devi';
-  const ashaId = currentUser?.ashaId || 'ASHA-JH-HZB-0142';
-  const abhaId = currentUser?.abhaId || 'anita.devi.asha@abdm';
-  const nhmCode = currentUser?.nhmCode || 'NHM-JH-ASHA-2019-084';
-  const designation = currentUser?.designation || 'Senior Accredited Social Health Activist (ASHA) • NHM Jharkhand';
-  const subCenter = currentUser?.subCenter || 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)';
-  const phcName = currentUser?.phcName || 'PHC Katkamsandi, Block Katkamsandi, Hazaribagh';
-  const villageCatchment = currentUser?.villageCatchment || 'Katkamsandi, Pelawal & Dhengura Gram Panchayats (1,420 Households)';
-  const anmSupervisor = currentUser?.anmSupervisor || 'Smt. Rekha Tirkey, ANM (Reg: JH-ANM-1108)';
-  const medicalOfficer = currentUser?.medicalOfficer || 'Dr. Priya Sharma, MO-IC (PHC Katkamsandi)';
-  const experienceYears = currentUser?.experienceYears || '7 Years Active Field Service (Certified 2019)';
-  const serviceRating = currentUser?.serviceRating || '4.9 / 5.0';
-  const phone = currentUser?.phone || '+91-94311-58201';
-  const bloodGroup = currentUser?.bloodGroup || 'O+ve';
-  const languages = currentUser?.languages || 'Hindi, Khortha, Santhali & English';
+  useEffect(() => {
+    if (!isPrototype) return;
+    fetch('/api/followups/patients')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.patients) && data.patients.length > 0) {
+          setLiveReminders(
+            data.patients.slice(0, 6).map((p, idx) => ({
+              id: `REM-${101 + idx}`,
+              patientId: p.id,
+              patientName: `${p.name} (${p.age}${p.gender})`,
+              village: `${p.village} (${p.block || 'Hazaribagh'})`,
+              condition: p.condition,
+              taskRequired: `Check resting BP (${p.vitals?.bp || '130/85'}), SpO2 (${p.vitals?.spo2 || 96}%) & verify ${p.adherence || 85}% medication adherence`,
+              dueWindow: p.nextDue || 'Due Today',
+              priority: `${(p.riskCategory || 'HIGH').toUpperCase()} RISK (Score ${p.riskScore || 75})`,
+              priorityClass:
+                p.riskCategory === 'Critical'
+                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+            }))
+          );
+        }
+      })
+      .catch(() => {});
 
-  const FOLLOWUP_REMINDERS = [
-    {
-      id: 'REM-101',
-      patientId: 'P-1024',
-      patientName: 'Ramesh Mahto (48M)',
-      village: 'Katkamsandi Bazar (0.6 km)',
-      condition: 'STEMI Acute Cardiac Recovery • Post-PTCA Stent',
-      taskRequired: 'Check resting BP, ankle edema & verify Clopidogrel + Aspirin morning dose',
-      dueWindow: 'Due Today • 11:00 AM',
-      priority: 'HIGH RISK (Score 78)',
-      priorityClass: 'bg-rose-50 text-rose-700 border-rose-200'
-    },
-    {
-      id: 'REM-102',
-      patientId: 'P-1088',
-      patientName: 'Anita Devi (58F)',
-      village: 'Bishnugarh Road Tola (1.4 km)',
-      condition: 'Acute Ischemic Stroke Recovery & Hypertension',
-      taskRequired: 'Record standing/sitting BP, speech clarity & left-arm grip strength',
-      dueWindow: 'Overdue by 2 Hours • Urgent',
-      priority: 'CRITICAL (Score 87)',
-      priorityClass: 'bg-rose-50 text-rose-800 border-rose-300'
-    },
-    {
-      id: 'REM-103',
-      patientId: 'P-2041',
-      patientName: 'Sunita Hansda (29F)',
-      village: 'Pelawal Gram Panchayat (1.8 km)',
-      condition: 'Post-Partum Severe Preeclampsia Monitoring',
-      taskRequired: 'Check maternal BP, urine dipstick protein & newborn HBNC weight check',
-      dueWindow: 'Due Today • 02:30 PM',
-      priority: 'MODERATE-HIGH (Score 64)',
-      priorityClass: 'bg-amber-50 text-amber-800 border-amber-200'
-    },
-    {
-      id: 'REM-104',
-      patientId: 'P-3019',
-      patientName: 'Birsa Munda (64M)',
-      village: 'Dhengura South (2.2 km)',
-      condition: 'Chronic COPD & Type-2 Diabetes',
-      taskRequired: 'Pulse oximetry (SpO2), glucometer random blood sugar & inhaler check',
-      dueWindow: 'Scheduled • Tomorrow 09:30 AM',
-      priority: 'HIGH RISK (Score 72)',
-      priorityClass: 'bg-amber-50 text-amber-800 border-amber-200'
+    fetch('/api/v1/teleconsult/queue')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.data) && data.data.length > 0) {
+          setLiveTeleconsultHelps(
+            data.data.slice(0, 5).map((q, idx) => ({
+              id: q.queueId || `TCH-${201 + idx}`,
+              patientName: `${q.patientName} (${q.patientAge || 34}${q.patientGender || 'F'})`,
+              village: q.village || 'Katkamsandi Catchments',
+              specialty: q.specialty || 'General Medicine',
+              doctorName: q.doctorName || 'Dr. Priya Sharma',
+              reason: q.chiefComplaint || 'Requires ASHA tablet video call & vital signs verification',
+              slot: `Token ${q.tokenId} • Est. ${q.waitEstimateMinutes || 10} mins`,
+              urgency: q.priorityLevel || 'Standard Priority'
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [isPrototype]);
+
+  const ashaName = currentUser?.name || (isPrototype ? 'Anita Devi' : 'ASHA Worker');
+  const ashaId = currentUser?.ashaId || (isPrototype ? 'ASHA-JH-HZB-0142' : 'Not added');
+  const abhaId = currentUser?.abhaId || (isPrototype ? 'anita.devi.asha@abdm' : 'Not added');
+  const nhmCode = currentUser?.nhmCode || (isPrototype ? 'NHM-JH-ASHA-2019-084' : 'Not added');
+  const designation = currentUser?.designation || (isPrototype ? 'Senior Accredited Social Health Activist (ASHA) • NHM Jharkhand' : 'Accredited Social Health Activist (ASHA)');
+  const subCenter = currentUser?.subCenter || (isPrototype ? 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)' : 'Not added');
+  const phcName = currentUser?.phcName || (isPrototype ? 'PHC Katkamsandi, Block Katkamsandi, Hazaribagh' : 'Not added');
+  const villageCatchment = currentUser?.villageCatchment || (isPrototype ? 'Katkamsandi, Pelawal & Dhengura Gram Panchayats (1,420 Households)' : 'Not added');
+  const anmSupervisor = currentUser?.anmSupervisor || (isPrototype ? 'Smt. Rekha Tirkey, ANM (Reg: JH-ANM-1108)' : 'Not added');
+  const medicalOfficer = currentUser?.medicalOfficer || (isPrototype ? 'Dr. Priya Sharma, MO-IC (PHC Katkamsandi)' : 'Not added');
+  const experienceYears = currentUser?.experienceYears || (isPrototype ? '7 Years Active Field Service (Certified 2019)' : 'Not added');
+  const serviceRating = currentUser?.serviceRating || (isPrototype ? '4.9 / 5.0' : 'New');
+  const phone = currentUser?.phone || (isPrototype ? '+91-94311-58201' : 'Not added');
+  const bloodGroup = currentUser?.bloodGroup || (isPrototype ? 'O+ve' : 'Not added');
+  const languages = currentUser?.languages || (isPrototype ? 'Hindi, Khortha, Santhali & English' : 'Not added');
+
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    ashaId: currentUser?.ashaId || '',
+    nhmCode: currentUser?.nhmCode || '',
+    subCenter: currentUser?.subCenter || '',
+    phcName: currentUser?.phcName || '',
+    villageCatchment: currentUser?.villageCatchment || '',
+    anmSupervisor: currentUser?.anmSupervisor || '',
+    medicalOfficer: currentUser?.medicalOfficer || '',
+    experienceYears: currentUser?.experienceYears || '',
+    phone: currentUser?.phone || '',
+    bloodGroup: currentUser?.bloodGroup || '',
+    languages: currentUser?.languages || ''
+  });
+
+  const [reminderForm, setReminderForm] = useState({
+    patientName: '',
+    village: '',
+    condition: '',
+    taskRequired: '',
+    dueWindow: 'Due Today',
+    priority: 'HIGH RISK'
+  });
+
+  const [tcHelpForm, setTcHelpForm] = useState({
+    patientName: '',
+    village: '',
+    specialty: 'General Medicine',
+    doctorName: '',
+    reason: '',
+    slot: 'Today, 11:00 AM',
+    urgency: 'Priority Consult'
+  });
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (onUpdateUser && currentUser) {
+      onUpdateUser({
+        ...currentUser,
+        name: profileForm.name || currentUser.name,
+        ashaId: profileForm.ashaId,
+        nhmCode: profileForm.nhmCode,
+        subCenter: profileForm.subCenter,
+        phcName: profileForm.phcName,
+        villageCatchment: profileForm.villageCatchment,
+        anmSupervisor: profileForm.anmSupervisor,
+        medicalOfficer: profileForm.medicalOfficer,
+        experienceYears: profileForm.experienceYears,
+        phone: profileForm.phone,
+        bloodGroup: profileForm.bloodGroup,
+        languages: profileForm.languages
+      });
     }
-  ];
+    setActiveModal(null);
+  };
 
-  const TELECONSULT_HELPS_REQUIRED = [
-    {
-      id: 'TCH-201',
-      patientName: 'Sita Devi (27F • 32W Pregnant)',
-      village: 'Pelawal Tola, Katkamsandi',
-      specialty: 'Obstetrics & Gynecology',
-      doctorName: 'Dr. Anjali Verma',
-      reason: 'Swelling in feet & mild frontal headache; needs ASHA tablet video call + BP & Hb strip upload',
-      slot: 'Today, 10:30 AM',
-      urgency: 'High-Risk ANC'
-    },
-    {
-      id: 'TCH-202',
-      patientName: 'Ramesh Mahto (48M)',
-      village: 'Katkamsandi Bazar',
-      specialty: 'Cardiology',
-      doctorName: 'Dr. Rajesh Verma',
-      reason: 'Post-stent 14-day review; patient has no smartphone and requested ASHA assisted video consult',
-      slot: 'Today, 11:15 AM',
-      urgency: 'Cardiac Priority'
-    },
-    {
-      id: 'TCH-203',
-      patientName: 'Mangal Oraon (62M)',
-      village: 'Dhengura Gram Panchayat',
-      specialty: 'Neurology',
-      doctorName: 'Dr. Priya Sharma',
-      reason: 'Needs Khortha-to-Hindi symptom interpretation & blood pressure verification during neuro call',
-      slot: 'Today, 12:00 PM',
-      urgency: 'Stroke Follow-Up'
-    },
-    {
-      id: 'TCH-204',
-      patientName: 'Kiran Kumari (6F • Guardian: Sunita Devi)',
-      village: 'Katkamsandi East',
-      specialty: 'Pediatrics',
-      doctorName: 'Dr. Vikram Singh',
-      reason: '3-day pediatric fever & cough; mother requested ASHA worker vitals check & doctor consult',
-      slot: 'Today, 02:00 PM',
-      urgency: 'Pediatric Care'
+  const handleAddReminder = (e) => {
+    e.preventDefault();
+    if (!reminderForm.patientName.trim() || !reminderForm.condition.trim()) return;
+    const newRem = {
+      id: `REM-${Date.now().toString().slice(-3)}`,
+      patientId: `P-${Date.now().toString().slice(-4)}`,
+      patientName: reminderForm.patientName.trim(),
+      village: reminderForm.village.trim() || villageCatchment,
+      condition: reminderForm.condition.trim(),
+      taskRequired: reminderForm.taskRequired.trim() || 'Home BP, SpO2 & medication adherence check',
+      dueWindow: reminderForm.dueWindow.trim() || 'Due Today',
+      priority: reminderForm.priority,
+      priorityClass: reminderForm.priority.includes('CRITICAL')
+        ? 'bg-rose-50 text-rose-800 border-rose-300'
+        : 'bg-amber-50 text-amber-800 border-amber-200'
+    };
+    if (onUpdateUser && currentUser) {
+      const nextRems = [newRem, ...(customData.reminders || [])];
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, reminders: nextRems }
+      });
     }
-  ];
+    setReminderForm({ patientName: '', village: '', condition: '', taskRequired: '', dueWindow: 'Due Today', priority: 'HIGH RISK' });
+    setActiveModal(null);
+  };
+
+  const handleAddTcHelp = (e) => {
+    e.preventDefault();
+    if (!tcHelpForm.patientName.trim() || !tcHelpForm.reason.trim()) return;
+    const newTc = {
+      id: `TCH-${Date.now().toString().slice(-3)}`,
+      patientName: tcHelpForm.patientName.trim(),
+      village: tcHelpForm.village.trim() || villageCatchment,
+      specialty: tcHelpForm.specialty,
+      doctorName: tcHelpForm.doctorName.trim() || 'On-Call Specialist',
+      reason: tcHelpForm.reason.trim(),
+      slot: tcHelpForm.slot.trim() || 'Today',
+      urgency: tcHelpForm.urgency
+    };
+    if (onUpdateUser && currentUser) {
+      const nextHelps = [newTc, ...(customData.teleconsultHelps || [])];
+      onUpdateUser({
+        ...currentUser,
+        customData: { ...customData, teleconsultHelps: nextHelps }
+      });
+    }
+    setTcHelpForm({ patientName: '', village: '', specialty: 'General Medicine', doctorName: '', reason: '', slot: 'Today, 11:00 AM', urgency: 'Priority Consult' });
+    setActiveModal(null);
+  };
+
+  const FOLLOWUP_REMINDERS = isPrototype
+    ? (liveReminders || [
+        {
+          id: 'REM-101',
+          patientId: 'P-1024',
+          patientName: 'Ramesh Mahto (48M)',
+          village: 'Katkamsandi Bazar (0.6 km)',
+          condition: 'STEMI Acute Cardiac Recovery • Post-PTCA Stent',
+          taskRequired: 'Check resting BP, ankle edema & verify Clopidogrel + Aspirin morning dose',
+          dueWindow: 'Due Today • 11:00 AM',
+          priority: 'HIGH RISK (Score 78)',
+          priorityClass: 'bg-rose-50 text-rose-700 border-rose-200'
+        },
+        {
+          id: 'REM-102',
+          patientId: 'P-1088',
+          patientName: 'Anita Devi (58F)',
+          village: 'Bishnugarh Road Tola (1.4 km)',
+          condition: 'Acute Ischemic Stroke Recovery & Hypertension',
+          taskRequired: 'Record standing/sitting BP, speech clarity & left-arm grip strength',
+          dueWindow: 'Overdue by 2 Hours • Urgent',
+          priority: 'CRITICAL (Score 87)',
+          priorityClass: 'bg-rose-50 text-rose-800 border-rose-300'
+        },
+        {
+          id: 'REM-103',
+          patientId: 'P-2041',
+          patientName: 'Sunita Hansda (29F)',
+          village: 'Pelawal Gram Panchayat (1.8 km)',
+          condition: 'Post-Partum Severe Preeclampsia Monitoring',
+          taskRequired: 'Check maternal BP, urine dipstick protein & newborn HBNC weight check',
+          dueWindow: 'Due Today • 02:30 PM',
+          priority: 'MODERATE-HIGH (Score 64)',
+          priorityClass: 'bg-amber-50 text-amber-800 border-amber-200'
+        },
+        {
+          id: 'REM-104',
+          patientId: 'P-3019',
+          patientName: 'Birsa Munda (64M)',
+          village: 'Dhengura South (2.2 km)',
+          condition: 'Chronic COPD & Type-2 Diabetes',
+          taskRequired: 'Pulse oximetry (SpO2), glucometer random blood sugar & inhaler check',
+          dueWindow: 'Scheduled • Tomorrow 09:30 AM',
+          priority: 'HIGH RISK (Score 72)',
+          priorityClass: 'bg-amber-50 text-amber-800 border-amber-200'
+        }
+      ])
+    : (customData.reminders || []);
+
+  const TELECONSULT_HELPS_REQUIRED = isPrototype
+    ? (liveTeleconsultHelps || [
+        {
+          id: 'TCH-201',
+          patientName: 'Sita Devi (27F • 32W Pregnant)',
+          village: 'Pelawal Tola, Katkamsandi',
+          specialty: 'Obstetrics & Gynecology',
+          doctorName: 'Dr. Anjali Verma',
+          reason: 'Swelling in feet & mild frontal headache; needs ASHA tablet video call + BP & Hb strip upload',
+          slot: 'Today, 10:30 AM',
+          urgency: 'High-Risk ANC'
+        },
+        {
+          id: 'TCH-202',
+          patientName: 'Ramesh Mahto (48M)',
+          village: 'Katkamsandi Bazar',
+          specialty: 'Cardiology',
+          doctorName: 'Dr. Rajesh Verma',
+          reason: 'Post-stent 14-day review; patient has no smartphone and requested ASHA assisted video consult',
+          slot: 'Today, 11:15 AM',
+          urgency: 'Cardiac Priority'
+        },
+        {
+          id: 'TCH-203',
+          patientName: 'Mangal Oraon (62M)',
+          village: 'Dhengura Gram Panchayat',
+          specialty: 'Neurology',
+          doctorName: 'Dr. Priya Sharma',
+          reason: 'Needs Khortha-to-Hindi symptom interpretation & blood pressure verification during neuro call',
+          slot: 'Today, 12:00 PM',
+          urgency: 'Stroke Follow-Up'
+        },
+        {
+          id: 'TCH-204',
+          patientName: 'Kiran Kumari (6F • Guardian: Sunita Devi)',
+          village: 'Katkamsandi East',
+          specialty: 'Pediatrics',
+          doctorName: 'Dr. Vikram Singh',
+          reason: '3-day pediatric fever & cough; mother requested ASHA worker vitals check & doctor consult',
+          slot: 'Today, 02:00 PM',
+          urgency: 'Pediatric Care'
+        }
+      ])
+    : (customData.teleconsultHelps || []);
+
+  const solvedCount = isPrototype ? 14 : (customData.solvedCases || []).length;
+  const monthlySolvedCount = isPrototype ? 58 : (customData.solvedCases || []).length;
+  const yearlySolvedCount = isPrototype ? 642 : (customData.solvedCases || []).length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6">
@@ -33100,10 +41393,10 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <button
             type="button"
-            onClick={() => setLastSyncedAt(`Synced at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)}
+            onClick={() => setActiveModal('profile')}
             className="px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
           >
-            Sync Field Kit
+            Edit ASHA Profile
           </button>
           <button
             type="button"
@@ -33135,12 +41428,16 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
                 ASHA ID Card
               </span>
               <span className="text-xs font-bold tracking-wide">
-                National Health Mission (NHM) &bull; Govt. of Jharkhand
+                National Health Mission (NHM) &bull; Govt. of India
               </span>
             </div>
-            <span className="text-[11px] font-mono font-bold bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 px-2.5 py-0.5 rounded">
-              Verified Frontline Worker
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveModal('profile')}
+              className="text-[11px] font-mono font-bold bg-white/15 hover:bg-white/25 border border-white/30 text-white px-2.5 py-0.5 rounded cursor-pointer"
+            >
+              Edit Credentials
+            </button>
           </div>
 
           <div className="p-5 sm:p-6 space-y-5">
@@ -33208,7 +41505,7 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
                     ABHA: {abhaId}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                    {nhmCode}
+                    NHM: {nhmCode}
                   </span>
                 </div>
               </div>
@@ -33224,7 +41521,7 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Village Catchment Area</span>
                 <strong className="text-slate-900 block mt-0.5">{villageCatchment}</strong>
-                <span className="text-[11px] text-slate-500">Hazaribagh District, Jharkhand</span>
+                <span className="text-[11px] text-slate-500">Assigned Field Beat</span>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Supervising ANM &amp; MO-IC</span>
@@ -33262,18 +41559,18 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Weekly Solved</span>
-              <span className="text-xl font-black text-[#0b2b82] mt-0.5 block">14 Cases</span>
-              <span className="text-[10px] text-slate-500">8 Follow-Ups • 4 Consults</span>
+              <span className="text-xl font-black text-[#0b2b82] mt-0.5 block">{solvedCount} Cases</span>
+              <span className="text-[10px] text-slate-500">{isPrototype ? '8 Follow-Ups • 4 Consults' : 'Verified Field Ledger'}</span>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Monthly Solved</span>
-              <span className="text-xl font-black text-emerald-700 mt-0.5 block">58 Cases</span>
-              <span className="text-[10px] text-slate-500">34 Visits • 18 Teleconsults</span>
+              <span className="text-xl font-black text-emerald-700 mt-0.5 block">{monthlySolvedCount} Cases</span>
+              <span className="text-[10px] text-slate-500">{isPrototype ? '34 Visits • 18 Teleconsults' : 'Rolling 30-Day Total'}</span>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Yearly Solved</span>
-              <span className="text-xl font-black text-slate-900 mt-0.5 block">642 Cases</span>
-              <span className="text-[10px] text-slate-500">99.1% Compliance Rate</span>
+              <span className="text-xl font-black text-slate-900 mt-0.5 block">{yearlySolvedCount} Cases</span>
+              <span className="text-[10px] text-slate-500">{isPrototype ? '99.1% Compliance Rate' : 'Annual Field Impact'}</span>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">ASHA Kit Status</span>
@@ -33304,29 +41601,29 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
             Follow-Up Reminders Due
           </span>
-          <span className="text-2xl font-black text-rose-700 mt-1 block">4 Patients</span>
-          <span className="text-[11px] text-slate-500">1 Overdue • 3 Due Today/Tomorrow</span>
+          <span className="text-2xl font-black text-rose-700 mt-1 block">{FOLLOWUP_REMINDERS.length} Patients</span>
+          <span className="text-[11px] text-slate-500">{FOLLOWUP_REMINDERS.length > 0 ? 'Active home visit reminders' : 'No pending reminders'}</span>
         </div>
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
             Teleconsult Help Requests
           </span>
-          <span className="text-2xl font-black text-[#0b2b82] mt-1 block">4 Villagers</span>
+          <span className="text-2xl font-black text-[#0b2b82] mt-1 block">{TELECONSULT_HELPS_REQUIRED.length} Villagers</span>
           <span className="text-[11px] text-slate-500">Requiring ASHA Tablet &amp; Vitals Intake</span>
         </div>
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
             Past Assessments Logged
           </span>
-          <span className="text-2xl font-black text-emerald-700 mt-1 block">390 Visits</span>
-          <span className="text-[11px] text-slate-500">34 Completed This Month</span>
+          <span className="text-2xl font-black text-emerald-700 mt-1 block">{isPrototype ? '390 Visits' : `${(customData.solvedCases || []).length} Visits`}</span>
+          <span className="text-[11px] text-slate-500">{isPrototype ? '34 Completed This Month' : 'Verified in Service Tracker'}</span>
         </div>
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
             Service Review Score
           </span>
-          <span className="text-2xl font-black text-amber-700 mt-1 block">4.9 / 5.0 &#9733;</span>
-          <span className="text-[11px] text-slate-500">148 Patient &amp; PHC Doctor Reviews</span>
+          <span className="text-2xl font-black text-amber-700 mt-1 block">{isPrototype ? '4.9 / 5.0 ★' : serviceRating}</span>
+          <span className="text-[11px] text-slate-500">{isPrototype ? '148 Patient & PHC Doctor Reviews' : 'NHM Field Rating'}</span>
         </div>
       </div>
 
@@ -33346,69 +41643,92 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
                 High-risk discharged and maternal patients requiring home vitals &amp; medication checks
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setView('feature4')}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
-            >
-              ASHA Task Board &rarr;
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveModal('reminder')}
+                className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                + Add Reminder
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('feature4')}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Task Board &rarr;
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {FOLLOWUP_REMINDERS.map((rem) => {
-              const isAck = Boolean(acknowledgedReminders[rem.id]);
-              return (
-                <div
-                  key={rem.id}
-                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-all space-y-2.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-mono font-bold text-[#0b2b82] block">
-                        {rem.id} &bull; {rem.village}
+          {FOLLOWUP_REMINDERS.length === 0 ? (
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <p className="text-xs font-bold text-slate-700">No follow-up patient reminders added yet</p>
+              <p className="text-[11px] text-slate-500">Add a high-risk or maternal patient home visit reminder for your village beat.</p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('reminder')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Follow-Up Reminder
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {FOLLOWUP_REMINDERS.map((rem) => {
+                const isAck = Boolean(acknowledgedReminders[rem.id]);
+                return (
+                  <div
+                    key={rem.id}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-all space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-mono font-bold text-[#0b2b82] block">
+                          {rem.id} &bull; {rem.village}
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">{rem.patientName}</h4>
+                        <p className="text-[11px] font-semibold text-slate-600">{rem.condition}</p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${rem.priorityClass}`}>
+                        {rem.priority}
                       </span>
-                      <h4 className="text-sm font-bold text-slate-900">{rem.patientName}</h4>
-                      <p className="text-[11px] font-semibold text-slate-600">{rem.condition}</p>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${rem.priorityClass}`}>
-                      {rem.priority}
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    <strong>Checklist:</strong> {rem.taskRequired}
-                  </p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      <strong>Checklist:</strong> {rem.taskRequired}
+                    </p>
 
-                  <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[11px] font-bold text-rose-700">{rem.dueWindow}</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAcknowledgedReminders((prev) => ({ ...prev, [rem.id]: !prev[rem.id] }))
-                        }
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border cursor-pointer transition-colors ${
-                          isAck
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {isAck ? '✓ Reminder Noted' : 'Acknowledge'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setView('feature4')}
-                        className="px-3 py-1 rounded-md bg-[#0b2b82] hover:bg-[#071c59] text-white text-[11px] font-bold cursor-pointer transition-colors"
-                      >
-                        Start Follow-Up &rarr;
-                      </button>
+                    <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[11px] font-bold text-rose-700">{rem.dueWindow}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAcknowledgedReminders((prev) => ({ ...prev, [rem.id]: !prev[rem.id] }))
+                          }
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border cursor-pointer transition-colors ${
+                            isAck
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {isAck ? '✓ Reminder Noted' : 'Acknowledge'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setView('feature4')}
+                          className="px-3 py-1 rounded-md bg-[#0b2b82] hover:bg-[#071c59] text-white text-[11px] font-bold cursor-pointer transition-colors"
+                        >
+                          Start Follow-Up &rarr;
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Teleconsultation Helps Requiring Action */}
@@ -33425,59 +41745,82 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
                 Villagers requesting ASHA worker assistance for vitals intake &amp; specialist video consults
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setView('feature2');
-                if (setTeleconsultScreen) setTeleconsultScreen('entry');
-              }}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
-            >
-              Assisted Consult Hub &rarr;
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {TELECONSULT_HELPS_REQUIRED.map((tc) => (
-              <div
-                key={tc.id}
-                className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-all space-y-2.5"
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveModal('teleconsult_help')}
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-bold transition-colors cursor-pointer"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] font-mono font-bold text-indigo-700 block">
-                      {tc.id} &bull; {tc.village}
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-900">{tc.patientName}</h4>
-                    <p className="text-[11px] font-semibold text-[#0b2b82]">
-                      {tc.specialty} &bull; {tc.doctorName}
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 shrink-0">
-                    {tc.urgency}
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-600 leading-relaxed">{tc.reason}</p>
-
-                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-[11px] font-semibold text-slate-600">
-                    Preferred Slot: <strong>{tc.slot}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setView('feature2');
-                      if (setTeleconsultScreen) setTeleconsultScreen('booking');
-                    }}
-                    className="px-3 py-1 rounded-md bg-[#0b2b82] hover:bg-[#071c59] text-white text-[11px] font-bold cursor-pointer transition-colors"
-                  >
-                    Assist &amp; Book Consult &rarr;
-                  </button>
-                </div>
-              </div>
-            ))}
+                + Add Request
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setView('feature2');
+                  if (setTeleconsultScreen) setTeleconsultScreen('entry');
+                }}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0b2b82] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Consult Hub &rarr;
+              </button>
+            </div>
           </div>
+
+          {TELECONSULT_HELPS_REQUIRED.length === 0 ? (
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <p className="text-xs font-bold text-slate-700">No assisted teleconsultation requests logged yet</p>
+              <p className="text-[11px] text-slate-500">Log a villager needing ASHA tablet video consultation assistance below.</p>
+              <button
+                type="button"
+                onClick={() => setActiveModal('teleconsult_help')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#0b2b82] text-white text-xs font-bold cursor-pointer"
+              >
+                + Add Teleconsult Request
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {TELECONSULT_HELPS_REQUIRED.map((tc) => (
+                <div
+                  key={tc.id}
+                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-all space-y-2.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-indigo-700 block">
+                        {tc.id} &bull; {tc.village}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-900">{tc.patientName}</h4>
+                      <p className="text-[11px] font-semibold text-[#0b2b82]">
+                        {tc.specialty} &bull; {tc.doctorName}
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 shrink-0">
+                      {tc.urgency}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">{tc.reason}</p>
+
+                  <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[11px] font-semibold text-slate-600">
+                      Preferred Slot: <strong>{tc.slot}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setView('feature2');
+                        if (setTeleconsultScreen) setTeleconsultScreen('booking');
+                      }}
+                      className="px-3 py-1 rounded-md bg-[#0b2b82] hover:bg-[#071c59] text-white text-[11px] font-bold cursor-pointer transition-colors"
+                    >
+                      Assist &amp; Book Consult &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -33555,6 +41898,162 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
           ))}
         </div>
       </div>
+
+      {/* MODALS FOR REAL ASHA PROFILE & FIELD REMINDERS */}
+      {activeModal === 'profile' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit ASHA Worker Profile &amp; Optional Fields</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">ASHA Worker Name *</label>
+                  <input type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Official ASHA ID *</label>
+                  <input type="text" required value={profileForm.ashaId} onChange={(e) => setProfileForm({ ...profileForm, ashaId: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Assigned Sub-Center *</label>
+                  <input type="text" required value={profileForm.subCenter} onChange={(e) => setProfileForm({ ...profileForm, subCenter: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Primary Health Centre (PHC)</label>
+                  <input type="text" value={profileForm.phcName} onChange={(e) => setProfileForm({ ...profileForm, phcName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Village Catchment Area *</label>
+                  <input type="text" required value={profileForm.villageCatchment} onChange={(e) => setProfileForm({ ...profileForm, villageCatchment: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">NHM Worker Code</label>
+                  <input type="text" placeholder="e.g. NHM-JH-ASHA-084" value={profileForm.nhmCode} onChange={(e) => setProfileForm({ ...profileForm, nhmCode: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supervising ANM</label>
+                  <input type="text" placeholder="e.g. Smt. Rekha Tirkey" value={profileForm.anmSupervisor} onChange={(e) => setProfileForm({ ...profileForm, anmSupervisor: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supervising Medical Officer</label>
+                  <input type="text" placeholder="e.g. Dr. Priya Sharma" value={profileForm.medicalOfficer} onChange={(e) => setProfileForm({ ...profileForm, medicalOfficer: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Field Experience</label>
+                  <input type="text" placeholder="e.g. 5 Years Active Service" value={profileForm.experienceYears} onChange={(e) => setProfileForm({ ...profileForm, experienceYears: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Contact Mobile</label>
+                  <input type="text" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Languages Spoken</label>
+                  <input type="text" placeholder="e.g. Hindi, Khortha" value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'reminder' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Follow-Up Patient Reminder</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddReminder} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Patient Name &amp; Age *</label>
+                <input type="text" required placeholder="e.g. Sunita Devi (28F)" value={reminderForm.patientName} onChange={(e) => setReminderForm({ ...reminderForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Village / Tola</label>
+                <input type="text" placeholder="e.g. Pelawal Gram Panchayat" value={reminderForm.village} onChange={(e) => setReminderForm({ ...reminderForm, village: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Clinical Condition *</label>
+                <input type="text" required placeholder="e.g. Post-Partum Hypertension Monitoring" value={reminderForm.condition} onChange={(e) => setReminderForm({ ...reminderForm, condition: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Home Visit Checklist</label>
+                <input type="text" placeholder="e.g. Check resting BP & verify IFA tablets" value={reminderForm.taskRequired} onChange={(e) => setReminderForm({ ...reminderForm, taskRequired: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Due Window</label>
+                  <input type="text" value={reminderForm.dueWindow} onChange={(e) => setReminderForm({ ...reminderForm, dueWindow: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Priority</label>
+                  <select value={reminderForm.priority} onChange={(e) => setReminderForm({ ...reminderForm, priority: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="HIGH RISK">HIGH RISK</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="ROUTINE">ROUTINE</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Reminder</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'teleconsult_help' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Assisted Teleconsultation Request</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddTcHelp} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Villager / Patient Name *</label>
+                <input type="text" required placeholder="e.g. Mangal Oraon (62M)" value={tcHelpForm.patientName} onChange={(e) => setTcHelpForm({ ...tcHelpForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Village</label>
+                  <input type="text" placeholder="e.g. Dhengura" value={tcHelpForm.village} onChange={(e) => setTcHelpForm({ ...tcHelpForm, village: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Specialty Needed</label>
+                  <input type="text" placeholder="e.g. General Medicine" value={tcHelpForm.specialty} onChange={(e) => setTcHelpForm({ ...tcHelpForm, specialty: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Reason for ASHA Assistance *</label>
+                <input type="text" required placeholder="e.g. Needs ASHA tablet video call & BP upload" value={tcHelpForm.reason} onChange={(e) => setTcHelpForm({ ...tcHelpForm, reason: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Preferred Slot</label>
+                  <input type="text" value={tcHelpForm.slot} onChange={(e) => setTcHelpForm({ ...tcHelpForm, slot: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Doctor Name</label>
+                  <input type="text" placeholder="e.g. Dr. Priya Sharma" value={tcHelpForm.doctorName} onChange={(e) => setTcHelpForm({ ...tcHelpForm, doctorName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#0b2b82] text-white font-bold cursor-pointer">Add Request</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -33564,16 +42063,46 @@ function AshaWorkerOverview({ setView, setTeleconsultScreen, currentUser }) {
 // ============================================================================
 // DIAGNOSTIC LAB OVERVIEW (Facility Module 00 - Pathology & Diagnostic Grid)
 // ============================================================================
-function DiagnosticLabOverview({ setView, currentUser }) {
+function DiagnosticLabOverview({ setView, currentUser, onUpdateUser }) {
+  const isPrototype = currentUser?.isPrototype !== false;
+  const customData = currentUser?.customData || {};
   const [dateRange, setDateRange] = useState('today'); // 'today' | 'yesterday' | 'week' | 'month'
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'Collected' | 'Processing' | 'Completed' | 'Awaiting'
   const [sortAsc, setSortAsc] = useState(false); // default down arrow like screenshot
-  const [activeModal, setActiveModal] = useState(null); // 'process' | 'review' | 'order' | 'details'
+  const [activeModal, setActiveModal] = useState(null); // 'process' | 'review' | 'order' | 'details' | 'edit_profile' | 'add_order' | 'add_reagent'
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [hoveredPointIndex, setHoveredPointIndex] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
+
+  const [profileForm, setProfileForm] = useState({
+    facilityName: currentUser?.facilityName || currentUser?.name || '',
+    labId: currentUser?.labId || '',
+    director: currentUser?.director || '',
+    address: currentUser?.address || '',
+    nablRegNo: currentUser?.nablRegNo || '',
+    analyzerStatus: currentUser?.analyzerStatus || '',
+    turnaround: currentUser?.turnaround || '',
+    phone: currentUser?.phone || ''
+  });
+
+  const [newOrderForm, setNewOrderForm] = useState({
+    patientId: '',
+    patientName: '',
+    testName: '',
+    testSubtype: '',
+    sampleType: 'Whole Blood (EDTA Purple Top)',
+    sampleStatus: 'Collected',
+    reportStatus: 'In Review'
+  });
+
+  const [newReagentForm, setNewReagentForm] = useState({
+    name: '',
+    stock: '50%',
+    min: '25%',
+    status: 'good'
+  });
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -33582,28 +42111,18 @@ function DiagnosticLabOverview({ setView, currentUser }) {
 
   // Lab Facility Profile details
   const labProfile = {
-    name: currentUser?.facilityName || currentUser?.name || 'District Diagnostic Pathology & Molecular Lab',
-    labId: currentUser?.labId || 'LAB-JH-HAZ-2026-0042',
-    nablRegNo: currentUser?.nablRegNo || 'NABL-MC-4921/2026',
-    abhaId: currentUser?.abhaId || 'lab.pathology@abdm',
-    director: currentUser?.director || 'Dr. R. K. Mukherjee, MD (Pathology)',
-    address: currentUser?.address || 'Civil Lines, Near Sadar Hospital Campus, Hazaribagh, Jharkhand - 825301',
-    phone: currentUser?.phone || '+91-6546-224810',
-    turnaround: '2.8 hrs Average',
-    analyzerStatus: 'Sysmex XN-1000 & Beckman AU480 Operational'
+    name: currentUser?.facilityName || currentUser?.name || (isPrototype ? 'District Diagnostic Pathology & Molecular Lab' : 'Not added'),
+    labId: currentUser?.labId || (isPrototype ? 'LAB-JH-HAZ-2026-0042' : 'Not added'),
+    nablRegNo: currentUser?.nablRegNo || (isPrototype ? 'NABL-MC-4921/2026' : 'Not added'),
+    abhaId: currentUser?.abhaId || (isPrototype ? 'lab.pathology@abdm' : 'Not added'),
+    director: currentUser?.director || (isPrototype ? 'Dr. R. K. Mukherjee, MD (Pathology)' : 'Not added'),
+    address: currentUser?.address || (isPrototype ? 'Civil Lines, Near Sadar Hospital Campus, Hazaribagh, Jharkhand - 825301' : 'Not added'),
+    phone: currentUser?.phone || (isPrototype ? '+91-6546-224810' : 'Not added'),
+    turnaround: currentUser?.turnaround || (isPrototype ? '2.8 hrs Average' : 'Not added'),
+    analyzerStatus: currentUser?.analyzerStatus || (isPrototype ? 'Sysmex XN-1000 & Beckman AU480 Operational' : 'Not added')
   };
 
-  // Metrics based on selected date range
-  const metricsData = {
-    today: { bookings: 128, pending: 65, awaitingApproval: 31, completed: 214, dateLabel: 'October 26, 2026', rangeLabel: 'Date-range' },
-    yesterday: { bookings: 114, pending: 42, awaitingApproval: 28, completed: 198, dateLabel: 'October 25, 2026', rangeLabel: 'Yesterday' },
-    week: { bookings: 842, pending: 85, awaitingApproval: 46, completed: 1420, dateLabel: 'Oct 20 – Oct 26, 2026', rangeLabel: 'Last 7 Days' },
-    month: { bookings: 3680, pending: 92, awaitingApproval: 58, completed: 5940, dateLabel: 'October 2026', rangeLabel: 'This Month' }
-  };
-  const currentMetrics = metricsData[dateRange] || metricsData.today;
-
-  // Recent Orders dataset matching the reference layout
-  const [orders, setOrders] = useState([
+  const PROTO_ORDERS = [
     {
       id: 'SP-9041',
       patientId: 'PH*900******',
@@ -33657,7 +42176,7 @@ function DiagnosticLabOverview({ setView, currentUser }) {
       parameters: [
         { name: 'TSH (Ultrasensitive)', value: '2.45 µIU/mL', normal: '0.35 - 4.94', status: 'normal' },
         { name: 'Free T4', value: '1.24 ng/dL', normal: '0.70 - 1.48', status: 'normal' },
-        { name: 'Free T3', value: '3.12 pg/mL', normal: '1.71 - 3.71', status: 'normal' }
+        { name: 'Free T3', value: '3.12 pg/dL', normal: '1.71 - 3.71', status: 'normal' }
       ]
     },
     {
@@ -33728,10 +42247,84 @@ function DiagnosticLabOverview({ setView, currentUser }) {
       delayAlert: false,
       parameters: []
     }
-  ]);
+  ];
+
+  const [orders, setOrders] = useState(() => isPrototype ? PROTO_ORDERS : (customData.orders || []));
+
+  useEffect(() => {
+    if (!isPrototype) {
+      setOrders(customData.orders || []);
+    }
+  }, [isPrototype, customData.orders]);
+
+  useEffect(() => {
+    if (!isPrototype) return;
+    fetch('/api/diagnostics/orders')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.orders) && data.orders.length > 0) {
+          const mapped = data.orders.map((o, idx) => ({
+            id: o.id || `SP-${9041 + idx}`,
+            patientId: o.abhaId || `PH1000${130 + idx}`,
+            patientName: o.patientName || 'Patient',
+            testName: o.category || 'Diagnostic Panel',
+            testSubtype: o.testName || 'Laboratory Investigation',
+            bookingTime: o.orderedAt || 'Today',
+            sampleStatus:
+              o.status === 'Result Ready'
+                ? 'Collected'
+                : o.status === 'Processing'
+                ? 'Processing'
+                : o.status === 'Sample Collected'
+                ? 'Collected'
+                : 'Awaiting Collection',
+            reportStatus:
+              o.status === 'Result Ready'
+                ? 'Completed'
+                : o.status === 'Processing'
+                ? 'In Review'
+                : 'Pending Sample',
+            sampleType: 'Whole Blood / Serum (Standard Vial)',
+            vialBarcode: `BC-2026-${90410 + idx}`,
+            delayAlert: o.priority === 'Urgent' || o.priority === 'Critical (STAT)',
+            parameters: [
+              {
+                name: o.testName || 'Primary Analyte',
+                value: o.resultSummary || 'In Progress',
+                normal: 'Standard Reference Range',
+                status: o.resultStatus === 'critical' ? 'urgent' : 'normal'
+              }
+            ]
+          }));
+          setOrders((prev) => {
+            const existingIds = new Set(mapped.map((m) => m.id));
+            return [...mapped, ...prev.filter((p) => !existingIds.has(p.id))];
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isPrototype]);
+
+  // Metrics based on selected date range
+  const metricsData = isPrototype ? {
+    today: { bookings: 128, pending: 65, awaitingApproval: 31, completed: 214, dateLabel: 'October 26, 2026', rangeLabel: 'Date-range' },
+    yesterday: { bookings: 114, pending: 42, awaitingApproval: 28, completed: 198, dateLabel: 'October 25, 2026', rangeLabel: 'Yesterday' },
+    week: { bookings: 842, pending: 85, awaitingApproval: 46, completed: 1420, dateLabel: 'Oct 20 – Oct 26, 2026', rangeLabel: 'Last 7 Days' },
+    month: { bookings: 3680, pending: 92, awaitingApproval: 58, completed: 5940, dateLabel: 'October 2026', rangeLabel: 'This Month' }
+  } : {
+    today: {
+      bookings: orders.length,
+      pending: orders.filter(o => o.sampleStatus !== 'Collected' || o.reportStatus !== 'Completed').length,
+      awaitingApproval: orders.filter(o => o.reportStatus === 'In Review').length,
+      completed: orders.filter(o => o.reportStatus === 'Completed').length,
+      dateLabel: 'Live Workspace',
+      rangeLabel: 'Today'
+    }
+  };
+  const currentMetrics = metricsData[dateRange] || metricsData.today;
 
   // Operational Analytics Weekly Data points
-  const weeklyAnalytics = [
+  const weeklyAnalytics = isPrototype ? [
     { day: 'Mon', bookings: 75, completed: 42 },
     { day: 'Tue', bookings: 145, completed: 105 },
     { day: 'Wed', bookings: 125, completed: 88 },
@@ -33739,6 +42332,14 @@ function DiagnosticLabOverview({ setView, currentUser }) {
     { day: 'Fri', bookings: 215, completed: 172 },
     { day: 'Sat', bookings: 195, completed: 148 },
     { day: 'Sat', bookings: 242, completed: 196 }
+  ] : [
+    { day: 'Mon', bookings: 0, completed: 0 },
+    { day: 'Tue', bookings: 0, completed: 0 },
+    { day: 'Wed', bookings: 0, completed: 0 },
+    { day: 'Thu', bookings: 0, completed: 0 },
+    { day: 'Fri', bookings: 0, completed: 0 },
+    { day: 'Sat', bookings: 0, completed: 0 },
+    { day: 'Sun', bookings: orders.length, completed: orders.filter(o => o.reportStatus === 'Completed').length }
   ];
 
   // Filtered & sorted orders
@@ -33767,26 +42368,124 @@ function DiagnosticLabOverview({ setView, currentUser }) {
 
   // Handle sample status transition
   const handleUpdateSampleStatus = (orderId, newStatus) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, sampleStatus: newStatus } : o));
+    const updated = orders.map(o => o.id === orderId ? { ...o, sampleStatus: newStatus } : o);
+    setOrders(updated);
+    if (!isPrototype && onUpdateUser) {
+      onUpdateUser({ ...currentUser, customData: { ...customData, orders: updated } });
+    }
+    fetch(`/api/diagnostics/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: newStatus === 'Collected' ? 'Sample Collected' : newStatus
+      })
+    }).catch(() => {});
     showToast(`Sample ${orderId} status updated to "${newStatus}"`);
     setActiveModal(null);
   };
 
   // Handle report approval sign-off
   const handleApproveReport = (orderId) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, reportStatus: 'Completed' } : o));
+    const updated = orders.map(o => o.id === orderId ? { ...o, reportStatus: 'Completed' } : o);
+    setOrders(updated);
+    if (!isPrototype && onUpdateUser) {
+      onUpdateUser({ ...currentUser, customData: { ...customData, orders: updated } });
+    }
+    fetch(`/api/diagnostics/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'Result Ready',
+        resultSummary: 'Verified & Digitally Signed by Pathologist'
+      })
+    }).catch(() => {});
     showToast(`Report ${orderId} digitally signed & approved by Pathologist`);
     setActiveModal(null);
   };
 
   // Reagents Inventory Data
-  const [reagents, setReagents] = useState([
+  const PROTO_REAGENTS = [
     { id: 'RG-01', name: 'Sysmex Cellpack CBC Diluent (20L)', stock: '12%', min: '25%', status: 'low' },
     { id: 'RG-02', name: 'Stromatolyser-4DL Lyse Cartridge', stock: '14%', min: '20%', status: 'low' },
     { id: 'RG-03', name: 'Beckman AU Liquid Stable Lipid Reagent', stock: '18%', min: '30%', status: 'low' },
     { id: 'RG-04', name: 'Glucose Hexokinase Enzymatic Kit', stock: '64%', min: '30%', status: 'good' },
     { id: 'RG-05', name: 'Vacutainer K2-EDTA 3mL Vials (Pack of 100)', stock: '78%', min: '40%', status: 'good' }
-  ]);
+  ];
+  const [reagents, setReagents] = useState(() => isPrototype ? PROTO_REAGENTS : (customData.reagents || []));
+
+  useEffect(() => {
+    if (!isPrototype) {
+      setReagents(customData.reagents || []);
+    }
+  }, [isPrototype, customData.reagents]);
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (onUpdateUser) {
+      onUpdateUser({
+        ...currentUser,
+        facilityName: profileForm.facilityName || currentUser?.facilityName,
+        name: profileForm.facilityName || currentUser?.name,
+        labId: profileForm.labId,
+        director: profileForm.director,
+        address: profileForm.address,
+        nablRegNo: profileForm.nablRegNo,
+        analyzerStatus: profileForm.analyzerStatus,
+        turnaround: profileForm.turnaround,
+        phone: profileForm.phone
+      });
+    }
+    setActiveModal(null);
+    showToast('Diagnostic Lab profile updated.');
+  };
+
+  const handleAddOrder = (e) => {
+    e.preventDefault();
+    if (!newOrderForm.patientName || !newOrderForm.testName) return;
+    const nextId = `SP-${9050 + orders.length}`;
+    const newItem = {
+      id: nextId,
+      patientId: newOrderForm.patientId || `PH-${1000 + orders.length}`,
+      patientName: newOrderForm.patientName,
+      testName: newOrderForm.testName,
+      testSubtype: newOrderForm.testSubtype || 'Laboratory Investigation',
+      bookingTime: 'Just Now',
+      sampleStatus: newOrderForm.sampleStatus || 'Collected',
+      reportStatus: newOrderForm.reportStatus || 'In Review',
+      sampleType: newOrderForm.sampleType || 'Whole Blood (EDTA)',
+      vialBarcode: `BC-2026-${90500 + orders.length}`,
+      delayAlert: false,
+      parameters: []
+    };
+    const updated = [newItem, ...orders];
+    setOrders(updated);
+    if (onUpdateUser) {
+      onUpdateUser({ ...currentUser, customData: { ...customData, orders: updated } });
+    }
+    setNewOrderForm({ patientId: '', patientName: '', testName: '', testSubtype: '', sampleType: 'Whole Blood (EDTA Purple Top)', sampleStatus: 'Collected', reportStatus: 'In Review' });
+    setActiveModal(null);
+    showToast(`Added diagnostic order ${nextId}.`);
+  };
+
+  const handleAddReagent = (e) => {
+    e.preventDefault();
+    if (!newReagentForm.name) return;
+    const newItem = {
+      id: `RG-${reagents.length + 1}`,
+      name: newReagentForm.name,
+      stock: newReagentForm.stock || '50%',
+      min: newReagentForm.min || '25%',
+      status: newReagentForm.status || 'good'
+    };
+    const updated = [...reagents, newItem];
+    setReagents(updated);
+    if (onUpdateUser) {
+      onUpdateUser({ ...currentUser, customData: { ...customData, reagents: updated } });
+    }
+    setNewReagentForm({ name: '', stock: '50%', min: '25%', status: 'good' });
+    setActiveModal(null);
+    showToast('Added reagent to lab inventory.');
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
@@ -33808,11 +42507,36 @@ function DiagnosticLabOverview({ setView, currentUser }) {
               Diagnostic Lab Overview
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-              Monitor your lab's daily activity
+              Monitor your lab's daily activity &bull; <span className="font-semibold text-slate-700">{labProfile.name}</span>
             </p>
           </div>
 
           <div className="flex items-center flex-wrap gap-2.5 self-start md:self-center">
+            {!isPrototype && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('edit_profile')}
+                  className="text-xs font-bold text-[#0b2b82] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-lg cursor-pointer"
+                >
+                  Edit Lab Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('add_order')}
+                  className="text-xs font-bold text-white bg-[#2563EB] hover:bg-[#1d4ed8] px-3.5 py-1.5 rounded-lg cursor-pointer"
+                >
+                  + Add Test Order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('add_reagent')}
+                  className="text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-lg cursor-pointer"
+                >
+                  + Add Reagent
+                </button>
+              </>
+            )}
             {/* Formatted Date Pill */}
             <div className="text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 px-3.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-2">
               <span>{currentMetrics.dateLabel}</span>
@@ -33844,14 +42568,14 @@ function DiagnosticLabOverview({ setView, currentUser }) {
                     onClick={() => { setDateRange('today'); setDateDropdownOpen(false); }}
                     className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'today' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
                   >
-                    Today (Oct 26)
+                    Today
                   </button>
                   <button
                     type="button"
                     onClick={() => { setDateRange('yesterday'); setDateDropdownOpen(false); }}
                     className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 font-medium ${dateRange === 'yesterday' ? 'text-[#2563EB] font-bold bg-blue-50/50' : 'text-slate-700'}`}
                   >
-                    Yesterday (Oct 25)
+                    Yesterday
                   </button>
                   <button
                     type="button"
@@ -33877,8 +42601,36 @@ function DiagnosticLabOverview({ setView, currentUser }) {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>Lab Operational - ALL SYSTEMS OPTIMAL</span>
+              <span>{isPrototype ? 'Lab Operational - ALL SYSTEMS OPTIMAL' : 'Real Lab Workspace Active'}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Lab Credentials Strip */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Lab HFR ID</span>
+            <span className="font-mono font-bold text-slate-800">{labProfile.labId}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Chief Pathologist</span>
+            <span className="font-semibold text-slate-800">{labProfile.director}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">NABL Reg No</span>
+            <span className="font-mono font-semibold text-slate-800">{labProfile.nablRegNo}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Analyzer Status</span>
+            <span className="font-semibold text-slate-800">{labProfile.analyzerStatus}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Avg Turnaround</span>
+            <span className="font-semibold text-slate-800">{labProfile.turnaround}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Location / Phone</span>
+            <span className="font-semibold text-slate-800 truncate block" title={labProfile.address}>{labProfile.address}</span>
           </div>
         </div>
 
@@ -34128,11 +42880,11 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs">
               <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                 <span className="text-slate-500 block text-[10px] uppercase font-bold">Avg Turnaround</span>
-                <span className="text-slate-900 font-extrabold text-sm mt-0.5 block">2.8 Hours</span>
+                <span className="text-slate-900 font-extrabold text-sm mt-0.5 block">{labProfile.turnaround}</span>
               </div>
               <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                 <span className="text-slate-500 block text-[10px] uppercase font-bold">Weekly Volume</span>
-                <span className="text-emerald-700 font-extrabold text-sm mt-0.5 block">1,420 Tests</span>
+                <span className="text-emerald-700 font-extrabold text-sm mt-0.5 block">{isPrototype ? '1,420 Tests' : `${orders.length} Tests`}</span>
               </div>
             </div>
           </div>
@@ -34146,14 +42898,14 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             {/* Attention Item 1: Critical Delay */}
             <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
               <span className="bg-rose-100/80 text-rose-800 text-xs font-bold px-2.5 py-1 rounded-md border border-rose-200">
-                Critical Delay: 2 Samples
+                Critical Delay: {isPrototype ? '2' : orders.filter(o => o.delayAlert).length} Samples
               </span>
               <button
                 type="button"
-                onClick={() => setActiveModal('process')}
+                onClick={() => isPrototype ? setActiveModal('process') : setActiveModal('add_order')}
                 className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
               >
-                <span>Process Now</span>
+                <span>{isPrototype ? 'Process Now' : '+ Add Sample'}</span>
                 <span>&rarr;</span>
               </button>
             </div>
@@ -34161,7 +42913,7 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             {/* Attention Item 2: Pending Approvals */}
             <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
               <span className="bg-amber-100/80 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-md border border-amber-200">
-                Pending Approvals: 15 Reports
+                Pending Approvals: {isPrototype ? '15' : orders.filter(o => o.reportStatus === 'In Review').length} Reports
               </span>
               <button
                 type="button"
@@ -34176,14 +42928,14 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             {/* Attention Item 3: Inventory */}
             <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between">
               <span className="bg-yellow-100/80 text-yellow-900 text-xs font-bold px-2.5 py-1 rounded-md border border-yellow-200">
-                Inventory: Reagent Low
+                Inventory: {reagents.filter(r => r.status === 'low').length > 0 ? `${reagents.filter(r => r.status === 'low').length} Reagent Low` : `${reagents.length} Reagents Tracked`}
               </span>
               <button
                 type="button"
                 onClick={() => setActiveModal('order')}
                 className="text-xs font-bold text-[#2563EB] hover:text-[#1d4ed8] flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
               >
-                <span>Order Now</span>
+                <span>{reagents.length === 0 && !isPrototype ? '+ Add Reagent' : 'Order Now'}</span>
                 <span>&rarr;</span>
               </button>
             </div>
@@ -34192,15 +42944,26 @@ function DiagnosticLabOverview({ setView, currentUser }) {
 
         {/* 4. BOTTOM SECTION: RECENT TEST ORDERS (FULL-WIDTH EXPANDED TABLE) */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-base font-bold text-slate-900 tracking-tight">Recent Test Orders</h2>
-            <button
-              type="button"
-              onClick={() => { setStatusFilter('all'); setSearchQuery(''); showToast('Showing all test orders'); }}
-              className="text-xs font-bold text-[#2563EB] hover:underline cursor-pointer"
-            >
-              View all orders
-            </button>
+            <div className="flex items-center gap-3">
+              {!isPrototype && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('add_order')}
+                  className="text-xs font-bold text-white bg-[#2563EB] hover:bg-[#1d4ed8] px-3 py-1.5 rounded-lg cursor-pointer"
+                >
+                  + Add Test Order
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('all'); setSearchQuery(''); showToast('Showing all test orders'); }}
+                className="text-xs font-bold text-[#2563EB] hover:underline cursor-pointer"
+              >
+                View all orders
+              </button>
+            </div>
           </div>
 
           {/* Search Input matching reference layout */}
@@ -34251,8 +43014,21 @@ function DiagnosticLabOverview({ setView, currentUser }) {
               <tbody className="divide-y divide-slate-100 text-xs font-medium">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-8 text-center text-slate-400 text-xs">
-                      No orders found matching "{searchQuery}".
+                    <td colSpan="6" className="py-8 text-center text-slate-500 text-xs">
+                      {orders.length === 0 && !isPrototype ? (
+                        <div className="space-y-2">
+                          <p className="font-semibold text-slate-700">No diagnostic test orders added yet.</p>
+                          <button
+                            type="button"
+                            onClick={() => setActiveModal('add_order')}
+                            className="px-3.5 py-1.5 bg-[#2563EB] text-white font-bold rounded-lg text-xs cursor-pointer"
+                          >
+                            + Add First Test Order
+                          </button>
+                        </div>
+                      ) : (
+                        `No orders found matching "${searchQuery}".`
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -34389,26 +43165,26 @@ function DiagnosticLabOverview({ setView, currentUser }) {
               <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-rose-600 mt-1 shrink-0"></span>
                 <div>
-                  <span className="font-bold text-rose-900">Specimen #BC-2026-90418 (Whole Blood EDTA)</span>
-                  <p className="text-rose-700 text-[11px] mt-0.5">In transit from Sub-Center Katkamsandi. Elapsed: 3 hrs 45 mins. Cold-chain storage ILR 4.2°C nominal.</p>
+                  <span className="font-bold text-rose-900">Specimen #{selectedOrder?.vialBarcode || 'BC-2026-90418'} ({selectedOrder?.sampleType || 'Whole Blood EDTA'})</span>
+                  <p className="text-rose-700 text-[11px] mt-0.5">Patient: {selectedOrder?.patientName || 'Lab Specimen'}. Ready for analyzer loading.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-slate-700">
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="text-[10px] text-slate-400 block font-bold">ANALYZER LINE</span>
-                  <span className="font-bold text-slate-900">Sysmex XN-1000 Line #1</span>
+                  <span className="font-bold text-slate-900">{labProfile.analyzerStatus}</span>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="text-[10px] text-slate-400 block font-bold">SAMPLE STATUS</span>
-                  <span className="font-bold text-amber-700">Awaiting Centrifuge Entry</span>
+                  <span className="font-bold text-amber-700">{selectedOrder?.sampleStatus || 'Awaiting Entry'}</span>
                 </div>
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => handleUpdateSampleStatus('SP-9041', 'Processing')}
+                  onClick={() => handleUpdateSampleStatus(selectedOrder?.id || 'SP-9041', 'Processing')}
                   className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
                 >
                   Confirm Receipt & Load to Analyzer &rarr;
@@ -34450,58 +43226,42 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-900">Rameshwar Lal (Age 54, M)</span>
-                  <span className="text-slate-500 block text-[11px]">ABHA: rameshwar.lal@abdm &bull; Test: Renal Function Panel</span>
+              {(!selectedOrder && orders.length === 0) ? (
+                <div className="p-4 text-center text-slate-500">
+                  No pending diagnostic reports in the sign-off queue.
                 </div>
-                <span className="text-[10px] font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">SP-9045</span>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900">{selectedOrder?.patientName || orders[0]?.patientName}</span>
+                      <span className="text-slate-500 block text-[11px]">ID: {selectedOrder?.patientId || orders[0]?.patientId} &bull; Test: {selectedOrder?.testSubtype || orders[0]?.testSubtype}</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">{selectedOrder?.id || orders[0]?.id}</span>
+                  </div>
 
-              {/* Parameters List */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="bg-slate-100/70 p-2 font-bold text-[11px] text-slate-600 grid grid-cols-3">
-                  <span>Parameter</span>
-                  <span>Observed Value</span>
-                  <span>Reference Range</span>
-                </div>
-                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
-                  <span className="font-semibold">Serum Creatinine</span>
-                  <span className="font-bold text-emerald-700">1.05 mg/dL</span>
-                  <span className="text-slate-500">0.70 - 1.30</span>
-                </div>
-                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
-                  <span className="font-semibold">Blood Urea Nitrogen</span>
-                  <span className="font-bold text-emerald-700">18 mg/dL</span>
-                  <span className="text-slate-500">7 - 20</span>
-                </div>
-                <div className="p-2 grid grid-cols-3 text-slate-800 items-center">
-                  <span className="font-semibold">Uric Acid</span>
-                  <span className="font-bold text-emerald-700">5.2 mg/dL</span>
-                  <span className="text-slate-500">3.5 - 7.2</span>
-                </div>
-              </div>
+                  <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800">
+                    <span className="font-bold">Digital Sign-Off Certifier:</span> {labProfile.director} &bull; NABL Reg: {labProfile.nablRegNo}
+                  </div>
 
-              <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800">
-                <span className="font-bold">Digital Sign-Off Certifier:</span> Dr. R. K. Mukherjee, MD (Pathology) &bull; Reg No: JMC-24918 &bull; NABL Validated
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => handleApproveReport('SP-9045')}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
-                >
-                  Approve & Release to Patient ABHA Record &rarr;
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveModal(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveReport(selectedOrder?.id || orders[0]?.id)}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
+                    >
+                      Approve & Release to Patient ABHA Record &rarr;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -34531,49 +43291,60 @@ function DiagnosticLabOverview({ setView, currentUser }) {
             </div>
 
             <div className="space-y-2.5 text-xs">
-              <p className="text-slate-600 text-xs">
-                The following reagents are below the safety threshold. Submit an expedited requisition order:
-              </p>
-
-              <div className="space-y-2">
-                {reagents.map(rg => (
-                  <div key={rg.id} className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-slate-900 block">{rg.name}</span>
-                      <span className="text-[10px] text-slate-500">Current Stock: <strong className={rg.status === 'low' ? 'text-rose-600' : 'text-emerald-600'}>{rg.stock}</strong> (Buffer min: {rg.min})</span>
-                    </div>
-                    {rg.status === 'low' ? (
-                      <span className="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded text-[10px] border border-rose-200">
-                        Low Reagent
-                      </span>
-                    ) : (
-                      <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px] border border-emerald-200">
-                        Adequate
-                      </span>
-                    )}
+              {reagents.length === 0 ? (
+                <div className="p-4 text-center space-y-2">
+                  <p className="text-slate-500">No reagents added to inventory yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('add_reagent')}
+                    className="px-3.5 py-1.5 bg-[#2563EB] text-white font-bold rounded-lg text-xs cursor-pointer"
+                  >
+                    + Add Reagent Item
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {reagents.map(rg => (
+                      <div key={rg.id} className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-900 block">{rg.name}</span>
+                          <span className="text-[10px] text-slate-500">Current Stock: <strong className={rg.status === 'low' ? 'text-rose-600' : 'text-emerald-600'}>{rg.stock}</strong> (Buffer min: {rg.min})</span>
+                        </div>
+                        {rg.status === 'low' ? (
+                          <span className="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded text-[10px] border border-rose-200">
+                            Low Reagent
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px] border border-emerald-200">
+                            Adequate
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast('Emergency Reagent Requisition PO #REQ-2026-881 dispatched to District Depot');
-                    setActiveModal(null);
-                  }}
-                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
-                >
-                  Dispatch Requisition to District Depot &rarr;
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveModal(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showToast('Reagent Requisition dispatched to District Depot');
+                        setActiveModal(null);
+                      }}
+                      className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-bold rounded-xl transition shadow-xs cursor-pointer text-center"
+                    >
+                      Dispatch Requisition to District Depot &rarr;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -34645,11 +43416,152 @@ function DiagnosticLabOverview({ setView, currentUser }) {
         </div>
       )}
 
+      {/* Modal 5: Edit Lab Profile */}
+      {activeModal === 'edit_profile' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Edit Diagnostic Lab Profile</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Diagnostic Lab Name *</label>
+                  <input type="text" required value={profileForm.facilityName} onChange={(e) => setProfileForm({ ...profileForm, facilityName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Lab HFR ID *</label>
+                  <input type="text" required value={profileForm.labId} onChange={(e) => setProfileForm({ ...profileForm, labId: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Chief Pathologist *</label>
+                  <input type="text" required value={profileForm.director} onChange={(e) => setProfileForm({ ...profileForm, director: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">NABL Reg No</label>
+                  <input type="text" placeholder="e.g. NABL-MC-4921/2026" value={profileForm.nablRegNo} onChange={(e) => setProfileForm({ ...profileForm, nablRegNo: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Analyzer Status</label>
+                  <input type="text" placeholder="e.g. Sysmex XN-1000 Operational" value={profileForm.analyzerStatus} onChange={(e) => setProfileForm({ ...profileForm, analyzerStatus: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Avg Turnaround</label>
+                  <input type="text" placeholder="e.g. 2.5 hrs Average" value={profileForm.turnaround} onChange={(e) => setProfileForm({ ...profileForm, turnaround: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Address / Location *</label>
+                  <input type="text" required value={profileForm.address} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#2563EB] text-white font-bold cursor-pointer">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 6: Add Diagnostic Test Order */}
+      {activeModal === 'add_order' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Diagnostic Test Order</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddOrder} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Patient Name *</label>
+                  <input type="text" required placeholder="e.g. Rameshwar Lal" value={newOrderForm.patientName} onChange={(e) => setNewOrderForm({ ...newOrderForm, patientName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Patient / ABHA ID</label>
+                  <input type="text" placeholder="e.g. PH1000842" value={newOrderForm.patientId} onChange={(e) => setNewOrderForm({ ...newOrderForm, patientId: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Test Category *</label>
+                <input type="text" required placeholder="e.g. Hematology / Biochemistry" value={newOrderForm.testName} onChange={(e) => setNewOrderForm({ ...newOrderForm, testName: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Investigation Panel</label>
+                <input type="text" placeholder="e.g. Complete Blood Count (CBC)" value={newOrderForm.testSubtype} onChange={(e) => setNewOrderForm({ ...newOrderForm, testSubtype: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Sample Status</label>
+                  <select value={newOrderForm.sampleStatus} onChange={(e) => setNewOrderForm({ ...newOrderForm, sampleStatus: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="Collected">Collected</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Awaiting Collection">Awaiting Collection</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Report Status</label>
+                  <select value={newOrderForm.reportStatus} onChange={(e) => setNewOrderForm({ ...newOrderForm, reportStatus: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="In Review">In Review</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Pending Sample">Pending Sample</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#2563EB] text-white font-bold cursor-pointer">Add Order</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 7: Add Lab Reagent */}
+      {activeModal === 'add_reagent' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add Lab Reagent / Consumable</h3>
+              <button type="button" onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleAddReagent} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Reagent / Kit Name *</label>
+                <input type="text" required placeholder="e.g. Sysmex Cellpack CBC Diluent (20L)" value={newReagentForm.name} onChange={(e) => setNewReagentForm({ ...newReagentForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Current Stock</label>
+                  <input type="text" value={newReagentForm.stock} onChange={(e) => setNewReagentForm({ ...newReagentForm, stock: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Min Buffer</label>
+                  <input type="text" value={newReagentForm.min} onChange={(e) => setNewReagentForm({ ...newReagentForm, min: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Status</label>
+                  <select value={newReagentForm.status} onChange={(e) => setNewReagentForm({ ...newReagentForm, status: e.target.value })} className="w-full border border-slate-300 rounded-lg p-2">
+                    <option value="good">Adequate</option>
+                    <option value="low">Low Reagent</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[#2563EB] text-white font-bold cursor-pointer">Save Reagent</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen, currentUser }) {
+function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleconsultScreen, currentUser, onUpdateUser }) {
   const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
@@ -34661,6 +43573,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
     currentUser.facilitySubtype === 'lab' ||
     currentUser.facilitySubtype === 'diagnostic'
   )) || actorRole === 'lab_staff' || actorRole === 'lab';
+  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
 
   const [activeTab, setActiveTab] = useState(() => {
     if (isDiagnosticLab) return 'lab';
@@ -34668,8 +43581,8 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
     if (isHospitalFacility) return 'hospital';
     if (isMedicineFacility) return 'pharmacy';
     if (isAshaWorker) return 'asha';
+    if (isDoctor) return 'doctor';
     if (actorRole === 'patient') return 'patient';
-    if (actorRole === 'doctor') return 'doctor';
     return 'hub';
   });
 
@@ -34684,10 +43597,12 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
       setActiveTab('pharmacy');
     } else if (isAshaWorker) {
       setActiveTab('asha');
+    } else if (isDoctor) {
+      setActiveTab('doctor');
     } else if (actorRole === 'patient') {
       setActiveTab('patient');
     }
-  }, [isDiagnosticLab, isDistrictAdmin, isHospitalFacility, isMedicineFacility, isAshaWorker, actorRole]);
+  }, [isDiagnosticLab, isDistrictAdmin, isHospitalFacility, isMedicineFacility, isAshaWorker, isDoctor, actorRole]);
 
   // When logged in as Diagnostic Lab Facility, render DiagnosticLabOverview directly
   if (isDiagnosticLab || activeTab === 'lab') {
@@ -34695,6 +43610,20 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
       <DiagnosticLabOverview
         setView={setView}
         currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
+      />
+    );
+  }
+
+  // When logged in as Doctor / Clinician, render DoctorOverview directly
+  if (isDoctor || activeTab === 'doctor') {
+    return (
+      <DoctorOverview
+        setView={setView}
+        setScreen={setScreen}
+        setTeleconsultScreen={setTeleconsultScreen}
+        currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -34707,6 +43636,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
         setScreen={setScreen}
         setTeleconsultScreen={setTeleconsultScreen}
         currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
         actorRole={actorRole}
         setActorRole={setActorRole}
         showRoleSwitcher={!isDistrictAdmin}
@@ -34721,6 +43651,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
       <HospitalOverview
         setView={setView}
         currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -34731,6 +43662,7 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
       <PharmacyOverview
         setView={setView}
         currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -34742,17 +43674,20 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
         setView={setView}
         setTeleconsultScreen={setTeleconsultScreen}
         currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
 
   // When logged in as patient, directly render PatientOverview without the prototype switcher box
-  if (actorRole === 'patient') {
+  if (!isDoctor && actorRole === 'patient') {
     return (
       <PatientOverview
         setView={setView}
         setScreen={setScreen}
         setTeleconsultScreen={setTeleconsultScreen}
+        currentUser={currentUser}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -34954,6 +43889,8 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           setView={setView}
           setScreen={setScreen}
           setTeleconsultScreen={setTeleconsultScreen}
+          currentUser={currentUser}
+          onUpdateUser={onUpdateUser}
         />
       )}
 
@@ -34962,6 +43899,8 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           setView={setView}
           setScreen={setScreen}
           setTeleconsultScreen={setTeleconsultScreen}
+          currentUser={currentUser}
+          onUpdateUser={onUpdateUser}
         />
       )}
     </div>
@@ -35055,6 +43994,12 @@ function App() {
     return 'patient';
   });
 
+  useEffect(() => {
+    if (currentUser && currentUser.role && currentUser.role !== 'patient' && actorRole !== currentUser.role) {
+      setActorRole(currentUser.role);
+    }
+  }, [currentUser, actorRole]);
+
   const handleSetCurrentUser = (user) => {
     setCurrentUser(user);
     if (user) {
@@ -35072,6 +44017,21 @@ function App() {
     }
   };
 
+  const handleUpdateUser = (updatedUser) => {
+    if (!updatedUser) return;
+    setCurrentUser(updatedUser);
+    try {
+      localStorage.setItem('medveda_auth_user', JSON.stringify(updatedUser));
+      if (updatedUser.isPrototype === false && updatedUser.abhaId) {
+        const key = 'medveda_real_accounts_v1';
+        const existing = JSON.parse(localStorage.getItem(key) || '{}');
+        existing[updatedUser.abhaId.toLowerCase()] = updatedUser;
+        localStorage.setItem(key, JSON.stringify(existing));
+      }
+    } catch (e) {}
+  };
+
+  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
   const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
@@ -35081,19 +44041,78 @@ function App() {
   const [feature1Screen, setFeature1Screen] = useState(1);
   const [maxClearedStep, setMaxClearedStep] = useState(1);
   const maxClearedStepRef = useRef(1);
-  const [teleconsultScreen, setTeleconsultScreen] = useState('entry'); // 'entry' | 'booking' | 'queue' | 'call' | 'doctor' | 'summary'
+  const [teleconsultScreen, setTeleconsultScreen] = useState('entry'); // 'entry' | 'book_appointments' | 'booking' | 'queue' | 'call' | 'doctor' | 'summary'
+  const [opdQrParams, setOpdQrParams] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Feature 01 States
-  const [patient, setPatient] = useState(INITIAL_PATIENT);
+  // Feature 01 States (with offline localStorage persistence)
+  const [patient, setPatient] = useState(() => {
+    if (currentUser && currentUser.isPrototype === false && (!currentUser.role || currentUser.role === 'patient')) {
+      return {
+        name: currentUser.name || '',
+        age: currentUser.age || '',
+        gender: currentUser.gender || '',
+        location: currentUser.location || '',
+        latitude: null,
+        longitude: null
+      };
+    }
+    return INITIAL_PATIENT;
+  });
+
+  useEffect(() => {
+    if (currentUser && currentUser.isPrototype === false && (!currentUser.role || currentUser.role === 'patient')) {
+      setPatient((prev) => ({
+        ...prev,
+        name: currentUser.name || prev.name || '',
+        age: currentUser.age || prev.age || '',
+        gender: currentUser.gender || prev.gender || '',
+        location: currentUser.location || prev.location || ''
+      }));
+    } else if (currentUser && currentUser.isPrototype !== false && (!currentUser.role || currentUser.role === 'patient')) {
+      setPatient(INITIAL_PATIENT);
+    }
+  }, [currentUser]);
+
   const [symptoms, setSymptoms] = useState(INITIAL_SYMPTOMS);
   const [redFlags, setRedFlags] = useState(INITIAL_RED_FLAGS);
-  const [triageResult, setTriageResult] = useState(null);
-  const [facilities, setFacilities] = useState(MOCK_FACILITIES);
+  const [triageResult, setTriageResult] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medveda_last_triage');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [facilities, setFacilities] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medveda_last_facilities');
+      return saved ? JSON.parse(saved) : MOCK_FACILITIES;
+    } catch (e) {
+      return MOCK_FACILITIES;
+    }
+  });
   const [selectedFacility, setSelectedFacility] = useState(MOCK_FACILITIES[0]);
+
+  useEffect(() => {
+    if (triageResult) {
+      try {
+        localStorage.setItem('medveda_last_triage', JSON.stringify(triageResult));
+      } catch (e) {}
+    }
+  }, [triageResult]);
+
+  useEffect(() => {
+    if (facilities && facilities.length > 0) {
+      try {
+        localStorage.setItem('medveda_last_facilities', JSON.stringify(facilities));
+      } catch (e) {}
+    }
+  }, [facilities]);
 
   // Feature 02 States
   const [teleconsultAppointment, setTeleconsultAppointment] = useState(null);
+  const [teleconsultSessionId, setTeleconsultSessionId] = useState(null);
   const [recordedVitals, setRecordedVitals] = useState([]);
   const [consultationDocumentation, setConsultationDocumentation] = useState(null);
 
@@ -35120,10 +44139,22 @@ function App() {
       if (num > maxClearedStepRef.current) {
         window.history.replaceState(null, '', '#screen=' + targetStep);
       }
+    } else if (hash.startsWith('#book-appointments') || hash === '#opd-booking' || hash === '#book_appointments') {
+      const qIdx = hash.indexOf('?');
+      if (qIdx >= 0) {
+        const sp = new URLSearchParams(hash.slice(qIdx + 1));
+        setOpdQrParams({
+          qr: sp.get('qr') || '',
+          facility: sp.get('facility') || '',
+          dept: sp.get('dept') || ''
+        });
+      }
+      setViewState('feature2');
+      setTeleconsultScreen('book_appointments');
     } else if (hash.startsWith('#teleconsult=')) {
       const screenName = hash.replace('#teleconsult=', '') || 'entry';
       setViewState('feature2');
-      setTeleconsultScreen(screenName);
+      setTeleconsultScreen(screenName === 'opd_booking' ? 'book_appointments' : screenName);
     } else if (hash === '#feature1') {
       setViewState('feature1');
     } else if (hash === '#feature2') {
@@ -35255,7 +44286,18 @@ function App() {
   };
 
   const handleRestartFeature1 = () => {
-    setPatient(INITIAL_PATIENT);
+    if (currentUser && currentUser.isPrototype === false && (!currentUser.role || currentUser.role === 'patient')) {
+      setPatient({
+        name: currentUser.name || '',
+        age: currentUser.age || '',
+        gender: currentUser.gender || '',
+        location: currentUser.location || '',
+        latitude: null,
+        longitude: null
+      });
+    } else {
+      setPatient(INITIAL_PATIENT);
+    }
     setSymptoms(INITIAL_SYMPTOMS);
     setRedFlags(INITIAL_RED_FLAGS);
     setTriageResult(null);
@@ -35431,7 +44473,39 @@ function App() {
                 setScreen={setScreen}
                 setTeleconsultScreen={setTeleconsultScreen}
                 currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
               />
+            )}
+
+            {/* RESTRICTED MODULE VIEW FOR DOCTOR */}
+            {isDoctor && !['overview', 'feature2', 'feature3', 'feature4', 'feature5'].includes(view) && (
+              <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
+                <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-2xs text-center space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#0b2b82]/10 text-[#0b2b82] flex items-center justify-center mx-auto">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 font-mono">
+                    Doctor Scope Restricted
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                    Module Outside Clinician Scope
+                  </h2>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                    The Doctor console is dedicated strictly to Doctor Overview, Teleconsultation Queue &amp; Digital Rx, Smart Referral Management, High-Risk Follow-Ups, and Interoperable Health Records.
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setView('overview')}
+                      className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#061d5c] text-white font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+                    >
+                      Return to Doctor Overview
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* RESTRICTED MODULE VIEW FOR DISTRICT ADMINISTRATOR */}
@@ -35466,7 +44540,7 @@ function App() {
             )}
 
             {/* RESTRICTED MODULE VIEW FOR HOSPITAL FACILITY */}
-            {isHospitalFacility && !['overview', 'feature3', 'feature4', 'feature7'].includes(view) && (
+            {isHospitalFacility && !['overview', 'feature2', 'feature3', 'feature4', 'feature7'].includes(view) && (
               <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
                 <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-2xs text-center space-y-4">
                   <div className="w-12 h-12 rounded-xl bg-[#0b2b82]/10 text-[#0b2b82] flex items-center justify-center mx-auto">
@@ -35481,7 +44555,7 @@ function App() {
                     Module Outside Hospital Facility Scope
                   </h2>
                   <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
-                    The Hospital Facility console is dedicated to Hospital Overview, Smart Referrals (Facility View), High-Risk Follow-Ups (Facility View), and Facility Dashboard.
+                    The Hospital Facility console is dedicated to Hospital Overview, Book Appointments (OPD Operations), Smart Referrals (Facility View), High-Risk Follow-Ups (Facility View), and Facility Dashboard.
                   </p>
                   <div className="pt-2 flex items-center justify-center gap-3">
                     <button
@@ -35560,9 +44634,10 @@ function App() {
             )}
 
             {/* VIEW: ASHA SERVICE & IMPACT TRACKER (MODULE 11 - ASHA EXCLUSIVE) */}
-            {view === 'asha_tracker' && (
+            {!isDoctor && view === 'asha_tracker' && (
               <ScreenAshaServiceTracker
                 currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
                 actorRole={actorRole}
                 onNavigateToFollowUps={() => setView('feature4')}
                 onNavigateToTeleconsult={() => {
@@ -35575,7 +44650,7 @@ function App() {
             )}
 
             {/* VIEW 2: FEATURE 01  -  SMART CARE NAVIGATOR (PATIENT EXCLUSIVE) */}
-        {!isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature1' && (
+        {!isDoctor && !isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature1' && (
           <div>
             <WorkflowStepper currentScreen={feature1Screen} setScreen={setScreen} maxClearedStep={maxClearedStep} />
             {feature1Screen === 1 && (
@@ -35654,6 +44729,7 @@ function App() {
                 longitude={patient.longitude}
                 requiredSpecialty={triageResult?.requiredSpecialty}
                 emergencyRequired={triageResult?.emergencyRequired}
+                searchQueries={triageResult?.searchQueries}
                 onComplete={(liveFacilities) => {
                   if (liveFacilities && liveFacilities.length > 0) {
                     setFacilities(liveFacilities);
@@ -35691,80 +44767,182 @@ function App() {
                 facility={selectedFacility}
                 patient={patient}
                 triage={triageResult}
+                symptoms={symptoms}
+                onOpenReferrals={() => setView('feature3')}
                 onRestart={handleRestartFeature1}
               />
             )}
           </div>
         )}
 
-        {/* VIEW 3: FEATURE 02  -  TELECONSULTATION & QUEUE MANAGEMENT */}
-        {!isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && view === 'feature2' && (
-          <div>
-            {teleconsultScreen === 'entry' && (
-              <ScreenTeleconsultEntry
-                actorRole={actorRole}
-                currentUser={currentUser}
-                onSelectPath={(path) => {
-                  setActorRole(path);
-                  setTeleconsultScreen('booking');
-                }}
-                onBackToHome={() => setView('home')}
-              />
-            )}
+        {/* VIEW 3: FEATURE 02  -  DOCTOR VISITS (BOOK APPOINTMENTS & TELECONSULTATION) */}
+        {!isDistrictAdmin && !isMedicineFacility && view === 'feature2' && (
+          isHospitalFacility ? (
+            <ScreenOpdBookAppointments
+              actorRole="facility"
+              currentUser={currentUser}
+              initialQrParams={opdQrParams}
+              onBackToDoctorVisits={() => {
+                setView('overview');
+                updateHash('#overview');
+              }}
+            />
+          ) : (
+            <div>
+              {/* Top Mode Switcher inside Doctor Visits */}
+              <div className="bg-slate-900 text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+                <div className="flex items-center gap-2 text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>Doctor Visits Workspace</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {!isDoctor && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeleconsultScreen('entry');
+                        updateHash('#feature2');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        teleconsultScreen === 'entry'
+                          ? 'bg-white text-slate-900'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      Doctor Visits Hub
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTeleconsultScreen('book_appointments');
+                      updateHash('#book-appointments');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      teleconsultScreen === 'book_appointments'
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    Book Appointments (Channel 1 &bull; Web / PWA)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTeleconsultScreen(isDoctor ? 'entry' : 'booking');
+                      updateHash(isDoctor ? '#feature2' : '#teleconsult=booking');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      (isDoctor && teleconsultScreen !== 'book_appointments') || (!isDoctor && teleconsultScreen !== 'entry' && teleconsultScreen !== 'book_appointments')
+                        ? 'bg-[#1565C0] text-white'
+                        : 'bg-slate-800 text-blue-200 hover:bg-slate-700'
+                    }`}
+                  >
+                    {isDoctor ? 'Doctor Teleconsult Queue' : 'Direct Video Teleconsult'}
+                  </button>
+                </div>
+              </div>
 
-            {teleconsultScreen === 'booking' && (
-              <ScreenTeleconsultBooking
-                pathActor={actorRole}
-                onBookSuccess={(apt) => {
-                  setTeleconsultAppointment(apt);
-                  setTeleconsultScreen('queue');
-                }}
-                onBack={() => setTeleconsultScreen('entry')}
-                onEmergencyEscalate={() => {
-                  setView('feature1');
-                  setScreen(1);
-                }}
-              />
-            )}
+              {teleconsultScreen === 'book_appointments' ? (
+                <ScreenOpdBookAppointments
+                  actorRole={actorRole}
+                  currentUser={currentUser}
+                  initialQrParams={opdQrParams}
+                  onBackToDoctorVisits={() => {
+                    setTeleconsultScreen('entry');
+                    updateHash('#feature2');
+                  }}
+                  onSwitchToTeleconsult={() => {
+                    setTeleconsultScreen(isDoctor ? 'entry' : 'booking');
+                    updateHash(isDoctor ? '#feature2' : '#teleconsult=booking');
+                  }}
+                />
+              ) : isDoctor ? (
+                <ScreenDoctorTeleconsultation
+                  currentUser={currentUser}
+                  onBackToOverview={() => setView('overview')}
+                  onBackToHome={() => setView('home')}
+                  onNavigateToReferrals={() => setView('feature3')}
+                  onNavigateToFollowUps={() => setView('feature4')}
+                  onNavigateToRecords={() => setView('feature5')}
+                />
+              ) : (
+              <>
+                {teleconsultScreen === 'entry' && (
+                  <ScreenTeleconsultEntry
+                    actorRole={actorRole}
+                    currentUser={currentUser}
+                    onSelectPath={(path) => {
+                      setActorRole(path);
+                      setTeleconsultScreen('booking');
+                      updateHash('#teleconsult=booking');
+                    }}
+                    onOpenBookAppointments={() => {
+                      setTeleconsultScreen('book_appointments');
+                      updateHash('#book-appointments');
+                    }}
+                    onBackToHome={() => setView('home')}
+                  />
+                )}
 
-            {teleconsultScreen === 'queue' && (
-              <ScreenTeleconsultQueue
-                appointment={teleconsultAppointment}
-                onJoinCall={() => setTeleconsultScreen('call')}
-                onBack={() => setTeleconsultScreen('booking')}
-              />
-            )}
+                {teleconsultScreen === 'booking' && (
+                  <ScreenTeleconsultBooking
+                    pathActor={actorRole}
+                    onBookSuccess={(apt) => {
+                      setTeleconsultAppointment(apt);
+                      setTeleconsultScreen('queue');
+                    }}
+                    onBack={() => setTeleconsultScreen('entry')}
+                    onEmergencyEscalate={() => {
+                      setView('feature1');
+                      setScreen(1);
+                    }}
+                  />
+                )}
 
-            {teleconsultScreen === 'call' && (
-              <ScreenTeleconsultCall
-                appointment={teleconsultAppointment}
-                pathActor={actorRole}
-                onCompleteConsultation={(vitalsLogged) => {
-                  setRecordedVitals(vitalsLogged);
-                  setTeleconsultScreen('doctor');
-                }}
-              />
-            )}
+                {teleconsultScreen === 'queue' && (
+                  <ScreenTeleconsultQueue
+                    appointment={teleconsultAppointment}
+                    onJoinCall={() => setTeleconsultScreen('call')}
+                    onBack={() => setTeleconsultScreen('booking')}
+                  />
+                )}
 
-            {teleconsultScreen === 'doctor' && (
-              <ScreenDoctorDocumentation
-                appointment={teleconsultAppointment}
-                vitals={recordedVitals}
-                onSaveDocumentation={(docData) => {
-                  setConsultationDocumentation(docData);
-                  setTeleconsultScreen('summary');
-                }}
-              />
-            )}
+                {teleconsultScreen === 'call' && (
+                  <ScreenTeleconsultCall
+                    appointment={teleconsultAppointment}
+                    pathActor={actorRole}
+                    onCompleteConsultation={(vitalsLogged, sid) => {
+                      setRecordedVitals(vitalsLogged);
+                      if (sid) setTeleconsultSessionId(sid);
+                      setTeleconsultScreen('doctor');
+                    }}
+                  />
+                )}
 
-            {teleconsultScreen === 'summary' && (
-              <ScreenConsultationSummary
-                consultationData={consultationDocumentation}
-                onRestart={handleRestartFeature2}
-                onGoHome={() => setView('home')}
-              />
+                {teleconsultScreen === 'doctor' && (
+                  <ScreenDoctorDocumentation
+                    appointment={teleconsultAppointment}
+                    vitals={recordedVitals}
+                    sessionId={teleconsultSessionId}
+                    onSaveDocumentation={(docData) => {
+                      setConsultationDocumentation(docData);
+                      setTeleconsultScreen('summary');
+                    }}
+                  />
+                )}
+
+                {teleconsultScreen === 'summary' && (
+                  <ScreenConsultationSummary
+                    consultationData={consultationDocumentation}
+                    onRestart={handleRestartFeature2}
+                    onGoHome={() => setView('home')}
+                  />
+                )}
+              </>
             )}
-          </div>
+            </div>
+          )
         )}
 
         {/* VIEW 4: FEATURE 03  -  SMART REFERRAL MANAGEMENT SYSTEM */}
@@ -35820,7 +44998,7 @@ function App() {
         )}
 
         {/* VIEW 7: FEATURE 06  -  MEDICINE AVAILABILITY & DIAGNOSTIC COORDINATION */}
-        {!isDistrictAdmin && !isHospitalFacility && !isAshaWorker && view === 'feature6' && (
+        {!isDoctor && !isDistrictAdmin && !isHospitalFacility && !isAshaWorker && view === 'feature6' && (
           <ScreenMedicineDiagnostics
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -35842,7 +45020,7 @@ function App() {
         )}
 
         {/* VIEW 8: FEATURE 07  -  FACILITY DASHBOARD & MULTI-SOURCE AGGREGATION LAYER */}
-        {!isDistrictAdmin && !isMedicineFacility && !isAshaWorker && view === 'feature7' && (
+        {!isDoctor && !isDistrictAdmin && !isMedicineFacility && !isAshaWorker && view === 'feature7' && (
           <ScreenFacilityDashboard
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -35863,7 +45041,7 @@ function App() {
         )}
 
         {/* VIEW 9: FEATURE 08  -  AI GOVERNMENT HEALTH SCHEME FINDER */}
-        {!isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature8' && (
+        {!isDoctor && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature8' && (
           <ScreenSchemeFinder
             actorRole={actorRole}
             setActorRole={setActorRole}
@@ -35885,7 +45063,7 @@ function App() {
         )}
 
         {/* VIEW 10: FEATURE 09  -  DISTRICT ADMIN COMMAND CENTER (MV-DAC) */}
-        {!isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature9' && (
+        {!isDoctor && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature9' && (
           actorRole === 'patient' ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 min-h-[60vh]">
               <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-2xs text-center space-y-4">
@@ -35927,7 +45105,7 @@ function App() {
         )}
 
         {/* VIEW 11: FEATURE 10  -  MEDIBOT (AI HEALTH ASSISTANT) */}
-        {!isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature10' && (
+        {!isDoctor && !isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature10' && (
           <ScreenMedicalAssistantAgent
             actorRole={actorRole}
             setActorRole={setActorRole}

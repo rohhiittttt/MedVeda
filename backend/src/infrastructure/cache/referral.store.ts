@@ -25,12 +25,23 @@ export class InMemoryReferralStore {
         referringFacilityName: 'Katkamsandi Primary Health Centre',
         receivingFacilityId: 'fac_sbmch',
         receivingFacilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+        departmentReferredTo: 'Cardiology',
         specialty: 'Cardiology',
         reason: 'Severe exertional angina and ST depression on field ECG',
         clinicalSummary:
           '48M presenting with progressive retrosternal pain for 3 days. SBP 154/96 mmHg. Initial aspirin and nitrates administered. Referred for emergency coronary evaluation.',
-        urgencyTier: 'CRITICAL',
-        status: 'IN_PROGRESS',
+        urgency: 'Emergency',
+        icuPatient: true,
+        currentStep: 3,
+        treatingDoctor: null,
+        digitalSignature: {
+          doctorName: 'Dr. Priya Sharma',
+          signedAt: '2026-08-31T10:20:00.000Z',
+          imageOrInitialsSVG: 'P.S.'
+        },
+        bedAllocation: null,
+        priorityRank: 1,
+        status: 'BED_RESERVATION',
         createdAt: '2026-08-31T10:20:00.000Z',
         updatedAt: '2026-08-31T12:30:00.000Z',
         statusHistory: [
@@ -38,7 +49,7 @@ export class InMemoryReferralStore {
             id: 'hist_1',
             referralId: 'REF-2026-00125',
             fromStatus: null,
-            toStatus: 'CREATED',
+            toStatus: 'REFERRAL_INITIATED',
             updatedBy: 'Dr. Priya Sharma',
             userRole: 'doctor',
             remarks: 'Initial referral generated following teleconsultation.',
@@ -47,21 +58,21 @@ export class InMemoryReferralStore {
           {
             id: 'hist_2',
             referralId: 'REF-2026-00125',
-            fromStatus: 'CREATED',
-            toStatus: 'SENT',
-            updatedBy: 'Dr. Priya Sharma',
-            userRole: 'doctor',
-            remarks: 'Transmitted to SBMC&H Cardiology department.',
+            fromStatus: 'REFERRAL_INITIATED',
+            toStatus: 'ACCEPTED',
+            updatedBy: 'SBMC&H Emergency Desk',
+            userRole: 'facility',
+            remarks: 'Accepted by SBMC&H Cardiology department.',
             timestamp: '2026-08-31T10:25:00.000Z'
           },
           {
             id: 'hist_3',
             referralId: 'REF-2026-00125',
-            fromStatus: 'SENT',
-            toStatus: 'IN_PROGRESS',
-            updatedBy: 'ASHA Anita Devi',
-            userRole: 'worker',
-            remarks: 'Contacted patient family; 108 ambulance arranged and en route.',
+            fromStatus: 'ACCEPTED',
+            toStatus: 'BED_RESERVATION',
+            updatedBy: 'SBMC&H Bed Coordinator',
+            userRole: 'facility',
+            remarks: 'Coronary Care Unit bed reserved; 108 ambulance en route.',
             timestamp: '2026-08-31T12:30:00.000Z'
           }
         ]
@@ -81,11 +92,23 @@ export class InMemoryReferralStore {
         referringFacilityName: 'Barkagaon Community Health Centre',
         receivingFacilityId: 'fac_sadar',
         receivingFacilityName: 'Sadar Hospital Hazaribagh',
+        departmentReferredTo: 'Obstetrics & Gynecology',
         specialty: 'Obstetrics & Gynecology',
         reason: 'High-risk primigravida at 34 weeks with severe pre-eclampsia',
-        clinicalSummary: 'BP 160/105 mmHg, bilateral pedal edema +++, 2+ proteinuria on dipstick. Needs urgent maternal ICU monitoring.',
-        urgencyTier: 'CRITICAL',
-        status: 'SENT',
+        clinicalSummary:
+          'BP 160/105 mmHg, bilateral pedal edema +++, 2+ proteinuria on dipstick. Needs urgent maternal ICU monitoring.',
+        urgency: 'Emergency',
+        icuPatient: true,
+        currentStep: 2,
+        treatingDoctor: null,
+        digitalSignature: {
+          doctorName: 'Dr. Kavita Murmu',
+          signedAt: '2026-08-31T11:00:00.000Z',
+          imageOrInitialsSVG: 'K.M.'
+        },
+        bedAllocation: null,
+        priorityRank: 1,
+        status: 'ACCEPTED',
         createdAt: '2026-08-31T11:00:00.000Z',
         updatedAt: '2026-08-31T11:05:00.000Z',
         statusHistory: [
@@ -93,7 +116,7 @@ export class InMemoryReferralStore {
             id: 'hist_4',
             referralId: 'REF-2026-00126',
             fromStatus: null,
-            toStatus: 'CREATED',
+            toStatus: 'REFERRAL_INITIATED',
             updatedBy: 'Dr. Kavita Murmu',
             userRole: 'doctor',
             remarks: 'High-risk antenatal referral created.',
@@ -102,11 +125,11 @@ export class InMemoryReferralStore {
           {
             id: 'hist_5',
             referralId: 'REF-2026-00126',
-            fromStatus: 'CREATED',
-            toStatus: 'SENT',
-            updatedBy: 'Dr. Kavita Murmu',
-            userRole: 'doctor',
-            remarks: 'Transmitted to Sadar Hospital Maternity Wing.',
+            fromStatus: 'REFERRAL_INITIATED',
+            toStatus: 'ACCEPTED',
+            updatedBy: 'Sadar Hospital Maternity Wing',
+            userRole: 'facility',
+            remarks: 'Accepted by Sadar Hospital Maternity Wing.',
             timestamp: '2026-08-31T11:05:00.000Z'
           }
         ]
@@ -126,10 +149,17 @@ export class InMemoryReferralStore {
         referringFacilityName: 'Sadar Hospital Hazaribagh',
         receivingFacilityId: 'fac_kalyani',
         receivingFacilityName: 'Kalyani Super Specialty Hospital & Trauma Centre',
+        departmentReferredTo: 'Neurology',
         specialty: 'Neurology',
         reason: 'Ischemic stroke rehabilitation & advanced neuro-imaging evaluation',
         clinicalSummary: 'Post acute stroke day 12, recovering right hemiparesis. Referred for neuro-rehabilitation assessment.',
-        urgencyTier: 'ROUTINE',
+        urgency: 'Normal',
+        icuPatient: false,
+        currentStep: 7,
+        treatingDoctor: null,
+        digitalSignature: null,
+        bedAllocation: null,
+        priorityRank: 3,
         status: 'COMPLETED',
         createdAt: '2026-08-30T09:00:00.000Z',
         updatedAt: '2026-08-30T16:00:00.000Z',
@@ -138,46 +168,16 @@ export class InMemoryReferralStore {
             id: 'hist_6',
             referralId: 'REF-2026-00127',
             fromStatus: null,
-            toStatus: 'CREATED',
+            toStatus: 'REFERRAL_INITIATED',
             updatedBy: 'Dr. Rajesh Verma',
             userRole: 'doctor',
             remarks: 'Neuro rehab referral created.',
             timestamp: '2026-08-30T09:00:00.000Z'
           },
           {
-            id: 'hist_7',
-            referralId: 'REF-2026-00127',
-            fromStatus: 'CREATED',
-            toStatus: 'SENT',
-            updatedBy: 'Dr. Rajesh Verma',
-            userRole: 'doctor',
-            remarks: 'Sent to Kalyani Trauma & Neuro center.',
-            timestamp: '2026-08-30T09:10:00.000Z'
-          },
-          {
-            id: 'hist_8',
-            referralId: 'REF-2026-00127',
-            fromStatus: 'SENT',
-            toStatus: 'IN_PROGRESS',
-            updatedBy: 'ASHA Meena Kumari',
-            userRole: 'worker',
-            remarks: 'Patient arranged vehicle with family escort.',
-            timestamp: '2026-08-30T11:00:00.000Z'
-          },
-          {
-            id: 'hist_9',
-            referralId: 'REF-2026-00127',
-            fromStatus: 'IN_PROGRESS',
-            toStatus: 'REACHED_FACILITY',
-            updatedBy: 'Kalyani Reception Desk',
-            userRole: 'facility',
-            remarks: 'Patient registered at Neuro OPD Desk #4.',
-            timestamp: '2026-08-30T14:30:00.000Z'
-          },
-          {
             id: 'hist_10',
             referralId: 'REF-2026-00127',
-            fromStatus: 'REACHED_FACILITY',
+            fromStatus: 'TREATMENT_ONGOING',
             toStatus: 'COMPLETED',
             updatedBy: 'Dr. S. K. Mukherjee (Kalyani)',
             userRole: 'facility',
@@ -197,29 +197,69 @@ export class InMemoryReferralStore {
   }
 
   public save(referral: Referral): Referral {
-    this.referrals.set(referral.referralId, referral);
-    return referral;
+    const history = this.getHistoryByReferralId(referral.referralId);
+    const merged: Referral = {
+      ...referral,
+      statusHistory: history.length > 0 ? history : referral.statusHistory || []
+    };
+    this.referrals.set(referral.referralId, merged);
+    return merged;
   }
 
   public findByReferralId(referralId: string): Referral | null {
-    return this.referrals.get(referralId) || null;
+    const ref = this.referrals.get(referralId);
+    if (!ref) return null;
+    return {
+      ...ref,
+      statusHistory: this.getHistoryByReferralId(referralId)
+    };
   }
 
   public findById(id: string): Referral | null {
     for (const ref of this.referrals.values()) {
-      if (ref.id === id) return ref;
+      if (ref.id === id) return this.findByReferralId(ref.referralId);
     }
     return null;
   }
 
-  public findAll(): Referral[] {
-    return Array.from(this.referrals.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+  public findAll(filters?: {
+    facilityId?: string;
+    doctorId?: string;
+    patientId?: string;
+    search?: string;
+  }): Referral[] {
+    let list = Array.from(this.referrals.values()).map((r) => ({
+      ...r,
+      statusHistory: this.getHistoryByReferralId(r.referralId)
+    }));
+    if (filters?.facilityId) {
+      list = list.filter(
+        (r) => r.receivingFacilityId === filters.facilityId || r.referringFacilityId === filters.facilityId
+      );
+    }
+    if (filters?.doctorId) {
+      list = list.filter((r) => r.referringDoctorId === filters.doctorId);
+    }
+    if (filters?.patientId) {
+      list = list.filter((r) => r.patientId === filters.patientId);
+    }
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.patientName.toLowerCase().includes(q) ||
+          r.referralId.toLowerCase().includes(q) ||
+          r.receivingFacilityName.toLowerCase().includes(q)
+      );
+    }
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   public appendHistory(item: ReferralStatusHistoryItem): void {
-    this.historyLogs.push(item);
+    const exists = this.historyLogs.some((h) => h.id === item.id);
+    if (!exists) {
+      this.historyLogs.push(item);
+    }
   }
 
   public getHistoryByReferralId(referralId: string): ReferralStatusHistoryItem[] {

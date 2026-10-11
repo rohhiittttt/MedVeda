@@ -23,6 +23,8 @@ import {
 } from '../../domain/rules/dashboard-aggregation.rules.ts';
 import type { InMemoryFacilityDashboardStore } from '../../infrastructure/cache/facility-dashboard.store.ts';
 import type { InMemoryTeleconsultStore } from '../../infrastructure/cache/teleconsult.cache.ts';
+import type { InMemoryReferralStore } from '../../infrastructure/cache/referral.store.ts';
+import type { SqliteReferralStore } from '../../infrastructure/db/sqlite-referral.store.ts';
 import type { InMemoryFollowUpStore } from '../../infrastructure/cache/followup.store.ts';
 import type { SqliteFollowUpStore } from '../../infrastructure/db/sqlite-followup.store.ts';
 import type { InMemoryRecordsStore } from '../../infrastructure/cache/records.store.ts';
@@ -31,7 +33,7 @@ import type { InMemoryMedicineDiagnosticStore } from '../../infrastructure/cache
 export class ManageFacilityDashboardUseCase {
   public dashboardStore: InMemoryFacilityDashboardStore;
   public teleconsultStore?: InMemoryTeleconsultStore;
-  public referralStore?: InMemoryReferralStore;
+  public referralStore?: InMemoryReferralStore | SqliteReferralStore | any;
   public followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any;
   public recordsStore?: InMemoryRecordsStore;
   public medicineStore?: InMemoryMedicineDiagnosticStore | any;
@@ -39,7 +41,7 @@ export class ManageFacilityDashboardUseCase {
   constructor(
     dashboardStore: InMemoryFacilityDashboardStore,
     teleconsultStore?: InMemoryTeleconsultStore,
-    referralStore?: InMemoryReferralStore,
+    referralStore?: InMemoryReferralStore | SqliteReferralStore | any,
     followUpStore?: InMemoryFollowUpStore | SqliteFollowUpStore | any,
     recordsStore?: InMemoryRecordsStore,
     medicineStore?: InMemoryMedicineDiagnosticStore | any
