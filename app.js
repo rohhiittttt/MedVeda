@@ -5165,220 +5165,270 @@ function ScreenTeleconsultEntry({ actorRole, currentUser, onSelectPath, onBackTo
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-2xs">
-        <div className="mb-6 pb-4 border-b border-slate-100">
-          <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block mb-1">
-            Teleconsultation &amp; Priority Queue
-          </span>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Select Teleconsultation Path
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Both entry modes route to the same specialized clinical queue, doctor allocation network, and verified medical documentation engine.
-          </p>
-        </div>
+    <div className="relative max-w-5xl mx-auto py-6 sm:py-8 px-4 sm:px-6 animate-in fade-in duration-300">
+      {/* Background soft ambient glow & watermark */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-50/50 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-50/40 rounded-full blur-3xl pointer-events-none -z-10" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-          {/* Path 1: Assisted Path */}
-          <div
-            onClick={() => setShowWorkerLogin(true)}
-            className="p-6 rounded-xl border border-slate-200 bg-white hover:border-[#0b2b82]/50 hover:bg-slate-50/50 cursor-pointer transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center mb-4">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <line x1="19" y1="8" x2="19" y2="14" />
-                  <line x1="22" y1="11" x2="16" y2="11" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <h3 className="font-bold text-slate-900 text-base">Assisted Path</h3>
-                <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                  ASHA / Worker Assisted
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-normal mb-4">
-                Frontline community health workers assist patients by taking clinical vitals, assisting with translation, and facilitating remote doctor examination.
-              </p>
+      {/* Header section matching reference image */}
+      <div className="mb-8">
+        <span className="text-xs font-bold text-[#1565C0] uppercase tracking-widest block mb-2">
+          TELECONSULTATION &bull; PRIORITY QUEUE
+        </span>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
+          How would you like to consult?
+        </h1>
+        <p className="text-sm sm:text-base text-slate-500 font-normal">
+          Choose the option that works best for you. Both routes connect to the same verified clinical queue.
+        </p>
+      </div>
 
-              <div className="space-y-1.5 text-xs text-slate-600 font-medium mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">&bull;</span>
-                  <span>Vitals recorded as worker-verified (high reliability)</span>
+      {/* Two Comparison Cards matching reference image */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Card 1: Assisted consultation */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-blue-200">
+          <div>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <line x1="19" y1="8" x2="19" y2="14" />
+                      <line x1="22" y1="11" x2="16" y2="11" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1 rounded-full uppercase tracking-wide">
+                    ASHA / HEALTH WORKER
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">&bull;</span>
-                  <span>Frontline worker accompanied clinical review</span>
-                </div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
+                  Assisted consultation
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-normal">
+                  A trained frontline worker helps you share symptoms, record vitals and connect with a doctor.
+                </p>
+              </div>
+
+              {/* Photo on right */}
+              <div className="w-36 sm:w-44 h-28 sm:h-32 shrink-0 rounded-xl overflow-hidden shadow-2xs border border-slate-100">
+                <img
+                  src="teleconsult-assisted.jpg"
+                  alt="Assisted consultation with ASHA worker"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowWorkerLogin(true);
-              }}
-              className="w-full py-2.5 bg-[#0b2b82] text-white font-semibold text-xs rounded-lg hover:bg-[#071c59] transition-colors cursor-pointer"
-            >
-              Continue as Frontline Worker &rarr;
-            </button>
-          </div>
-
-          {/* Path 2: Self-Service Path */}
-          <div
-            onClick={() => onSelectPath('self')}
-            className="p-6 rounded-xl border border-slate-200 bg-white hover:border-[#0b2b82]/50 hover:bg-slate-50/50 cursor-pointer transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-4">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <h3 className="font-bold text-slate-900 text-base">Self-Service Path</h3>
-                <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                  Patient Direct
+            {/* Feature Checklist Box */}
+            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 space-y-2.5 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
+                </div>
+                <span className="text-xs sm:text-sm font-medium text-slate-700">
+                  Worker-verified vitals
                 </span>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-normal mb-4">
-                Patients book and join consultations directly from personal mobile devices or computers, submitting self-reported symptoms from home.
-              </p>
-
-              <div className="space-y-1.5 text-xs text-slate-600 font-medium mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">&bull;</span>
-                  <span>Vitals recorded as self-reported (patient intake)</span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    <line x1="8" y1="10" x2="8.01" y2="10" strokeWidth="3" />
+                    <line x1="12" y1="10" x2="12.01" y2="10" strokeWidth="3" />
+                    <line x1="16" y1="10" x2="16.01" y2="10" strokeWidth="3" />
+                  </svg>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">&bull;</span>
-                  <span>Automated emergency red-flag safety intercept</span>
-                </div>
+                <span className="text-xs sm:text-sm font-medium text-slate-700">
+                  Help with language and technology
+                </span>
               </div>
             </div>
-
-            <button
-              type="button"
-              className="w-full py-2.5 bg-slate-800 text-white font-semibold text-xs rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
-            >
-              Continue as Self-Service Patient &rarr;
-            </button>
           </div>
-        </div>
 
-        <div className="pt-4 border-t border-slate-100 flex justify-center">
           <button
             type="button"
-            onClick={onBackToHome}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            onClick={() => setShowWorkerLogin(true)}
+            className="w-full py-3.5 px-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
           >
-            &larr; Back to Platform Home
+            <span>Continue with a health worker</span>
+            <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
           </button>
         </div>
+
+        {/* Card 2: Consult on your own */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-slate-300">
+          <div>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-wide">
+                    PATIENT DIRECT
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
+                  Consult on your own
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-normal">
+                  Book and join a consultation from your phone or computer, wherever you are.
+                </p>
+              </div>
+
+              {/* Photo on right */}
+              <div className="w-36 sm:w-44 h-28 sm:h-32 shrink-0 rounded-xl overflow-hidden shadow-2xs border border-slate-100">
+                <img
+                  src="teleconsult-direct.jpg"
+                  alt="Direct consultation on your phone"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            {/* Feature Checklist Box */}
+            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 space-y-2.5 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                    <line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5" />
+                  </svg>
+                </div>
+                <span className="text-xs sm:text-sm font-medium text-slate-700">
+                  Share symptoms and vitals
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                </div>
+                <span className="text-xs sm:text-sm font-medium text-slate-700">
+                  Automatic emergency warning checks
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onSelectPath('self')}
+            className="w-full py-3.5 px-4 bg-[#0f1f3d] hover:bg-slate-900 text-white font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer group"
+          >
+            <span>Continue on my own</span>
+            <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Disclaimer Pill */}
+      <div className="max-w-2xl mx-auto rounded-2xl bg-[#edf5ff]/80 border border-blue-200/60 p-3.5 flex items-center justify-center gap-3 text-xs sm:text-sm text-slate-600 font-medium shadow-2xs">
+        <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <span>Both options use the same verified clinical queue and secure medical records.</span>
+      </div>
+
+      {/* Back Link */}
+      <div className="mt-8 flex justify-center">
+        <button
+          type="button"
+          onClick={onBackToHome}
+          className="text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer flex items-center gap-1.5"
+        >
+          <span>&larr;</span>
+          <span>Back to platform home</span>
+        </button>
       </div>
     </div>
   );
 }
 
 function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergencyEscalate }) {
+  const [bookingStep, setBookingStep] = useState(1);
   const [patientName, setPatientName] = useState(pathActor === 'worker' ? 'Ramesh Mahto' : 'Sita Devi');
-  const [age, setAge] = useState(48);
+  const [age, setAge] = useState('48 years');
   const [sex, setSex] = useState('female');
   const [selectedSpecialty, setSelectedSpecialty] = useState('Neurology');
   const [selectedDoctorId, setSelectedDoctorId] = useState('doc_1');
-  const [selectedSlot, setSelectedSlot] = useState('Today, 10:00 AM');
+  const [selectedDate, setSelectedDate] = useState('Today / 11 Oct');
+  const [selectedSlot, setSelectedSlot] = useState('11:30 AM');
   const [symptoms, setSymptoms] = useState('Throbbing headache on right temple for 3 days, mild light sensitivity.');
   const [riskFlags, setRiskFlags] = useState(['Hypertension']);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState(null);
-  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
 
   const SPECIALTY_OPTIONS = [
+    { id: 'Neurology', label: 'Neurology', code: 'NE', desc: 'Brain, stroke, epilepsy, nerve disorders and headache' },
     { id: 'General Medicine', label: 'General Medicine', code: 'GM', desc: 'Primary diagnosis, fevers, infections and chronic illness' },
-    { id: 'General Surgery', label: 'General Surgery', code: 'GS', desc: 'Surgical consults, hernia, appendix and acute trauma' },
+    { id: 'Cardiology', label: 'Cardiology', code: 'CD', desc: 'Heart disease, hypertension, ECG and chest symptoms' },
     { id: 'Orthopedics', label: 'Orthopedics', code: 'OR', desc: 'Bone fractures, joint pain, arthritis and spine care' },
     { id: 'Pediatrics', label: 'Pediatrics', code: 'PD', desc: 'Infant, child health, immunization and development' },
     { id: 'Obstetrics & Gynecology', label: 'Obstetrics & Gynecology', code: 'OB', desc: "Maternal health, high-risk pregnancy and women's health" },
-    { id: 'Cardiology', label: 'Cardiology', code: 'CD', desc: 'Heart disease, hypertension, ECG and chest symptoms' },
-    { id: 'Neurology', label: 'Neurology', code: 'NE', desc: 'Brain, stroke, epilepsy, nerve disorders and headache' },
     { id: 'Neurosurgery', label: 'Neurosurgery', code: 'NS', desc: 'Brain tumors, neuro-trauma, spine surgery and aneurysms' },
     { id: 'ENT', label: 'ENT', code: 'EN', desc: 'Ear, nose, throat, sinusitis and hearing assessment' },
     { id: 'Ophthalmology', label: 'Ophthalmology', code: 'OP', desc: 'Eye pain, vision impairment, glaucoma and cataract' },
     { id: 'Dermatology', label: 'Dermatology', code: 'DM', desc: 'Skin rash, eczema, psoriasis, acne and allergic dermatitis' },
     { id: 'Psychiatry', label: 'Psychiatry', code: 'PS', desc: 'Mental health, anxiety, depression and clinical wellness' },
     { id: 'Pulmonology / Respiratory Medicine', label: 'Pulmonology / Respiratory Medicine', code: 'PM', desc: 'Asthma, COPD, chronic cough, TB and chest care' },
-    { id: 'Gastroenterology', label: 'Gastroenterology', code: 'GE', desc: 'Liver, stomach, jaundice, ulcers and digestive care' },
-    { id: 'Urology', label: 'Urology', code: 'UR', desc: 'Kidney stones, prostate, urinary tract and bladder' },
-    { id: 'Nephrology', label: 'Nephrology', code: 'NP', desc: 'Renal failure, dialysis, creatinine and kidney health' },
-    { id: 'Endocrinology', label: 'Endocrinology', code: 'EC', desc: 'Diabetes, thyroid disorders, hormonal imbalance and PCOS' },
-    { id: 'Oncology', label: 'Oncology', code: 'ON', desc: 'Cancer screening, chemotherapy, tumors and palliative care' },
-    { id: 'Dentistry', label: 'Dentistry', code: 'DE', desc: 'Tooth pain, oral surgery, dental caries and gum disease' },
-    { id: 'Emergency Medicine', label: 'Emergency Medicine', code: 'EM', desc: 'Acute stabilization, trauma, poisoning and critical triage' }
+    { id: 'Gastroenterology', label: 'Gastroenterology', code: 'GE', desc: 'Liver, stomach, jaundice, ulcers and digestive care' }
   ];
 
-  const [isSpecialtyDropdownOpen, setIsSpecialtyDropdownOpen] = useState(false);
-  const specialtyDropdownRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (specialtyDropdownRef.current && !specialtyDropdownRef.current.contains(event.target)) {
-        setIsSpecialtyDropdownOpen(false);
-      }
+  const availableDoctorsList = [
+    {
+      id: 'doc_1',
+      name: 'Dr. Priya Sharma',
+      degrees: 'MBBS, MD, DM',
+      specialty: 'Neurologist',
+      rating: 4.9,
+      experience: '12 years experience',
+      image: 'doctor-priya.jpg',
+      isRecommended: true,
+      availabilityText: 'Available today',
+      availabilityColor: 'text-emerald-600',
+      isVerified: true
+    },
+    {
+      id: 'doc_2',
+      name: 'Dr. Sameer K. Jha',
+      degrees: 'MBBS, MD',
+      specialty: 'Neurologist',
+      rating: 4.8,
+      experience: '9 years experience',
+      image: 'doctor-sameer.jpg',
+      isRecommended: false,
+      availabilityText: 'Available tomorrow',
+      availabilityColor: 'text-slate-500',
+      isVerified: false
+    },
+    {
+      id: 'doc_3',
+      name: 'Dr. Ananya Verma',
+      degrees: 'MBBS, DM',
+      specialty: 'Neurologist',
+      rating: 4.7,
+      experience: '8 years experience',
+      image: 'doctor-ananya.jpg',
+      isRecommended: false,
+      availabilityText: 'Limited slots',
+      availabilityColor: 'text-amber-600',
+      isVerified: false
     }
-    if (isSpecialtyDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('touchstart', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [isSpecialtyDropdownOpen]);
+  ];
 
-  const filteredDoctors = useMemo(() => {
-    const list = MOCK_DOCTORS.filter((d) =>
-      d.specialties.some((s) => matchesSpecialty(s, selectedSpecialty))
-    );
-    if (list.length < 2) {
-      const generalDoctors = MOCK_DOCTORS.filter((d) =>
-        d.specialties.some((s) => matchesSpecialty(s, 'General Medicine')) &&
-        !list.some((existing) => existing.id === d.id)
-      );
-      return [...list, ...generalDoctors].slice(0, 4);
-    }
-    return list;
-  }, [selectedSpecialty]);
-
-  const activeDoctor = useMemo(() => {
-    const found = filteredDoctors.find((d) => d.id === selectedDoctorId);
-    return found || filteredDoctors[0] || MOCK_DOCTORS[0];
-  }, [filteredDoctors, selectedDoctorId]);
-
-  useEffect(() => {
-    if (filteredDoctors.length > 0 && !filteredDoctors.some((d) => d.id === selectedDoctorId)) {
-      setSelectedDoctorId(filteredDoctors[0].id);
-      if (filteredDoctors[0].nextSlot) {
-        setSelectedSlot(filteredDoctors[0].nextSlot);
-      }
-    }
-  }, [filteredDoctors, selectedDoctorId]);
-
-  const handleSelectSpecialty = (specId, matchingDoc) => {
-    setIsLoadingRoster(true);
-    setSelectedSpecialty(specId);
-    if (matchingDoc && matchingDoc.nextSlot) {
-      setSelectedSlot(matchingDoc.nextSlot);
-    }
-    setIsSpecialtyDropdownOpen(false);
-    setTimeout(() => {
-      setIsLoadingRoster(false);
-    }, 200);
-  };
+  const activeDoctor = availableDoctorsList.find((d) => d.id === selectedDoctorId) || availableDoctorsList[0];
 
   const handleSymptomCheck = (text) => {
     setSymptoms(text);
@@ -5392,15 +5442,18 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
     const isCritical = symptoms.toLowerCase().includes('chest pain') || symptoms.toLowerCase().includes('face drop');
     const urgency = isCritical ? 'RED' : 'YELLOW';
 
+    const cleanAge = typeof age === 'string' ? parseInt(age.replace(/\\D/g, '')) || 48 : age;
+
     const bookingPayload = {
       patientName,
-      patientAge: Number(age),
+      patientAge: cleanAge,
       patientSex: sex,
       patientLocation: 'Hazaribagh, Jharkhand',
       specialty: selectedSpecialty,
       doctorId: activeDoctor.id,
+      doctorName: activeDoctor.name,
       facilityId: 'fac_sbmch',
-      scheduledTime: selectedSlot,
+      scheduledTime: `${selectedDate} · ${selectedSlot}`,
       urgencyTier: urgency,
       bookedBy: pathActor,
       workerName: pathActor === 'worker' ? 'ASHA Anita Kumari' : undefined,
@@ -5423,11 +5476,11 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
           appointment: {
             id: 'APT-MOCK-8821',
             patientName,
-            patientAge: age,
+            patientAge: cleanAge,
             patientSex: sex,
             doctorName: activeDoctor.name,
             specialty: selectedSpecialty,
-            scheduledTime: selectedSlot,
+            scheduledTime: `${selectedDate} · ${selectedSlot}`,
             urgencyTier: urgency,
             bookedBy: pathActor,
             workerName: pathActor === 'worker' ? 'ASHA Anita Kumari' : undefined,
@@ -5435,7 +5488,7 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
           },
           smsSimulation: {
             recipient: pathActor === 'worker' ? 'Frontline Worker (ASHA Anita)' : patientName,
-            messageText: `MedVeda: Teleconsult confirmed for ${patientName} with ${activeDoctor.name} (${selectedSpecialty}) on ${selectedSlot}. ID: APT-MOCK-8821.`,
+            messageText: `MedVeda: Teleconsult confirmed for ${patientName} with ${activeDoctor.name} (${selectedSpecialty}) on ${selectedDate} at ${selectedSlot}. ID: APT-MOCK-8821.`,
             sentAt: new Date().toISOString()
           }
         });
@@ -5444,29 +5497,29 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
 
   if (bookingConfirmed) {
     return (
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-2xs text-center space-y-6 animate-in fade-in duration-200">
-        <div className="w-12 h-12 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center mx-auto">
-          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs text-center space-y-6 animate-in fade-in duration-200">
+        <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#1565C0] flex items-center justify-center mx-auto shadow-2xs">
+          <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
 
         <div>
-          <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-bold text-[#1565C0] uppercase tracking-wider block mb-1">
             Slot Allocation Confirmed
           </span>
-          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Appointment Scheduled</h3>
+          <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Appointment Scheduled</h3>
           <p className="text-xs text-slate-500 font-mono mt-1">
             Reference ID: <span className="font-semibold text-slate-800">{bookingConfirmed.appointment.id}</span>
           </p>
         </div>
 
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-left text-xs space-y-2">
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2.5">
           <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
             <span>Consultation Overview</span>
-            <span className="text-[#0b2b82]">Confirmed</span>
+            <span className="text-[#1565C0]">Confirmed</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-slate-700">
+          <div className="grid grid-cols-2 gap-2.5 text-slate-700">
             <div>
               <span className="text-slate-400 block text-[10px]">Patient</span>
               <strong className="text-slate-900">{bookingConfirmed.appointment.patientName}</strong>
@@ -5486,10 +5539,10 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
           </div>
         </div>
 
-        <div className="p-4 rounded-lg bg-slate-900 text-left text-white space-y-2">
+        <div className="p-4 rounded-xl bg-slate-900 text-left text-white space-y-2">
           <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
             <span>SMS CONFIRMATION SIMULATION</span>
-            <span className="text-slate-300 font-semibold">DISPATCHED</span>
+            <span className="text-emerald-400 font-semibold">DISPATCHED</span>
           </div>
           <p className="text-xs text-slate-200 font-mono leading-relaxed">
             {bookingConfirmed.smsSimulation.messageText}
@@ -5502,7 +5555,7 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
         <button
           type="button"
           onClick={() => onBookSuccess(bookingConfirmed.appointment)}
-          className="w-full py-3 bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold rounded-lg text-xs sm:text-sm transition-colors cursor-pointer"
+          className="w-full py-3.5 bg-[#1565C0] hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-xs transition-colors cursor-pointer"
         >
           Proceed to Priority Queue &rarr;
         </button>
@@ -5511,11 +5564,11 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 space-y-6">
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 space-y-6 animate-in fade-in duration-200">
       {/* Emergency Intercept Modal */}
       {showEmergencyModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full border border-slate-300 shadow-lg space-y-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-300 shadow-xl space-y-4">
             <div>
               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
                 Clinical Safety Intercept
@@ -5554,390 +5607,502 @@ function ScreenTeleconsultBooking({ pathActor, onBookSuccess, onBack, onEmergenc
         </div>
       )}
 
-      {/* Screen Header */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block mb-0.5">
-            Teleconsultation Slot &amp; Specialist Matching
-          </span>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Book Teleconsultation Slot
-          </h2>
+      {/* Top Header Card (Matching Reference Screenshots) */}
+      <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-2xs flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="5" y="3" width="14" height="18" rx="2" />
+              <line x1="9" y1="9" x2="15" y2="9" />
+              <line x1="9" y1="13" x2="15" y2="13" />
+              <line x1="9" y1="17" x2="12" y2="17" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              {bookingStep === 1 ? 'Patient & Case Registration' : 'Find Your Specialist'}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 font-normal mt-0.5">
+              {bookingStep === 1
+                ? 'Capture patient details and clinical information before matching a specialist.'
+                : 'Choose a doctor and book a time that works for you'}
+            </p>
+          </div>
         </div>
 
-        <span className="text-xs font-semibold px-3 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-          {pathActor === 'worker' ? 'Assisted Path (Frontline Worker)' : 'Self-Service Path'}
-        </span>
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-blue-200/80 bg-blue-50/60 text-blue-700 font-semibold text-xs shrink-0">
+          <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>{pathActor === 'worker' ? 'Assisted care' : 'Patient Direct'}</span>
+        </div>
       </div>
 
-      {/* Spacious 2-Column Clinical Workbench */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Patient Intake, Specialty, Symptoms & Risk (5 cols) */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Patient Details */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
-              Patient Information
-            </h3>
+      {/* Stepper Bar (3 Connected Progress Bars & Labels) */}
+      <div className="grid grid-cols-3 gap-4 pt-1">
+        {/* Step 1 */}
+        <div
+          className="cursor-pointer"
+          onClick={() => setBookingStep(1)}
+        >
+          <div className="h-1 bg-[#1565C0] rounded-full mb-2" />
+          <div className={`text-xs sm:text-sm font-bold ${bookingStep === 1 ? 'text-[#1565C0]' : 'text-slate-600'}`}>
+            Patient details
+          </div>
+        </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Patient Full Name
-              </label>
-              <input
-                type="text"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="Enter patient full name"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-semibold text-slate-900 text-sm focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
-              />
+        {/* Step 2 */}
+        <div
+          className="cursor-pointer"
+          onClick={() => setBookingStep(2)}
+        >
+          <div className={`h-1 rounded-full mb-2 ${bookingStep >= 2 ? 'bg-[#1565C0]' : 'bg-slate-200'}`} />
+          <div className={`text-xs sm:text-sm font-bold ${bookingStep === 2 ? 'text-[#1565C0]' : 'text-slate-400'}`}>
+            Specialist matching
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div>
+          <div className="h-1 bg-slate-200 rounded-full mb-2" />
+          <div className="text-xs sm:text-sm font-semibold text-slate-400">
+            Booking confirmation
+          </div>
+        </div>
+      </div>
+
+      {/* STEP 1: PATIENT & CASE REGISTRATION */}
+      {bookingStep === 1 && (
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 sm:p-8 space-y-7 animate-in fade-in duration-200">
+          {/* 1. Patient Information */}
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  1. Patient Information
+                </h3>
+              </div>
+              <span className="text-xs text-slate-400 font-normal">
+                Required fields marked *
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Age
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Patient full name *
                 </label>
                 <input
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-semibold text-slate-900 text-sm focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82]"
+                  type="text"
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-slate-900 text-sm font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  placeholder="Full name"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Biological Sex
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Age *
+                </label>
+                <input
+                  type="text"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-slate-900 text-sm font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  placeholder="e.g. 48 years"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Biological sex
                 </label>
                 <select
                   value={sex}
                   onChange={(e) => setSex(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 font-semibold text-slate-900 text-sm focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82] bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-slate-900 text-sm font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                 >
                   <option value="female">Female</option>
                   <option value="male">Male</option>
                   <option value="other">Other</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Medical specialty *
+                </label>
+                <select
+                  value={selectedSpecialty}
+                  onChange={(e) => setSelectedSpecialty(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-blue-400 text-[#1565C0] text-sm font-bold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-blue-50/20"
+                >
+                  {SPECIALTY_OPTIONS.map((spec) => (
+                    <option key={spec.id} value={spec.id}>
+                      {spec.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Specialty Selector Dropdown */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3 relative" ref={specialtyDropdownRef}>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Medical Specialty
+          {/* 2. Symptoms & Chief Complaint */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                2. Symptoms &amp; Chief Complaint
               </h3>
-              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                {SPECIALTY_OPTIONS.length} Specialties
-              </span>
             </div>
+            <p className="text-xs text-slate-500 font-normal mb-3">
+              Document the patient's reported symptoms, duration and relevant details.
+            </p>
 
-            {/* Selector Trigger Button */}
-            <button
-              type="button"
-              onClick={() => setIsSpecialtyDropdownOpen((prev) => !prev)}
-              className={`w-full p-3 rounded-lg border text-left flex items-center justify-between transition-all bg-white cursor-pointer ${
-                isSpecialtyDropdownOpen
-                  ? 'border-[#0b2b82] ring-1 ring-[#0b2b82]'
-                  : 'border-slate-300 hover:border-slate-400'
-              }`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-8 h-8 rounded-md bg-slate-100 text-[#0b2b82] font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                  {(SPECIALTY_OPTIONS.find((s) => s.id === selectedSpecialty) || {}).code || 'MD'}
-                </span>
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-900 text-sm truncate">
-                    {selectedSpecialty}
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {(SPECIALTY_OPTIONS.find((s) => s.id === selectedSpecialty) || {}).desc}
-                  </p>
-                </div>
-              </div>
-
-              <div className="ml-2 text-slate-400 shrink-0">
-                <svg className={`w-4 h-4 transition-transform duration-150 ${isSpecialtyDropdownOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Dropdown Menu */}
-            {isSpecialtyDropdownOpen && (
-              <div className="absolute left-5 right-5 top-full mt-2 z-40 bg-white rounded-xl border border-slate-200 shadow-md max-h-72 overflow-y-auto divide-y divide-slate-100 p-1">
-                {SPECIALTY_OPTIONS.map((spec) => {
-                  const isSelected = selectedSpecialty === spec.id;
-                  const matchingDoc = MOCK_DOCTORS.find((d) =>
-                    d.specialties.some((s) => matchesSpecialty(s, spec.id))
-                  );
-
-                  return (
-                    <button
-                      key={spec.id}
-                      type="button"
-                      onClick={() => handleSelectSpecialty(spec.id, matchingDoc)}
-                      className={`w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-slate-100 font-bold text-[#0b2b82]'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-6 h-6 rounded bg-slate-100 text-[#0b2b82] font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {spec.code}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="text-xs truncate block">{spec.label}</span>
-                          <span className="text-[10px] text-slate-400 truncate block">{spec.desc}</span>
-                        </div>
-                      </div>
-
-                      <div className="ml-2 shrink-0">
-                        {isSelected ? (
-                          <span className="text-[10px] font-bold text-[#0b2b82] uppercase">Active</span>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">Select</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Symptoms Input */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-2">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
-              Reported Symptoms &amp; Chief Complaint
-            </h3>
             <textarea
               rows={3}
               value={symptoms}
               onChange={(e) => handleSymptomCheck(e.target.value)}
-              className="w-full p-3 rounded-lg border border-slate-300 text-xs font-medium focus:ring-1 focus:ring-[#0b2b82] focus:border-[#0b2b82] text-slate-900 leading-relaxed"
-              placeholder="Describe symptoms, duration, severity, and any trigger factors..."
+              placeholder="Describe symptoms, duration and severity..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white leading-relaxed resize-none"
             />
+            <div className="text-right mt-1">
+              <span className="text-xs text-slate-400 font-normal">
+                Patient-reported information
+              </span>
+            </div>
           </div>
 
-          {/* Clinical Risk Factors */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
-              Clinical Risk Factors (Queue Calibration)
-            </h3>
-            <div className="flex gap-2 flex-wrap">
-              {['Pregnancy', 'Infant (<=2y)', 'Elderly (>=65y)', 'Hypertension', 'Diabetes', 'Cardiac History'].map((flag) => {
-                const isChecked = riskFlags.includes(flag);
+          {/* 3. Clinical Risk Factors */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.93 4.93 4.24 4.24" />
+                <path d="m14.83 9.17 4.24-4.24" />
+                <path d="m14.83 14.83 4.24 4.24" />
+                <path d="m9.17 14.83-4.24 4.24" />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                3. Clinical Risk Factors
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 font-normal mb-3.5">
+              Select all relevant conditions or risk categories.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { id: 'Hypertension', label: 'Hypertension' },
+                { id: 'Diabetes', label: 'Diabetes' },
+                { id: 'Cardiac history', label: 'Cardiac history' },
+                { id: 'Pregnancy', label: 'Pregnancy' },
+                { id: 'Infant (<2 years)', label: 'Infant (<2 years)' },
+                { id: 'Elderly (>65 years)', label: 'Elderly (>65 years)' }
+              ].map((rf) => {
+                const isSelected = riskFlags.includes(rf.id);
                 return (
                   <button
-                    key={flag}
+                    key={rf.id}
                     type="button"
                     onClick={() => {
-                      if (isChecked) {
-                        setRiskFlags(riskFlags.filter((f) => f !== flag));
+                      if (isSelected) {
+                        setRiskFlags(riskFlags.filter((f) => f !== rf.id));
                       } else {
-                        setRiskFlags([...riskFlags, flag]);
+                        setRiskFlags([...riskFlags, rf.id]);
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      isChecked
-                        ? 'bg-slate-100 border-[#0b2b82] text-[#0b2b82]'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-blue-400 bg-blue-50/70 text-blue-700 font-semibold shadow-2xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
                     }`}
                   >
-                    {isChecked ? flag : `+ ${flag}`}
+                    {isSelected ? (
+                      <div className="w-4 h-4 rounded-full bg-[#1565C0] text-white flex items-center justify-center shrink-0">
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" />
+                    )}
+                    <span className="text-xs sm:text-sm">{rf.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
-        </div>
 
-        {/* Right Column: Doctor Roster, Slots, Actions (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
-          {/* Doctor Selection Roster */}
-          <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <div>
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Specialist Doctors On Duty
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Showing active doctors for {selectedSpecialty} ({filteredDoctors.length} Available)
-                </p>
-              </div>
-              <span className="text-[11px] font-semibold text-slate-600">
-                Select doctor to assign
-              </span>
-            </div>
-
-            {/* Skeleton Loader or Doctor Cards */}
-            {isLoadingRoster ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white animate-pulse space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-slate-200 shrink-0"></div>
-                      <div className="space-y-1.5 flex-1">
-                        <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                        <div className="h-3 bg-slate-100 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                    <div className="h-3 bg-slate-100 rounded w-full"></div>
-                    <div className="h-3 bg-slate-100 rounded w-2/3"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {filteredDoctors.map((doc) => {
-                  const isSelected = doc.id === activeDoctor.id;
-
-                  return (
-                    <div
-                      key={doc.id}
-                      onClick={() => {
-                        setSelectedDoctorId(doc.id);
-                        if (doc.nextSlot) {
-                          setSelectedSlot(doc.nextSlot);
-                        }
-                      }}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-[#0b2b82] bg-slate-50/70 ring-1 ring-[#0b2b82]'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div>
-                        {/* Header: Avatar, Name, Selection indicator */}
-                        <div className="flex items-start justify-between gap-2.5 mb-2.5">
-                          <div className="flex items-start gap-2.5">
-                            <div
-                              className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs tracking-wider shrink-0 ${
-                                isSelected ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-700'
-                              }`}
-                            >
-                              {doc.avatar && doc.avatar.length <= 3 ? doc.avatar : getDoctorInitials(doc.name)}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <h4 className="font-bold text-slate-900 text-sm leading-tight">
-                                  {doc.name}
-                                </h4>
-                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
-                                  Online
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
-                                {doc.qualification}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 mt-0.5">
-                            <div
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                isSelected ? 'border-[#0b2b82]' : 'border-slate-300'
-                              }`}
-                            >
-                              {isSelected && <div className="w-2 h-2 rounded-full bg-[#0b2b82]"></div>}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Meta info: Reg No, Experience */}
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium mb-2">
-                          <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 text-[10px]">
-                            {doc.registrationNumber}
-                          </span>
-                          {doc.experience && (
-                            <span className="text-slate-600 text-[11px]">{doc.experience}</span>
-                          )}
-                        </div>
-
-                        {/* Facility affiliations */}
-                        <div className="text-[11px] text-slate-500 truncate mb-2">
-                          {doc.facilityNames && doc.facilityNames.join(' | ')}
-                        </div>
-                      </div>
-
-                      {/* Footer: Next Slot */}
-                      <div
-                        className={`pt-2 border-t flex items-center justify-between text-xs ${
-                          isSelected ? 'border-slate-200' : 'border-slate-100'
-                        }`}
-                      >
-                        <span className="text-slate-500 text-[11px]">
-                          Next: <strong className="text-slate-800">{doc.nextSlot || 'Today, 10:00 AM'}</strong>
-                        </span>
-                        <span
-                          className={`text-[11px] font-semibold ${
-                            isSelected ? 'text-[#0b2b82]' : 'text-slate-400'
-                          }`}
-                        >
-                          {isSelected ? 'Selected' : 'Select'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Time Slot Picker */}
-          <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
-              Select Appointment Slot
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {[activeDoctor.nextSlot || 'Today, 10:00 AM', 'Today, 11:30 AM', 'Today, 02:00 PM', 'Today, 04:30 PM']
-                .filter((v, i, a) => a.indexOf(v) === i)
-                .slice(0, 4)
-                .map((slot) => {
-                  const isSelected = selectedSlot === slot;
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`py-2.5 px-3 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {slot}
-                    </button>
-                  );
-                })}
+            <div className="flex items-center gap-2 text-xs text-slate-500 mt-3 pt-1">
+              <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span>Patient information should be verified before booking.</span>
             </div>
           </div>
 
-          {/* Action Bar */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs flex items-center justify-between flex-wrap gap-3">
+          {/* Action Row */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <button
               type="button"
               onClick={onBack}
-              className="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700 text-xs rounded-lg transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              &larr; Back to Path
+              <span>&larr;</span>
+              <span>Back to Path</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBookingStep(2)}
+              className="px-6 py-2.5 rounded-lg bg-[#1565C0] hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <span>Continue to Specialist</span>
+              <span>&rarr;</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: FIND YOUR SPECIALIST (Matching User's Reference Screenshot) */}
+      {bookingStep === 2 && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Available Specialists (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-sm font-bold text-slate-900">Available Specialists</h3>
+                <span className="text-xs text-slate-400 font-medium">3 doctors</span>
+              </div>
+
+              <div className="space-y-3.5">
+                {availableDoctorsList.map((doc) => {
+                  const isSelected = selectedDoctorId === doc.id;
+                  return (
+                    <div
+                      key={doc.id}
+                      onClick={() => setSelectedDoctorId(doc.id)}
+                      className={`rounded-2xl p-4 transition-all cursor-pointer flex items-center gap-4 bg-white ${
+                        isSelected
+                          ? 'border-2 border-blue-500 shadow-xs'
+                          : 'border border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-100 shadow-2xs">
+                        <img
+                          src={doc.image}
+                          alt={doc.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-sm font-bold text-slate-900 truncate">
+                            {doc.name}
+                          </h4>
+                          {doc.isVerified && (
+                            <svg className="w-4 h-4 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-slate-500 font-normal mt-0.5">
+                          {doc.specialty} &middot; {doc.degrees}
+                        </p>
+
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium mt-1">
+                          <span className="text-amber-500">★</span>
+                          <span>{doc.rating}</span>
+                          <span className="text-slate-300">&middot;</span>
+                          <span>{doc.experience}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-2">
+                          {doc.isRecommended && (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                              Recommended
+                            </span>
+                          )}
+                          <span className={`text-xs font-medium ${doc.availabilityColor}`}>
+                            {doc.availabilityText}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 pl-2">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          isSelected ? 'border-blue-600' : 'border-slate-300'
+                        }`}>
+                          {isSelected && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Column: Book a Slot (5 cols) */}
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight">Book a Slot</h3>
+                  <p className="text-[11px] text-slate-400">Select your preferred date</p>
+                </div>
+              </div>
+
+              {/* 3 Date Option Cards */}
+              <div className="space-y-2">
+                {[
+                  { id: 'Today / 11 Oct', label: 'Today', date: '11 Oct' },
+                  { id: 'Tomorrow / 12 Oct', label: 'Tomorrow', date: '12 Oct' },
+                  { id: 'Tue / 13 Oct', label: 'Tue', date: '13 Oct' }
+                ].map((d) => {
+                  const isDateSelected = selectedDate === d.id;
+                  return (
+                    <div
+                      key={d.id}
+                      onClick={() => setSelectedDate(d.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                        isDateSelected
+                          ? 'border-blue-500 bg-blue-50/20 shadow-2xs'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-slate-400 text-[11px] block">{d.label}</span>
+                        <strong className="text-slate-900 text-xs">{d.date}</strong>
+                      </div>
+                      {isDateSelected && (
+                        <div className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="h-px bg-slate-100 my-2" />
+
+              {/* Morning Slots */}
+              <div>
+                <span className="text-xs font-bold text-slate-700 block mb-2">Morning</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {['09:00 AM', '10:00 AM', '11:30 AM'].map((slot) => {
+                    const isSlotSelected = selectedSlot === slot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot)}
+                        className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                          isSlotSelected
+                            ? 'bg-[#1565C0] text-white border-[#1565C0] shadow-2xs font-bold'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Afternoon Slots */}
+              <div>
+                <span className="text-xs font-bold text-slate-700 block mb-2">Afternoon</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {['12:30 PM', '02:00 PM', '03:30 PM'].map((slot) => {
+                    const isSlotSelected = selectedSlot === slot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot)}
+                        className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                          isSlotSelected
+                            ? 'bg-[#1565C0] text-white border-[#1565C0] shadow-2xs font-bold'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Your Selection Summary Box */}
+              <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3.5 space-y-1">
+                <span className="text-[11px] font-bold text-[#1565C0] block uppercase tracking-wide">
+                  Your selection
+                </span>
+                <div className="text-xs font-bold text-slate-900">
+                  {activeDoctor.name}
+                </div>
+                <div className="text-xs text-slate-600 font-medium">
+                  {selectedDate} &middot; {selectedSlot}
+                </div>
+                <div className="text-xs text-[#1565C0] font-medium flex items-center gap-1.5 pt-1">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="6" width="14" height="12" rx="2" />
+                    <path d="M16 10l5-3v10l-5-3" />
+                  </svg>
+                  <span>Online consultation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Action Row (Matching Reference Screenshot) */}
+          <div className="pt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setBookingStep(1)}
+              className="text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>&larr;</span>
+              <span>Back to patient details</span>
             </button>
 
             <button
               type="button"
               onClick={handleBook}
-              className="px-6 py-2.5 bg-[#0b2b82] hover:bg-[#071c59] text-white font-bold rounded-lg text-xs sm:text-sm shadow-2xs transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-7 py-3 bg-[#0f172a] hover:bg-black text-white font-bold text-sm rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
             >
-              <span>Confirm Booking &amp; Join Priority Queue</span>
+              <span>Confirm Appointment</span>
               <span>&rarr;</span>
             </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -29431,24 +29596,24 @@ function FeaturesSideNavbar({
       {/* DESKTOP SIDE NAVBAR (Exact fit at 100% browser scale matching reference screenshot) */}
       <aside
         className={`hidden md:flex flex-col bg-white border-r border-slate-200/90 shadow-2xs transition-all duration-200 shrink-0 select-none sticky top-[65px] h-[calc(100vh-65px)] ${
-          collapsed ? 'w-16' : 'w-[260px]'
+          collapsed ? 'w-16' : 'w-[255px]'
         }`}
       >
         {/* Top Header of Sidebar */}
-        <div className={`px-3.5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 ${collapsed ? 'flex-col gap-2 p-2' : ''}`}>
+        <div className={`px-3 py-2.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 ${collapsed ? 'flex-col gap-1.5 p-2' : ''}`}>
           {!collapsed ? (
             <div
-              className="flex items-center gap-2.5 cursor-pointer select-none"
+              className="flex items-center gap-2 cursor-pointer select-none"
               onClick={() => setView('overview')}
               title="MedVeda Overview"
             >
-              <MedVedaLogo className="h-8 w-8 shrink-0" />
+              <MedVedaLogo className="h-7 w-7 shrink-0" />
               <div className="leading-tight">
                 <div className="flex items-center">
-                  <span className="font-black text-[#0b2b82] text-xl tracking-tight">MED</span>
-                  <span className="font-black text-[#0284c7] text-xl tracking-tight">VEDA</span>
+                  <span className="font-black text-[#0b2b82] text-lg tracking-tight">MED</span>
+                  <span className="font-black text-[#0284c7] text-lg tracking-tight">VEDA</span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-medium tracking-tight mt-0.5">
+                <div className="text-[9.5px] text-slate-400 font-medium tracking-tight mt-0.5">
                   Making quality healthcare accessible
                 </div>
               </div>
@@ -29466,10 +29631,10 @@ function FeaturesSideNavbar({
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            <svg className={`w-5 h-5 text-slate-400 transition-transform ${collapsed ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <svg className={`w-4.5 h-4.5 text-slate-400 transition-transform ${collapsed ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <line x1="15" y1="3" x2="15" y2="21" />
               <polyline points="10 8 6 12 10 16" />
@@ -29479,19 +29644,19 @@ function FeaturesSideNavbar({
 
         {/* Navigation Sections + Footer Container (Full height flex-col justify-between) */}
         <div
-          className="flex-1 flex flex-col justify-between overflow-y-auto no-scrollbar [&::-webkit-scrollbar]:hidden p-3"
+          className="flex-1 flex flex-col justify-between overflow-y-auto no-scrollbar [&::-webkit-scrollbar]:hidden p-2.5"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {/* Top Sections */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {patientSections.map((sec, secIdx) => (
               <div key={sec.title}>
                 {!collapsed && (
-                  <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase px-3 pt-3 pb-1.5">
+                  <div className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2.5 pt-1.5 pb-0.5">
                     {sec.title}
                   </div>
                 )}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {sec.items.map((item) => {
                     const isActive = isPatientItemActive(item);
                     return (
@@ -29500,10 +29665,10 @@ function FeaturesSideNavbar({
                         type="button"
                         onClick={() => handlePatientSelectModule(item)}
                         title={item.label}
-                        className={`w-full text-left rounded-xl transition-all duration-150 flex items-center group cursor-pointer ${
+                        className={`w-full text-left rounded-lg transition-all duration-150 flex items-center group cursor-pointer ${
                           collapsed
-                            ? 'p-2.5 justify-center'
-                            : 'px-3 py-2.5 gap-3'
+                            ? 'p-2 justify-center'
+                            : 'px-2.5 py-1.5 gap-2.5'
                         } ${
                           isActive
                             ? 'bg-[#edf5ff] text-[#1565C0] font-semibold'
@@ -29512,15 +29677,15 @@ function FeaturesSideNavbar({
                       >
                         <PatientNavIcon
                           name={item.icon}
-                          className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-105 ${
+                          className={`w-[18px] h-[18px] shrink-0 transition-transform group-hover:scale-105 ${
                             isActive ? 'text-[#1565C0]' : 'text-slate-500 group-hover:text-slate-700'
                           }`}
                         />
                         {!collapsed && (
                           <>
-                            <span className="text-[14px] truncate flex-1">{item.label}</span>
+                            <span className="text-[13px] truncate flex-1">{item.label}</span>
                             {isActive && (
-                              <span className="w-1.5 h-5 rounded-full bg-[#1565C0] shrink-0 ml-auto" />
+                              <span className="w-1.5 h-4.5 rounded-full bg-[#1565C0] shrink-0 ml-auto" />
                             )}
                             {!isActive && item.hasChevron && (
                               <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -29534,32 +29699,32 @@ function FeaturesSideNavbar({
                   })}
                 </div>
                 {secIdx < patientSections.length - 1 && (
-                  <div className="h-px bg-slate-100 my-2 mx-1" />
+                  <div className="h-px bg-slate-100 my-1 mx-1" />
                 )}
               </div>
             ))}
           </div>
 
           {/* Bottom Footer: My Account (Cleanly sits at the bottom like the reference screenshot) */}
-          <div className={`pt-4 pb-1 shrink-0 ${collapsed ? 'flex justify-center' : ''}`}>
+          <div className={`pt-2 pb-0.5 shrink-0 ${collapsed ? 'flex justify-center' : ''}`}>
             <button
               type="button"
               onClick={() => handlePatientSelectModule(patientAccountItem)}
-              className={`w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer ${
-                collapsed ? 'justify-center p-1.5' : ''
+              className={`w-full flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer ${
+                collapsed ? 'justify-center p-1' : ''
               }`}
               title="My Account (Profile & Settings)"
             >
-              <div className="w-9 h-9 rounded-full bg-[#edf5ff] text-[#1565C0] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#edf5ff] text-[#1565C0] flex items-center justify-center shrink-0">
                 <PatientNavIcon name="account" className="w-4 h-4 text-[#1565C0]" />
               </div>
               {!collapsed && (
                 <>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors truncate">
+                    <div className="text-[13px] font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors truncate">
                       My Account
                     </div>
-                    <div className="text-[11px] text-slate-400 font-normal truncate">
+                    <div className="text-[10px] text-slate-400 font-normal truncate">
                       Profile &amp; settings
                     </div>
                   </div>
