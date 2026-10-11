@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MedVeda | Smart Care Platform & Teleconsultation Grid</title>
+  <title>MedVeda | Making Quality Healthcare Accessible</title>
   <link rel="icon" type="image/png" href="./logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,59 +14,28 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
           },
           colors: {
-            deepblue: {
-              50: '#f0f7ff',
-              100: '#e0effe',
-              200: '#b9ddfd',
-              300: '#7cc2fb',
-              400: '#36a4f7',
-              500: '#1565C0',
-              600: '#1565C0',
-              700: '#0d47a1',
-              800: '#092d68',
-              900: '#061b40',
-            },
-            nearblack: {
-              DEFAULT: '#0B0F14',
-              50: '#1e2632',
-              100: '#161c24',
-              200: '#10141b',
-              300: '#0B0F14',
-            },
-            tealaccent: {
-              50: '#e0f2f1',
-              100: '#b2dfdb',
-              200: '#80cbc4',
-              300: '#4db6ac',
-              400: '#26a69a',
-              500: '#00897B',
-              600: '#00897B',
-              700: '#00695c',
-              800: '#004d40',
-              900: '#00332c',
-            },
             brand: {
               50: '#f0f7ff',
               100: '#e0effe',
               200: '#b9ddfd',
               300: '#7cc2fb',
               400: '#36a4f7',
-              500: '#1565C0',
-              600: '#1565C0',
-              700: '#0d47a1',
-              800: '#092d68',
-              900: '#061b40',
-              accent: '#1565C0',
+              500: '#0284c7',
+              600: '#0b2b82',
+              700: '#092268',
+              800: '#071a4f',
+              900: '#051338',
+              accent: '#0284c7',
             },
             critical: {
               50: '#fef2f2',
               100: '#fee2e2',
               500: '#ef4444',
-              600: '#d32f2f',
-              700: '#c62828',
+              600: '#dc2626',
+              700: '#b91c1c',
             },
             urgent: {
               50: '#fffbeb',
@@ -83,28 +52,28 @@
               700: '#15803d',
             },
             teal: {
-              50: '#e0f2f1',
-              100: '#b2dfdb',
-              200: '#80cbc4',
-              300: '#4db6ac',
-              400: '#26a69a',
-              500: '#00897B',
-              600: '#00897B',
-              700: '#00695c',
-              800: '#004d40',
-              900: '#00332c',
+              50: '#f0f7ff',
+              100: '#e0effe',
+              200: '#b9ddfd',
+              300: '#7cc2fb',
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0b2b82',
             },
             indigo: {
               50: '#f0f7ff',
               100: '#e0effe',
               200: '#b9ddfd',
               300: '#7cc2fb',
-              400: '#36a4f7',
-              500: '#1565C0',
-              600: '#1565C0',
-              700: '#0d47a1',
-              800: '#092d68',
-              900: '#061b40',
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0b2b82',
+              700: '#092268',
+              800: '#071a4f',
+              900: '#051338',
             }
           }
         }
@@ -117,47 +86,67 @@
       -webkit-font-smoothing: antialiased;
       background-color: #f8fafc;
       min-height: 100vh;
+      color: #0f172a;
     }
     .glass-nav {
       background: #ffffff;
       border-bottom: 1px solid #e2e8f0;
     }
-    .glass-card-light {
-      background: rgba(255, 255, 255, 0.78);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.85);
-      box-shadow: 0 10px 30px -5px rgba(21, 101, 192, 0.04), 0 0 0 1px rgba(21, 101, 192, 0.03);
+    .no-scrollbar::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
     }
-    .glass-card-dark {
-      background: rgba(11, 15, 20, 0.94);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.11);
-      box-shadow: 0 20px 40px -15px rgba(11, 15, 20, 0.5), 0 0 0 1px rgba(21, 101, 192, 0.18);
+    .no-scrollbar {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
     }
-    .glass-pill {
-      background: rgba(255, 255, 255, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.8);
+    /* Enterprise clean drop shadow control */
+    .shadow-2xl, .shadow-xl {
+      box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05) !important;
     }
-    .pulse-ring {
-      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    .shadow-lg {
+      box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05) !important;
     }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.1); opacity: 0.4; }
-      100% { transform: scale(0.95); opacity: 0.8; }
+    /* Professional corner radius control */
+    .rounded-3xl {
+      border-radius: 0.75rem !important;
     }
+    /* Neutralize liquid glass blurring */
+    .backdrop-blur-md, .backdrop-blur-sm, .backdrop-blur-lg {
+      backdrop-filter: none !important;
+    }
+    /* Production Leaflet marker clean styling */
     .custom-map-marker {
       background: transparent !important;
       border: none !important;
     }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(22px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .fade-in-section {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+    .fade-in-section.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
