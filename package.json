@@ -2,6 +2,7 @@
   "name": "nexusmind-monorepo",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Autonomous Cognitive Knowledge Network & Multi-Agent Intelligence Platform",
   "workspaces": [
     "frontend",

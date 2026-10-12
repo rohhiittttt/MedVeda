@@ -7,11 +7,44 @@ node_modules/
 coverage/
 .nyc_output/
 
-# Production Builds
+# Production Builds & Compiled Assets
 dist/
 build/
 .next/
 out/
+*.compiled.js
+app.compiled.js
+frontend/public/app.compiled.js
+
+# SQLite Databases & Runtime Cache Files
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+backend/data/*.db*
+backend/data/*.sqlite*
+
+# Python Caches & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Headless Chrome Test Profiles & Visual Screenshots
+chrome-temp*
+doctor_visits_step1.png
+screen_test.png
+image.png
+patient_portal_verified.png
+verify_doc_entry.png
 
 # Environment Variables & Secrets (CRITICAL: NEVER COMMIT)
 .env

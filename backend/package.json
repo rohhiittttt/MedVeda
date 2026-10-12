@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "dev": "node --experimental-transform-types ../frontend/server.js",
+    "build": "node -e \"console.log('@nexusmind/backend: use-cases ready for node --experimental-transform-types')\"",
+    "start": "node --experimental-transform-types ../frontend/server.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-transform-types --test tests/unit/*.spec.ts",
