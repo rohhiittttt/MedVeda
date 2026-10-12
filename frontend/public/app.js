@@ -29581,6 +29581,38 @@ function Footer({ setView, setScreen, setTeleconsultScreen, setActorRole }) {
 // --- OVERVIEW COMPONENTS ---
 // ==========================================
 
+// Floating MediBot Logo / Launcher (Fixed at bottom-right of screen, non-scrolling)
+function MediBotFloatingLogo({ onClick }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[22px] bg-[#0b2b82] hover:bg-[#092268] active:scale-95 shadow-xl shadow-[#0b2b82]/35 hover:shadow-2xl hover:shadow-[#0b2b82]/45 transition-all duration-200 flex items-center justify-center group cursor-pointer border border-white/20 focus:outline-none focus:ring-4 focus:ring-[#0b2b82]/30 relative"
+        title="MediBot AI Assistant"
+        aria-label="Open MediBot AI Assistant"
+      >
+        <svg viewBox="0 0 100 100" className="w-9 h-9 sm:w-10 sm:h-10 transition-transform group-hover:scale-105" fill="none">
+          {/* White speech bubble with bottom-left pointer tail */}
+          <path
+            d="M 36 26 H 64 A 7 7 0 0 1 71 33 V 56 A 7 7 0 0 1 64 63 H 45.5 L 34 72 V 63 A 5 7 0 0 1 29 56 V 33 A 7 7 0 0 1 36 26 Z"
+            fill="#ffffff"
+          />
+          {/* Three dots in MedVeda project theme color */}
+          <circle cx="40" cy="44.3" r="3.5" fill="#0b2b82" />
+          <circle cx="50" cy="44.3" r="3.5" fill="#0b2b82" />
+          <circle cx="60" cy="44.3" r="3.5" fill="#0b2b82" />
+        </svg>
+
+        {/* Hover Tooltip Pill */}
+        <span className="absolute right-full mr-3.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-xl bg-slate-900/90 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg border border-slate-700/50 backdrop-blur-sm">
+          MediBot AI
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser, onUpdateUser }) {
   const isPrototype = currentUser?.isPrototype !== false;
   const [showAbha, setShowAbha] = useState(false);
@@ -29829,7 +29861,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
   if (!currentUser?.emergencyContact) missingOptionalFields.push('Emergency Contact');
 
   return (
-    <div className="p-4 sm:p-6 lg:p-7 bg-[#f8fafc] min-h-screen space-y-8 sm:space-y-9 max-w-7xl mx-auto" style={{ zoom: 1.25 }}>
+    <div className="p-4 sm:p-6 lg:p-7 bg-[#f8fafc] min-h-screen space-y-8 sm:space-y-9 max-w-7xl mx-auto">
 
       {/* Hero Welcome Banner */}
       <div className="fade-in-section is-visible relative overflow-hidden rounded-2xl border border-sky-100/90 shadow-2xs bg-[#f4f9fd]">
@@ -29846,21 +29878,22 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
           {/* Left Text Block */}
           <div className="max-w-xl space-y-2.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border shadow-2xs ${
-                isPrototype
-                  ? 'bg-amber-100/90 text-amber-900 border-amber-300'
-                  : 'bg-emerald-100/80 text-emerald-800 border-emerald-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isPrototype ? 'bg-amber-600' : 'bg-emerald-500'}`}></span>
-                {isPrototype ? 'Prototype Demo Session' : 'Verified Real Patient Account'}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-100/80 text-emerald-800 border border-emerald-200 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Active Patient Session
               </span>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono bg-white/90 text-slate-700 border border-slate-200 shadow-2xs">
-                <span>ID: {showAbha ? rawAbha : maskedAbha}</span>
+                <span>ABHA ID {showAbha ? '91-4829-1092-4820' : '•••••• 4820'}</span>
                 <button
                   type="button"
                   onClick={() => setShowAbha(!showAbha)}
                   className="text-[11px] text-[#1565C0] hover:underline font-semibold flex items-center gap-1 cursor-pointer ml-1"
+                  title={showAbha ? 'Hide ABHA ID' : 'Show ABHA ID'}
                 >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                   <span>{showAbha ? 'Hide' : 'Show'}</span>
                 </button>
               </div>
@@ -29868,206 +29901,143 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
 
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                Good morning, {displayPatientName}!
+                Good morning, Patient!
               </h1>
-              <p className="text-xs sm:text-sm font-bold text-slate-700 mt-1 flex flex-wrap items-center gap-2">
-                {currentUser?.age ? <span>{currentUser.age} yrs</span> : null}
-                {currentUser?.sex ? <span>&bull; {currentUser.sex}</span> : null}
-                {(currentUser?.district || currentUser?.state) ? (
-                  <span>&bull; {[currentUser?.district, currentUser?.state].filter(Boolean).join(', ')}</span>
-                ) : null}
-                {currentUser?.phone ? <span>&bull; {currentUser.phone}</span> : null}
+              <p className="text-sm sm:text-base font-bold text-slate-800 mt-0.5">
+                Your health, all in one place.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-semibold">
-                Blood Group: <strong className="text-slate-900">{currentUser?.bloodGroup || (isPrototype ? 'B+' : 'Not added')}</strong>
-              </span>
-              <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-700 font-semibold">
-                History: <strong className="text-slate-900">{currentUser?.medicalHistory || (isPrototype ? 'Hypertension (5 yrs)' : 'None added')}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => setActiveModal('profile')}
-                className="text-[11px] px-3 py-1 rounded-lg bg-[#1565C0] hover:bg-blue-700 text-white font-bold transition-colors cursor-pointer shadow-2xs"
-              >
-                {missingOptionalFields.length > 0 && !isPrototype ? '+ Complete Profile Details' : 'Edit Profile'}
-              </button>
-            </div>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-lg leading-relaxed">
+              Manage your appointments, track your care, access your health records, prescriptions and more — anytime, anywhere.
+            </p>
           </div>
 
           {/* Right Floating Card: Your Health Account */}
           <div className="shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex items-center justify-end">
-            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100/90 flex flex-col gap-2 max-w-sm">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#edf5ff] border border-blue-100 text-[#1565C0] flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                    <polyline points="8 11 10.5 8.5 12 13 13.5 10.5 15.5 12" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="font-bold text-[#0b2b82] text-sm tracking-tight">Your Health Account</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {isPrototype ? 'Demo Mode • Pre-loaded sample data' : 'Real Mode • Zero fake data'}
-                  </div>
-                </div>
+            <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100/90 flex items-center gap-3.5 max-w-sm">
+              <div className="w-10 h-10 rounded-xl bg-[#edf5ff] border border-blue-100 text-[#1565C0] flex items-center justify-center shrink-0 shadow-2xs">
+                <svg className="w-5 h-5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                  <polyline points="8 11 10.5 8.5 12 13 13.5 10.5 15.5 12" />
+                </svg>
               </div>
-              {!isPrototype && missingOptionalFields.length > 0 && (
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3">
-                  <span className="text-[11px] text-amber-700 font-medium">
-                    Optional not added: {missingOptionalFields.slice(0, 2).join(', ')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('profile')}
-                    className="text-[11px] font-bold text-[#1565C0] hover:underline shrink-0 cursor-pointer"
-                  >
-                    + Add Now
-                  </button>
-                </div>
-              )}
+              <div>
+                <div className="font-bold text-[#0b2b82] text-sm tracking-tight">Your Health Account</div>
+                <div className="text-xs text-slate-500 mt-0.5">Secure • Private • Always with you</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Section: Your Health, All in One Place */}
-      <div className="fade-in-section space-y-3.5">
+      <div className="fade-in-section space-y-4">
         <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">Your Health, All in One Place</h2>
-          <p className="text-xs sm:text-sm text-slate-500">Simple tools to manage your healthcare journey.</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Your Health, All in One Place</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Simple tools to manage your healthcare journey.</p>
         </div>
 
-        {/* Row 1: 3 Equal Quick Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 4 Cards Restructured with photos & Navy Blue theme pill buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {/* Card 1: Book Appointment */}
           <div
             onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
-            className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+            className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1565C0] border border-blue-100 flex items-center justify-center group-hover:bg-[#1565C0] group-hover:text-white transition-colors mb-3.5">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
+              <div className="rounded-xl overflow-hidden aspect-[16/10] sm:aspect-[4/3] w-full bg-slate-100 mb-3 border border-slate-100">
+                <img
+                  src="card-appointment.png"
+                  alt="Book Appointment"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
-              <h3 className="text-base font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors">Book Appointment</h3>
-              <p className="text-xs text-slate-500 mt-1">Find doctors and book visits.</p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight">Book Appointment</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Find doctors and book visits.</p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#1565C0]">
-              <span>Book now</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">↗</span>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setView('feature2'); setTeleconsultScreen('booking'); }}
+              className="mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"
+            >
+              Book now
+            </button>
           </div>
 
+          {/* Card 2: Check Symptoms */}
           <div
             onClick={() => { setView('feature1'); setScreen(1); }}
-            className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+            className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors mb-3.5">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                </svg>
+              <div className="rounded-xl overflow-hidden aspect-[16/10] sm:aspect-[4/3] w-full bg-slate-100 mb-3 border border-slate-100">
+                <img
+                  src="card-symptoms.png"
+                  alt="Check Symptoms"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
-              <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Check Symptoms</h3>
-              <p className="text-xs text-slate-500 mt-1">Understand your symptoms.</p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight">Check Symptoms</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Understand your symptoms.</p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700">
-              <span>Check now</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">↗</span>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setView('feature1'); setScreen(1); }}
+              className="mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"
+            >
+              Check now
+            </button>
           </div>
 
+          {/* Card 3: Medical Records */}
           <div
             onClick={() => setView('feature5')}
-            className="p-5 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+            className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors mb-3.5">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                </svg>
+              <div className="rounded-xl overflow-hidden aspect-[16/10] sm:aspect-[4/3] w-full bg-slate-100 mb-3 border border-slate-100">
+                <img
+                  src="card-records.png"
+                  alt="Medical Records"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
-              <h3 className="text-base font-bold text-slate-900 group-hover:text-purple-700 transition-colors">Medical Records</h3>
-              <p className="text-xs text-slate-500 mt-1">Access reports and health history.</p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight">Medical Records</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Access reports and health history.</p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-700">
-              <span>View records</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">↗</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Medicine Search (2 cols) & MediBot AI (1 col) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
-                    <path d="m8.5 8.5 7 7"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Medicine Search</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Search medicines, compare prices and find nearby stock.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setView('feature6')}
-                className="text-slate-400 hover:text-[#1565C0] transition-colors"
-                title="Open Medicine Shop"
-              >
-                <span className="text-base font-bold">↗</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleMedicineSearchSubmit} className="relative mt-2">
-              <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={medicineSearchQuery}
-                onChange={(e) => setMedicineSearchQuery(e.target.value)}
-                placeholder="Search medicine or generic name..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-            </form>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setView('feature5'); }}
+              className="mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"
+            >
+              View records
+            </button>
           </div>
 
+          {/* Card 4: Medicines & Labs */}
           <div
-            onClick={() => setView('feature10')}
-            className="p-5 rounded-2xl bg-sky-50/70 hover:bg-sky-50 border border-sky-200/80 shadow-2xs transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+            onClick={() => setView('feature6')}
+            className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-white text-sky-600 border border-sky-100 flex items-center justify-center mb-3.5 shadow-2xs">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="10" rx="2"/>
-                  <circle cx="12" cy="5" r="2"/>
-                  <path d="M12 7v4"/>
-                  <line x1="8" y1="16" x2="8" y2="16"/>
-                  <line x1="16" y1="16" x2="16" y2="16"/>
-                </svg>
+              <div className="rounded-xl overflow-hidden aspect-[16/10] sm:aspect-[4/3] w-full bg-slate-100 mb-3 border border-slate-100">
+                <img
+                  src="card-medicines.jpg"
+                  alt="Medicines & Labs"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
-              <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-700 transition-colors">MediBot AI</h3>
-              <p className="text-xs text-slate-500 mt-1">Ask health-related questions.</p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight">Medicines &amp; Labs</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Search medicines &amp; diagnostic tests.</p>
             </div>
-            <div className="mt-4 pt-3 border-t border-sky-200/50 flex items-center justify-between text-xs font-bold text-sky-700">
-              <span>Chat now</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">↗</span>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setView('feature6'); }}
+              className="mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"
+            >
+              Search now
+            </button>
           </div>
         </div>
       </div>
@@ -30084,7 +30054,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
               <button
                 type="button"
                 onClick={() => setActiveModal('appointment')}
-                className="px-3 py-1.5 rounded-xl bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs font-semibold transition-colors cursor-pointer"
               >
                 + Add Appointment
               </button>
@@ -30092,7 +30062,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
             <button
               type="button"
               onClick={() => setView('feature2')}
-              className="text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-[#0b2b82] hover:underline flex items-center gap-1"
             >
               <span>View All</span>
               <span>&rarr;</span>
@@ -30102,94 +30072,109 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
 
         {isPrototype ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Prototype Appointment 1 */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+            {/* Prototype Appointment 1: Teleconsultation */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors">
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">Teleconsult</h4>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">Teleconsultation</h4>
                     <p className="text-[11px] text-slate-500">{liveAppointment?.specialty || 'Neurology'} Department</p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <div className="text-xl font-black text-[#1565C0]">
-                    {liveAppointment?.scheduledTime ? liveAppointment.scheduledTime.split('·')[0].trim().toUpperCase() : '15 OCT'}
+
+                <div className="pt-3.5 pb-2 border-t border-slate-100 grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">APPOINTMENT DATE</span>
+                    <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">
+                      {liveAppointment?.scheduledTime ? liveAppointment.scheduledTime.split('·')[0].trim() : '15 October'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {liveAppointment?.scheduledTime?.includes('·') ? liveAppointment.scheduledTime.split('·')[1].trim() : '10:30 AM'}
+                    </p>
                   </div>
-                  <p className="text-xs font-bold text-slate-800 mt-0.5">{liveAppointment?.doctorName || 'Dr. Verma'}</p>
-                  <p className="text-[11px] text-slate-500">
-                    {liveAppointment?.scheduledTime?.includes('·') ? liveAppointment.scheduledTime.split('·')[1].trim() : '10:30 AM'}
-                  </p>
-                  <span className="inline-block mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    {liveAppointment ? `Queue #${liveAppointment.queuePosition || 1} Confirmed` : 'Confirmed'}
-                  </span>
+                  <div className="border-l border-slate-200/90 pl-4">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">CONSULTING DOCTOR</span>
+                    <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">
+                      {liveAppointment?.doctorName || 'Dr. Verma'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {liveAppointment?.specialty || 'Neurology'}
+                    </p>
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => { setView('feature2'); setTeleconsultScreen('call'); }}
-                className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>Join Call</span>
+                <span>Join consultation</span>
                 <span>&rarr;</span>
               </button>
             </div>
 
-            {/* Prototype Appointment 2 */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+            {/* Prototype Appointment 2: ASHA Follow-up */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors">
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">ASHA Follow-up</h4>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">ASHA Follow-up</h4>
                     <p className="text-[11px] text-slate-500">Community Care Visit</p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <div className="text-xl font-black text-emerald-700">18 OCT</div>
-                  <p className="text-xs font-bold text-slate-800 mt-0.5">Sunita Devi</p>
-                  <p className="text-[11px] text-slate-500">Ranchi Rural Sector</p>
-                  <span className="inline-block mt-2 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                    Field Visit
-                  </span>
+
+                <div className="pt-3.5 pb-2 border-t border-slate-100 grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">VISIT DATE</span>
+                    <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">18 October</p>
+                    <p className="text-xs text-slate-500 mt-0.5">11:00 AM</p>
+                  </div>
+                  <div className="border-l border-slate-200/90 pl-4">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">COMMUNITY WORKER</span>
+                    <p className="text-sm sm:text-base font-bold text-slate-900 mt-1">Sunita Devi</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Ranchi Rural Sector</p>
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setView('feature4')}
-                className="mt-4 w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-emerald-200/60"
+                className="mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>View Details</span>
+                <span>View consultation</span>
                 <span>&rarr;</span>
               </button>
             </div>
 
             {/* Book Appointment CTA */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-colors">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors">
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">Book Appointment</h4>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">Book Appointment</h4>
                     <p className="text-[11px] text-slate-500">Get the care you need</p>
                   </div>
                 </div>
-                <div className="p-4 my-2 rounded-xl bg-slate-50/70 border border-slate-100 text-center flex flex-col items-center justify-center">
-                  <p className="text-xs text-slate-600 font-medium">Choose a doctor, date and convenient time.</p>
+                <div className="pt-3.5 pb-2 border-t border-slate-100">
+                  <p className="text-xs text-slate-600 leading-relaxed">Choose a specialist doctor, preferred date and convenient time slot.</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => { setView('feature2'); setTeleconsultScreen('booking'); }}
-                className="mt-4 w-full py-2 bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <span>Book New Slot +</span>
+                <span>Book appointment</span>
+                <span>&rarr;</span>
               </button>
             </div>
           </div>
@@ -30315,7 +30300,61 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column (5 cols): Your Care Journey */}
+            {/* Left Column (7 cols): Referral Status at a Glance */}
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Referral Status at a Glance</h3>
+                    <p className="text-xs text-slate-500">Track your hospital referral and admission</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setView('feature3')}
+                    className="text-xs font-bold text-[#1565C0] hover:underline"
+                  >
+                    View Full Pass &rarr;
+                  </button>
+                </div>
+
+                <div className="p-4 sm:p-5 space-y-3.5">
+                  <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-2xs h-40 bg-slate-900">
+                    <img
+                      src="rims-hospital.jpg"
+                      alt={activeReferral.receivingFacilityName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900">{activeReferral.receivingFacilityName}</h4>
+                      <p className="text-xs text-slate-500">{activeReferral.specialtyRequired} &bull; {activeReferral.bedAllotted || 'General Ward'}</p>
+                    </div>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ABDM M2 Linked
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Pass Token</span>
+                      <span className="font-mono font-bold text-slate-900 mt-0.5 block">{activeReferral.referralId}</span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Attending Specialist</span>
+                      <span className="font-bold text-slate-900 mt-0.5 block truncate">{activeReferral.referringDoctor || 'Duty Specialist'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 sm:p-5 pt-0">
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
+                  <span className="font-bold text-rose-800">{activeReferral.urgency || 'Priority'}</span>
+                  <span className="text-slate-600 font-medium">{activeReferral.reasonForReferral || 'Clinical Referral'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column (5 cols): Your Care Journey */}
             <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
@@ -30383,60 +30422,6 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                   <span>View Full Pass &amp; Timeline</span>
                   <span>&rarr;</span>
                 </button>
-              </div>
-            </div>
-
-            {/* Right Column (7 cols): Referral Status at a Glance */}
-            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs flex flex-col justify-between">
-              <div>
-                <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-slate-100">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Referral Status at a Glance</h3>
-                    <p className="text-xs text-slate-500">Track your hospital referral and admission</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setView('feature3')}
-                    className="text-xs font-bold text-[#1565C0] hover:underline"
-                  >
-                    View Full Pass &rarr;
-                  </button>
-                </div>
-
-                <div className="p-4 sm:p-5 space-y-3.5">
-                  <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-2xs h-40 bg-slate-900">
-                    <img
-                      src="rims-hospital.jpg"
-                      alt={activeReferral.receivingFacilityName}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">{activeReferral.receivingFacilityName}</h4>
-                      <p className="text-xs text-slate-500">{activeReferral.specialtyRequired} &bull; {activeReferral.bedAllotted || 'General Ward'}</p>
-                    </div>
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      ABDM M2 Linked
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Pass Token</span>
-                      <span className="font-mono font-bold text-slate-900 mt-0.5 block">{activeReferral.referralId}</span>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Attending Specialist</span>
-                      <span className="font-bold text-slate-900 mt-0.5 block truncate">{activeReferral.referringDoctor || 'Duty Specialist'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 sm:p-5 pt-0">
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-xs">
-                  <span className="font-bold text-rose-800">{activeReferral.urgency || 'Priority'}</span>
-                  <span className="text-slate-600 font-medium">{activeReferral.reasonForReferral || 'Clinical Referral'}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -30824,6 +30809,9 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
           </div>
         </div>
       )}
+
+      {/* Floating MediBot Action Logo (Fixed right-bottom of screen, non-scrolling) */}
+      <MediBotFloatingLogo onClick={() => setView('feature10')} />
 
     </div>
   );
@@ -43902,6 +43890,10 @@ function ScreenOverview({ actorRole, setActorRole, setView, setScreen, setTeleco
           currentUser={currentUser}
           onUpdateUser={onUpdateUser}
         />
+      )}
+
+      {activeTab !== 'patient' && !isDoctor && (
+        <MediBotFloatingLogo onClick={() => setView('feature10')} />
       )}
     </div>
   );
