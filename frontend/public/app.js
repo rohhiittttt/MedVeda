@@ -3225,8 +3225,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setFeaturesOpen(false);
             }}
             className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'home'
-              ? 'bg-[#0b2b82] text-white shadow-sm'
-              : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+              ? 'bg-[#1565C0] text-white shadow-sm'
+              : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
               }`}
           >
             Home
@@ -3255,8 +3255,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                 }
               }}
               className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${isFeatureActive || featuresOpen
-                ? 'bg-[#0b2b82] text-white shadow-sm'
-                : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+                ? 'bg-[#1565C0] text-white shadow-sm'
+                : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
                 }`}
               aria-expanded={featuresOpen}
               aria-haspopup="true"
@@ -3301,19 +3301,19 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                           }}
                           title={`${item.code}: ${item.label}  -  ${item.description}`}
                           className={`w-full text-left py-1 px-2 rounded-lg transition-all flex items-center gap-2.5 group cursor-pointer ${isActive
-                            ? 'bg-slate-100 text-[#0b2b82]'
+                            ? 'bg-blue-50 text-[#1565C0]'
                             : 'hover:bg-slate-50 text-slate-800'
                             }`}
                         >
                           <div
-                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isActive ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-[#0b2b82]'
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isActive ? 'bg-[#1565C0] text-white' : 'bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-[#1565C0]'
                               }`}
                           >
                             <ModuleIcon id={item.id} className="w-3.5 h-3.5" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-bold leading-tight group-hover:text-[#0b2b82] truncate">
+                              <span className="text-xs font-bold leading-tight group-hover:text-[#1565C0] truncate">
                                 {item.label}
                               </span>
                             </div>
@@ -3339,8 +3339,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setFeaturesPinned(false);
             }}
             className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'about'
-              ? 'bg-[#0b2b82] text-white shadow-sm'
-              : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+              ? 'bg-[#1565C0] text-white shadow-sm'
+              : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
               }`}
           >
             About Us
@@ -3351,14 +3351,14 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
         <div className="flex items-center gap-2 flex-wrap">
           {currentUser ? (
             <div className="flex items-center gap-2 bg-[#edf5ff] border border-[#bfdbfe] rounded-full px-2.5 py-1 shadow-2xs">
-              <div className="w-6 h-6 rounded-full bg-[#0b2b82] text-white text-[11px] font-black flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-[#1565C0] text-white text-[11px] font-black flex items-center justify-center">
                 {currentUser.name ? currentUser.name.charAt(0) : 'P'}
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-[11px] font-extrabold text-slate-900 leading-none truncate max-w-[100px] sm:max-w-[130px]">
                   {currentUser.name}
                 </span>
-                <span className="text-[9px] text-[#0b2b82] font-bold uppercase leading-tight mt-0.5">
+                <span className="text-[9px] text-[#1565C0] font-bold uppercase leading-tight mt-0.5">
                   {currentUser.roleLabel || getRoleBadgeLabel(actorRole)}
                 </span>
               </div>
@@ -3371,7 +3371,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                     setActorRole(nextRole);
                     setView(nextRole === 'patient' ? 'overview' : 'feature1');
                   }}
-                  className="bg-white border border-[#93c5fd] hover:border-[#3b82f6] text-[#0b2b82] rounded-full px-2 py-0.5 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ml-1"
+                  className="bg-white border border-[#93c5fd] hover:border-[#3b82f6] text-[#1565C0] rounded-full px-2 py-0.5 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ml-1"
                   title={actorRole === 'patient' ? "Switch to Doctor View" : "Switch to Patient View"}
                 >
                   <span>{actorRole === 'patient' ? 'Doctor View' : 'Patient View'}</span>
@@ -3399,7 +3399,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('login');
                   setAuthModalOpen(true);
                 }}
-                className="px-4 py-1.5 text-xs font-bold text-[#0b2b82] bg-white hover:bg-blue-50/70 rounded-xl transition-all border border-[#bfdbfe] cursor-pointer shadow-2xs"
+                className="px-4 py-1.5 text-xs font-bold text-[#1565C0] bg-white hover:bg-blue-50/70 rounded-xl transition-all border border-[#bfdbfe] cursor-pointer shadow-2xs"
               >
                 Log In
               </button>
@@ -3410,7 +3410,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('signup');
                   setAuthModalOpen(true);
                 }}
-                className="px-4 py-1.5 text-xs font-bold bg-[#0b2b82] hover:bg-[#071f60] text-white rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
               >
                 <span>Sign Up</span>
               </button>
@@ -3684,7 +3684,7 @@ function HealthcareImpactSection({
       <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
         {/* Section Header */}
         <div className="max-w-3xl space-y-1.5 mb-6 sm:mb-8">
-          <div className="text-xs font-bold uppercase tracking-wider text-[#0b2b82]">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#1565C0]">
             Performance Overview
           </div>
 
@@ -3704,7 +3704,7 @@ function HealthcareImpactSection({
               key={card.id}
               onClick={card.action}
               title={`Open ${card.title}`}
-              className="group/card relative rounded-lg overflow-hidden bg-white border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 cursor-pointer transition-all duration-300"
+              className="group/card relative rounded-lg overflow-hidden bg-white border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#1565C0]/40 cursor-pointer transition-all duration-300"
             >
               <div className="relative aspect-[4/5] w-full overflow-hidden">
                 <img
@@ -3892,34 +3892,57 @@ function ScreenHomepage({
   return (
     <div className="w-full">
       {/* Interactive Hero Carousel (Full Width) */}
-      {/* Interactive Hero Carousel (Full Width & Laptop Full-Height) */}
       <div
-        className="relative w-full h-[calc(100vh-65px)] min-h-[560px] max-h-[820px] overflow-hidden bg-slate-50/70 border-b border-slate-200 select-none group"
+        className="relative w-full min-h-[580px] lg:h-[calc(100vh-65px)] lg:max-h-[820px] overflow-hidden bg-white border-b border-slate-200 select-none group"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
+        {/* Atmospheric Blue Cloud & Soft Sky Background (Inspired by overview light-blue palette & 2nd image) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+          {/* Base soft sky gradient wash */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#edf5ff] via-[#f4f9fd]/90 to-white" />
+
+          {/* Organic atmospheric light blue glows / cloud aura on top and left */}
+          <div className="absolute -top-32 -left-20 w-[640px] h-[640px] rounded-full bg-[#dbeafe]/70 blur-[90px]" />
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[#e0effe]/80 blur-[80px]" />
+          <div className="absolute -bottom-24 left-12 w-[520px] h-[440px] rounded-full bg-[#edf5ff] blur-[70px]" />
+
+          {/* Airy cloud formations mimicking the 2nd image cloud design */}
+          <svg className="absolute -top-10 -left-10 w-[780px] h-[580px] opacity-40 mix-blend-multiply" viewBox="0 0 800 600" fill="none">
+            <path d="M150,300 Q200,160 360,180 Q460,110 580,210 Q680,190 700,320 Q720,440 560,460 Q420,500 270,470 Q130,450 150,300 Z" fill="#b9ddfd" filter="url(#heroCloudBlur)" />
+            <defs>
+              <filter id="heroCloudBlur" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="55" />
+              </filter>
+            </defs>
+          </svg>
+
+          {/* Clean fade to white on right: ensures right side is without color behind the pic */}
+          <div className="absolute inset-y-0 right-0 w-1/2 lg:w-3/5 bg-gradient-to-l from-white via-white/85 to-transparent" />
+        </div>
+
         {/* Slide 0: Smart Care Navigator */}
         <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
             {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
-                The right care, <span className="text-[#0b2b82]">at</span><br />
-                <span className="text-[#0b2b82]">the right time.</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
+                The right care, at<br />
+                <span>the right time.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
                 Meet MedVeda’s Smart Care Navigator. Simply describe the symptoms. MedVeda assesses the urgency, identifies the care required, and guides you to the right nearby facility, especially when every minute matters.
               </p>
 
               {/* Interactive Button Group */}
-              <div className="flex items-center gap-3.5 pt-1 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
                 <button
                   type="button"
                   onClick={onLaunchFeature1}
-                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Get started</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -3928,16 +3951,16 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature2}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Doctor Queue &rarr;</span>
                 </button>
               </div>
 
               {/* Security & Compliance Footer */}
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>End-to-end encrypted</span>
@@ -3949,39 +3972,41 @@ function ScreenHomepage({
               </div>
             </div>
 
-            {/* Right Column: Clean Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
-              <img
-                src="./hero-doctors.png"
-                alt="MedVeda Clinical Care Specialists"
-                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
-              />
+            {/* Right Column: Clean Graphic without colored background */}
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
+              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
+                <img
+                  src="./hero-doctors.png"
+                  alt="MedVeda Clinical Care Specialists"
+                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Slide 1: AI Govt Health Scheme Finder */}
         <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
             {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
                 Right scheme,<br />
-                <span className="text-[#0b2b82]">for a healthier tomorrow.</span>
+                <span>for a healthier tomorrow.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
                 We find the best government health schemes for you and your family, based on your needs, income category and location.
               </p>
 
               {/* Interactive Button Group */}
-              <div className="flex items-center gap-3.5 pt-1 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
                 <button
                   type="button"
                   onClick={onLaunchFeature8}
-                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Find suitable schemes</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -3990,16 +4015,16 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature8}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Learn more</span>
                 </button>
               </div>
 
               {/* Trust Badges Footer */}
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>Official schemes</span>
@@ -4012,38 +4037,40 @@ function ScreenHomepage({
             </div>
 
             {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
-              <img
-                src="./hero-schemes-art.png"
-                alt="Government Health Schemes Family and Doctor Support"
-                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
-              />
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
+              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
+                <img
+                  src="./hero-schemes-art.png"
+                  alt="Government Health Schemes Family and Doctor Support"
+                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Slide 2: Smart Teleconsultation */}
         <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
             {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
                 Quality healthcare,<br />
-                <span className="text-[#0b2b82]">from wherever you are.</span>
+                <span>from wherever you are.</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
                 Connect with experienced doctors through secure video consultations, even when distance or access becomes a challenge.
               </p>
 
               {/* Interactive Button Group */}
-              <div className="flex items-center gap-3.5 pt-1 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
                 <button
                   type="button"
                   onClick={onLaunchFeature2}
-                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Start Consultation</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -4052,16 +4079,16 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchAbout}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Learn More</span>
                 </button>
               </div>
 
               {/* Trust Badges Footer */}
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>Secure</span>
@@ -4074,38 +4101,40 @@ function ScreenHomepage({
             </div>
 
             {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
-              <img
-                src="./hero-teleconsult-art.png"
-                alt="MedVeda Teleconsultation doctor with patient on laptop"
-                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
-              />
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
+              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
+                <img
+                  src="./hero-teleconsult-art.png"
+                  alt="MedVeda Teleconsultation doctor with patient on laptop"
+                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Slide 3: AI-Assisted Medical Record */}
         <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-12 sm:pb-10 pt-4 sm:pt-6">
+          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
             {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 space-y-4 sm:space-y-5 lg:space-y-6 shrink-0">
+            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
               {/* Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[46px] font-black tracking-tight text-slate-900 leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
                 AI-Assisted<br />
-                <span className="text-[#0b2b82]">Medical Record</span>
+                <span>Medical Record</span>
               </h1>
 
               {/* Description */}
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-normal max-w-xl min-h-[48px]">
+              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
                 Transform complex patient information into clear, organized, and actionable medical insights with intelligent AI assistance.
               </p>
 
               {/* Interactive Button Group */}
-              <div className="flex items-center gap-3.5 pt-1 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
                 <button
                   type="button"
                   onClick={onLaunchFeature5}
-                  className="px-6 py-3 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-sm rounded-lg shadow-xs hover:shadow-sm active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
                 >
                   <span>Explore Medical Records</span>
                   <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
@@ -4114,16 +4143,16 @@ function ScreenHomepage({
                 <button
                   type="button"
                   onClick={onLaunchFeature1}
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Care Triage &rarr;</span>
                 </button>
               </div>
 
               {/* Trust Badges Footer */}
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 pt-2 flex-wrap">
+              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   <span>ABDM FHIR R4</span>
@@ -4136,23 +4165,25 @@ function ScreenHomepage({
             </div>
 
             {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[280px] sm:h-[340px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end overflow-hidden">
-              <img
-                src="./hero-ai-records-art.png"
-                alt="AI-Assisted Medical Record dashboard"
-                className="w-auto h-full max-h-[380px] sm:max-h-[420px] lg:max-h-[460px] xl:max-h-[480px] object-contain object-center lg:object-right select-none block transform transition-transform duration-700 group-hover:scale-[1.01]"
-              />
+            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
+              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
+                <img
+                  src="./hero-ai-records-art.png"
+                  alt="AI-Assisted Medical Record dashboard"
+                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Carousel Slide Indicators (Dots/Pills) */}
-        <div className="absolute bottom-3 sm:bottom-3.5 inset-x-0 z-30 flex items-center justify-center gap-2 pointer-events-auto">
+        <div className="absolute bottom-4 sm:bottom-5 inset-x-0 z-30 flex items-center justify-center gap-2 pointer-events-auto">
           <button
             type="button"
             onClick={() => setActiveHeroSlide(0)}
             className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 0
-              ? 'w-8 bg-[#0b2b82] shadow-xs'
+              ? 'w-8 bg-[#1565C0] shadow-xs'
               : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
               }`}
             aria-label="Slide 1: Smart Care Navigator"
@@ -4162,7 +4193,7 @@ function ScreenHomepage({
             type="button"
             onClick={() => setActiveHeroSlide(1)}
             className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 1
-              ? 'w-8 bg-[#0284c7] shadow-xs'
+              ? 'w-8 bg-[#1565C0] shadow-xs'
               : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
               }`}
             aria-label="Slide 2: Govt Health Schemes Finder"
@@ -4172,7 +4203,7 @@ function ScreenHomepage({
             type="button"
             onClick={() => setActiveHeroSlide(2)}
             className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 2
-              ? 'w-8 bg-[#0284c7] shadow-xs'
+              ? 'w-8 bg-[#1565C0] shadow-xs'
               : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
               }`}
             aria-label="Slide 3: Smart Teleconsultation"
@@ -4182,7 +4213,7 @@ function ScreenHomepage({
             type="button"
             onClick={() => setActiveHeroSlide(3)}
             className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 3
-              ? 'w-8 bg-teal-600 shadow-xs'
+              ? 'w-8 bg-[#1565C0] shadow-xs'
               : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
               }`}
             aria-label="Slide 4: AI-Assisted Medical Records"
@@ -4192,72 +4223,90 @@ function ScreenHomepage({
       </div>
 
       {/* Main Content Container (Bounded width for modules & impact) */}
-      <div className="max-w-6xl xl:max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-8">
-        {/* System Modules Grid */}
-        <div className="space-y-6">
-        <div className="space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82] block mb-1">
-            Platform
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+      <div className="max-w-7xl xl:max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8 sm:space-y-10">
+        {/* Section Header: Centered Pill, Heading & Paragraph matching reference */}
+        <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#1565C0] border border-blue-200/80 shadow-2xs">
+            <svg className="w-3.5 h-3.5 text-[#1565C0]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.4 6.6L21 11l-5.6 4.4L17 22l-5-3.8L7 22l1.6-6.6L3 11l6.6-2.4L12 2z"/>
+            </svg>
+            <span>Our Features</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
             One connected system for the whole care journey
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-1 max-w-2xl">
+          <p className="text-xs sm:text-sm md:text-base text-slate-500 font-normal max-w-2xl mx-auto leading-relaxed">
             MedVeda brings navigation, care delivery, and records together so patients move forward and clinicians stay in the loop.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
-          {displayModules.map((m) => (
-            <div
-              key={m.id}
-              onClick={m.action}
-              title={`${m.title} - Verified: ${m.description}`}
-              className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all duration-200 flex flex-col justify-between space-y-4 group cursor-pointer"
-            >
-              <div className="space-y-3">
-                {/* Header: Icon on left, Feature Name shifted to right of icon, and clean Verified badge with badge icon on far right */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
+        {/* 4 Cards per Row Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+          {displayModules.map((m) => {
+            const moduleThemes = {
+              feature1: { iconBg: 'bg-rose-50 text-rose-500 border-rose-100', hoverText: 'group-hover:text-rose-600' },
+              feature2: { iconBg: 'bg-sky-50 text-[#1565C0] border-sky-100', hoverText: 'group-hover:text-[#1565C0]' },
+              feature3: { iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100', hoverText: 'group-hover:text-emerald-600' },
+              feature4: { iconBg: 'bg-amber-50 text-amber-600 border-amber-100', hoverText: 'group-hover:text-amber-600' },
+              feature5: { iconBg: 'bg-purple-50 text-purple-600 border-purple-100', hoverText: 'group-hover:text-purple-600' },
+              feature6: { iconBg: 'bg-cyan-50 text-cyan-600 border-cyan-100', hoverText: 'group-hover:text-cyan-600' },
+              feature7: { iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100', hoverText: 'group-hover:text-indigo-600' },
+              feature8: { iconBg: 'bg-teal-50 text-teal-600 border-teal-100', hoverText: 'group-hover:text-teal-600' },
+              feature9: { iconBg: 'bg-blue-50 text-[#1565C0] border-blue-100', hoverText: 'group-hover:text-[#1565C0]' },
+              feature10: { iconBg: 'bg-violet-50 text-violet-600 border-violet-100', hoverText: 'group-hover:text-violet-600' }
+            };
+            const theme = moduleThemes[m.id] || { iconBg: 'bg-blue-50 text-[#1565C0] border-blue-100', hoverText: 'group-hover:text-[#1565C0]' };
+
+            return (
+              <div
+                key={m.id}
+                onClick={m.action}
+                title={`${m.title} - Verified: ${m.description}`}
+                className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#1565C0]/40 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+              >
+                <div className="space-y-4">
+                  {/* Top: Icon box on left, Verified badge on right */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105 ${theme.iconBg}`}>
                       <ModuleIcon id={m.id} className="w-5 h-5" />
                     </div>
-                    <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200/90 shadow-2xs shrink-0">
+                      <svg className="w-3.5 h-3.5 text-[#1565C0] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span>Verified</span>
+                    </span>
+                  </div>
+
+                  {/* Heading & Paragraph */}
+                  <div className="space-y-1.5">
+                    <h4 className="text-base sm:text-[17px] font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors leading-snug tracking-tight">
                       {m.title}
                     </h4>
+                    <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed font-normal">
+                      {m.description}
+                    </p>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/90 shadow-2xs shrink-0">
-                    <svg className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>Verified</span>
-                  </span>
                 </div>
 
-                {/* Description */}
-                <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                  {m.description}
-                </p>
+                {/* Bottom Action Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    m.action();
+                  }}
+                  className="w-full py-2.5 px-3.5 bg-slate-50 hover:bg-[#1565C0] hover:text-white group-hover:bg-[#1565C0] group-hover:text-white text-slate-700 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200/90 group-hover:border-[#1565C0] shadow-2xs mt-5 cursor-pointer"
+                >
+                  <span>{m.actionLabel}</span>
+                  <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+                </button>
               </div>
-
-              {/* Action Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  m.action();
-                }}
-                className="w-full py-2 px-3.5 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-2 border border-slate-200/80 group-hover:border-[#0b2b82]"
-              >
-                <span>{m.actionLabel}</span>
-                <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-    </div>
 
       {/* Healthcare Impact at a Glance Section (Full Width, matches carousel) */}
       <HealthcareImpactSection
@@ -11949,11 +11998,11 @@ function ScreenHighRiskFollowUp({
       defaultWorkerId: 'worker_014',
       defaultWorkerName: 'ASHA Anita Devi',
       frequencyLabel: 'Every 7 days (Weekly)',
-      createdDateFormatted: '18 Aug 2026, 09:00 AM',
-      nextCheckupFormatted: '31 Aug 2026 (Due in 3 days)',
+      createdDateFormatted: '18 Aug 2026 - 09:00 AM',
+      nextCheckupFormatted: '31 Aug 2026 - Date needs review',
       latestScore: 78,
       latestLevel: 'HIGH',
-      trend: 'WORSENING',
+      trend: 'Worsening',
       initials: 'RM'
     },
     'P-1088': {
@@ -12157,6 +12206,7 @@ function ScreenHighRiskFollowUp({
   // Modals & Drawers
   const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
   const [showSubmitReportModal, setShowSubmitReportModal] = useState(false);
+  const [showChangeAshaModal, setShowChangeAshaModal] = useState(false);
   const [selectedTaskForReport, setSelectedTaskForReport] = useState(null);
   const [selectedPatientForTrajectory, setSelectedPatientForTrajectory] = useState(null);
   const [patientReports, setPatientReports] = useState([]);
@@ -12512,32 +12562,7 @@ function ScreenHighRiskFollowUp({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Bar - Clean & Informative (No Doctor-Only "Prescribe" button here) */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2
-            className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight"
-            title="Dynamic Risk Stratification Engine (Score >= 60 Escalation)"
-          >
-            High-Risk Patient Follow-Up System
-          </h2>
-          <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl leading-relaxed">
-            Longitudinal clinical care monitoring, ASHA home observation logging, dynamic risk tracking, and real-time hospital escalation alerts.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>Home</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Role Navigation Bar with Multi-Tenant Profile Switchers */}
+      {/* Role Navigation Bar with Multi-Tenant Profile Switchers (Rendered if not patient view) */}
       {actorRole !== 'patient' && (
         <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex items-center justify-between flex-wrap gap-3">
           {isDoctor ? (
@@ -12692,242 +12717,398 @@ function ScreenHighRiskFollowUp({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MASTER HIGH-RISK FOLLOW-UP DOSSIER CARD (HUGE COMPREHENSIVE CARD)         */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-        {/* Top Meta Bar: MedVeda ID & ABHA ID Linkage */}
-        <div className="bg-slate-50/80 px-5 sm:px-6 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs text-slate-700">
-              <span className="font-semibold text-slate-500">MedVeda ID:</span>
-              <span className="font-mono font-bold text-[#0b2b82] bg-white px-2 py-0.5 rounded border border-slate-200">
-                {activeDossier.medvedaId}
-              </span>
+      {/* 1. TOP HEADER & METADATA CARD */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
+              CARE MANAGEMENT / FOLLOW-UP
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
+              Patient Follow-Up
+            </h2>
+            <p className="text-xs text-slate-500 font-normal mt-0.5">
+              Patient recovery and monitoring details
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5 shadow-2xs">
+              <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              <span>ABDM Verified</span>
+            </span>
+
+            {onBackToHome && (
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="px-3.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Home
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              MEDVEDA ID
+            </span>
+            <span className="text-sm sm:text-base font-bold font-mono text-[#0284c7] mt-0.5 block">
+              {activeDossier.medvedaId}
+            </span>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              ABHA ID
+            </span>
+            <span className="text-sm sm:text-base font-bold font-mono text-slate-800 mt-0.5 block">
+              {activeDossier.abhaId}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. TWO-COLUMN GRID: PATIENT PROFILE & DYNAMIC RISK SCORE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Patient Profile Card */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-sky-100/70 text-[#0284c7] font-extrabold text-base flex items-center justify-center shrink-0 border border-sky-200/60">
+                {activeDossier.initials}
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                  {activeDossier.patientName}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {activeDossier.age} years &bull; {activeDossier.gender}
+                </p>
+              </div>
             </div>
 
-            <span className="text-slate-300">|</span>
+            {/* Diagnosis Box */}
+            <div className="bg-[#f0f7ff] border border-[#e0effe] rounded-lg p-3 my-3.5">
+              <span className="text-[10px] font-bold text-[#0284c7] uppercase tracking-wider block mb-0.5">
+                DIAGNOSIS
+              </span>
+              <p className="text-xs font-semibold text-slate-800 leading-snug">
+                {activeDossier.diagnosis}
+              </p>
+            </div>
 
-            <div className="flex items-center gap-1.5 text-xs text-slate-700">
-              <span className="font-semibold text-slate-500">ABHA ID:</span>
-              <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                {activeDossier.abhaId}
-              </span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                ABDM Verified
-              </span>
+            {/* Contact & Location */}
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="truncate">{activeDossier.location}</span>
+              </div>
+              <div className="flex items-center gap-2 font-mono">
+                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <span>{activeDossier.phone}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
-            <div>
-              <span className="font-medium text-slate-400">Follow-Up Created: </span>
-              <span className="font-semibold text-slate-700">{activeDossier.createdDateFormatted}</span>
-            </div>
-            <div>
-              <span className="font-medium text-slate-400">Next Checkup: </span>
-              <span className="font-bold text-[#0b2b82]">{activeDossier.nextCheckupFormatted}</span>
+          <div>
+            <div className="border-t border-slate-100 my-4"></div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  FOLLOW-UP CREATED
+                </span>
+                <span className="text-xs font-semibold text-slate-800 mt-0.5 block">
+                  {activeDossier.createdDateFormatted}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  NEXT CHECKUP
+                </span>
+                <span className="text-xs font-bold text-[#c2410c] mt-0.5 block">
+                  {activeDossier.nextCheckupFormatted}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Card Main Body: 3 Structured Columns */}
-        <div className="p-6 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Col 1: Patient Profile & Details */}
-          <div className="lg:col-span-4 flex items-start gap-4">
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[#0b2b82] font-black text-xl shadow-2xs">
-                <span>{activeDossier.initials}</span>
-              </div>
-              <div
-                className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                  activeDossier.latestLevel === 'CRITICAL' || activeDossier.latestLevel === 'HIGH'
-                    ? 'bg-rose-600'
-                    : 'bg-amber-500'
-                }`}
-                title={`Status: ${activeDossier.latestLevel}`}
-              />
+        {/* Dynamic Risk Score Card */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                Dynamic Risk Score
+              </h3>
+              <span className={`px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+                activeDossier.latestLevel === 'CRITICAL' || activeDossier.latestLevel === 'HIGH'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                  : activeDossier.latestLevel === 'MODERATE'
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}>
+                {activeDossier.latestLevel} RISK
+              </span>
             </div>
 
-            <div className="space-y-1 min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold text-slate-900 truncate">
-                  {activeDossier.patientName}
-                </h3>
-                <span className="text-xs text-slate-500 font-medium">
-                  ({activeDossier.age}y &bull; {activeDossier.gender})
+            {/* Circular Gauge and Trend */}
+            <div className="flex items-center gap-5 mt-4">
+              <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                <svg className="w-24 h-24 -rotate-90 transform" viewBox="0 0 96 96">
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    className="text-rose-100"
+                    strokeWidth="7"
+                    stroke="currentColor"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke={activeDossier.latestScore >= 70 ? '#ef4444' : activeDossier.latestScore >= 45 ? '#f59e0b' : '#10b981'}
+                    strokeWidth="7"
+                    strokeDasharray={251.32}
+                    strokeDashoffset={251.32 * (1 - Math.min(100, Math.max(0, activeDossier.latestScore)) / 100)}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    className="transition-all duration-700 ease-out"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    {activeDossier.latestScore}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold leading-tight mt-0.5">
+                    / 100
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  TREND
+                </span>
+                <div className="flex items-center gap-1 text-sm font-bold text-rose-600">
+                  <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                  <span>{activeDossier.trend || 'Worsening'}</span>
+                </div>
+                <span className="text-xs text-slate-400 font-medium block">
+                  Threshold: &gt;60
                 </span>
               </div>
+            </div>
 
-              <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                {activeDossier.diagnosis}
-              </p>
-
-              <div className="pt-1 text-[11px] text-slate-500 space-y-0.5">
-                <p className="truncate">
-                  <span className="text-slate-400">Location:</span> {activeDossier.location}
-                </p>
-                <p className="font-mono">
-                  <span className="text-slate-400">Contact:</span> {activeDossier.phone}
-                </p>
+            {/* Vital Telemetry */}
+            <div className="bg-[#f0f7ff] border border-[#e0effe] rounded-xl p-3 my-4">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#0284c7]">
+                <svg className="w-4 h-4 text-[#0284c7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Vital Telemetry</span>
               </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Weekly door-to-door monitoring active.
+              </p>
             </div>
           </div>
 
-          {/* Col 2: Supervising Doctor, Treatment Hospital & ASHA Assignment */}
-          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-5 border-t lg:border-t-0 lg:border-l lg:border-r border-slate-200 pt-5 lg:pt-0 lg:px-6">
-            <div className="space-y-3">
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Ordered By Doctor
-                </span>
-                <div className="font-bold text-xs text-slate-900 mt-0.5">
-                  {activeDossier.doctorName}
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  {activeDossier.doctorSpecialty}
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={() => handleInspectTrajectory(activeDossier)}
+            className="w-full py-2.5 px-4 bg-white hover:bg-[#f0f7ff] border border-sky-200 text-[#0284c7] font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+          >
+            <svg className="w-4 h-4 text-[#0284c7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+            </svg>
+            <span>Inspect Trajectory History</span>
+          </button>
+        </div>
+      </div>
 
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Treatment Hospital
-                </span>
-                <div className="text-xs font-semibold text-slate-800 mt-0.5 leading-snug">
-                  {activeDossier.facilityName}
-                </div>
-              </div>
-            </div>
+      {/* 3. LATEST VITAL READINGS CARD */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900">
+            Latest Vital Readings
+          </h3>
 
-            <div className="space-y-3">
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Assigned ASHA Worker
-                </span>
-                <div className="font-bold text-xs text-slate-900 mt-0.5">
-                  {activeDossier.frontlineWorkerName}
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Cadence: {activeDossier.frequencyLabel}
-                </div>
-              </div>
-
-              {/* Reassign Option */}
-              <div>
-                <label className="text-[11px] font-semibold text-slate-500 block mb-1">
-                  Change Nearby ASHA Worker:
-                </label>
-                <select
-                  value={activeDossier.frontlineWorkerId || ''}
-                  onChange={(e) => handleReassignAsha(activeDossier.patientId, e.target.value)}
-                  className="w-full text-xs font-medium text-slate-800 bg-slate-50 hover:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-[#0b2b82] transition-colors cursor-pointer"
-                >
-                  {NEARBY_ASHA_WORKERS.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.distance} &bull; {w.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Col 3: Dynamic Risk Score & Trajectory Inspection */}
-          <div className="lg:col-span-3 flex flex-col justify-between space-y-4 pt-5 lg:pt-0">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Dynamic Risk Score
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                    activeDossier.latestLevel === 'CRITICAL' || activeDossier.latestLevel === 'HIGH'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : activeDossier.latestLevel === 'MODERATE'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}
-                >
-                  {activeDossier.latestLevel} RISK
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-900">
-                  {activeDossier.latestScore}
-                </span>
-                <span className="text-xs text-slate-400 font-semibold">/ 100</span>
-                <span className="text-xs font-semibold text-slate-600 ml-auto">
-                  Trend: {activeDossier.trend}
-                </span>
-              </div>
-
-              {/* Linear risk score bar */}
-              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    activeDossier.latestScore >= 75
-                      ? 'bg-rose-600'
-                      : activeDossier.latestScore >= 50
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-600'
-                  }`}
-                  style={{ width: `${Math.min(100, activeDossier.latestScore)}%` }}
-                />
-              </div>
-
-              <p className="text-[11px] text-slate-500 font-normal leading-relaxed pt-0.5">
-                {activeDossier.latestScore >= 75
-                  ? 'Score exceeds threshold (>60). Scheduled weekly door-to-door vital telemetry active.'
-                  : 'Patient stable. Routine scheduled observations active.'}
-              </p>
-            </div>
-
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-500 bg-slate-100/90">
+              {currentVitals.recordedAt}
+            </span>
             <button
               type="button"
-              onClick={() => handleInspectTrajectory(activeDossier)}
-              className="w-full py-2 px-3 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              onClick={() => {
+                setVitalsInputForm({
+                  systolic: currentVitals.systolic,
+                  diastolic: currentVitals.diastolic,
+                  pulse: currentVitals.pulse,
+                  spo2: currentVitals.spo2,
+                  glucose: currentVitals.glucose,
+                  temp: currentVitals.temp,
+                  weight: currentVitals.weight
+                });
+                setShowRecordVitalsModal(true);
+              }}
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer flex items-center gap-1"
             >
-              <span>Inspect Trajectory History</span>
+              <svg className="w-3.5 h-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Record</span>
             </button>
           </div>
         </div>
 
-        {/* Master Card Bottom Vitals Telemetry Strip */}
-        <div className="bg-slate-50/70 px-5 sm:px-6 py-3.5 border-t border-slate-200 flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-5 sm:gap-6 flex-wrap text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">Blood Pressure:</span>
-              <span className={`font-mono font-bold ${currentVitals.systolic >= 140 ? 'text-rose-700' : 'text-slate-900'}`}>
-                {currentVitals.systolic}/{currentVitals.diastolic} mmHg
-              </span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
-                currentVitals.systolic >= 140 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-              }`}>
-                {currentVitals.systolic >= 140 ? 'Stage 2 Elevated' : 'Controlled'}
-              </span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          {/* Blood Pressure */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">Pulse:</span>
-              <span className="font-mono font-bold text-slate-900">{currentVitals.pulse} bpm</span>
+            <span className="text-xs font-medium text-slate-500 mt-2">Blood Pressure</span>
+            <div className="text-xl font-bold text-slate-900 mt-0.5">
+              {currentVitals.systolic}/{currentVitals.diastolic}
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">SpO2:</span>
-              <span className="font-mono font-bold text-slate-900">{currentVitals.spo2}%</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">Glucose:</span>
-              <span className="font-mono font-bold text-slate-900">{currentVitals.glucose} mg/dL</span>
-            </div>
+            <span className="text-xs text-slate-400">mmHg</span>
           </div>
 
-          <div className="text-[11px] text-slate-500 flex items-center gap-2">
-            <span>Recorded by <strong>{currentVitals.recordedBy}</strong> &bull; {currentVitals.recordedAt}</span>
+          {/* Pulse */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-slate-500 mt-2">Pulse</span>
+            <div className="text-xl font-bold text-slate-900 mt-0.5">
+              {currentVitals.pulse}
+            </div>
+            <span className="text-xs text-slate-400">bpm</span>
+          </div>
+
+          {/* SpO2 */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-500 flex items-center justify-center">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M4 8h12M4 16h10" />
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-slate-500 mt-2">SpO2</span>
+            <div className="text-xl font-bold text-slate-900 mt-0.5">
+              {currentVitals.spo2}%
+            </div>
+            <span className="text-xs text-slate-400">Oxygen</span>
+          </div>
+
+          {/* Glucose */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21.5c-3.5 0-6.5-2.8-6.5-6.5 0-3.5 6.5-12 6.5-12s6.5 8.5 6.5 12c0 3.7-3 6.5-6.5 6.5z" />
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-slate-500 mt-2">Glucose</span>
+            <div className="text-xl font-bold text-slate-900 mt-0.5">
+              {currentVitals.glucose}
+            </div>
+            <span className="text-xs text-slate-400">mg/dL</span>
           </div>
         </div>
+
+        <p className="text-xs text-slate-400 font-normal pt-1">
+          Recorded by {currentVitals.recordedBy}
+        </p>
+      </div>
+
+      {/* 4. CARE TEAM & ASSIGNMENT CARD */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+          Care Team &amp; Assignment
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              ORDERED BY DOCTOR
+            </span>
+            <div className="text-sm font-bold text-slate-900 mt-0.5">
+              {activeDossier.doctorName}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {activeDossier.doctorSpecialty}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              TREATMENT HOSPITAL
+            </span>
+            <div className="text-xs sm:text-sm font-bold text-slate-800 mt-0.5 leading-snug">
+              {activeDossier.facilityName}
+            </div>
+          </div>
+        </div>
+
+        {/* ASHA Section Box */}
+        <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-[#0284c7] shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-slate-900">
+                  {activeDossier.frontlineWorkerName}
+                </div>
+                <div className="text-xs text-slate-500">
+                  Assigned ASHA Worker &bull; Every 7 days
+                </div>
+              </div>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+              Available
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
+            <span className="text-slate-500">Nearby ASHA worker</span>
+            <span className="font-semibold text-slate-800">
+              {NEARBY_ASHA_WORKERS.find((w) => w.id === activeDossier.frontlineWorkerId)?.distance || '0.8 km'} away
+            </span>
+          </div>
+        </div>
+
+        {/* Change ASHA Worker Button */}
+        <button
+          type="button"
+          onClick={() => setShowChangeAshaModal(true)}
+          className="w-full py-2.5 px-4 bg-white hover:bg-[#f0f7ff] border border-sky-200 text-[#0284c7] font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+        >
+          <span>Change ASHA Worker</span>
+          <span>&rarr;</span>
+        </button>
       </div>
 
       {/* ==================================================== */}
@@ -14317,6 +14498,84 @@ function ScreenHighRiskFollowUp({
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* MODAL: CHANGE ASSIGNED ASHA WORKER */}
+      {/* ==================================================== */}
+      {showChangeAshaModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Change Assigned ASHA Worker</h3>
+                <p className="text-xs text-slate-500">Select a verified frontline healthcare worker nearby</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChangeAshaModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {NEARBY_ASHA_WORKERS.map((worker) => {
+                const isCurrent = activeDossier.frontlineWorkerId === worker.id;
+                return (
+                  <button
+                    key={worker.id}
+                    type="button"
+                    onClick={() => {
+                      handleReassignAsha(activeDossier.patientId, worker.id);
+                      setShowChangeAshaModal(false);
+                    }}
+                    className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'border-[#0284c7] bg-sky-50/60 shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        isCurrent ? 'bg-[#0284c7] text-white' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {worker.name.charAt(5) || 'A'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs text-slate-900">{worker.name}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {worker.distance} away &bull; {worker.status}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isCurrent ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#0284c7] text-white">
+                        Assigned
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-[#0284c7] hover:underline flex items-center gap-1">
+                        Select &rarr;
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowChangeAshaModal(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 font-semibold rounded-lg text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
