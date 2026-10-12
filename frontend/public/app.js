@@ -5713,7 +5713,7 @@ function Screen7RecommendedFacilities({ facilities = [], requiredSpecialty, loca
   }, [facilities, filterMode]);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
         <StepperHeader
           currentStep={7}
@@ -12717,69 +12717,36 @@ function ScreenHighRiskFollowUp({
         </div>
       )}
 
-      {/* 1. TOP HEADER & METADATA CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
-              CARE MANAGEMENT / FOLLOW-UP
-            </span>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
-              Patient Follow-Up
-            </h2>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">
-              Patient recovery and monitoring details
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5 shadow-2xs">
-              <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span>ABDM Verified</span>
-            </span>
-
-            {onBackToHome && (
-              <button
-                type="button"
-                onClick={onBackToHome}
-                className="px-3.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-              >
-                Home
-              </button>
-            )}
-          </div>
+      {/* 1. TOP HEADER (CLEAN LAYOUT MATCHING REFERENCE) */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Patient Follow-Up
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-0.5">
+            Patient recovery and monitoring details
+          </p>
         </div>
 
-        <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              MEDVEDA ID
-            </span>
-            <span className="text-sm sm:text-base font-bold font-mono text-[#0284c7] mt-0.5 block">
-              {activeDossier.medvedaId}
-            </span>
-          </div>
-
-          <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              ABHA ID
-            </span>
-            <span className="text-sm sm:text-base font-bold font-mono text-slate-800 mt-0.5 block">
-              {activeDossier.abhaId}
-            </span>
-          </div>
-        </div>
+        {onBackToHome && (
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-2xs"
+          >
+            Home
+          </button>
+        )}
       </div>
 
-      {/* 2. TWO-COLUMN GRID: PATIENT PROFILE & DYNAMIC RISK SCORE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Patient Profile Card */}
+      {/* 2. MAIN 2-COLUMN BALANCED GRID: PATIENT INFO & DYNAMIC RISK SCORE */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch">
+        {/* Left Column: Patient Profile & Schedule Card */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-sky-100/70 text-[#0284c7] font-extrabold text-base flex items-center justify-center shrink-0 border border-sky-200/60">
+            {/* Patient Avatar & Name */}
+            <div className="flex items-center gap-3.5 mb-4">
+              <div className="w-11 h-11 rounded-xl bg-sky-50 text-[#1565C0] font-extrabold text-base flex items-center justify-center shrink-0 border border-sky-100">
                 {activeDossier.initials}
               </div>
               <div>
@@ -12792,67 +12759,185 @@ function ScreenHighRiskFollowUp({
               </div>
             </div>
 
-            {/* Diagnosis Box */}
-            <div className="bg-[#f0f7ff] border border-[#e0effe] rounded-lg p-3 my-3.5">
-              <span className="text-[10px] font-bold text-[#0284c7] uppercase tracking-wider block mb-0.5">
-                DIAGNOSIS
-              </span>
-              <p className="text-xs font-semibold text-slate-800 leading-snug">
-                {activeDossier.diagnosis}
-              </p>
+            {/* 2-by-2 Metadata Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  MEDVEDA ID
+                </span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-slate-800 mt-0.5 block">
+                  {activeDossier.medvedaId}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  ABHA ID
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-xs sm:text-sm font-bold font-mono text-slate-800">
+                    {activeDossier.abhaId}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80 shrink-0">
+                    <svg className="w-3 h-3 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span>ABDM Verified</span>
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  LOCATION
+                </span>
+                <div className="flex items-center gap-1.5 text-slate-600 mt-0.5">
+                  <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="truncate">{activeDossier.location}</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  CONTACT NUMBER
+                </span>
+                <div className="flex items-center gap-1.5 font-mono text-slate-600 mt-0.5">
+                  <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <span>{activeDossier.phone}</span>
+                </div>
+              </div>
             </div>
 
-            {/* Contact & Location */}
-            <div className="space-y-2 text-xs text-slate-600">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            {/* Subtle Divider */}
+            <div className="border-t border-slate-100 my-3.5" />
+
+            {/* Diagnosis Section */}
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1.5">
+                <svg className="w-3.5 h-3.5 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
                 </svg>
-                <span className="truncate">{activeDossier.location}</span>
+                <span>DIAGNOSIS</span>
               </div>
-              <div className="flex items-center gap-2 font-mono">
-                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                <span>{activeDossier.phone}</span>
+              <div className="bg-rose-50/40 border border-rose-100 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 leading-snug">
+                {activeDossier.diagnosis}
               </div>
             </div>
+
+            {/* Subtle Divider */}
+            <div className="border-t border-slate-100 my-3.5" />
           </div>
 
+          {/* Follow-up Schedule Section */}
           <div>
-            <div className="border-t border-slate-100 my-4"></div>
-
-            <div className="space-y-3">
-              <div>
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2.5">
+              Follow-up Schedule
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Card 1: Follow-Up Created */}
+              <div className="bg-white rounded-xl border border-slate-200/90 p-3 sm:p-3.5 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-sky-600 mb-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   FOLLOW-UP CREATED
                 </span>
-                <span className="text-xs font-semibold text-slate-800 mt-0.5 block">
-                  {activeDossier.createdDateFormatted}
+                <span className="text-xs sm:text-sm font-bold text-slate-800 mt-0.5 block">
+                  {(() => {
+                    if (!activeDossier.createdDateFormatted) return '18 Aug 2026';
+                    const parts = activeDossier.createdDateFormatted.split(/[-–,]/);
+                    return parts[0].trim();
+                  })()}
                 </span>
+                <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1">
+                  <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>
+                    {(() => {
+                      if (!activeDossier.createdDateFormatted) return '09:00 AM';
+                      const parts = activeDossier.createdDateFormatted.split(/[-–,]/);
+                      return parts.length > 1 ? parts.slice(1).join(' ').trim() : '09:00 AM';
+                    })()}
+                  </span>
+                </div>
               </div>
 
-              <div>
+              {/* Card 2: Next Checkup */}
+              <div className="bg-amber-50/30 rounded-xl border border-amber-200/70 p-3 sm:p-3.5 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-amber-600 mb-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   NEXT CHECKUP
                 </span>
-                <span className="text-xs font-bold text-[#c2410c] mt-0.5 block">
-                  {activeDossier.nextCheckupFormatted}
+                <span className="text-xs sm:text-sm font-bold text-slate-800 mt-0.5 block">
+                  {(() => {
+                    if (!activeDossier.nextCheckupFormatted) return '31 Aug 2026';
+                    if (activeDossier.nextCheckupFormatted.includes('(')) {
+                      return activeDossier.nextCheckupFormatted.split('(')[0].trim();
+                    }
+                    if (activeDossier.nextCheckupFormatted.includes('-')) {
+                      return activeDossier.nextCheckupFormatted.split('-')[0].trim();
+                    }
+                    return activeDossier.nextCheckupFormatted;
+                  })()}
+                </span>
+                <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100/90 text-amber-800 border border-amber-200 mt-1">
+                  {(() => {
+                    if (!activeDossier.nextCheckupFormatted) return 'Date needs review';
+                    if (activeDossier.nextCheckupFormatted.includes('(')) {
+                      return activeDossier.nextCheckupFormatted.match(/\((.*?)\)/)?.[1] || 'Date needs review';
+                    }
+                    if (activeDossier.nextCheckupFormatted.includes('-')) {
+                      return activeDossier.nextCheckupFormatted.split('-').slice(1).join('-').trim() || 'Date needs review';
+                    }
+                    return 'Date needs review';
+                  })()}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Dynamic Risk Score Card */}
+        {/* Right Column: Dynamic Risk Score Card */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                Dynamic Risk Score
-              </h3>
-              <span className={`px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+          <div className="space-y-4">
+            {/* Top Header: Icon + Title & Subtitle on left, Risk badge on right */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center shrink-0 shadow-2xs">
+                  <svg className="w-5 h-5 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                    Dynamic Risk Score
+                  </h3>
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
+                    Patient risk monitoring
+                  </p>
+                </div>
+              </div>
+
+              <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
                 activeDossier.latestLevel === 'CRITICAL' || activeDossier.latestLevel === 'HIGH'
                   ? 'bg-rose-50 text-rose-600 border border-rose-200'
                   : activeDossier.latestLevel === 'MODERATE'
@@ -12864,7 +12949,7 @@ function ScreenHighRiskFollowUp({
             </div>
 
             {/* Circular Gauge and Trend */}
-            <div className="flex items-center gap-5 mt-4">
+            <div className="flex items-center gap-5 pt-0.5">
               <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
                 <svg className="w-24 h-24 -rotate-90 transform" viewBox="0 0 96 96">
                   <circle
@@ -12907,52 +12992,75 @@ function ScreenHighRiskFollowUp({
                   <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  <span>{activeDossier.trend || 'Worsening'}</span>
+                  <span>{activeDossier.trend || 'WORSENING'}</span>
                 </div>
-                <span className="text-xs text-slate-400 font-medium block">
+                <span className="text-[11px] font-medium text-slate-400 block pt-0.5">
                   Threshold: &gt;60
                 </span>
               </div>
             </div>
 
-            {/* Vital Telemetry */}
-            <div className="bg-[#f0f7ff] border border-[#e0effe] rounded-xl p-3 my-4">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[#0284c7]">
-                <svg className="w-4 h-4 text-[#0284c7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Vital Telemetry</span>
+            {/* Horizontal Risk Score Bar */}
+            <div className="space-y-1 pt-0.5">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Risk score</span>
+                <span>{activeDossier.latestScore}% of scale</span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-500 to-red-600 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(0, activeDossier.latestScore))}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Vital Telemetry Box */}
+            <div className="bg-[#f0f7ff] border border-[#e0effe] rounded-xl p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1565C0]">
+                  <svg className="w-4 h-4 text-[#1565C0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Vital Telemetry</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-600">
                 Weekly door-to-door monitoring active.
               </p>
             </div>
           </div>
 
+          {/* Inspect Trajectory History Button */}
           <button
             type="button"
             onClick={() => handleInspectTrajectory(activeDossier)}
-            className="w-full py-2.5 px-4 bg-white hover:bg-[#f0f7ff] border border-sky-200 text-[#0284c7] font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+            className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 hover:text-slate-900 font-semibold text-xs sm:text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer mt-3"
           >
-            <svg className="w-4 h-4 text-[#0284c7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
             </svg>
             <span>Inspect Trajectory History</span>
+            <span>&rarr;</span>
           </button>
         </div>
       </div>
 
-      {/* 3. LATEST VITAL READINGS CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900">
-            Latest Vital Readings
-          </h3>
+      {/* 3. CLINICAL VITAL READINGS & TELEMETRY (MATCHING IMG 1 STYLING WITH ALL 6 VITALS) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2.5 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              Clinical Vitals &amp; Telemetry
+            </h3>
+            <p className="text-xs text-slate-500 font-normal mt-0.5">
+              Latest longitudinal observations recorded by {currentVitals.recordedBy} &bull; {currentVitals.recordedAt}
+            </p>
+          </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-500 bg-slate-100/90">
-              {currentVitals.recordedAt}
-            </span>
             <button
               type="button"
               onClick={() => {
@@ -12967,79 +13075,153 @@ function ScreenHighRiskFollowUp({
                 });
                 setShowRecordVitalsModal(true);
               }}
-              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer flex items-center gap-1"
+              className="px-3 py-1.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
             >
-              <svg className="w-3.5 h-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              <span>Record</span>
+              <span>Record Today's Vitals</span>
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-          {/* Blood Pressure */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+        {/* 6 Structured Cards Styled Like Image 1 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 pt-1">
+          {/* 1. Blood Pressure */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
-            <span className="text-xs font-medium text-slate-500 mt-2">Blood Pressure</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {currentVitals.systolic}/{currentVitals.diastolic}
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Blood Pressure</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.systolic}/{currentVitals.diastolic}
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">mmHg</span>
             </div>
-            <span className="text-xs text-slate-400">mmHg</span>
+            <div className="pt-0.5">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold inline-block ${
+                currentVitals.systolic >= 140 || currentVitals.diastolic >= 90
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}>
+                {currentVitals.systolic >= 140 || currentVitals.diastolic >= 90 ? 'Stage 2 Elevated' : 'Controlled'}
+              </span>
+            </div>
           </div>
 
-          {/* Pulse */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+          {/* 2. Pulse / Heart Rate */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
             </div>
-            <span className="text-xs font-medium text-slate-500 mt-2">Pulse</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {currentVitals.pulse}
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Pulse / Heart Rate</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.pulse}
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">bpm</span>
             </div>
-            <span className="text-xs text-slate-400">bpm</span>
+            <div className="pt-0.5">
+              <span className="text-[10px] text-slate-600 font-medium block">
+                Normal Sinus
+              </span>
+            </div>
           </div>
 
-          {/* SpO2 */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-500 flex items-center justify-center">
+          {/* 3. Blood Oxygen */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-500 flex items-center justify-center shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M4 8h12M4 16h10" />
               </svg>
             </div>
-            <span className="text-xs font-medium text-slate-500 mt-2">SpO2</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {currentVitals.spo2}%
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Blood Oxygen</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.spo2}%
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">Room Air</span>
             </div>
-            <span className="text-xs text-slate-400">Oxygen</span>
+            <div className="pt-0.5">
+              <span className="text-[10px] text-emerald-700 font-medium block">
+                SpO2 Room Air
+              </span>
+            </div>
           </div>
 
-          {/* Glucose */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 flex flex-col justify-between hover:border-sky-300 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
+          {/* 4. Blood Glucose */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21.5c-3.5 0-6.5-2.8-6.5-6.5 0-3.5 6.5-12 6.5-12s6.5 8.5 6.5 12c0 3.7-3 6.5-6.5 6.5z" />
               </svg>
             </div>
-            <span className="text-xs font-medium text-slate-500 mt-2">Glucose</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {currentVitals.glucose}
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Blood Glucose</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.glucose}
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">mg/dL</span>
             </div>
-            <span className="text-xs text-slate-400">mg/dL</span>
+            <div className="pt-0.5">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold inline-block ${
+                currentVitals.glucose >= 140
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}>
+                {currentVitals.glucose >= 140 ? 'Postprandial' : 'Fasting Norm'}
+              </span>
+            </div>
+          </div>
+
+          {/* 5. Temperature */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Temperature</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.temp}
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">°F</span>
+            </div>
+            <div className="pt-0.5">
+              <span className="text-[10px] text-slate-600 font-medium block">
+                Afebrile
+              </span>
+            </div>
+          </div>
+
+          {/* 6. Body Weight */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 flex flex-col justify-between hover:border-sky-300 transition-colors shadow-2xs space-y-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-slate-500 block">Body Weight</span>
+              <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
+                {currentVitals.weight}
+              </div>
+              <span className="text-[11px] text-slate-400 font-normal">kg</span>
+            </div>
+            <div className="pt-0.5">
+              <span className="text-[10px] text-slate-600 font-medium block">
+                BMI 23.4 Stable
+              </span>
+            </div>
           </div>
         </div>
-
-        <p className="text-xs text-slate-400 font-normal pt-1">
-          Recorded by {currentVitals.recordedBy}
-        </p>
       </div>
-
       {/* 4. CARE TEAM & ASSIGNMENT CARD */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
         <h3 className="text-base sm:text-lg font-bold text-slate-900">
@@ -13689,140 +13871,6 @@ function ScreenHighRiskFollowUp({
       {/* ==================================================== */}
       {activeTabRole === 'patient' && (
         <div className="space-y-6">
-          {/* Section A: Clinical Vitals & Field Telemetry */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <h4 className="text-base font-bold text-slate-900">
-                  Clinical Vitals &amp; Telemetry
-                </h4>
-                <p className="text-xs text-slate-500 font-normal mt-0.5">
-                  Latest longitudinal observations recorded by {currentVitals.recordedBy} &bull; {currentVitals.recordedAt}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setVitalsInputForm({
-                    systolic: currentVitals.systolic,
-                    diastolic: currentVitals.diastolic,
-                    pulse: currentVitals.pulse,
-                    spo2: currentVitals.spo2,
-                    glucose: currentVitals.glucose,
-                    temp: currentVitals.temp,
-                    weight: currentVitals.weight
-                  });
-                  setShowRecordVitalsModal(true);
-                }}
-                className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5"
-              >
-                <span>Record Today's Vitals</span>
-              </button>
-            </div>
-
-            {/* Vitals Grid - 6 Structured Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {/* Blood Pressure */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Blood Pressure
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">
-                    {currentVitals.systolic}/{currentVitals.diastolic}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">mmHg</span>
-                </div>
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-semibold block w-fit ${
-                    currentVitals.systolic >= 140 || currentVitals.diastolic >= 90
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}
-                >
-                  {currentVitals.systolic >= 140 || currentVitals.diastolic >= 90 ? 'Stage 2 Elevated' : 'Controlled'}
-                </span>
-              </div>
-
-              {/* Pulse Rate */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Pulse / Heart Rate
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">{currentVitals.pulse}</span>
-                  <span className="text-[10px] text-slate-500 font-normal">bpm</span>
-                </div>
-                <span className="text-[10px] text-slate-600 font-medium block">
-                  Normal Sinus
-                </span>
-              </div>
-
-              {/* Oxygen Saturation */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Blood Oxygen
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">{currentVitals.spo2}</span>
-                  <span className="text-[10px] text-slate-500 font-normal">%</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-medium block">
-                  SpO2 Room Air
-                </span>
-              </div>
-
-              {/* Blood Glucose */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Blood Glucose
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">{currentVitals.glucose}</span>
-                  <span className="text-[10px] text-slate-500 font-normal">mg/dL</span>
-                </div>
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-semibold block w-fit ${
-                    currentVitals.glucose >= 140
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}
-                >
-                  {currentVitals.glucose >= 140 ? 'Postprandial' : 'Fasting Norm'}
-                </span>
-              </div>
-
-              {/* Body Temperature */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Temperature
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">{currentVitals.temp}</span>
-                  <span className="text-[10px] text-slate-500 font-normal">°F</span>
-                </div>
-                <span className="text-[10px] text-slate-600 font-medium block">
-                  Afebrile
-                </span>
-              </div>
-
-              {/* Body Weight */}
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Body Weight
-                </span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-slate-900">{currentVitals.weight}</span>
-                  <span className="text-[10px] text-slate-500 font-normal">kg</span>
-                </div>
-                <span className="text-[10px] text-slate-600 font-medium block">
-                  BMI 23.4 Stable
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Section B: Professional Clinical Pharmacotherapy Chart */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="bg-slate-50/80 px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
