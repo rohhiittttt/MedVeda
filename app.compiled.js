@@ -29588,7 +29588,7 @@ function MediBotFloatingLogo({ onClick }) {
       , React.createElement('button', {
         type: "button",
         onClick: onClick,
-        className: "w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[22px] bg-[#0b2b82] hover:bg-[#092268] active:scale-95 shadow-xl shadow-[#0b2b82]/35 hover:shadow-2xl hover:shadow-[#0b2b82]/45 transition-all duration-200 flex items-center justify-center group cursor-pointer border border-white/20 focus:outline-none focus:ring-4 focus:ring-[#0b2b82]/30 relative"                         ,
+        className: "w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[22px] bg-[#1565C0] hover:bg-blue-700 active:scale-95 shadow-xl shadow-[#1565C0]/35 hover:shadow-2xl hover:shadow-[#1565C0]/45 transition-all duration-200 flex items-center justify-center group cursor-pointer border border-white/20 focus:outline-none focus:ring-4 focus:ring-[#1565C0]/30 relative"                         ,
         title: "MediBot AI Assistant"  ,
         'aria-label': "Open MediBot AI Assistant"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29588}}
 
@@ -29599,9 +29599,9 @@ function MediBotFloatingLogo({ onClick }) {
             fill: "#ffffff", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29597}}
           )
           /* Three dots in MedVeda project theme color */
-          , React.createElement('circle', { cx: "40", cy: "44.3", r: "3.5", fill: "#0b2b82", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29602}} )
-          , React.createElement('circle', { cx: "50", cy: "44.3", r: "3.5", fill: "#0b2b82", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29603}} )
-          , React.createElement('circle', { cx: "60", cy: "44.3", r: "3.5", fill: "#0b2b82", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29604}} )
+          , React.createElement('circle', { cx: "40", cy: "44.3", r: "3.5", fill: "#1565C0", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29602}} )
+          , React.createElement('circle', { cx: "50", cy: "44.3", r: "3.5", fill: "#1565C0", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29603}} )
+          , React.createElement('circle', { cx: "60", cy: "44.3", r: "3.5", fill: "#1565C0", __self: this, __source: {fileName: _jsxFileName, lineNumber: 29604}} )
         )
 
         /* Hover Tooltip Pill */
@@ -29923,7 +29923,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                 )
               )
               , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 29925}}
-                , React.createElement('div', { className: "font-bold text-[#0b2b82] text-sm tracking-tight"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29926}}, "Your Health Account"  )
+                , React.createElement('div', { className: "font-bold text-[#1565C0] text-sm tracking-tight"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29926}}, "Your Health Account"  )
                 , React.createElement('div', { className: "text-xs text-slate-500 mt-0.5"  , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29927}}, "Secure • Private • Always with you"      )
               )
             )
@@ -29938,7 +29938,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
           , React.createElement('p', { className: "text-xs sm:text-sm text-slate-500 mt-0.5"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29938}}, "Simple tools to manage your healthcare journey."      )
         )
 
-        /* 4 Cards Restructured with photos & Navy Blue theme pill buttons */
+        /* 4 Cards Restructured with photos & Theme Blue pill buttons */
         , React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5"     , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29942}}
           /* Card 1: Book Appointment */
           , React.createElement('div', {
@@ -29953,13 +29953,13 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                   className: "w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29950}}
                 )
               )
-              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29956}}, "Book Appointment" )
+              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29956}}, "Book Appointment" )
               , React.createElement('p', { className: "text-xs sm:text-sm text-slate-500 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29957}}, "Find doctors and book visits."    )
             )
             , React.createElement('button', {
               type: "button",
               onClick: (e) => { e.stopPropagation(); setView('feature2'); setTeleconsultScreen('booking'); },
-              className: "mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29959}}
+              className: "mt-4 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29959}}
 , "Book now"
 
             )
@@ -29978,13 +29978,13 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                   className: "w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29975}}
                 )
               )
-              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29981}}, "Check Symptoms" )
+              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29981}}, "Check Symptoms" )
               , React.createElement('p', { className: "text-xs sm:text-sm text-slate-500 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29982}}, "Understand your symptoms."  )
             )
             , React.createElement('button', {
               type: "button",
               onClick: (e) => { e.stopPropagation(); setView('feature1'); setScreen(1); },
-              className: "mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29984}}
+              className: "mt-4 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 29984}}
 , "Check now"
 
             )
@@ -30003,13 +30003,13 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                   className: "w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30000}}
                 )
               )
-              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30006}}, "Medical Records" )
+              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30006}}, "Medical Records" )
               , React.createElement('p', { className: "text-xs sm:text-sm text-slate-500 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30007}}, "Access reports and health history."    )
             )
             , React.createElement('button', {
               type: "button",
               onClick: (e) => { e.stopPropagation(); setView('feature5'); },
-              className: "mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30009}}
+              className: "mt-4 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30009}}
 , "View records"
 
             )
@@ -30028,13 +30028,13 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
                   className: "w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30025}}
                 )
               )
-              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30031}}, "Medicines & Labs"  )
+              , React.createElement('h3', { className: "text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors tracking-tight"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30031}}, "Medicines & Labs"  )
               , React.createElement('p', { className: "text-xs sm:text-sm text-slate-500 mt-1"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30032}}, "Search medicines & diagnostic tests."    )
             )
             , React.createElement('button', {
               type: "button",
               onClick: (e) => { e.stopPropagation(); setView('feature6'); },
-              className: "mt-4 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30034}}
+              className: "mt-4 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors text-center cursor-pointer shadow-xs"             , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30034}}
 , "Search now"
 
             )
@@ -30054,7 +30054,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
               React.createElement('button', {
                 type: "button",
                 onClick: () => setActiveModal('appointment'),
-                className: "px-3.5 py-1.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs font-semibold transition-colors cursor-pointer"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30054}}
+                className: "px-3.5 py-1.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs font-semibold transition-colors cursor-pointer"         , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30054}}
 , "+ Add Appointment"
 
               )
@@ -30062,7 +30062,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
             , React.createElement('button', {
               type: "button",
               onClick: () => setView('feature2'),
-              className: "text-xs font-bold text-[#0b2b82] hover:underline flex items-center gap-1"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30062}}
+              className: "text-xs font-bold text-[#1565C0] hover:underline flex items-center gap-1"      , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30062}}
 
               , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30067}}, "View All" )
               , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30068}}, "→")
@@ -30073,10 +30073,10 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
         , isPrototype ? (
           React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30074}}
             /* Prototype Appointment 1: Teleconsultation */
-            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30076}}
+            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#1565C0]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30076}}
               , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30077}}
                 , React.createElement('div', { className: "flex items-center gap-2 mb-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30078}}
-                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30079}}
+                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30079}}
                     , React.createElement('svg', { className: "w-4 h-4" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30080}}, React.createElement('polygon', { points: "23 7 16 12 23 17 23 7"       , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30080}}), React.createElement('rect', { x: "1", y: "5", width: "15", height: "14", rx: "2", ry: "2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30080}}))
                   )
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30082}}
@@ -30109,7 +30109,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
               , React.createElement('button', {
                 type: "button",
                 onClick: () => { setView('feature2'); setTeleconsultScreen('call'); },
-                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30109}}
+                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30109}}
 
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30114}}, "Join consultation" )
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30115}}, "→")
@@ -30117,10 +30117,10 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
             )
 
             /* Prototype Appointment 2: ASHA Follow-up */
-            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30120}}
+            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#1565C0]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30120}}
               , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30121}}
                 , React.createElement('div', { className: "flex items-center gap-2 mb-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30122}}
-                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30123}}
+                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30123}}
                     , React.createElement('svg', { className: "w-4 h-4" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30124}}, React.createElement('path', { d: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"                        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30124}}))
                   )
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30126}}
@@ -30145,7 +30145,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
               , React.createElement('button', {
                 type: "button",
                 onClick: () => setView('feature4'),
-                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30145}}
+                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30145}}
 
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30150}}, "View consultation" )
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30151}}, "→")
@@ -30153,10 +30153,10 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
             )
 
             /* Book Appointment CTA */
-            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#0b2b82]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30156}}
+            , React.createElement('div', { className: "bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between hover:border-[#1565C0]/40 transition-colors"          , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30156}}
               , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30157}}
                 , React.createElement('div', { className: "flex items-center gap-2 mb-3"   , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30158}}
-                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30159}}
+                  , React.createElement('div', { className: "w-8 h-8 rounded-lg bg-blue-50 text-[#1565C0] flex items-center justify-center shrink-0"        , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30159}}
                     , React.createElement('svg', { className: "w-4 h-4" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30160}}, React.createElement('rect', { x: "3", y: "4", width: "18", height: "18", rx: "2", ry: "2", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30160}}), React.createElement('line', { x1: "16", y1: "2", x2: "16", y2: "6", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30160}}), React.createElement('line', { x1: "8", y1: "2", x2: "8", y2: "6", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30160}}), React.createElement('line', { x1: "3", y1: "10", x2: "21", y2: "10", __self: this, __source: {fileName: _jsxFileName, lineNumber: 30160}}))
                   )
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30162}}
@@ -30171,7 +30171,7 @@ function PatientOverview({ setView, setScreen, setTeleconsultScreen, currentUser
               , React.createElement('button', {
                 type: "button",
                 onClick: () => { setView('feature2'); setTeleconsultScreen('booking'); },
-                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#0b2b82] hover:bg-[#092268] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30171}}
+                className: "mt-3.5 w-full py-2.5 rounded-full bg-[#1565C0] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"                , __self: this, __source: {fileName: _jsxFileName, lineNumber: 30171}}
 
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30176}}, "Book appointment" )
                 , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 30177}}, "→")
