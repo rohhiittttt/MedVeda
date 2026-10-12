@@ -16,7 +16,7 @@ out/
 app.compiled.js
 frontend/public/app.compiled.js
 
-# SQLite Databases & Runtime Cache Files
+# SQLite Databases, Redis Dumps & Runtime Cache Files
 *.db
 *.db-shm
 *.db-wal
@@ -25,8 +25,11 @@ frontend/public/app.compiled.js
 *.sqlite-shm
 *.sqlite-wal
 *.sqlite-journal
+backend/data/
 backend/data/*.db*
 backend/data/*.sqlite*
+dump.rdb
+*.rdb
 
 # Python Caches & Bytecode
 __pycache__/

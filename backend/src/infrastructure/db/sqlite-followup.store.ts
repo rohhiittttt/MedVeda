@@ -22,11 +22,16 @@ export class SqliteFollowUpStore {
 
   constructor(dbPath?: string) {
     const resolvedPath =
-      dbPath || path.resolve(__dirname, '../../../data/followups.db');
+      dbPath ||
+      (process.env.SQLITE_PERSIST_DISK === 'true'
+        ? path.resolve(__dirname, '../../../data/followups.db')
+        : ':memory:');
 
-    const dataDir = path.dirname(resolvedPath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    if (resolvedPath !== ':memory:') {
+      const dataDir = path.dirname(resolvedPath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
     }
 
     this.db = new DatabaseSync(resolvedPath);

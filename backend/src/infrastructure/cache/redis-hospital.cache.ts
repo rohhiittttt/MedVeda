@@ -3,10 +3,8 @@ import type { IHospitalCachePort } from '../../domain/ports/search.port.ts';
 import { SqliteNavigationStore } from '../db/sqlite-navigation.store.ts';
 
 /**
- * Hybrid Redis + Persistent SQLite Hospital Research Cache Adapter.
- * - Uses Redis (via ioredis) with TTL when REDIS_URL is configured and reachable.
- * - Always persists to and falls back to SqliteNavigationStore (hospital_research_cache table)
- *   so zero hospital research data is lost across restarts or when Redis is offline.
+ * In-Memory Hospital Research Cache Adapter (with optional Redis when ENABLE_REDIS_CACHE=true).
+ * Uses in-memory SQLite storage by default so no .db / .db-shm / .db-wal cache files are written to disk.
  */
 export class RedisOrSqliteHospitalCacheAdapter implements IHospitalCachePort {
   private readonly sqliteStore: SqliteNavigationStore;
@@ -15,14 +13,15 @@ export class RedisOrSqliteHospitalCacheAdapter implements IHospitalCachePort {
   private readonly ttlSeconds: number;
 
   constructor(sqliteStore?: SqliteNavigationStore, ttlSeconds = 7 * 24 * 3600) {
-    this.sqliteStore = sqliteStore || new SqliteNavigationStore();
+    this.sqliteStore = sqliteStore || new SqliteNavigationStore(':memory:');
     this.ttlSeconds = ttlSeconds;
     this.initRedisIfConfigured();
   }
 
   private initRedisIfConfigured(): void {
     const redisUrl = process.env.REDIS_URL;
-    if (!redisUrl) return;
+    const enableRedis = process.env.ENABLE_REDIS_CACHE === 'true';
+    if (!redisUrl || !enableRedis) return;
 
     import('ioredis')
       .then((mod) => {
@@ -72,7 +71,7 @@ export class RedisOrSqliteHospitalCacheAdapter implements IHospitalCachePort {
           }
         }
       } catch {
-        // Fall through to SQLite store
+        // Fall through to in-memory store
       }
     }
 
@@ -85,22 +84,10 @@ export class RedisOrSqliteHospitalCacheAdapter implements IHospitalCachePort {
 
   async saveBatch(candidates: readonly HospitalCandidate[]): Promise<void> {
     await this.sqliteStore.saveBatch(candidates);
-    if (this.redisReady && this.redisClient && candidates.length > 0) {
-      try {
-        const sampleAddr = candidates[0].address || 'india';
-        await this.redisClient.set(
-          this.getCacheKey(sampleAddr, 'all'),
-          JSON.stringify(candidates),
-          'EX',
-          this.ttlSeconds
-        );
-      } catch {
-        // Ignore Redis write error; SQLite store already persisted the batch
-      }
-    }
   }
 
   getSqliteStore(): SqliteNavigationStore {
     return this.sqliteStore;
   }
 }
+

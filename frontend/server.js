@@ -91,11 +91,12 @@ async function ensurePythonServiceRunning() {
   console.log(`[Unified Server] Spawning Python AI Service internally: ${pythonExec} ${scriptPath}`);
 
   try {
-    pythonProcess = spawn(pythonExec, [scriptPath], {
+    pythonProcess = spawn(pythonExec, ['-B', scriptPath], {
       cwd: projectRoot,
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
         PORT: String(PYTHON_SERVICE_PORT)
       },
       stdio: ['ignore', 'pipe', 'pipe']
@@ -2658,6 +2659,31 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(isForbidden ? 403 : 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
       return;
+    }
+  }
+
+  // --- IN-MEMORY JSX COMPILATION FOR /app.compiled.js ---
+  if (reqPath === '/app.compiled.js' && req.method === 'GET') {
+    try {
+      const appJsPath = path.join(PUBLIC_DIR, 'app.js');
+      const stat = fs.statSync(appJsPath);
+      if (!globalThis.__medvedaCompiledCache || globalThis.__medvedaCompiledCache.mtimeMs !== stat.mtimeMs) {
+        const sucraseMod = await import('sucrase');
+        const rawCode = fs.readFileSync(appJsPath, 'utf8');
+        const transformed = sucraseMod.transform(rawCode, { transforms: ['jsx'] });
+        globalThis.__medvedaCompiledCache = {
+          mtimeMs: stat.mtimeMs,
+          code: transformed.code
+        };
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-cache'
+      });
+      res.end(globalThis.__medvedaCompiledCache.code);
+      return;
+    } catch (compileErr) {
+      // Fallback to pre-built app.compiled.js on disk if sucrase is not loaded
     }
   }
 

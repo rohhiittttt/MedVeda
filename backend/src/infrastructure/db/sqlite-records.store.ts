@@ -19,10 +19,12 @@ export class SqliteRecordsStore extends InMemoryRecordsStore {
 
   constructor(dbPath?: string) {
     super();
-    const isMemory = dbPath === ':memory:';
-    const resolvedPath = isMemory
-      ? ':memory:'
-      : dbPath || path.resolve(__dirname, '../../../data/records.db');
+    const resolvedPath =
+      dbPath ||
+      (process.env.SQLITE_PERSIST_DISK === 'true'
+        ? path.resolve(__dirname, '../../../data/records.db')
+        : ':memory:');
+    const isMemory = resolvedPath === ':memory:';
 
     if (!isMemory) {
       const dataDir = path.dirname(resolvedPath);
@@ -32,7 +34,9 @@ export class SqliteRecordsStore extends InMemoryRecordsStore {
     }
 
     this.db = new DatabaseSync(resolvedPath);
-    this.db.exec('PRAGMA journal_mode = WAL;');
+    if (!isMemory) {
+      this.db.exec('PRAGMA journal_mode = WAL;');
+    }
     this.db.exec('PRAGMA foreign_keys = ON;');
     this.initSchema();
   }

@@ -12,11 +12,16 @@ export class SqliteReferralStore {
 
   constructor(dbPath?: string) {
     const resolvedPath =
-      dbPath || path.resolve(__dirname, '../../../data/referrals.db');
-    
-    const dataDir = path.dirname(resolvedPath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+      dbPath ||
+      (process.env.SQLITE_PERSIST_DISK === 'true'
+        ? path.resolve(__dirname, '../../../data/referrals.db')
+        : ':memory:');
+
+    if (resolvedPath !== ':memory:') {
+      const dataDir = path.dirname(resolvedPath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
     }
 
     this.db = new DatabaseSync(resolvedPath);

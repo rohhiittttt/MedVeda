@@ -12,6 +12,7 @@ Features:
 
 import os
 import sys
+sys.dont_write_bytecode = True
 import re
 import io
 import json

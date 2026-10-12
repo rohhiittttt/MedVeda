@@ -143,10 +143,12 @@ export class SqliteNavigationStore implements IHospitalCachePort {
 
   constructor(dbPath?: string, ttlMs: number = DEFAULT_CACHE_TTL_MS) {
     this.ttlMs = ttlMs;
-    const isMemory = dbPath === ':memory:';
-    const resolvedPath = isMemory
-      ? ':memory:'
-      : dbPath || path.resolve(__dirname, '../../../data/navigation.db');
+    const resolvedPath =
+      dbPath ||
+      (process.env.SQLITE_PERSIST_DISK === 'true'
+        ? path.resolve(__dirname, '../../../data/navigation.db')
+        : ':memory:');
+    const isMemory = resolvedPath === ':memory:';
 
     if (!isMemory) {
       const dataDir = path.dirname(resolvedPath);
@@ -156,7 +158,9 @@ export class SqliteNavigationStore implements IHospitalCachePort {
     }
 
     this.db = new DatabaseSync(resolvedPath);
-    this.db.exec('PRAGMA journal_mode = WAL;');
+    if (!isMemory) {
+      this.db.exec('PRAGMA journal_mode = WAL;');
+    }
     this.db.exec('PRAGMA foreign_keys = ON;');
     this.initSchema();
   }

@@ -116,7 +116,10 @@ export class SqliteOpdBookingStore {
   constructor(dbPath?: string) {
     this.txDepth = 0;
     const resolvedPath =
-      dbPath || path.resolve(__dirname, '../../../data/medveda_opd.sqlite');
+      dbPath ||
+      (process.env.SQLITE_PERSIST_DISK === 'true'
+        ? path.resolve(__dirname, '../../../data/medveda_opd.sqlite')
+        : ':memory:');
 
     if (resolvedPath !== ':memory:') {
       const dataDir = path.dirname(resolvedPath);
@@ -126,7 +129,9 @@ export class SqliteOpdBookingStore {
     }
 
     this.db = new DatabaseSync(resolvedPath);
-    this.db.exec('PRAGMA journal_mode = WAL;');
+    if (resolvedPath !== ':memory:') {
+      this.db.exec('PRAGMA journal_mode = WAL;');
+    }
     this.db.exec('PRAGMA foreign_keys = ON;');
     this.db.exec('PRAGMA busy_timeout = 5000;');
     this.initSchema();

@@ -100,7 +100,7 @@ async function runPostgresMigrationIfConfigured(): Promise<boolean> {
     }
   } catch (err) {
     console.warn(
-      '[MedVeda DB Migrate] PostgreSQL connection unavailable; using persistent SQLite stores in backend/data/*.db.',
+      '[MedVeda DB Migrate] PostgreSQL connection unavailable; using in-memory SQLite stores.',
       (err as Error).message
     );
     return false;
@@ -112,19 +112,19 @@ export async function runMigrations(): Promise<void> {
 
   await runPostgresMigrationIfConfigured();
 
-  // Initialize and seed all persistent SQLite databases (WAL mode)
-  new SqliteNavigationStore();
-  new SqliteTeleconsultStore();
-  new SqliteReferralStore();
-  new SqliteFollowUpStore();
-  new SqliteRecordsStore();
-  new SqliteMedicineStore();
-  new SqliteFacilityDashboardStore();
-  new SqliteSchemeStore();
-  new SqliteCommandCenterStore();
-  getOpdBookingStore();
+  // Initialize and verify all in-memory SQLite databases
+  new SqliteNavigationStore(':memory:');
+  new SqliteTeleconsultStore(':memory:');
+  new SqliteReferralStore(':memory:');
+  new SqliteFollowUpStore(':memory:');
+  new SqliteRecordsStore(':memory:');
+  new SqliteMedicineStore(':memory:');
+  new SqliteFacilityDashboardStore(':memory:');
+  new SqliteSchemeStore(':memory:');
+  new SqliteCommandCenterStore(':memory:');
+  getOpdBookingStore(':memory:');
 
-  console.log('[MedVeda DB Migrate] All 10 persistent database stores initialized and verified in backend/data/.');
+  console.log('[MedVeda DB Migrate] All 10 database stores initialized and verified in-memory.');
 }
 
 if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('migrate.ts')) {

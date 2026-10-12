@@ -3,6 +3,8 @@ Provides high-performance REST APIs for deterministic scheme evaluation, RAG ret
 interactive document gap-filling, and traceable explanations.
 """
 
+import sys
+sys.dont_write_bytecode = True
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
