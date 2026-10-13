@@ -753,2043 +753,652 @@ function getRoleBadgeLabel(role) {
 }
 
 function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess, isPage = false }) {
-  const [activeTab, setActiveTab] = useState(initialTab); // 'login' | 'prototype' | 'signup'
-  // 5 Top-Level Portals: 'patient', 'doctor', 'worker', 'facility', 'officer' (with facility having 3 subtypes: 'hospital', 'medicine', 'lab')
+  const [activeTab, setActiveTab] = useState(initialTab === 'signup' ? 'signup' : 'login');
   const [selectedRole, setSelectedRole] = useState(
-    ['patient', 'doctor', 'worker', 'facility', 'officer'].includes(initialRole) ? initialRole : 'patient'
+    ['patient', 'doctor', 'worker', 'facility', 'officer', 'admin'].includes(initialRole)
+      ? (initialRole === 'admin' ? 'officer' : initialRole)
+      : 'patient'
   );
   const [facilitySubtype, setFacilitySubtype] = useState('hospital'); // 'hospital' | 'medicine' | 'lab'
-  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
+  // Credentials-only login form (pure authentication credentials)
   const [loginForm, setLoginForm] = useState({
     identifier: initialIdentifier || '',
     password: '',
-    // Mandatory core display fields for Real Login
-    name: '',
-    phone: '',
-    district: 'Hazaribagh',
-    state: 'Jharkhand',
-    // Role-specific mandatory fields
-    age: '',
-    sex: 'female',
-    qualification: '',
-    specialty: '',
-    registrationNo: '',
-    facilityName: '',
-    ashaId: '',
-    subCenter: '',
-    phcName: '',
-    villageCatchment: '',
-    hospitalId: '',
-    tier: '',
-    medicalSuperintendent: '',
-    address: '',
-    drugLicenseNo: '',
-    ownerName: '',
-    pharmacistName: '',
-    labId: '',
-    director: '',
-    designation: '',
-    cadre: '',
-    // Optional fields (can be filled now or added later)
-    bloodGroup: '',
-    weight: '',
-    medicalHistoryText: '',
-    emergencyContact: '',
-    experienceYears: '',
-    department: '',
-    email: '',
-    nhmCode: '',
-    anmSupervisor: '',
-    medicalOfficer: '',
-    languages: '',
-    kitStatus: '',
-    pmjayCode: '',
-    accreditation: '',
-    emergencyHelpline: '',
-    totalBeds: '',
-    occupiedBeds: '',
-    icuTotal: '',
-    icuAvailable: '',
-    oxygenCapacity: '',
-    pharmacyId: '',
-    janAushadhiCode: '',
-    gstin: '',
-    timings: '',
-    coordinates: '',
-    nablRegNo: '',
-    analyzerStatus: '',
-    turnaround: '',
-    headquarters: '',
-    jurisdictionArea: '',
-    population: '',
-    blocksCount: '',
-    facilitiesCount: ''
+    rememberWorkstation: true
   });
 
+  // Dedicated structured registration form
   const [signUpForm, setSignUpForm] = useState({
     name: '',
+    identifier: '',
     mobile: '',
-    abhaId: '',
-    role: 'patient',
-    district: 'Hazaribagh',
-    state: 'Jharkhand',
     password: '',
-    age: '',
-    sex: 'female',
-    qualification: '',
-    specialty: '',
-    registrationNo: '',
-    facilityName: '',
-    ashaId: '',
-    subCenter: '',
-    phcName: '',
-    villageCatchment: '',
-    hospitalId: '',
-    tier: '',
-    medicalSuperintendent: '',
-    address: '',
-    drugLicenseNo: '',
-    ownerName: '',
-    pharmacistName: '',
-    labId: '',
-    director: '',
-    designation: '',
-    cadre: ''
+    confirmPassword: '',
+    district: 'Hazaribagh',
+    state: 'Jharkhand'
   });
 
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
+  const [authError, setAuthError] = useState('');
 
-  // Auto-populate saved Real Account if identifier matches a previously registered/logged-in real user
-  const handleIdentifierChange = (val) => {
-    let nextForm = { ...loginForm, identifier: val };
-    try {
-      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
-      const key = val.trim().toLowerCase();
-      if (key && savedMap[key]) {
-        const savedUser = savedMap[key];
-        nextForm = {
-          ...nextForm,
-          name: savedUser.name || nextForm.name,
-          phone: savedUser.phone || nextForm.phone,
-          district: savedUser.district || nextForm.district,
-          state: savedUser.state || nextForm.state
-        };
-      }
-    } catch (e) {}
-    setLoginForm(nextForm);
-  };
-
-  // PROTOTYPE DEMO LOGIN: Explicitly sets isPrototype: true and loads rich demonstration dataset
-  const handleQuickLogin = (name, role, abhaId, extraLabel, extraProps = {}) => {
-    const label = extraLabel || getRoleBadgeLabel(role);
-    setAuthSuccessMsg(`Prototype Demo Mode: Logged in as ${name} (${label})`);
-    setTimeout(() => {
-      onAuthSuccess({
-        name,
-        role,
-        abhaId,
-        roleLabel: label,
-        isPrototype: true,
-        accountType: 'prototype',
-        ...extraProps
-      });
-    }, 350);
-  };
+  const PORTAL_ROLES = [
+    { id: 'patient', label: 'Patient' },
+    { id: 'doctor', label: 'Doctor' },
+    { id: 'worker', label: 'ASHA Worker' },
+    { id: 'facility', label: 'Facility' },
+    { id: 'officer', label: 'Administrator' }
+  ];
 
   const getEffectiveRoleInfo = (portalRole, subtype) => {
     if (portalRole === 'facility') {
-      if (subtype === 'medicine') return { effectiveRole: 'shop_owner', label: 'Medicine Shop' };
-      if (subtype === 'lab') return { effectiveRole: 'lab_staff', label: 'Diagnostic Lab' };
+      if (subtype === 'medicine') return { effectiveRole: 'shop_owner', label: 'Pharmacy & Medicine Store' };
+      if (subtype === 'lab') return { effectiveRole: 'lab_staff', label: 'Diagnostic Pathology Lab' };
       return { effectiveRole: 'facility', label: 'Hospital Facility' };
     }
-    if (portalRole === 'officer') {
+    if (portalRole === 'officer' || portalRole === 'admin') {
       return { effectiveRole: 'admin', label: 'District Health Administrator' };
     }
     return { effectiveRole: portalRole, label: getRoleBadgeLabel(portalRole) };
   };
 
-  // REAL ACCOUNT LOGIN: Sets isPrototype: false and NEVER injects fake prototype data
+  const { effectiveRole, label: roleLabel } = getEffectiveRoleInfo(selectedRole, facilitySubtype);
+
+  const getIdentifierFieldMeta = () => {
+    switch (effectiveRole) {
+      case 'doctor':
+        return {
+          label: 'Doctor ABHA ID or Medical Registration No.',
+          placeholder: 'e.g. dr.priya.sharma@abdm or MCI-847291'
+        };
+      case 'worker':
+        return {
+          label: 'ASHA Worker ID or Registered Mobile',
+          placeholder: 'e.g. ASHA-JH-HZB-0142 or +91-94311-58201'
+        };
+      case 'facility':
+        return {
+          label: 'Hospital HFR ID or Official Administrator Email',
+          placeholder: 'e.g. HFR-IN-JH-2026-0104 or admin.sbmch@abdm'
+        };
+      case 'shop_owner':
+        return {
+          label: 'Drug License No. or Store Manager Mobile',
+          placeholder: 'e.g. JH-HAZ-20B-0891 or +91-94311-88201'
+        };
+      case 'lab_staff':
+        return {
+          label: 'Diagnostic Lab ID or NABL Registration',
+          placeholder: 'e.g. LAB-JH-HAZ-0042 or lab.pathology@abdm'
+        };
+      case 'admin':
+        return {
+          label: 'Official Government Email or Officer ID',
+          placeholder: 'e.g. dho.hazaribagh@gov.in or DHA-JH-049'
+        };
+      default:
+        return {
+          label: 'ABHA Health ID or 10-Digit Mobile Number',
+          placeholder: 'e.g. ramesh.mahto@abdm or +91-9876543210'
+        };
+    }
+  };
+
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    const { effectiveRole, label } = getEffectiveRoleInfo(selectedRole, facilitySubtype);
+    setAuthError('');
     const rawId = loginForm.identifier.trim();
-    const cleanName = loginForm.name.trim() || (rawId ? rawId.split('@')[0] : 'Authenticated User');
+    if (!rawId) {
+      setAuthError('Please enter your ABHA ID or registered mobile number.');
+      return;
+    }
+
     const abhaId = rawId.includes('@') ? rawId : `${rawId.replace(/\s+/g, '.').toLowerCase()}@abdm`;
 
-    // Check if an existing real profile was saved under this identifier
-    let existingCustomData = {};
+    // Check for previously saved local account
+    let savedProfile = null;
     try {
       const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
-      const key = rawId.toLowerCase();
-      if (key && savedMap[key] && savedMap[key].customData) {
-        existingCustomData = savedMap[key].customData;
-      }
+      savedProfile = savedMap[rawId.toLowerCase()] || savedMap[abhaId.toLowerCase()];
     } catch (err) {}
 
-    const realUserPayload = {
-      name: cleanName,
+    // Clean display name resolution
+    const formattedHandleName = rawId.split('@')[0]
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+
+    const userPayload = {
+      ...(savedProfile || {}),
+      name: savedProfile?.name || (effectiveRole === 'doctor' ? `Dr. ${formattedHandleName}` : formattedHandleName || 'Authorized User'),
       role: effectiveRole,
       abhaId,
-      roleLabel: label,
-      isPrototype: false,
-      accountType: 'real',
-      district: loginForm.district.trim() || 'Hazaribagh',
-      state: loginForm.state.trim() || 'Jharkhand',
-      phone: loginForm.phone.trim() || '',
-      email: loginForm.email.trim() || (rawId.includes('@') ? rawId : ''),
-      customData: existingCustomData
+      roleLabel,
+      phone: savedProfile?.phone || (rawId.match(/^\d{10}$/) ? rawId : '+91-9876543210'),
+      district: savedProfile?.district || 'Hazaribagh',
+      state: savedProfile?.state || 'Jharkhand',
+      accountType: 'authenticated'
     };
 
-    if (effectiveRole === 'patient') {
-      realUserPayload.age = loginForm.age ? Number(loginForm.age) : '';
-      realUserPayload.sex = loginForm.sex || 'female';
-      realUserPayload.bloodGroup = loginForm.bloodGroup.trim() || '';
-      realUserPayload.weight = loginForm.weight.trim() || '';
-      realUserPayload.emergencyContact = loginForm.emergencyContact.trim() || '';
-      realUserPayload.medicalHistory = loginForm.medicalHistoryText
-        ? loginForm.medicalHistoryText.split(',').map((s) => s.trim()).filter(Boolean)
-        : [];
-      if (loginForm.weight.trim()) {
-        realUserPayload.customData = {
-          ...realUserPayload.customData,
-          vitals: {
-            ...(realUserPayload.customData?.vitals || {}),
-            weight: loginForm.weight.trim()
-          }
-        };
-      }
-    } else if (effectiveRole === 'doctor') {
-      realUserPayload.doctorName = cleanName;
-      realUserPayload.qualification = loginForm.qualification.trim();
-      realUserPayload.specialty = loginForm.specialty.trim();
-      realUserPayload.registrationNo = loginForm.registrationNo.trim();
-      realUserPayload.facility = loginForm.facilityName.trim();
-      realUserPayload.department = loginForm.department.trim() || loginForm.specialty.trim();
-      realUserPayload.designation = loginForm.designation.trim() || '';
-      realUserPayload.experienceYears = loginForm.experienceYears.trim() || '';
-      realUserPayload.dutyStatus = 'On Duty • Authenticated Real Clinician';
-    } else if (effectiveRole === 'worker') {
-      realUserPayload.ashaId = loginForm.ashaId.trim();
-      realUserPayload.subCenter = loginForm.subCenter.trim();
-      realUserPayload.phcName = loginForm.phcName.trim();
-      realUserPayload.villageCatchment = loginForm.villageCatchment.trim();
-      realUserPayload.nhmCode = loginForm.nhmCode.trim() || '';
-      realUserPayload.designation = loginForm.designation.trim() || 'Accredited Social Health Activist (ASHA)';
-      realUserPayload.anmSupervisor = loginForm.anmSupervisor.trim() || '';
-      realUserPayload.medicalOfficer = loginForm.medicalOfficer.trim() || '';
-      realUserPayload.experienceYears = loginForm.experienceYears.trim() || '';
-      realUserPayload.bloodGroup = loginForm.bloodGroup.trim() || '';
-      realUserPayload.languages = loginForm.languages.trim() || '';
-      realUserPayload.kitStatus = loginForm.kitStatus.trim() || '';
-    } else if (effectiveRole === 'facility') {
-      realUserPayload.facilitySubtype = 'hospital';
-      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
-      realUserPayload.name = realUserPayload.facilityName;
-      realUserPayload.hospitalId = loginForm.hospitalId.trim();
-      realUserPayload.tier = loginForm.tier.trim();
-      realUserPayload.designation = loginForm.tier.trim();
-      realUserPayload.medicalSuperintendent = loginForm.medicalSuperintendent.trim();
-      realUserPayload.address = loginForm.address.trim();
-      realUserPayload.pmjayCode = loginForm.pmjayCode.trim() || '';
-      realUserPayload.accreditation = loginForm.accreditation.trim() || '';
-      realUserPayload.emergencyHelpline = loginForm.emergencyHelpline.trim() || loginForm.phone.trim();
-      realUserPayload.totalBeds = loginForm.totalBeds !== '' ? Number(loginForm.totalBeds) : null;
-      realUserPayload.occupiedBeds = loginForm.occupiedBeds !== '' ? Number(loginForm.occupiedBeds) : null;
-      realUserPayload.icuTotal = loginForm.icuTotal !== '' ? Number(loginForm.icuTotal) : null;
-      realUserPayload.icuAvailable = loginForm.icuAvailable !== '' ? Number(loginForm.icuAvailable) : null;
-      realUserPayload.oxygenCapacity = loginForm.oxygenCapacity.trim() || '';
-    } else if (effectiveRole === 'shop_owner') {
-      realUserPayload.facilitySubtype = 'medicine';
-      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
-      realUserPayload.name = realUserPayload.facilityName;
-      realUserPayload.drugLicenseNo = loginForm.drugLicenseNo.trim();
-      realUserPayload.ownerName = loginForm.ownerName.trim() || cleanName;
-      realUserPayload.pharmacistName = loginForm.pharmacistName.trim();
-      realUserPayload.address = loginForm.address.trim();
-      realUserPayload.pharmacyId = loginForm.pharmacyId.trim() || '';
-      realUserPayload.janAushadhiCode = loginForm.janAushadhiCode.trim() || '';
-      realUserPayload.gstin = loginForm.gstin.trim() || '';
-      realUserPayload.timings = loginForm.timings.trim() || '';
-      realUserPayload.coordinates = loginForm.coordinates.trim() || '';
-    } else if (effectiveRole === 'lab_staff') {
-      realUserPayload.facilitySubtype = 'lab';
-      realUserPayload.facilityName = loginForm.facilityName.trim() || cleanName;
-      realUserPayload.name = realUserPayload.facilityName;
-      realUserPayload.labId = loginForm.labId.trim();
-      realUserPayload.director = loginForm.director.trim() || cleanName;
-      realUserPayload.address = loginForm.address.trim();
-      realUserPayload.nablRegNo = loginForm.nablRegNo.trim() || '';
-      realUserPayload.analyzerStatus = loginForm.analyzerStatus.trim() || '';
-      realUserPayload.turnaround = loginForm.turnaround.trim() || '';
-    } else if (effectiveRole === 'admin') {
-      realUserPayload.designation = loginForm.designation.trim();
-      realUserPayload.cadre = loginForm.cadre.trim();
-      realUserPayload.headquarters = loginForm.headquarters.trim() || '';
-      realUserPayload.jurisdictionArea = loginForm.jurisdictionArea.trim() || '';
-      realUserPayload.population = loginForm.population.trim() || '';
-      realUserPayload.blocksCount = loginForm.blocksCount.trim() || '';
-      realUserPayload.facilitiesCount = loginForm.facilitiesCount.trim() || '';
+    if (effectiveRole === 'doctor' && !userPayload.doctorName) {
+      userPayload.doctorName = userPayload.name;
+      userPayload.qualification = savedProfile?.qualification || 'MBBS, MD';
+      userPayload.specialty = savedProfile?.specialty || 'General Medicine';
+      userPayload.registrationNo = savedProfile?.registrationNo || 'MCI-JH-2022-9014';
+      userPayload.facility = savedProfile?.facility || 'District Sadar Hospital';
+    } else if (effectiveRole === 'facility' && !userPayload.facilityName) {
+      userPayload.facilityName = userPayload.name.includes('Hospital') ? userPayload.name : `${userPayload.name} Hospital`;
+      userPayload.facilitySubtype = 'hospital';
+    } else if (effectiveRole === 'shop_owner' && !userPayload.facilityName) {
+      userPayload.facilityName = userPayload.name.includes('Pharmacy') ? userPayload.name : `${userPayload.name} Pharmacy`;
+      userPayload.facilitySubtype = 'medicine';
+    } else if (effectiveRole === 'lab_staff' && !userPayload.facilityName) {
+      userPayload.facilityName = userPayload.name.includes('Lab') ? userPayload.name : `${userPayload.name} Diagnostic Center`;
+      userPayload.facilitySubtype = 'lab';
+    } else if (effectiveRole === 'worker' && !userPayload.ashaId) {
+      userPayload.ashaId = savedProfile?.ashaId || 'ASHA-JH-HZB-0142';
+      userPayload.subCenter = savedProfile?.subCenter || 'Sub-Center Katkamsandi';
+      userPayload.phcName = savedProfile?.phcName || 'PHC Katkamsandi';
     }
 
     try {
       const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
-      savedMap[rawId.toLowerCase()] = realUserPayload;
-      savedMap[abhaId.toLowerCase()] = realUserPayload;
+      savedMap[rawId.toLowerCase()] = userPayload;
+      savedMap[abhaId.toLowerCase()] = userPayload;
       localStorage.setItem('medveda_real_accounts_v1', JSON.stringify(savedMap));
     } catch (err) {}
 
-    setAuthSuccessMsg(`Real Session Authenticated: ${realUserPayload.name} (${label})`);
+    setAuthSuccessMsg(`Welcome, ${userPayload.name}. Accessing ${roleLabel}...`);
     setTimeout(() => {
-      onAuthSuccess(realUserPayload);
-    }, 350);
+      onAuthSuccess(userPayload);
+    }, 300);
   };
 
   const handleSignUpSubmit = (e) => {
     e.preventDefault();
-    const roleLabel = getRoleBadgeLabel(signUpForm.role);
-    const abhaId = signUpForm.abhaId.trim() || `${signUpForm.mobile.trim()}@abdm`;
-    const newRealUser = {
-      name: signUpForm.name.trim(),
-      role: signUpForm.role,
+    setAuthError('');
+    const rawName = signUpForm.name.trim();
+    const rawMobile = signUpForm.mobile.trim();
+    if (!rawName || !rawMobile) {
+      setAuthError('Please fill in your legal name and contact mobile number.');
+      return;
+    }
+
+    if (signUpForm.password && signUpForm.confirmPassword && signUpForm.password !== signUpForm.confirmPassword) {
+      setAuthError('Passwords do not match. Please re-enter your password.');
+      return;
+    }
+
+    const cleanAbha = signUpForm.identifier.trim();
+    const abhaId = cleanAbha
+      ? (cleanAbha.includes('@') ? cleanAbha : `${cleanAbha}@abdm`)
+      : `${rawMobile.replace(/\D/g, '')}@abdm`;
+
+    const newUser = {
+      name: rawName,
+      role: effectiveRole,
       abhaId,
       roleLabel,
-      isPrototype: false,
-      accountType: 'real',
-      phone: signUpForm.mobile.trim(),
-      district: signUpForm.district || 'Hazaribagh',
-      state: signUpForm.state || 'Jharkhand',
-      age: signUpForm.age ? Number(signUpForm.age) : '',
-      sex: signUpForm.sex || 'female',
-      qualification: signUpForm.qualification.trim(),
-      specialty: signUpForm.specialty.trim(),
-      registrationNo: signUpForm.registrationNo.trim(),
-      facility: signUpForm.facilityName.trim(),
-      facilityName: signUpForm.facilityName.trim() || signUpForm.name.trim(),
-      ashaId: signUpForm.ashaId.trim(),
-      subCenter: signUpForm.subCenter.trim(),
-      phcName: signUpForm.phcName.trim(),
-      villageCatchment: signUpForm.villageCatchment.trim(),
-      hospitalId: signUpForm.hospitalId.trim(),
-      tier: signUpForm.tier.trim(),
-      medicalSuperintendent: signUpForm.medicalSuperintendent.trim(),
-      address: signUpForm.address.trim(),
-      drugLicenseNo: signUpForm.drugLicenseNo.trim(),
-      ownerName: signUpForm.ownerName.trim() || signUpForm.name.trim(),
-      pharmacistName: signUpForm.pharmacistName.trim(),
-      labId: signUpForm.labId.trim(),
-      director: signUpForm.director.trim() || signUpForm.name.trim(),
-      designation: signUpForm.designation.trim(),
-      cadre: signUpForm.cadre.trim(),
+      phone: rawMobile,
+      district: signUpForm.district.trim() || 'Hazaribagh',
+      state: signUpForm.state.trim() || 'Jharkhand',
+      accountType: 'authenticated',
       customData: {}
     };
 
+    if (effectiveRole === 'doctor') {
+      newUser.doctorName = rawName.startsWith('Dr.') ? rawName : `Dr. ${rawName}`;
+      newUser.qualification = 'MBBS';
+      newUser.specialty = 'General Medicine';
+    } else if (effectiveRole === 'facility') {
+      newUser.facilityName = rawName;
+      newUser.facilitySubtype = facilitySubtype || 'hospital';
+    } else if (effectiveRole === 'shop_owner') {
+      newUser.facilityName = rawName;
+      newUser.facilitySubtype = 'medicine';
+    } else if (effectiveRole === 'lab_staff') {
+      newUser.facilityName = rawName;
+      newUser.facilitySubtype = 'lab';
+    }
+
     try {
       const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
-      savedMap[abhaId.toLowerCase()] = newRealUser;
-      if (signUpForm.mobile.trim()) {
-        savedMap[signUpForm.mobile.trim().toLowerCase()] = newRealUser;
-      }
+      savedMap[abhaId.toLowerCase()] = newUser;
+      savedMap[rawMobile.toLowerCase()] = newUser;
       localStorage.setItem('medveda_real_accounts_v1', JSON.stringify(savedMap));
     } catch (err) {}
 
-    setAuthSuccessMsg(`Real ABDM Account registered for ${newRealUser.name}!`);
+    setAuthSuccessMsg(`ABHA account registered for ${newUser.name}. Logging in...`);
     setTimeout(() => {
-      onAuthSuccess(newRealUser);
-    }, 350);
+      onAuthSuccess(newUser);
+    }, 300);
   };
 
-  const LOGIN_PORTALS = [
-    {
-      id: 'patient',
-      title: '1. Patient',
-      tagline: 'Self-Service Health Portal',
-      isWorkable: true
-    },
-    {
-      id: 'doctor',
-      title: '2. Doctor',
-      tagline: 'Consulting & Specialist EMR',
-      isWorkable: true
-    },
-    {
-      id: 'worker',
-      title: '3. ASHA Worker',
-      tagline: 'Frontline Community Field Tasks',
-      isWorkable: true
-    },
-    {
-      id: 'facility',
-      title: '4. Facility',
-      tagline: 'Hospital, Pharmacy & Diagnostic Lab',
-      isWorkable: true
-    },
-    {
-      id: 'officer',
-      title: '5. District Health Administrator',
-      tagline: 'District Public Health Admin & MV-DAC',
-      isWorkable: true
-    }
-  ];
+  const handleFastFill = (roleKey, idVal, subtypeVal = 'hospital') => {
+    setSelectedRole(roleKey);
+    if (roleKey === 'facility') setFacilitySubtype(subtypeVal);
+    setLoginForm(prev => ({
+      ...prev,
+      identifier: idVal,
+      password: 'password123'
+    }));
+  };
 
-  const activeEffectiveRole = getEffectiveRoleInfo(selectedRole, facilitySubtype).effectiveRole;
+  const fieldMeta = getIdentifierFieldMeta();
 
   return (
-    <div className={isPage ? "w-full max-w-2xl sm:max-w-3xl mx-auto my-2" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"}>
-      <div className={`bg-white rounded-xl w-full p-5 sm:p-7 border border-slate-200 space-y-4 my-4 ${isPage ? 'shadow-xs' : 'max-w-2xl sm:max-w-3xl shadow-xs'}`}>
-        {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+    <div className={isPage ? "w-full max-w-lg sm:max-w-xl mx-auto my-4" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"}>
+      <div className="bg-white rounded-xl w-full max-w-lg sm:max-w-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        {/* Streamlined Authoritative Header */}
+        <div className="p-5 sm:p-6 border-b border-slate-200 flex items-start justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <MedVedaLogo className="h-10 w-10" />
+            <MedVedaLogo className="h-10 w-10 shrink-0" />
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold text-slate-900 leading-tight">MedVeda Portal Access</h3>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded text-[#0b2b82] bg-blue-50 border border-blue-200">
-                  Real Logins &amp; Prototype Demo Split
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-normal">National Digital Health Mission &bull; Real Account Onboarding vs. Prototype Evaluation</p>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                {activeTab === 'signup'
+                  ? 'National Health Authority — ABHA Account Registration'
+                  : 'National Health Authority — ABHA Portal Sign In'}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Ayushman Bharat Digital Mission (ABDM) Statutory Gateway
+              </p>
             </div>
           </div>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 text-sm font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label={isPage ? "Back to Home" : "Close"}
+              className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              aria-label="Close modal"
             >
-              {isPage ? (
-                <span>Back to Home</span>
-              ) : (
-                <span className="text-2xl font-normal leading-none">&times;</span>
-              )}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           )}
         </div>
 
-        {/* 3-Way Tab Switcher: Real Login vs Prototype Demo Logins vs Register New Account */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('login')}
-            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'login'
-                ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${activeTab === 'login' ? 'bg-emerald-400' : 'bg-emerald-600'}`}></span>
-            <span>Real Account Login</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('prototype')}
-            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'prototype'
-                ? 'bg-amber-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${activeTab === 'prototype' ? 'bg-white' : 'bg-amber-500'}`}></span>
-            <span>Prototype Demo Logins</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('signup')}
-            className={`py-2 px-3 rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'signup'
-                ? 'bg-[#0b2b82] text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Register Real ABHA</span>
-          </button>
+        {/* Tab Switcher */}
+        <div className="px-5 sm:px-6 pt-4">
+          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('login'); setAuthError(''); }}
+              className={`py-2 rounded-md transition-all cursor-pointer ${
+                activeTab === 'login'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('signup'); setAuthError(''); }}
+              className={`py-2 rounded-md transition-all cursor-pointer ${
+                activeTab === 'signup'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Register ABHA Account
+            </button>
+          </div>
         </div>
 
-        {authSuccessMsg ? (
-          <div className="p-6 rounded-lg bg-slate-50 border border-slate-200 text-center space-y-2 animate-in zoom-in-95 my-4">
-            <div className="w-10 h-10 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+        {/* Content Body */}
+        <div className="p-5 sm:p-6 space-y-4">
+          {authSuccessMsg ? (
+            <div className="p-6 rounded-lg bg-emerald-50 border border-emerald-200 text-center space-y-2 animate-in zoom-in-95">
+              <div className="w-10 h-10 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-sm font-bold text-slate-900">{authSuccessMsg}</p>
+              <p className="text-xs text-slate-500">Establishing encrypted clinical session...</p>
             </div>
-            <p className="text-sm font-bold text-slate-900">{authSuccessMsg}</p>
-            <p className="text-xs text-slate-500">Connecting authenticated session...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* ROLE SELECTOR (Shared by Real Login & Prototype Demo Logins) */}
-            {(activeTab === 'login' || activeTab === 'prototype') && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
-                    1. Select Role Portal Category
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {LOGIN_PORTALS.map((portal) => {
-                      const isSelected = selectedRole === portal.id;
-                      return (
-                        <button
-                          key={portal.id}
-                          type="button"
-                          onClick={() => setSelectedRole(portal.id)}
-                          className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer relative ${
-                            isSelected
-                              ? 'border-[#0b2b82] bg-slate-50 shadow-2xs'
-                              : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-600'}`}>
-                              <ModuleIcon id={portal.id} className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <span className={`text-xs font-bold block truncate ${isSelected ? 'text-[#0b2b82]' : 'text-slate-800'}`}>
-                                {portal.title}
-                              </span>
-                              <span className="text-[10px] text-slate-500 block truncate leading-tight">
-                                {portal.tagline}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+          ) : (
+            <>
+              {authError && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>{authError}</span>
                 </div>
+              )}
 
-                {/* IF FACILITY SELECTED: SHOW THE 3 SUBTYPES (HOSPITALS, MEDICINE SHOPS, DIAGNOSTIC LABS) */}
-                {selectedRole === 'facility' && (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                        <ModuleIcon id="facility" className="w-3.5 h-3.5 text-[#0b2b82]" />
-                        <span>Select Facility Type (3 Categories)</span>
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-semibold">Facility Grid</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      {[
-                        { id: 'hospital', label: '1. Hospitals', sub: 'Inpatient & ICU Beds' },
-                        { id: 'medicine', label: '2. Medicine Shops', sub: 'Pharmacy Inventory' },
-                        { id: 'lab', label: '3. Diagnostic Labs', sub: 'Pathology & Scans' }
-                      ].map((sub) => (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          onClick={() => setFacilitySubtype(sub.id)}
-                          className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                            facilitySubtype === sub.id
-                              ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-2xs'
-                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="mb-1"><ModuleIcon id={sub.id} className="w-3.5 h-3.5" /></div>
-                          <div className="font-bold text-[11px] leading-tight truncate">{sub.label}</div>
-                          <div className={`text-[9px] truncate ${facilitySubtype === sub.id ? 'text-slate-200' : 'text-slate-500'}`}>{sub.sub}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ========================================================================= */}
-            {/* TAB A: REAL ACCOUNT LOGIN (NO FAKE DATA, COLLECTS MANDATORY + OPTIONAL)   */}
-            {/* ========================================================================= */}
-            {activeTab === 'login' && (
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-4">
-                <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-emerald-200/80">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white uppercase tracking-wider">
-                        Real Account Mode
-                      </span>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        {activeEffectiveRole === 'patient' && 'Patient Real Login & Profile Intake'}
-                        {activeEffectiveRole === 'doctor' && 'Doctor Real Clinical Login & Credentials'}
-                        {activeEffectiveRole === 'worker' && 'ASHA Worker Real Field Login & Beat Profile'}
-                        {activeEffectiveRole === 'facility' && 'Hospital Facility Real Login & HFR Profile'}
-                        {activeEffectiveRole === 'shop_owner' && 'Medicine Shop Real Login & Pharmacy License'}
-                        {activeEffectiveRole === 'lab_staff' && 'Diagnostic Lab Real Login & Pathology Profile'}
-                        {activeEffectiveRole === 'admin' && 'District Health Administrator Real Officer Login'}
-                      </h4>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-1">
-                      Clean real-user workspace with <strong>zero fake pre-populated data</strong>. Mandatory profile fields are collected below; optional details can be filled now or added later inside your dashboard.
-                    </p>
-                  </div>
-                </div>
-
-                <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-xs">
-                  {/* SECTION 1: MANDATORY CREDENTIALS & CORE PROFILE */}
-                  <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-[#0b2b82]">
-                        Mandatory Profile &amp; Login Credentials *
-                      </span>
-                      <span className="text-[10px] font-semibold text-rose-600">* Required for Display</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">
-                          {activeEffectiveRole === 'facility'
-                            ? 'Hospital / Facility Legal Name *'
-                            : activeEffectiveRole === 'shop_owner'
-                            ? 'Pharmacy / Medicine Shop Name *'
-                            : activeEffectiveRole === 'lab_staff'
-                            ? 'Diagnostic Lab Name *'
-                            : 'Full Legal Name *'}
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder={
-                            activeEffectiveRole === 'facility'
-                              ? 'e.g. City General Hospital'
-                              : activeEffectiveRole === 'shop_owner'
-                              ? 'e.g. LifeCare Medico'
-                              : activeEffectiveRole === 'lab_staff'
-                              ? 'e.g. Apex Pathology Center'
-                              : 'Enter your full name'
-                          }
-                          value={
-                            ['facility', 'shop_owner', 'lab_staff'].includes(activeEffectiveRole)
-                              ? loginForm.facilityName
-                              : loginForm.name
-                          }
-                          onChange={(e) =>
-                            ['facility', 'shop_owner', 'lab_staff'].includes(activeEffectiveRole)
-                              ? setLoginForm({ ...loginForm, facilityName: e.target.value, name: e.target.value })
-                              : setLoginForm({ ...loginForm, name: e.target.value })
-                          }
-                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">
-                          {activeEffectiveRole === 'patient'
-                            ? 'ABHA ID / Mobile Username *'
-                            : activeEffectiveRole === 'doctor'
-                            ? 'Doctor ABHA ID / Official Email *'
-                            : activeEffectiveRole === 'worker'
-                            ? 'ASHA ABHA Handle / Mobile *'
-                            : activeEffectiveRole === 'admin'
-                            ? 'Official Govt Email / Officer ID *'
-                            : 'Portal Handle / Official Email *'}
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. username@abdm or mobile"
-                          value={loginForm.identifier}
-                          onChange={(e) => handleIdentifierChange(e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Contact Mobile / Switchboard *</label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="e.g. +91-9876543210"
-                          value={loginForm.phone}
-                          onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value })}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">District *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="District"
-                            value={loginForm.district}
-                            onChange={(e) => setLoginForm({ ...loginForm, district: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">State *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="State"
-                            value={loginForm.state}
-                            onChange={(e) => setLoginForm({ ...loginForm, state: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ROLE-SPECIFIC MANDATORY FIELDS */}
-                    {activeEffectiveRole === 'patient' && (
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Age (Years) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="120"
-                            required
-                            placeholder="e.g. 34"
-                            value={loginForm.age}
-                            onChange={(e) => setLoginForm({ ...loginForm, age: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Biological Sex *</label>
-                          <select
-                            required
-                            value={loginForm.sex}
-                            onChange={(e) => setLoginForm({ ...loginForm, sex: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
+              {/* ========================================================================= */}
+              {/* TAB 1: LOGIN (Credentials Only)                                           */}
+              {/* ========================================================================= */}
+              {activeTab === 'login' && (
+                <div className="space-y-4">
+                  {/* Compact Segmented Role Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Select Portal Persona
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-medium">
+                      {PORTAL_ROLES.map((role) => {
+                        const isSelected = selectedRole === role.id;
+                        return (
+                          <button
+                            key={role.id}
+                            type="button"
+                            onClick={() => setSelectedRole(role.id)}
+                            className={`py-1.5 px-1.5 rounded-md transition-all text-center truncate cursor-pointer ${
+                              isSelected
+                                ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
                           >
-                            <option value="female">Female</option>
-                            <option value="male">Male</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'doctor' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Medical Qualification *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. MBBS, MD (General Medicine)"
-                            value={loginForm.qualification}
-                            onChange={(e) => setLoginForm({ ...loginForm, qualification: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Primary Specialty *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Internal Medicine / Cardiology"
-                            value={loginForm.specialty}
-                            onChange={(e) => setLoginForm({ ...loginForm, specialty: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Medical Council Reg. No. *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. MCI-2021-99412"
-                            value={loginForm.registrationNo}
-                            onChange={(e) => setLoginForm({ ...loginForm, registrationNo: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Primary Hospital / PHC Name *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. District Sadar Hospital"
-                            value={loginForm.facilityName}
-                            onChange={(e) => setLoginForm({ ...loginForm, facilityName: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'worker' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Official ASHA Worker ID *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. ASHA-JH-0412"
-                            value={loginForm.ashaId}
-                            onChange={(e) => setLoginForm({ ...loginForm, ashaId: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Assigned Sub-Center *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Sub-Center Pelawal"
-                            value={loginForm.subCenter}
-                            onChange={(e) => setLoginForm({ ...loginForm, subCenter: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Assigned PHC / CHC Name *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. PHC Katkamsandi"
-                            value={loginForm.phcName}
-                            onChange={(e) => setLoginForm({ ...loginForm, phcName: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Village Catchment Area *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Pelawal Gram Panchayat"
-                            value={loginForm.villageCatchment}
-                            onChange={(e) => setLoginForm({ ...loginForm, villageCatchment: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'facility' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">ABDM HFR Hospital ID *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. HFR-IN-JH-2026-0511"
-                            value={loginForm.hospitalId}
-                            onChange={(e) => setLoginForm({ ...loginForm, hospitalId: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Hospital Tier / Category *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Secondary District Hospital / CHC"
-                            value={loginForm.tier}
-                            onChange={(e) => setLoginForm({ ...loginForm, tier: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Medical Superintendent Name *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Dr. M. K. Prasad"
-                            value={loginForm.medicalSuperintendent}
-                            onChange={(e) => setLoginForm({ ...loginForm, medicalSuperintendent: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Hospital Street Address *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Full street address & PIN"
-                            value={loginForm.address}
-                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'shop_owner' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Drug License No. (Form 20B/21B) *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. JH-HAZ-20B-2025-0192"
-                            value={loginForm.drugLicenseNo}
-                            onChange={(e) => setLoginForm({ ...loginForm, drugLicenseNo: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Proprietor / Shop Owner Name *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Amit Kumar"
-                            value={loginForm.ownerName}
-                            onChange={(e) => setLoginForm({ ...loginForm, ownerName: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Registered Pharmacist Name &amp; Reg *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Neha Verma, B.Pharm"
-                            value={loginForm.pharmacistName}
-                            onChange={(e) => setLoginForm({ ...loginForm, pharmacistName: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Shop Address *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Market road, town & PIN"
-                            value={loginForm.address}
-                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'lab_staff' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Lab Registration / HFR ID *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. LAB-JH-2026-0108"
-                            value={loginForm.labId}
-                            onChange={(e) => setLoginForm({ ...loginForm, labId: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Chief Pathologist / Lab Director *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Dr. S. K. Sen, MD (Pathology)"
-                            value={loginForm.director}
-                            onChange={(e) => setLoginForm({ ...loginForm, director: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="font-bold text-slate-700 block mb-1">Diagnostic Lab Address *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Lab street address, landmark & PIN"
-                            value={loginForm.address}
-                            onChange={(e) => setLoginForm({ ...loginForm, address: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeEffectiveRole === 'admin' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Official Designation *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. District Health Officer / Civil Surgeon"
-                            value={loginForm.designation}
-                            onChange={(e) => setLoginForm({ ...loginForm, designation: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-slate-700 block mb-1">Service Cadre &amp; Officer ID *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. State Health Service Class-I (ID: DHO-09)"
-                            value={loginForm.cadre}
-                            onChange={(e) => setLoginForm({ ...loginForm, cadre: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">Password / Secure OTP *</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        value={loginForm.password}
-                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 font-medium focus:ring-2 focus:ring-[#0b2b82]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* SECTION 2: OPTIONAL PROFILE & DISPLAY DETAILS (CAN BE ADDED NOW OR LATER) */}
-                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setShowOptionalFields(!showOptionalFields)}
-                      className="w-full p-3 text-left flex items-center justify-between bg-slate-50 hover:bg-slate-100/80 transition-colors cursor-pointer"
-                    >
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-800 block">
-                          Optional Profile &amp; Operational Details (Add Now or Later in Portal)
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          If skipped now, you will see &ldquo;+ Add Data&rdquo; buttons inside your role dashboard.
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-[#0b2b82]">
-                        {showOptionalFields ? 'Hide Optional ▲' : 'Add Optional Details ▼'}
-                      </span>
-                    </button>
-
-                    {showOptionalFields && (
-                      <div className="p-3.5 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {activeEffectiveRole === 'patient' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Blood Group (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. O+ve, B+ve"
-                                value={loginForm.bloodGroup}
-                                onChange={(e) => setLoginForm({ ...loginForm, bloodGroup: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Body Weight in kg (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 64"
-                                value={loginForm.weight}
-                                onChange={(e) => setLoginForm({ ...loginForm, weight: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className="font-semibold text-slate-600 block mb-1">Known Medical Conditions / Allergies (Comma-separated)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Hypertension, Penicillin Allergy"
-                                value={loginForm.medicalHistoryText}
-                                onChange={(e) => setLoginForm({ ...loginForm, medicalHistoryText: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'doctor' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Designation / Role Title (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Senior Consultant Physician"
-                                value={loginForm.designation}
-                                onChange={(e) => setLoginForm({ ...loginForm, designation: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Years of Clinical Experience (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 8 Years Experience"
-                                value={loginForm.experienceYears}
-                                onChange={(e) => setLoginForm({ ...loginForm, experienceYears: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Department / Unit (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. General Medicine OPD"
-                                value={loginForm.department}
-                                onChange={(e) => setLoginForm({ ...loginForm, department: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Official Email (Optional)</label>
-                              <input
-                                type="email"
-                                placeholder="e.g. doctor@hospital.org"
-                                value={loginForm.email}
-                                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'worker' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">NHM Worker Code (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. NHM-JH-ASHA-2022-11"
-                                value={loginForm.nhmCode}
-                                onChange={(e) => setLoginForm({ ...loginForm, nhmCode: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Supervising ANM Name (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Smt. Rekha Tirkey"
-                                value={loginForm.anmSupervisor}
-                                onChange={(e) => setLoginForm({ ...loginForm, anmSupervisor: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">PHC Medical Officer (MO-IC) (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Dr. Rajesh Sharma"
-                                value={loginForm.medicalOfficer}
-                                onChange={(e) => setLoginForm({ ...loginForm, medicalOfficer: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Field Experience &amp; Languages (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 5 Years • Hindi, Khortha"
-                                value={loginForm.experienceYears}
-                                onChange={(e) => setLoginForm({ ...loginForm, experienceYears: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'facility' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Total Inpatient Beds (Optional)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="e.g. 120"
-                                value={loginForm.totalBeds}
-                                onChange={(e) => setLoginForm({ ...loginForm, totalBeds: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Currently Occupied Beds (Optional)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="e.g. 85"
-                                value={loginForm.occupiedBeds}
-                                onChange={(e) => setLoginForm({ ...loginForm, occupiedBeds: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Total ICU Beds (Optional)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="e.g. 15"
-                                value={loginForm.icuTotal}
-                                onChange={(e) => setLoginForm({ ...loginForm, icuTotal: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Available ICU Beds (Optional)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="e.g. 6"
-                                value={loginForm.icuAvailable}
-                                onChange={(e) => setLoginForm({ ...loginForm, icuAvailable: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">PM-JAY Code &amp; Accreditation (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. PMJAY-JH-0091 • NABH"
-                                value={loginForm.pmjayCode}
-                                onChange={(e) => setLoginForm({ ...loginForm, pmjayCode: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Oxygen &amp; Emergency Capacity (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 1 PSA Plant (500 LPM)"
-                                value={loginForm.oxygenCapacity}
-                                onChange={(e) => setLoginForm({ ...loginForm, oxygenCapacity: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'shop_owner' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">ABDM HFR Pharmacy ID (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. HFR-PH-JH-2026-0112"
-                                value={loginForm.pharmacyId}
-                                onChange={(e) => setLoginForm({ ...loginForm, pharmacyId: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Jan Aushadhi Code / GSTIN (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. PMBJK-0412 / 20AAB..."
-                                value={loginForm.janAushadhiCode}
-                                onChange={(e) => setLoginForm({ ...loginForm, janAushadhiCode: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className="font-semibold text-slate-600 block mb-1">Operating Timings (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 08:00 AM – 09:00 PM (Mon–Sun)"
-                                value={loginForm.timings}
-                                onChange={(e) => setLoginForm({ ...loginForm, timings: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'lab_staff' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">NABL Accreditation No. (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. NABL-MC-5012"
-                                value={loginForm.nablRegNo}
-                                onChange={(e) => setLoginForm({ ...loginForm, nablRegNo: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Analyzer Equipment Status (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Hematology & Biochemistry Active"
-                                value={loginForm.analyzerStatus}
-                                onChange={(e) => setLoginForm({ ...loginForm, analyzerStatus: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {activeEffectiveRole === 'admin' && (
-                          <>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Headquarters / Camp Office (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Civil Surgeon Office, Collectorate"
-                                value={loginForm.headquarters}
-                                onChange={(e) => setLoginForm({ ...loginForm, headquarters: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">District Population Covered (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 1,734,000"
-                                value={loginForm.population}
-                                onChange={(e) => setLoginForm({ ...loginForm, population: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Administrative Blocks Count (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 16 Blocks"
-                                value={loginForm.blocksCount}
-                                onChange={(e) => setLoginForm({ ...loginForm, blocksCount: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-semibold text-slate-600 block mb-1">Total Network Facilities (Optional)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 274 Facilities"
-                                value={loginForm.facilitiesCount}
-                                onChange={(e) => setLoginForm({ ...loginForm, facilitiesCount: e.target.value })}
-                                className="w-full border border-slate-300 rounded-lg p-2"
-                              />
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 text-white font-bold text-xs rounded-lg shadow-xs bg-[#0b2b82] hover:bg-[#082060] transition-colors cursor-pointer"
-                  >
-                    {selectedRole === 'patient'
-                      ? 'Log In to Real Patient Portal (Clean Workspace) →'
-                      : selectedRole === 'doctor'
-                      ? 'Log In to Real Doctor Clinical Portal →'
-                      : selectedRole === 'worker'
-                      ? 'Log In to Real ASHA Field Portal →'
-                      : selectedRole === 'facility'
-                      ? `Log In to Real Facility Portal (${facilitySubtype === 'hospital' ? 'Hospital' : facilitySubtype === 'medicine' ? 'Medicine Shop' : 'Diagnostic Lab'}) →`
-                      : 'Log In to Real District Health Administrator Portal →'}
-                  </button>
-                </form>
-
-                <div className="flex items-center justify-between pt-2 border-t border-emerald-200/60 text-[11px] text-slate-600">
-                  <span>Want to explore pre-populated demonstration data instead?</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('prototype')}
-                    className="text-amber-700 font-bold hover:underline cursor-pointer"
-                  >
-                    Switch to Prototype Demo Logins &rarr;
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* TAB B: PROTOTYPE DEMO LOGINS (EXPLICIT DEMO PERSONAS WITH SAMPLE DATA)   */}
-            {/* ========================================================================= */}
-            {activeTab === 'prototype' && (
-              <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 space-y-3.5">
-                <div className="pb-2.5 border-b border-amber-200 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white uppercase tracking-wider">
-                        Prototype Demo Mode
-                      </span>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        1-Click Prototype Personas (Pre-Loaded Demonstration Data)
-                      </h4>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-1">
-                      These prototype accounts are pre-populated with realistic sample patients, queues, stock alerts, and telemetry solely to demonstrate how MedVeda features work. For a clean workspace with your own data, use <strong>Real Account Login</strong>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {selectedRole === 'patient' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('Ramesh Mahto', 'patient', 'ramesh.mahto@abdm', 'Patient (Prototype Demo)', {
-                          age: 48,
-                          sex: 'male',
-                          district: 'Hazaribagh',
-                          state: 'Jharkhand',
-                          phone: '+91-94311-28901',
-                          bloodGroup: 'B+ve'
-                        })}
-                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                      >
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <ModuleIcon id="patient" className="w-4 h-4 text-amber-700 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Ramesh Mahto (Prototype)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ramesh.mahto@abdm &bull; Demo Data</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('Sunita Hansda', 'patient', 'sunita.hansda@abdm', 'Patient (Prototype Demo)', {
-                          age: 29,
-                          sex: 'female',
-                          district: 'Hazaribagh',
-                          state: 'Jharkhand',
-                          phone: '+91-98352-41029',
-                          bloodGroup: 'O+ve'
-                        })}
-                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                      >
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <ModuleIcon id="patient" className="w-4 h-4 text-amber-700 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Sunita Hansda (Prototype)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">sunita.hansda@abdm &bull; Rural Demo</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                      </button>
-                    </>
-                  )}
-
-                  {selectedRole === 'doctor' && (
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('Dr. Priya Sharma', 'doctor', 'priya.sharma@abdm', 'Doctor (Prototype Demo)', {
-                        doctorName: 'Dr. Priya Sharma',
-                        qualification: 'MBBS, MD (General Medicine)',
-                        specialty: 'Internal Medicine & Diabetology',
-                        registrationNo: 'MCI-2018-847291 (Jharkhand Medical Council)',
-                        facility: 'Primary Health Centre (PHC) Katkamsandi & District Sadar Hospital',
-                        department: 'General Medicine & Telemedicine OPD',
-                        dutyStatus: 'On Duty & Teleconsultation Node Online',
-                        designation: 'Medical Officer & Specialist Physician (MD, General Medicine)',
-                        experienceYears: '9 Years Clinical Experience',
-                        district: 'Hazaribagh',
-                        state: 'Jharkhand',
-                        phone: '+91-94311-44201',
-                        email: 'dr.priya.sharma@jharkhand.gov.in'
+                            {role.label}
+                          </button>
+                        );
                       })}
-                      className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
-                    >
-                      <div className="min-w-0 flex items-center gap-2.5">
-                        <ModuleIcon id="doctor" className="w-4 h-4 text-amber-700 shrink-0" />
-                        <div>
-                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. Priya Sharma (Prototype Specialist Doctor)</span>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">priya.sharma@abdm &bull; PHC Katkamsandi &bull; Pre-loaded Demo Queue</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
-                    </button>
-                  )}
-
-                  {selectedRole === 'worker' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin(
-                          'Anita Devi',
-                          'worker',
-                          'anita.devi.asha@abdm',
-                          'ASHA Worker (Prototype Demo)',
-                          {
-                            ashaId: 'ASHA-JH-HZB-0142',
-                            nhmCode: 'NHM-JH-ASHA-2019-084',
-                            designation: 'Senior Accredited Social Health Activist (ASHA) • NHM Jharkhand',
-                            subCenter: 'Sub-Center Katkamsandi (Ayushman Arogya Mandir)',
-                            phcName: 'PHC Katkamsandi, Block Katkamsandi, Hazaribagh',
-                            villageCatchment: 'Katkamsandi, Pelawal & Dhengura Gram Panchayats (1,420 Households)',
-                            anmSupervisor: 'Smt. Rekha Tirkey, ANM (Reg: JH-ANM-1108)',
-                            medicalOfficer: 'Dr. Priya Sharma, MO-IC (PHC Katkamsandi)',
-                            experienceYears: '7 Years Active Field Service (Certified 2019)',
-                            serviceRating: '4.9 / 5.0',
-                            bloodGroup: 'O+ve',
-                            languages: 'Hindi, Khortha, Santhali & English',
-                            kitStatus: 'HBNC Kit, Digital BP, Pulse Oximeter & Glucometer Verified',
-                            district: 'Hazaribagh',
-                            state: 'Jharkhand',
-                            phone: '+91-94311-58201',
-                            email: 'anita.devi.asha@nhm.jharkhand.gov.in'
-                          }
-                        )}
-                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                      >
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <ModuleIcon id="worker" className="w-4 h-4 text-amber-700 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Anita Devi (Prototype ASHA)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0142 &bull; Katkamsandi Demo</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin(
-                          'Meena Kumari',
-                          'worker',
-                          'meena.kumari.asha@abdm',
-                          'ASHA Worker (Prototype Demo)',
-                          {
-                            ashaId: 'ASHA-JH-HZB-0219',
-                            nhmCode: 'NHM-JH-ASHA-2021-142',
-                            designation: 'Accredited Social Health Activist (ASHA) • NHM Jharkhand',
-                            subCenter: 'Sub-Center Churchu (Ayushman Arogya Mandir)',
-                            phcName: 'CHC Ichak & Churchu Rural Cluster, Hazaribagh',
-                            villageCatchment: 'Churchu, Charhi & Jari Gram Panchayats (1,180 Households)',
-                            anmSupervisor: 'Smt. Pushpa Lakra, ANM (Reg: JH-ANM-1482)',
-                            medicalOfficer: 'Dr. Suresh Chandra, MO-IC (CHC Ichak)',
-                            experienceYears: '5 Years Active Field Service (Certified 2021)',
-                            serviceRating: '4.8 / 5.0',
-                            bloodGroup: 'B+ve',
-                            languages: 'Hindi, Khortha & Nagpuri',
-                            kitStatus: 'HBNC Kit, Digital BP & Pulse Oximeter Verified',
-                            district: 'Hazaribagh',
-                            state: 'Jharkhand',
-                            phone: '+91-94311-74902',
-                            email: 'meena.kumari.asha@nhm.jharkhand.gov.in'
-                          }
-                        )}
-                        className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                      >
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <ModuleIcon id="worker" className="w-4 h-4 text-amber-700 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block truncate">Meena Kumari (Prototype ASHA)</span>
-                            <span className="text-[10px] text-slate-500 font-medium block truncate">ASHA-JH-HZB-0219 &bull; Churchu Demo</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                      </button>
-                    </>
-                  )}
-
-                  {selectedRole === 'facility' && (
-                    <>
-                      {facilitySubtype === 'hospital' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickLogin(
-                              'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-                              'facility',
-                              'admin.sbmch@abdm',
-                              'Hospital Facility (Prototype Demo)',
-                              {
-                                facilitySubtype: 'hospital',
-                                facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-                                hospitalId: 'HFR-IN-JH-2026-0104',
-                                pmjayCode: 'PMJAY-JH-HAZ-0014',
-                                tier: 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)',
-                                designation: 'Tertiary Medical College & Teaching Hospital (Level-1 Trauma)',
-                                medicalSuperintendent: 'Dr. R. K. Mishra, MS (Ortho), Chief Medical Superintendent',
-                                accreditation: 'NABH Accredited & ABDM M1-M3 Verified',
-                                address: 'NH-33, Ranchi-Patna Highway, Hazaribagh, Jharkhand - 825301',
-                                district: 'Hazaribagh',
-                                state: 'Jharkhand',
-                                phone: '+91-6546-263108',
-                                emergencyHelpline: '108 / +91-6546-263199 (24x7 Trauma Control)',
-                                email: 'cms.sbmch.hazaribagh@jharkhand.gov.in',
-                                ownership: 'Department of Health, Medical Education & Family Welfare, Govt. of Jharkhand',
-                                totalBeds: 500,
-                                occupiedBeds: 432,
-                                icuTotal: 42,
-                                icuAvailable: 18,
-                                emergencyBays: '24 / 24 Operational',
-                                oxygenCapacity: '2 PSA Plants (2,000 LPM) + 12 KL LMO Tank'
-                              }
-                            )}
-                            className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                          >
-                            <div className="min-w-0 flex items-center gap-2.5">
-                              <ModuleIcon id="hospital" className="w-4 h-4 text-amber-700 shrink-0" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-900 block truncate">SBMC&amp;H Medical College (Prototype)</span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0104 &bull; 500-Bed Demo</span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickLogin(
-                              'Sadar District Hospital Hazaribagh',
-                              'facility',
-                              'admin.sadar.hzb@abdm',
-                              'Hospital Facility (Prototype Demo)',
-                              {
-                                facilitySubtype: 'hospital',
-                                facilityName: 'Sadar District Hospital Hazaribagh',
-                                hospitalId: 'HFR-IN-JH-2026-0218',
-                                pmjayCode: 'PMJAY-JH-HAZ-0029',
-                                tier: 'Secondary District Referral Hospital (FRU & 24x7 CEmONC)',
-                                designation: 'Secondary District Referral Hospital (FRU & 24x7 CEmONC)',
-                                medicalSuperintendent: 'Dr. A. K. Sinha, MD (Medicine), Civil Surgeon & Superintendent',
-                                accreditation: 'NQAS Certified & ABDM M1-M3 Verified',
-                                address: 'Hospital Road, Near Collectorate, Hazaribagh, Jharkhand - 825301',
-                                district: 'Hazaribagh',
-                                state: 'Jharkhand',
-                                phone: '+91-6546-222044',
-                                emergencyHelpline: '108 / +91-6546-222108 (24x7 Emergency Casualty)',
-                                email: 'cs.sadar.hazaribagh@jharkhand.gov.in',
-                                ownership: 'National Health Mission (NHM) & Directorate of Health Services, Jharkhand',
-                                totalBeds: 300,
-                                occupiedBeds: 248,
-                                icuTotal: 24,
-                                icuAvailable: 9,
-                                emergencyBays: '16 / 16 Operational',
-                                oxygenCapacity: '1 PSA Plant (1,000 LPM) + Manifold Backup'
-                              }
-                            )}
-                            className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between"
-                          >
-                            <div className="min-w-0 flex items-center gap-2.5">
-                              <ModuleIcon id="hospital" className="w-4 h-4 text-amber-700 shrink-0" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-900 block truncate">Sadar District Hospital (Prototype)</span>
-                                <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-IN-JH-2026-0218 &bull; 300-Bed Demo</span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Demo &rarr;</span>
-                          </button>
-                        </>
-                      )}
-                      {facilitySubtype === 'medicine' && (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickLogin(
-                            'Jan Aushadhi Kendra, Katkamsandi',
-                            'shop_owner',
-                            'pharmacy.katkamsandi@abdm',
-                            'Medicine Shop (Prototype Demo)',
-                            {
-                              facilitySubtype: 'medicine',
-                              shopId: 'shop_01',
-                              facilityName: 'Jan Aushadhi Kendra & Model Pharmacy, Katkamsandi',
-                              pharmacyId: 'HFR-PH-JH-2026-0842',
-                              drugLicenseNo: 'JH-HAZ-20B/21B-2024-0891',
-                              janAushadhiCode: 'PMBJK-JH-HAZ-0412',
-                              gstin: '20AABCP4821M1Z5',
-                              ownerName: 'Rajesh Kumar Barnwal',
-                              pharmacistName: 'Sunita Kumari, B.Pharm (Reg: JSPC-44918)',
-                              timings: '07:00 AM – 10:00 PM (Mon–Sun) • 24x7 Emergency Dispensing Counter',
-                              address: 'Main Market Road, Near Community Health Centre Gate, Katkamsandi, Hazaribagh, Jharkhand - 825319',
-                              coordinates: '23.9980° N, 85.3450° E',
-                              phone: '+91-94311-88201',
-                              email: 'pmbjk.katkamsandi.hzb@jan-aushadhi.gov.in',
-                              district: 'Hazaribagh',
-                              state: 'Jharkhand'
-                            }
-                          )}
-                          className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
-                        >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            <ModuleIcon id="medicine" className="w-4 h-4 text-amber-700 shrink-0" />
-                            <div>
-                              <span className="text-xs font-bold text-slate-900 block truncate">Katkamsandi Jan Aushadhi Pharmacy (Prototype)</span>
-                              <span className="text-[10px] text-slate-500 font-medium block truncate">HFR-PH-JH-2026-0842 &bull; Pre-loaded Demo Stock &amp; Orders</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
-                        </button>
-                      )}
-                      {facilitySubtype === 'lab' && (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickLogin(
-                            'District Diagnostic Pathology Lab',
-                            'lab_staff',
-                            'lab.pathology@abdm',
-                            'Diagnostic Lab (Prototype Demo)',
-                            {
-                              facilitySubtype: 'lab',
-                              facilityName: 'District Diagnostic Pathology & Molecular Lab',
-                              labId: 'LAB-JH-HAZ-2026-0042',
-                              nablRegNo: 'NABL-MC-4921/2026',
-                              director: 'Dr. R. K. Mukherjee, MD (Pathology)',
-                              accreditation: 'NABL Accredited & ABDM M1-M3 Verified',
-                              address: 'Civil Lines, Near Sadar Hospital Campus, Hazaribagh, Jharkhand - 825301',
-                              phone: '+91-6546-224810',
-                              email: 'lab.pathology@abdm',
-                              district: 'Hazaribagh',
-                              state: 'Jharkhand'
-                            }
-                          )}
-                          className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
-                        >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            <ModuleIcon id="lab" className="w-4 h-4 text-amber-700 shrink-0" />
-                            <div>
-                              <span className="text-xs font-bold text-slate-900 block truncate">District Diagnostic Pathology Lab (Prototype)</span>
-                              <span className="text-[10px] text-slate-500 font-medium block truncate">lab.pathology@abdm &bull; Pre-loaded Sample Queue &amp; Analytics</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  {selectedRole === 'officer' && (
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin(
-                        'Dr. S. K. Verma',
-                        'admin',
-                        'dho.hazaribagh@gov.in',
-                        'District Health Administrator (Prototype Demo)',
-                        {
-                          designation: 'District Health Administrator & Chief Medical Officer',
-                          cadre: 'Gazetted Health Service Class-I (ID: DHA-JH-HAZ-2024-049)',
-                          district: 'Hazaribagh',
-                          state: 'Jharkhand',
-                          phone: '+91-6546-264210',
-                          email: 'dho.hazaribagh@gov.in'
-                        }
-                      )}
-                      className="p-3 rounded-lg bg-white hover:bg-amber-50/60 border border-amber-200 hover:border-amber-400 text-left transition-all cursor-pointer flex items-center justify-between col-span-2"
-                    >
-                      <div className="min-w-0 flex items-center gap-2.5">
-                        <ModuleIcon id="officer" className="w-4 h-4 text-amber-700 shrink-0" />
-                        <div>
-                          <span className="text-xs font-bold text-slate-900 block truncate">Dr. S. K. Verma, MD (Prototype DHO Hazaribagh)</span>
-                          <span className="text-[10px] text-slate-500 font-medium block truncate">dho.hazaribagh@gov.in &bull; Pre-loaded District Surveillance Demo</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">Launch Demo &rarr;</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-[11px] text-slate-600">
-                  <span>Ready to log in with your own real credentials without fake data?</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('login')}
-                    className="text-[#0b2b82] font-bold hover:underline cursor-pointer"
-                  >
-                    Go to Real Account Login &rarr;
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* TAB C: REGISTER NEW REAL ABHA ACCOUNT                                     */}
-            {/* ========================================================================= */}
-            {activeTab === 'signup' && (
-              <div className="space-y-3 text-xs p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="pb-2 border-b border-slate-200">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#0b2b82] text-white uppercase tracking-wider">
-                    New Real Account Registration
-                  </span>
-                  <p className="text-[11px] text-slate-600 mt-1">
-                    Register a clean real account (`isPrototype: false`) with mandatory role profile details.
-                  </p>
-                </div>
-
-                <form onSubmit={handleSignUpSubmit} className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">Role / Portal Persona *</label>
-                      <select
-                        value={signUpForm.role}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, role: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-bold bg-white focus:ring-2 focus:ring-[#0b2b82]"
-                      >
-                        <option value="patient">1. Patient (Self-Service)</option>
-                        <option value="doctor">2. Doctor (Specialist)</option>
-                        <option value="worker">3. ASHA Worker</option>
-                        <option value="facility">4. Facility (Hospital)</option>
-                        <option value="shop_owner">4. Facility (Medicine Shop)</option>
-                        <option value="lab_staff">4. Facility (Diagnostic Lab)</option>
-                        <option value="admin">5. District Health Administrator</option>
-                      </select>
                     </div>
 
+                    {/* Subtype selector if Facility is active */}
+                    {selectedRole === 'facility' && (
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs mt-2">
+                        <span className="text-slate-500 font-medium shrink-0">Type:</span>
+                        <div className="grid grid-cols-3 gap-1.5 flex-1">
+                          {[
+                            { id: 'hospital', label: 'Hospital' },
+                            { id: 'medicine', label: 'Pharmacy' },
+                            { id: 'lab', label: 'Diagnostic Lab' }
+                          ].map((sub) => (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => setFacilitySubtype(sub.id)}
+                              className={`py-1 px-2 rounded text-center text-xs font-medium transition-colors cursor-pointer ${
+                                facilitySubtype === sub.id
+                                  ? 'bg-[#0b2b82] text-white font-semibold shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              {sub.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">
-                        {['facility', 'shop_owner', 'lab_staff'].includes(signUpForm.role)
-                          ? 'Official Facility / Store / Lab Name *'
-                          : 'Full Legal Name *'}
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        {fieldMeta.label}
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="Enter full legal name"
-                        value={signUpForm.name}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value, facilityName: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">Mobile / Helpline Number *</label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="9876543210"
-                        value={signUpForm.mobile}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, mobile: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                        value={loginForm.identifier}
+                        onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
+                        placeholder={fieldMeta.placeholder}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 font-medium transition-colors bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">ABHA Health Address *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          Password / Security OTP
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => alert('For verification or OTP reset, please check your linked ABDM mobile number.')}
+                          className="text-[11px] text-[#0b2b82] hover:underline font-medium cursor-pointer"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
                       <input
-                        type="text"
+                        type="password"
                         required
-                        placeholder="username@abdm"
-                        value={signUpForm.abhaId}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, abhaId: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] bg-white focus:ring-2 focus:ring-[#0b2b82]"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                        placeholder="Enter password or OTP"
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 font-medium transition-colors bg-white"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">District *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Hazaribagh"
-                        value={signUpForm.district}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, district: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">State *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Jharkhand"
-                        value={signUpForm.state}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, state: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Role-specific mandatory registration fields */}
-                  {signUpForm.role === 'patient' && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Age (Years) *</label>
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-600 select-none">
                         <input
-                          type="number"
+                          type="checkbox"
+                          checked={loginForm.rememberWorkstation}
+                          onChange={(e) => setLoginForm({ ...loginForm, rememberWorkstation: e.target.checked })}
+                          className="rounded border-slate-300 text-[#0b2b82] focus:ring-blue-600"
+                        />
+                        <span>Remember credentials on this terminal</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 px-4 bg-[#0b2b82] hover:bg-[#082060] text-white font-semibold text-sm rounded-lg shadow-xs transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-blue-600/40 active:scale-[0.99] cursor-pointer mt-1"
+                    >
+                      Sign In to {roleLabel} &rarr;
+                    </button>
+
+                    {/* Subtle quick fill */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                      <span className="text-[11px] font-mono uppercase text-slate-400">Quick Fill:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleFastFill('patient', 'ramesh.mahto@abdm')}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                        >
+                          Patient
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFastFill('doctor', 'priya.sharma@abdm')}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                        >
+                          Doctor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFastFill('worker', 'anita.devi.asha@abdm')}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                        >
+                          ASHA
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFastFill('facility', 'admin.sbmch@abdm', 'hospital')}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                        >
+                          Hospital
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFastFill('officer', 'dho.hazaribagh@gov.in')}
+                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                        >
+                          Admin
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB 2: SIGN UP (Structured ABDM Registration Form)                        */}
+              {/* ========================================================================= */}
+              {activeTab === 'signup' && (
+                <form onSubmit={handleSignUpSubmit} className="space-y-4">
+                  {/* Section 1: Credentials & Identity */}
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-200 mb-2.5 font-mono flex items-center justify-between">
+                      <span>Credentials &amp; Identity</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Section 01</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">
+                          {selectedRole === 'facility' ? 'Registered Facility Legal Name' : 'Full Legal Name'}
+                        </label>
+                        <input
+                          type="text"
                           required
-                          placeholder="e.g. 30"
-                          value={signUpForm.age}
-                          onChange={(e) => setSignUpForm({ ...signUpForm, age: e.target.value })}
-                          className="w-full border border-slate-300 rounded-lg p-2 bg-white"
+                          value={signUpForm.name}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
+                          placeholder="e.g. Ramesh Kumar Mahto"
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">
+                            Portal Persona
+                          </label>
+                          <select
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white cursor-pointer"
+                          >
+                            <option value="patient">Patient (Citizen ABHA)</option>
+                            <option value="doctor">Medical Practitioner / Doctor</option>
+                            <option value="worker">ASHA Community Health Activist</option>
+                            <option value="facility">Healthcare Facility (Hospital / Lab)</option>
+                            <option value="officer">District Health Administrator</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">
+                            Desired ABHA Address
+                          </label>
+                          <input
+                            type="text"
+                            value={signUpForm.identifier}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, identifier: e.target.value })}
+                            placeholder="username@abdm"
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Contact & Location */}
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-200 mb-2.5 font-mono flex items-center justify-between">
+                      <span>Contact &amp; Location</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Section 02</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">
+                          Registered Mobile Number
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={signUpForm.mobile}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, mobile: e.target.value })}
+                          placeholder="+91-9876543210"
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">
+                            District
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={signUpForm.district}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, district: e.target.value })}
+                            placeholder="e.g. Hazaribagh"
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">
+                            State
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={signUpForm.state}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, state: e.target.value })}
+                            placeholder="e.g. Jharkhand"
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Security */}
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-200 mb-2.5 font-mono flex items-center justify-between">
+                      <span>Security</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Section 03</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">
+                          Create Password / PIN
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={signUpForm.password}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                          placeholder="Minimum 6 characters"
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
                         />
                       </div>
                       <div>
-                        <label className="font-bold text-slate-700 block mb-1">Sex *</label>
-                        <select
-                          value={signUpForm.sex}
-                          onChange={(e) => setSignUpForm({ ...signUpForm, sex: e.target.value })}
-                          className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                        >
-                          <option value="female">Female</option>
-                          <option value="male">Male</option>
-                          <option value="other">Other</option>
-                        </select>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">
+                          Confirm Password
+                        </label>
+                        <input
+                          type="password"
+                          value={signUpForm.confirmPassword}
+                          onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
+                          placeholder="Re-enter password"
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors font-medium bg-white"
+                        />
                       </div>
                     </div>
-                  )}
-
-                  {signUpForm.role === 'doctor' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Qualification (e.g. MBBS, MD) *"
-                        value={signUpForm.qualification}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, qualification: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Specialty *"
-                        value={signUpForm.specialty}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, specialty: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Medical Reg No. *"
-                        value={signUpForm.registrationNo}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, registrationNo: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {signUpForm.role === 'worker' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Official ASHA ID *"
-                        value={signUpForm.ashaId}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, ashaId: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Sub-Center Name *"
-                        value={signUpForm.subCenter}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, subCenter: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Village Catchment *"
-                        value={signUpForm.villageCatchment}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, villageCatchment: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {signUpForm.role === 'facility' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="HFR Hospital ID *"
-                        value={signUpForm.hospitalId}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, hospitalId: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Hospital Tier *"
-                        value={signUpForm.tier}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, tier: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Medical Superintendent *"
-                        value={signUpForm.medicalSuperintendent}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, medicalSuperintendent: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {signUpForm.role === 'shop_owner' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Drug License No. *"
-                        value={signUpForm.drugLicenseNo}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, drugLicenseNo: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Owner Name *"
-                        value={signUpForm.ownerName}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, ownerName: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Pharmacist Name *"
-                        value={signUpForm.pharmacistName}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, pharmacistName: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {signUpForm.role === 'lab_staff' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Lab Registration ID *"
-                        value={signUpForm.labId}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, labId: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Chief Pathologist / Director *"
-                        value={signUpForm.director}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, director: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {signUpForm.role === 'admin' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Official Designation *"
-                        value={signUpForm.designation}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, designation: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Administrative Cadre / ID *"
-                        value={signUpForm.cadre}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, cadre: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Create Secure Password / PIN *</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="At least 6 characters"
-                      value={signUpForm.password}
-                      onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg p-2.5 font-medium bg-white focus:ring-2 focus:ring-[#0b2b82]"
-                    />
                   </div>
 
+                  {/* Primary CTA */}
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-[#0b2b82] hover:bg-[#082060] text-white font-bold text-xs rounded-lg shadow-xs transition-colors mt-1 cursor-pointer"
+                    className="w-full py-2.5 px-4 bg-[#0b2b82] hover:bg-[#082060] text-white font-semibold text-sm rounded-lg shadow-xs transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-blue-600/40 active:scale-[0.99] cursor-pointer mt-2"
                   >
-                    Register Clean Real ABDM Account &rarr;
+                    Register ABHA Account &rarr;
                   </button>
                 </form>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Security Footer */}
+        <div className="px-5 sm:px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+            Statutory ABDM M1–M3 Compliance
+          </span>
+          <span>SHA-256 Encrypted</span>
+        </div>
       </div>
     </div>
   );

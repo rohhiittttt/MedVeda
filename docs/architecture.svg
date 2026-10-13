@@ -1,0 +1,438 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" width="100%" height="100%" style="background:#090d16; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+
+    <linearGradient id="clientCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <linearGradient id="nodeCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <linearGradient id="pythonCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <linearGradient id="dataCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+
+    <linearGradient id="externalCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+
+    <linearGradient id="agent1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#b91c1c" />
+    </linearGradient>
+
+    <linearGradient id="agent2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+
+    <linearGradient id="agent3Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+
+    <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Marker Arrows -->
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowEmerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#c084fc"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <!-- GRID PATTERN BACKGROUND -->
+  <pattern id="bgGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.75" stroke-opacity="0.4"/>
+  </pattern>
+  <rect width="100%" height="100%" fill="url(#bgGrid)" />
+
+  <!-- HEADER BAR -->
+  <g transform="translate(40, 25)">
+    <rect width="1520" height="70" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+    <!-- Gradient accent line -->
+    <rect x="0" y="66" width="1520" height="4" rx="2" fill="url(#headerGrad)" />
+    
+    <text x="30" y="38" fill="#f8fafc" font-size="22" font-weight="700" letter-spacing="0.5">MedVeda — System Architecture &amp; Service Topology</text>
+    <text x="30" y="56" fill="#94a3b8" font-size="12" font-weight="400">Production-Grade Clean Architecture • 3-Agent Clinical Routing • Real-Time Voice &amp; Vision AI • ABDM M1-M3 Interoperability</text>
+    
+    <!-- Environment Badges -->
+    <rect x="1170" y="20" width="130" height="28" rx="6" fill="#0369a1" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1" />
+    <text x="1235" y="38" fill="#38bdf8" font-size="11" font-weight="600" text-anchor="middle">Unified Node (3000)</text>
+
+    <rect x="1310" y="20" width="140" height="28" rx="6" fill="#4338ca" fill-opacity="0.3" stroke="#818cf8" stroke-width="1" />
+    <text x="1380" y="38" fill="#a5b4fc" font-size="11" font-weight="600" text-anchor="middle">Python FastAPI (8001)</text>
+
+    <rect x="1460" y="20" width="45" height="28" rx="6" fill="#059669" fill-opacity="0.3" stroke="#34d399" stroke-width="1" />
+    <text x="1482" y="38" fill="#34d399" font-size="11" font-weight="700" text-anchor="middle">LIVE</text>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 1. CLIENT & CONSUMER TIER -->
+  <!-- ========================================================================= -->
+  <g transform="translate(40, 115)">
+    <!-- Boundary Box -->
+    <rect width="1520" height="150" rx="14" fill="url(#clientCardGrad)" stroke="#334155" stroke-width="1.5" filter="url(#shadow)" />
+    <rect x="0" y="0" width="1520" height="34" rx="14" fill="#1e293b" fill-opacity="0.6" />
+    <text x="24" y="23" fill="#38bdf8" font-size="13" font-weight="700" letter-spacing="0.5">LAYER 1: CLIENT &amp; INTAKE CHANNELS (Multimodal Presentation)</text>
+
+    <!-- Client Card 1: Web / PWA Single Page App -->
+    <g transform="translate(25, 48)">
+      <rect width="350" height="88" rx="10" fill="#0f172a" stroke="#0284c7" stroke-width="1.2" />
+      <circle cx="24" cy="24" r="10" fill="#0284c7" fill-opacity="0.2" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="24" y="28" fill="#38bdf8" font-size="12" font-weight="700" text-anchor="middle">W</text>
+      <text x="44" y="26" fill="#f8fafc" font-size="14" font-weight="600">Patient &amp; Public Web Portal</text>
+      <text x="44" y="44" fill="#94a3b8" font-size="11">React 19 SPA • Tailwind CSS • Lucide Icons</text>
+      <text x="44" y="60" fill="#64748b" font-size="10.5">9-Screen Navigator Wizard • OPD Token Booker</text>
+      <text x="44" y="74" fill="#38bdf8" font-size="10" font-weight="500">Live SSE Stream Consumer • Audio Waveform Mic</text>
+    </g>
+
+    <!-- Client Card 2: ASHA & Frontline Health Worker View -->
+    <g transform="translate(395, 48)">
+      <rect width="350" height="88" rx="10" fill="#0f172a" stroke="#0d9488" stroke-width="1.2" />
+      <circle cx="24" cy="24" r="10" fill="#0d9488" fill-opacity="0.2" stroke="#2dd4bf" stroke-width="1.5"/>
+      <text x="24" y="28" fill="#2dd4bf" font-size="12" font-weight="700" text-anchor="middle">A</text>
+      <text x="44" y="26" fill="#f8fafc" font-size="14" font-weight="600">Frontline ASHA Worker PWA</text>
+      <text x="44" y="44" fill="#94a3b8" font-size="11">High-Risk Tracking • Offline Task Storage</text>
+      <text x="44" y="60" fill="#64748b" font-size="10.5">Vitals Log • Geo-tagged Home Visits • SOS Alerts</text>
+      <text x="44" y="74" fill="#2dd4bf" font-size="10" font-weight="500">Multilingual Hindi/English Voice Input</text>
+    </g>
+
+    <!-- Client Card 3: Healthcare Provider & Admin Portals -->
+    <g transform="translate(765, 48)">
+      <rect width="350" height="88" rx="10" fill="#0f172a" stroke="#6366f1" stroke-width="1.2" />
+      <circle cx="24" cy="24" r="10" fill="#6366f1" fill-opacity="0.2" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="24" y="28" fill="#818cf8" font-size="12" font-weight="700" text-anchor="middle">H</text>
+      <text x="44" y="26" fill="#f8fafc" font-size="14" font-weight="600">Clinician &amp; Command Center</text>
+      <text x="44" y="44" fill="#94a3b8" font-size="11">Doctor Teleconsult Queue • Video Session UI</text>
+      <text x="44" y="60" fill="#64748b" font-size="10.5">Facility Bed &amp; Oxygen Dashboard • Referrals</text>
+      <text x="44" y="74" fill="#a5b4fc" font-size="10" font-weight="500">District Epidemic &amp; Outbreak Surveillance</text>
+    </g>
+
+    <!-- Client Card 4: Low-Bandwidth SMS & QR Walk-In -->
+    <g transform="translate(1135, 48)">
+      <rect width="360" height="88" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="1.2" />
+      <circle cx="24" cy="24" r="10" fill="#f59e0b" fill-opacity="0.2" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="24" y="28" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">S</text>
+      <text x="44" y="26" fill="#f8fafc" font-size="14" font-weight="600">SMS Feature Phone &amp; QR Walk-In</text>
+      <text x="44" y="44" fill="#94a3b8" font-size="11">2-Way DLT Inbound SMS: BOOK &lt;HOSP&gt; &lt;DEPT&gt;</text>
+      <text x="44" y="60" fill="#64748b" font-size="10.5">Physical Counter HMAC-Signed QR Deep Links</text>
+      <text x="44" y="74" fill="#fbbf24" font-size="10" font-weight="500">Zero-Internet Token Allotment (Luhn Validated)</text>
+    </g>
+  </g>
+
+  <!-- ARROWS DOWN FROM CLIENT LAYER -->
+  <path d="M 240 265 L 240 300" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowCyan)"/>
+  <path d="M 610 265 L 610 300" stroke="#2dd4bf" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowCyan)"/>
+  <path d="M 980 265 L 980 300" stroke="#818cf8" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowCyan)"/>
+  <path d="M 1350 265 L 1350 300" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowAmber)"/>
+
+  <!-- ========================================================================= -->
+  <!-- 2. INGRESS & UNIFIED BACKEND SERVER (Node.js Port 3000) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(40, 305)">
+    <!-- Node Unified Container -->
+    <rect width="1030" height="495" rx="14" fill="url(#nodeCardGrad)" stroke="#0284c7" stroke-width="1.5" filter="url(#shadow)" />
+    <rect x="0" y="0" width="1030" height="34" rx="14" fill="#0369a1" fill-opacity="0.25" />
+    <text x="24" y="23" fill="#38bdf8" font-size="13" font-weight="700" letter-spacing="0.5">LAYER 2A: UNIFIED CORE SERVER (Node.js TSX Engine • Port 3000)</text>
+
+    <!-- Ingress & Router Subcard -->
+    <g transform="translate(25, 45)">
+      <rect width="980" height="70" rx="8" fill="#0b1329" stroke="#1e293b" stroke-width="1" />
+      <text x="20" y="24" fill="#e2e8f0" font-size="12" font-weight="700">HTTP &amp; Real-Time Transport Gateway</text>
+      <text x="20" y="44" fill="#94a3b8" font-size="11">Static Asset Compiler (Sucrase) • CORS &amp; Security Headers • Server-Sent Events (SSE /api/navigate/stream) • Inbound SMS Webhook (/v1/sms/webhook)</text>
+      <text x="20" y="60" fill="#38bdf8" font-size="10.5">QR Verification Endpoint (/q/:payload) • HMAC-SHA256 Integrity • Zod Request Contract Validation</text>
+    </g>
+
+    <!-- 3-Agent Pipeline Subcard -->
+    <g transform="translate(25, 128)">
+      <rect width="980" height="185" rx="10" fill="#050a18" stroke="#334155" stroke-width="1.2" />
+      <text x="20" y="22" fill="#f8fafc" font-size="12.5" font-weight="700" letter-spacing="0.5">Feature 01: 3-Agent Care Navigation &amp; Routing Engine (Clean Architecture)</text>
+      
+      <!-- Agent 1 Card -->
+      <g transform="translate(18, 36)">
+        <rect width="295" height="135" rx="8" fill="#1e131d" stroke="#ef4444" stroke-width="1.2" />
+        <rect x="0" y="0" width="295" height="26" rx="8" fill="url(#agent1Grad)" />
+        <text x="12" y="18" fill="#ffffff" font-size="12" font-weight="700">AGENT 1: Symptom &amp; Triage</text>
+        <text x="12" y="46" fill="#fca5a5" font-size="11" font-weight="600">Deterministic Red-Flag Gatekeeper</text>
+        <text x="12" y="62" fill="#cbd5e1" font-size="10.5">• Rule-based check: Chest pain, FAST</text>
+        <text x="12" y="78" fill="#cbd5e1" font-size="10.5">• Clinical Acuity: CRITICAL/URGENT/NON</text>
+        <text x="12" y="94" fill="#cbd5e1" font-size="10.5">• Maps required medical specialty</text>
+        <text x="12" y="118" fill="#f87171" font-size="10" font-weight="600">Output Contract: { urgency, specialty }</text>
+      </g>
+
+      <!-- Arrow Agent 1 -> Agent 2 -->
+      <path d="M 318 103 L 348 103" stroke="#f87171" stroke-width="2" marker-end="url(#arrowCyan)" />
+
+      <!-- Agent 2 Card -->
+      <g transform="translate(352, 36)">
+        <rect width="295" height="135" rx="8" fill="#0c1e33" stroke="#0284c7" stroke-width="1.2" />
+        <rect x="0" y="0" width="295" height="26" rx="8" fill="url(#agent2Grad)" />
+        <text x="12" y="18" fill="#ffffff" font-size="12" font-weight="700">AGENT 2: Hospital Research</text>
+        <text x="12" y="46" fill="#7dd3fc" font-size="11" font-weight="600">Google Search MCP &amp; Gemini Grounding</text>
+        <text x="12" y="62" fill="#cbd5e1" font-size="10.5">• Dynamic query generator per district</text>
+        <text x="12" y="78" fill="#cbd5e1" font-size="10.5">• Hard Invariant: OPD vs 24x7 Emergency</text>
+        <text x="12" y="94" fill="#cbd5e1" font-size="10.5">• Source citation verification &amp; caching</text>
+        <text x="12" y="118" fill="#38bdf8" font-size="10" font-weight="600">Output Contract: Researched Facilities []</text>
+      </g>
+
+      <!-- Arrow Agent 2 -> Agent 3 -->
+      <path d="M 652 103 L 682 103" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowEmerald)" />
+
+      <!-- Agent 3 Card -->
+      <g transform="translate(686, 36)">
+        <rect width="275" height="135" rx="8" fill="#06241b" stroke="#10b981" stroke-width="1.2" />
+        <rect x="0" y="0" width="275" height="26" rx="8" fill="url(#agent3Grad)" />
+        <text x="12" y="18" fill="#ffffff" font-size="12" font-weight="700">AGENT 3: Facility Recommendation</text>
+        <text x="12" y="46" fill="#6ee7b7" font-size="11" font-weight="600">Clinical Ranking Engine</text>
+        <text x="12" y="62" fill="#cbd5e1" font-size="10.5">• Hard Rule: Capability &gt; Proximity</text>
+        <text x="12" y="78" fill="#cbd5e1" font-size="10.5">• Multi-factor weighted scoring</text>
+        <text x="12" y="94" fill="#cbd5e1" font-size="10.5">• Transparent clinician explainability</text>
+        <text x="12" y="118" fill="#34d399" font-size="10" font-weight="600">Delivers Top 5 Verified Facilities</text>
+      </g>
+    </g>
+
+    <!-- Operational Domain Modules Subcard -->
+    <g transform="translate(25, 325)">
+      <rect width="980" height="152" rx="10" fill="#080e1e" stroke="#1e293b" stroke-width="1.2" />
+      <text x="20" y="22" fill="#94a3b8" font-size="12" font-weight="700">Application Domain Use Cases &amp; State Managers</text>
+
+      <g transform="translate(18, 32)">
+        <!-- Module 1 -->
+        <rect width="220" height="104" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+        <text x="12" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">OPD Booking Core</text>
+        <text x="12" y="38" fill="#94a3b8" font-size="10">SMS Grammar Parser &amp; DLT</text>
+        <text x="12" y="52" fill="#94a3b8" font-size="10">10-Min Temporary Slot Holds</text>
+        <text x="12" y="66" fill="#94a3b8" font-size="10">Counter Staff Check-In</text>
+        <text x="12" y="82" fill="#38bdf8" font-size="9.5">Tracking ID: DHJ-OPD-7829-K</text>
+      </g>
+
+      <g transform="translate(262, 32)">
+        <!-- Module 2 -->
+        <rect width="220" height="104" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+        <text x="12" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">Teleconsultation &amp; Queue</text>
+        <text x="12" y="38" fill="#94a3b8" font-size="10">Weighted Urgency Priority</text>
+        <text x="12" y="52" fill="#94a3b8" font-size="10">Doctor Availability Windows</text>
+        <text x="12" y="66" fill="#94a3b8" font-size="10">WebRTC Session Coordination</text>
+        <text x="12" y="82" fill="#2dd4bf" font-size="9.5">Dynamic Queue Re-ordering</text>
+      </g>
+
+      <g transform="translate(506, 32)">
+        <!-- Module 3 -->
+        <rect width="220" height="104" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+        <text x="12" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">Smart Referral &amp; ASHA</text>
+        <text x="12" y="38" fill="#94a3b8" font-size="10">Closed-Loop Bed Handshake</text>
+        <text x="12" y="52" fill="#94a3b8" font-size="10">Ambulance Coordination</text>
+        <text x="12" y="66" fill="#94a3b8" font-size="10">ASHA High-Risk Home Tracking</text>
+        <text x="12" y="82" fill="#a5b4fc" font-size="9.5">SOS Emergency Escalation</text>
+      </g>
+
+      <g transform="translate(750, 32)">
+        <!-- Module 4 -->
+        <rect width="212" height="104" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+        <text x="12" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">Inventory &amp; Command</text>
+        <text x="12" y="38" fill="#94a3b8" font-size="10">Medicine &amp; Diagnostic Stock</text>
+        <text x="12" y="52" fill="#94a3b8" font-size="10">Facility Resource Roster</text>
+        <text x="12" y="66" fill="#94a3b8" font-size="10">District Epidemic Outbreak</text>
+        <text x="12" y="82" fill="#fbbf24" font-size="9.5">PM-JAY Scheme Eligibility</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 3. PYTHON AI & VOICE ENGINE (FastAPI Port 8001) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(1090, 305)">
+    <!-- Python Container -->
+    <rect width="470" height="495" rx="14" fill="url(#pythonCardGrad)" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)" />
+    <rect x="0" y="0" width="470" height="34" rx="14" fill="#4338ca" fill-opacity="0.3" />
+    <text x="20" y="23" fill="#a5b4fc" font-size="13" font-weight="700" letter-spacing="0.5">LAYER 2B: PYTHON AI ENGINE (FastAPI Port 8001)</text>
+
+    <!-- Subcard: Speech-to-Text & Text-to-Speech -->
+    <g transform="translate(20, 48)">
+      <rect width="430" height="92" rx="8" fill="#0f1429" stroke="#4f46e5" stroke-width="1" />
+      <text x="16" y="22" fill="#f8fafc" font-size="12" font-weight="600">Multilingual Voice Pipeline</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="11">• Speech-to-Text via Gemini Multimodal Audio Transcription</text>
+      <text x="16" y="58" fill="#94a3b8" font-size="11">• Text-to-Speech Synthesis via gTTS / Sarvam (Hindi &amp; English)</text>
+      <text x="16" y="76" fill="#a5b4fc" font-size="10.5">Endpoints: /api/records/voice/transcribe &amp; /synthesize</text>
+    </g>
+
+    <!-- Subcard: Multilingual EHR RAG Chatbot -->
+    <g transform="translate(20, 150)">
+      <rect width="430" height="105" rx="8" fill="#0f1429" stroke="#4f46e5" stroke-width="1" />
+      <text x="16" y="22" fill="#f8fafc" font-size="12" font-weight="600">Multilingual EHR RAG Engine</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="11">• Ingests longitudinal EHR prescriptions &amp; lab results</text>
+      <text x="16" y="58" fill="#94a3b8" font-size="11">• Zero-Hallucination Safe Grounding &amp; Clinical Citations</text>
+      <text x="16" y="74" fill="#94a3b8" font-size="11">• Emergency Red-Flag Bypass Detection (108 / 112 routing)</text>
+      <text x="16" y="92" fill="#a5b4fc" font-size="10.5">Endpoint: /api/records/chat (Hindi &amp; English Auto-Detect)</text>
+    </g>
+
+    <!-- Subcard: Multimodal Vision OCR -->
+    <g transform="translate(20, 265)">
+      <rect width="430" height="92" rx="8" fill="#0f1429" stroke="#4f46e5" stroke-width="1" />
+      <text x="16" y="22" fill="#f8fafc" font-size="12" font-weight="600">Multimodal Vision OCR for Records</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="11">• Handwritten doctor prescription digitization</text>
+      <text x="16" y="58" fill="#94a3b8" font-size="11">• Pathology lab report extraction into structured JSON</text>
+      <text x="16" y="76" fill="#a5b4fc" font-size="10.5">Endpoint: /api/records/ocr/analyze</text>
+    </g>
+
+    <!-- Subcard: Adaptive Triage Screening -->
+    <g transform="translate(20, 367)">
+      <rect width="430" height="110" rx="8" fill="#0f1429" stroke="#4f46e5" stroke-width="1" />
+      <text x="16" y="22" fill="#f8fafc" font-size="12" font-weight="600">Adaptive Clinical Screening Engine</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="11">• Multi-turn step-by-step diagnostic questionnaire</text>
+      <text x="16" y="58" fill="#94a3b8" font-size="11">• Dynamic question generation based on prior answers</text>
+      <text x="16" y="74" fill="#94a3b8" font-size="11">• Clinical focus: Ischemia, Neuro deficit, Peritoneal signs</text>
+      <text x="16" y="94" fill="#a5b4fc" font-size="10.5">Endpoints: /api/triage/screening/start &amp; /answer</text>
+    </g>
+  </g>
+
+  <!-- BI-DIRECTIONAL CONNECTOR: Node Server <-> Python AI Service -->
+  <path d="M 1070 540 L 1090 540" stroke="#818cf8" stroke-width="2.5" marker-end="url(#arrowPurple)" marker-start="url(#arrowCyan)" />
+  <rect x="1055" y="520" width="50" height="18" rx="4" fill="#1e1b4b" stroke="#818cf8" stroke-width="0.8" />
+  <text x="1080" y="533" fill="#c7d2fe" font-size="8.5" font-weight="700" text-anchor="middle">PROXY</text>
+
+  <!-- ========================================================================= -->
+  <!-- 4. DATA & PERSISTENCE TIER -->
+  <!-- ========================================================================= -->
+  <g transform="translate(40, 825)">
+    <!-- Persistence Container -->
+    <rect width="1030" height="260" rx="14" fill="url(#dataCardGrad)" stroke="#ca8a04" stroke-width="1.5" filter="url(#shadow)" />
+    <rect x="0" y="0" width="1030" height="34" rx="14" fill="#854d0e" fill-opacity="0.25" />
+    <text x="24" y="23" fill="#facc15" font-size="13" font-weight="700" letter-spacing="0.5">LAYER 3: PERSISTENCE &amp; STORAGE (SQLite Embedded Stores • Drizzle ORM Schema)</text>
+
+    <!-- Store Column 1: Navigation & Research Cache -->
+    <g transform="translate(25, 48)">
+      <rect width="225" height="195" rx="8" fill="#141210" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="22" fill="#facc15" font-size="12" font-weight="600">Care Navigation Store</text>
+      <text x="14" y="44" fill="#d6d3d1" font-size="10.5">• triage_sessions</text>
+      <text x="14" y="60" fill="#a8a29e" font-size="9.5">  Session tokens, vitals, urgency</text>
+      <text x="14" y="80" fill="#d6d3d1" font-size="10.5">• hospital_research_cache</text>
+      <text x="14" y="96" fill="#a8a29e" font-size="9.5">  Dynamic MCP verified beds/OPD</text>
+      <text x="14" y="116" fill="#d6d3d1" font-size="10.5">• triage_recommendations</text>
+      <text x="14" y="132" fill="#a8a29e" font-size="9.5">  Top-5 ranks, clinical rationales</text>
+      <text x="14" y="152" fill="#d6d3d1" font-size="10.5">• In-Memory Fast Cache</text>
+      <text x="14" y="168" fill="#a8a29e" font-size="9.5">  Sub-millisecond query hits</text>
+    </g>
+
+    <!-- Store Column 2: OPD Bookings & SMS Store -->
+    <g transform="translate(265, 48)">
+      <rect width="235" height="195" rx="8" fill="#141210" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="22" fill="#facc15" font-size="12" font-weight="600">OPD &amp; SMS Store</text>
+      <text x="14" y="44" fill="#d6d3d1" font-size="10.5">• facilities &amp; departments</text>
+      <text x="14" y="60" fill="#a8a29e" font-size="9.5">  HFR Codes, SMS aliases</text>
+      <text x="14" y="80" fill="#d6d3d1" font-size="10.5">• sessions &amp; token_counters</text>
+      <text x="14" y="96" fill="#a8a29e" font-size="9.5">  Atomic slot capacity counters</text>
+      <text x="14" y="116" fill="#d6d3d1" font-size="10.5">• bookings &amp; audit_events</text>
+      <text x="14" y="132" fill="#a8a29e" font-size="9.5">  Luhn-validated Tracking IDs</text>
+      <text x="14" y="152" fill="#d6d3d1" font-size="10.5">• sms_inbox &amp; sms_outbox</text>
+      <text x="14" y="168" fill="#a8a29e" font-size="9.5">  DLT SMS delivery receipts</text>
+    </g>
+
+    <!-- Store Column 3: Teleconsult & Referrals -->
+    <g transform="translate(515, 48)">
+      <rect width="235" height="195" rx="8" fill="#141210" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="22" fill="#facc15" font-size="12" font-weight="600">Teleconsult &amp; Referrals</text>
+      <text x="14" y="44" fill="#d6d3d1" font-size="10.5">• doctors &amp; appointments</text>
+      <text x="14" y="60" fill="#a8a29e" font-size="9.5">  NMC registered IDs &amp; slots</text>
+      <text x="14" y="80" fill="#d6d3d1" font-size="10.5">• teleconsult_queue &amp; sessions</text>
+      <text x="14" y="96" fill="#a8a29e" font-size="9.5">  Priority queue state machine</text>
+      <text x="14" y="116" fill="#d6d3d1" font-size="10.5">• referrals &amp; referral_history</text>
+      <text x="14" y="132" fill="#a8a29e" font-size="9.5">  Closed-loop transfer tracking</text>
+      <text x="14" y="152" fill="#d6d3d1" font-size="10.5">• consultation_messages</text>
+      <text x="14" y="168" fill="#a8a29e" font-size="9.5">  Real-time consultation transcript</text>
+    </g>
+
+    <!-- Store Column 4: Records, ASHA & Command -->
+    <g transform="translate(765, 48)">
+      <rect width="240" height="195" rx="8" fill="#141210" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="22" fill="#facc15" font-size="12" font-weight="600">Records &amp; Command Store</text>
+      <text x="14" y="44" fill="#d6d3d1" font-size="10.5">• patient_profiles &amp; health_records</text>
+      <text x="14" y="60" fill="#a8a29e" font-size="9.5">  ABHA M1-M3 sync &amp; FHIR docs</text>
+      <text x="14" y="80" fill="#d6d3d1" font-size="10.5">• consent_requests</text>
+      <text x="14" y="96" fill="#a8a29e" font-size="9.5">  ABDM patient-mediated consent</text>
+      <text x="14" y="116" fill="#d6d3d1" font-size="10.5">• followup_plans &amp; tasks</text>
+      <text x="14" y="132" fill="#a8a29e" font-size="9.5">  ASHA frontline task queues</text>
+      <text x="14" y="152" fill="#d6d3d1" font-size="10.5">• command_facilities &amp; alerts</text>
+      <text x="14" y="168" fill="#a8a29e" font-size="9.5">  District epidemic threshold rules</text>
+    </g>
+  </g>
+
+  <!-- CONNECTOR: Node Server -> Persistence Layer -->
+  <path d="M 540 800 L 540 825" stroke="#facc15" stroke-width="2" marker-end="url(#arrowAmber)" />
+
+  <!-- ========================================================================= -->
+  <!-- 5. EXTERNAL SERVICES & INFRASTRUCTURE GATEWAYS -->
+  <!-- ========================================================================= -->
+  <g transform="translate(1090, 825)">
+    <!-- External Services Container -->
+    <rect width="470" height="260" rx="14" fill="url(#externalCardGrad)" stroke="#059669" stroke-width="1.5" filter="url(#shadow)" />
+    <rect x="0" y="0" width="470" height="34" rx="14" fill="#047857" fill-opacity="0.3" />
+    <text x="20" y="23" fill="#34d399" font-size="13" font-weight="700" letter-spacing="0.5">LAYER 4: EXTERNAL PROTOCOLS &amp; CLOUD GATEWAYS</text>
+
+    <!-- Gateway 1: Google Search MCP & Gemini API -->
+    <g transform="translate(20, 48)">
+      <rect width="430" height="58" rx="6" fill="#09151f" stroke="#0284c7" stroke-width="1" />
+      <text x="14" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">Google Search MCP &amp; Gemini 2.0 API</text>
+      <text x="14" y="36" fill="#94a3b8" font-size="10">• Real-time web ground truth for emergency facility status</text>
+      <text x="14" y="48" fill="#38bdf8" font-size="9.5">• Multimodal text, voice transcription, and OCR</text>
+    </g>
+
+    <!-- Gateway 2: ABDM Gateway (M1, M2, M3) -->
+    <g transform="translate(20, 114)">
+      <rect width="430" height="58" rx="6" fill="#0b1728" stroke="#3b82f6" stroke-width="1" />
+      <text x="14" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">ABDM National Health Gateway (M1, M2, M3)</text>
+      <text x="14" y="36" fill="#94a3b8" font-size="10">• M1: ABHA ID Creation &amp; Mobile OTP Authentication</text>
+      <text x="14" y="48" fill="#60a5fa" font-size="9.5">• M2/M3: HIP/HIU Care Context Linking &amp; Consent Manager</text>
+    </g>
+
+    <!-- Gateway 3: DLT Telecom SMS & Maps Platform -->
+    <g transform="translate(20, 180)">
+      <rect width="430" height="58" rx="6" fill="#191508" stroke="#f59e0b" stroke-width="1" />
+      <text x="14" y="20" fill="#f8fafc" font-size="11.5" font-weight="600">Telecom DLT SMS Gateway &amp; Google Maps</text>
+      <text x="14" y="36" fill="#94a3b8" font-size="10">• Inbound 5-digit shortcode &amp; DLT registered SMS alerts</text>
+      <text x="14" y="48" fill="#fbbf24" font-size="9.5">• Reverse geocoding &amp; 1-tap turn-by-turn routing</text>
+    </g>
+  </g>
+
+  <!-- CONNECTORS TO EXTERNAL GATEWAYS -->
+  <path d="M 1030 500 C 1060 500, 1060 850, 1090 850" stroke="#38bdf8" stroke-width="1.8" fill="none" stroke-dasharray="4,4" marker-end="url(#arrowCyan)" />
+  <path d="M 1320 800 L 1320 825" stroke="#818cf8" stroke-width="2" marker-end="url(#arrowPurple)" />
+
+  <!-- FOOTER LEGEND -->
+  <g transform="translate(40, 1095)">
+    <text x="0" y="14" fill="#64748b" font-size="11">MedVeda Architecture Specifications • Verified for High-Concurrence Healthcare Environments • Offline First • Zero Hallucination Guardrails</text>
+    <text x="1520" y="14" fill="#475569" font-size="11" text-anchor="end">Production Blueprint v3.0 • Built with Node.js, Fastify/TS, Python FastAPI, SQLite/PostgreSQL</text>
+  </g>
+</svg>
