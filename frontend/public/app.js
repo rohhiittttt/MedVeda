@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 function getApiUrl(endpoint) {
   if (!endpoint) return '';
@@ -2562,6 +2562,607 @@ function HealthcareImpactSection({
 }
 
 // ==========================================
+// --- 3D MEDIA CARD CAROUSEL FOR FEATURES ---
+// ==========================================
+
+const CAROUSEL_3D_CONFIG = {
+  cardWidth: 330,
+  cardHeight: 460,
+  cardSpacingX: 180,
+  depthStepZ: -140,
+  scaleStep: 0.15,
+  rotateY: -10,
+  rotateX: 2,
+  fadeSteps: [1.0, 0.95, 0.80, 0.62, 0.44, 0.28, 0.14, 0.00],
+  perspective: 1400,
+  transitionDuration: 750,
+  transitionEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  autoplayDelay: 2500,
+  visibleCardsCount: 7
+};
+
+const FEATURE_CARD_ART = {
+  feature1: './card-symptoms.png',
+  feature2: './card-appointment.png',
+  feature3: './rims-hospital.jpg',
+  feature4: './cta-beats-banner.png',
+  feature5: './card-records.png',
+  feature6: './card-medicines.jpg',
+  feature7: './impact-card-2.png',
+  feature8: './hero-schemes-art.png',
+  feature9: './healthcare-impact-banner.jpg',
+  feature10: './hero-doctors.png'
+};
+
+function Home3DFeatureCard({
+  module,
+  slotIndex,
+  isActive,
+  isMuted,
+  onToggleMute,
+  onClick,
+  style,
+  className = ''
+}) {
+  const [isCardHovered, setIsCardHovered] = useState(false);
+
+  const moduleThemes = {
+    feature1: { iconBg: 'bg-rose-500/20 text-rose-300 border-rose-400/30' },
+    feature2: { iconBg: 'bg-sky-500/20 text-sky-300 border-sky-400/30' },
+    feature3: { iconBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' },
+    feature4: { iconBg: 'bg-amber-500/20 text-amber-300 border-amber-400/30' },
+    feature5: { iconBg: 'bg-purple-500/20 text-purple-300 border-purple-400/30' },
+    feature6: { iconBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30' },
+    feature7: { iconBg: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30' },
+    feature8: { iconBg: 'bg-teal-500/20 text-teal-300 border-teal-400/30' },
+    feature9: { iconBg: 'bg-blue-500/20 text-blue-300 border-blue-400/30' },
+    feature10: { iconBg: 'bg-violet-500/20 text-violet-300 border-violet-400/30' }
+  };
+  const theme = moduleThemes[module.id] || { iconBg: 'bg-blue-500/20 text-blue-300 border-blue-400/30' };
+  const cardImg = FEATURE_CARD_ART[module.id] || './card-symptoms.png';
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setIsCardHovered(true)}
+      onMouseLeave={() => setIsCardHovered(false)}
+      style={style}
+      data-slot={slotIndex}
+      className={`relative w-full h-full select-none overflow-hidden rounded-[16px] bg-slate-900 border border-black/10 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.08)] flex flex-col justify-between group cursor-pointer ${
+        isActive ? 'ring-2 ring-black/10' : ''
+      } ${className}`}
+    >
+      {/* Full-bleed background media / artwork matching reference recording */}
+      <img
+        src={cardImg}
+        alt={module.title}
+        loading={slotIndex < 4 ? 'eager' : 'lazy'}
+        className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover:scale-105 select-none"
+      />
+
+      {/* Cinematic gradient overlay ensuring maximum text legibility & studio look */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/25 pointer-events-none" />
+
+      {/* Top bar: Module code pill + Verified badge + Speaker/Audio button on active card */}
+      <div className="relative z-10 p-3.5 sm:p-4 flex items-center justify-between pointer-events-none">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/95 backdrop-blur-md text-slate-900 shadow-sm border border-white/60">
+          <span>{module.code}</span>
+        </div>
+
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {isActive && (
+            <button
+              type="button"
+              onClick={onToggleMute}
+              aria-label={isMuted ? 'Unmute audio' : 'Mute audio'}
+              title={isMuted ? 'Unmute' : 'Mute'}
+              className="w-8 h-8 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer active:scale-95 border border-white/25"
+            >
+              {isMuted ? (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </svg>
+              )}
+            </button>
+          )}
+
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-black/45 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-xs">
+            <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+              <circle cx="12" cy="12" r="2.5" />
+            </svg>
+            <span>Verified</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom Content: Category Tag + Title + Description + Action CTA */}
+      <div className="relative z-10 p-4 sm:p-5 flex flex-col justify-end">
+        {module.badge && (
+          <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-md text-white border border-white/20 shadow-xs self-start mb-2">
+            {module.badge}
+          </span>
+        )}
+
+        <div className="flex items-center gap-2 mb-1.5 min-w-0">
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border border-white/20 ${theme.iconBg}`}>
+            <ModuleIcon id={module.id} className="w-3.5 h-3.5" />
+          </div>
+          <h3 className="text-lg sm:text-[19px] font-bold text-white tracking-tight leading-snug drop-shadow-sm truncate">
+            {module.title}
+          </h3>
+        </div>
+
+        <p className="text-xs text-slate-200/90 leading-relaxed font-normal line-clamp-2 mb-3.5 drop-shadow-xs">
+          {module.description}
+        </p>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (module.action) module.action();
+          }}
+          className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold rounded-xl text-xs sm:text-[13px] transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer active:scale-98 group/btn"
+        >
+          <span>{module.actionLabel || 'Launch Feature'}</span>
+          <span className="transition-transform duration-200 group-hover/btn:translate-x-1">&rarr;</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HomeFeaturesCarousel3D({ modules = [] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragCurrentX, setDragCurrentX] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
+  const [hoveredSlot, setHoveredSlot] = useState(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  const containerRef = useRef(null);
+  const prevSlotsRef = useRef({});
+  const wheelLockRef = useRef(false);
+
+  const total = modules.length;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(mediaQuery.matches);
+    const handler = (e) => setReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  const updateIndex = (nextIndex) => {
+    if (total === 0) return;
+    const wrapped = ((nextIndex % total) + total) % total;
+    if (wrapped === activeIndex) return;
+    setActiveIndex(wrapped);
+  };
+
+  const handleNext = () => {
+    if (total <= 1) return;
+    updateIndex(activeIndex + 1);
+  };
+
+  const handlePrev = () => {
+    if (total <= 1) return;
+    updateIndex(activeIndex - 1);
+  };
+
+  // Autoplay (~2.5s when idle, pause on hover or drag)
+  useEffect(() => {
+    if (reducedMotion || isHovered || isDragging || total <= 1) return;
+    const timer = setInterval(() => {
+      handleNext();
+    }, CAROUSEL_3D_CONFIG.autoplayDelay);
+    return () => clearInterval(timer);
+  }, [reducedMotion, isHovered, isDragging, total, activeIndex]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowRight') handleNext();
+      else if (e.key === 'ArrowLeft') handlePrev();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex]);
+
+  // Wheel swipe
+  const handleWheel = (e) => {
+    if (wheelLockRef.current) return;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(delta) > 28) {
+      wheelLockRef.current = true;
+      if (delta > 0) handleNext();
+      else handlePrev();
+      setTimeout(() => { wheelLockRef.current = false; }, 400);
+    }
+  };
+
+  // Drag handlers
+  const handlePointerDown = (e) => {
+    setIsDragging(true);
+    setDragStartX(e.clientX);
+    setDragCurrentX(e.clientX);
+    if (e.currentTarget && typeof e.currentTarget.setPointerCapture === 'function') {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDragging) return;
+    setDragCurrentX(e.clientX);
+  };
+
+  const handlePointerUp = () => {
+    if (!isDragging) return;
+    const diff = dragCurrentX - dragStartX;
+    if (diff < -45) handleNext();
+    else if (diff > 45) handlePrev();
+    setIsDragging(false);
+  };
+
+  const handlePointerCancel = () => setIsDragging(false);
+
+  // Determine slot for each module
+  const getSlotForModule = (index) => {
+    if (total <= 1) return 0;
+    const diff = (index - activeIndex + total) % total;
+    if (diff === 0) return 0;
+    if (total === 2) return 1;
+    if (diff === total - 1) return -1; // just exited to left
+    if (diff < Math.min(total - 1, 7)) return diff;
+    if (diff === 7) return 7;
+    return 8; // hidden reservoir
+  };
+
+  // Compute 3D Transform with smooth natural curves calibrated from reference recording
+  const getCardTransform = (slot, isHoveredNonActive, isInstantReset) => {
+    if (reducedMotion) {
+      return {
+        transform: `translateX(${Math.max(0, slot) * 40}px)`,
+        opacity: slot === 0 ? 1 : slot === -1 ? 0 : Math.max(0, 0.8 - slot * 0.25),
+        zIndex: slot === -1 ? 55 : 50 - slot,
+        transition: isInstantReset ? 'none' : 'opacity 0.4s ease',
+        pointerEvents: slot === 0 || slot === 1 ? 'auto' : 'none',
+      };
+    }
+
+    let x = 0;
+    let z = 0;
+    let scale = 1.0;
+    let rotY = CAROUSEL_3D_CONFIG.rotateY;
+    let opacity = 1.0;
+    let zIndex = 50;
+    let pointerEvents = 'auto';
+
+    if (slot === -1) {
+      // Outgoing card smoothly sliding out to the left & tilting away
+      x = -420;
+      z = -80;
+      scale = 0.92;
+      rotY = CAROUSEL_3D_CONFIG.rotateY - 16;
+      opacity = 0;
+      zIndex = 55;
+      pointerEvents = 'none';
+    } else if (slot === 0) {
+      // Front active card
+      x = 0;
+      z = 0;
+      scale = 1.0;
+      rotY = CAROUSEL_3D_CONFIG.rotateY;
+      opacity = 1.0;
+      zIndex = 50;
+      pointerEvents = 'auto';
+    } else {
+      // Calibrated depth steps directly from reference recording
+      const depthX = [0, 180, 335, 470, 590, 695, 785, 865, 940];
+      const depthZ = [0, -140, -270, -390, -500, -600, -690, -780, -870];
+      const depthScale = [1.0, 0.85, 0.72, 0.61, 0.52, 0.44, 0.37, 0.31, 0.26];
+      const depthOpacity = [1.0, 0.95, 0.80, 0.62, 0.44, 0.28, 0.14, 0.00, 0.00];
+
+      const sIdx = Math.min(Math.max(slot, 0), 8);
+      x = depthX[sIdx];
+      z = depthZ[sIdx];
+      scale = depthScale[sIdx];
+      opacity = depthOpacity[sIdx];
+      zIndex = 50 - slot;
+      pointerEvents = slot <= 5 ? 'auto' : 'none';
+    }
+
+    const liftY = isHoveredNonActive ? -8 : 0;
+
+    return {
+      transform: `translate3d(${x}px, ${liftY}px, ${z}px) rotateY(${rotY}deg) rotateX(${CAROUSEL_3D_CONFIG.rotateX}deg) scale(${scale})`,
+      opacity,
+      zIndex,
+      pointerEvents,
+      transition: isInstantReset
+        ? 'none'
+        : `transform ${CAROUSEL_3D_CONFIG.transitionDuration}ms ${CAROUSEL_3D_CONFIG.transitionEasing}, opacity ${CAROUSEL_3D_CONFIG.transitionDuration}ms ${CAROUSEL_3D_CONFIG.transitionEasing}`,
+      transformOrigin: 'bottom center',
+      willChange: 'transform, opacity',
+      backfaceVisibility: 'hidden',
+    };
+  };
+
+  // Keep track of previous slots so teleporting between -1 and 7/8 is instant
+  useEffect(() => {
+    modules.forEach((mod, idx) => {
+      prevSlotsRef.current[mod.id] = getSlotForModule(idx);
+    });
+  }, [activeIndex, total, modules]);
+
+  const progressPercent = total > 0 ? ((activeIndex + 1) / total) * 100 : 0;
+  const currentModule = modules[activeIndex];
+
+  return (
+    <section
+      aria-label="MedVeda Features 3D Carousel"
+      className="relative w-full bg-[#FCFCFB] border-b border-slate-200/80 py-12 sm:py-16 overflow-hidden select-none"
+    >
+      {/* Studio Floor Background Aura */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-10 left-1/4 w-[600px] h-[600px] rounded-full bg-blue-50/50 blur-3xl opacity-50" />
+        <div className="absolute -bottom-20 right-10 w-[700px] h-[350px] rounded-[100%] bg-slate-200/50 blur-2xl opacity-40" />
+      </div>
+
+      <div className="relative z-10 max-w-7xl xl:max-w-[1440px] w-full mx-auto px-4 sm:px-8 lg:px-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
+        {/* Left Side (about 30-35% width): Text Block */}
+        <div className="w-full lg:w-[34%] xl:w-[32%] flex flex-col justify-center shrink-0 pr-0 lg:pr-4">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#1565C0] border border-blue-200/80 shadow-2xs self-start mb-4">
+            <svg className="w-3.5 h-3.5 text-[#1565C0]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.4 6.6L21 11l-5.6 4.4L17 22l-5-3.8L7 22l1.6-6.6L3 11l6.6-2.4L12 2z"/>
+            </svg>
+            <span>Our Features</span>
+          </div>
+
+          {/* Large black headline */}
+          <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-semibold text-slate-950 tracking-[-0.035em] leading-[1.08]">
+            One connected system<br />
+            for the whole care journey.
+          </h2>
+
+          {/* Short grey sub-paragraph */}
+          <p className="mt-4 sm:mt-5 text-slate-500 text-sm sm:text-base leading-relaxed font-normal max-w-[320px]">
+            MedVeda brings navigation, care delivery, and records together so patients move forward and clinicians stay in the loop.
+          </p>
+
+          {/* Active Card Quick Highlight Pill */}
+          {currentModule && (
+            <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#1565C0] bg-blue-50/70 border border-blue-200/60 px-3 py-1.5 rounded-lg max-w-fit">
+              <span className="w-2 h-2 rounded-full bg-[#1565C0] animate-pulse" />
+              <span>{currentModule.code}: {currentModule.title}</span>
+            </div>
+          )}
+
+          {/* Bottom of text block: thin progress line/dash + 2 circular outline buttons */}
+          <div className="mt-8 sm:mt-10 flex flex-col gap-4">
+            {/* Thin progress line / dash */}
+            <div className="w-full max-w-[280px] flex items-center gap-3">
+              <div className="relative flex-1 h-[2px] bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="absolute top-0 left-0 h-full bg-slate-900 transition-all duration-500 ease-out rounded-full"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono font-medium text-slate-400 shrink-0">
+                {String(activeIndex + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+              </span>
+            </div>
+
+            {/* Two circular outline buttons (←, →), 40px, 1px light-grey border, centered arrow icons, subtle hover fill */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handlePrev}
+                aria-label="Previous feature"
+                title="Previous feature"
+                className="w-10 h-10 rounded-full border border-slate-300 hover:border-slate-800 hover:bg-slate-100 text-slate-800 flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 shadow-2xs"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                aria-label="Next feature"
+                title="Next feature"
+                className="w-10 h-10 rounded-full border border-slate-300 hover:border-slate-800 hover:bg-slate-100 text-slate-800 flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 shadow-2xs"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+
+              <span className="text-[11px] text-slate-400 font-normal pl-2 hidden sm:inline">
+                Click card, drag, or use arrows
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side (about 65-70% width): 3D Carousel Stage */}
+        <div className="w-full lg:w-[66%] xl:w-[68%] relative flex justify-start pl-0 lg:pl-4 overflow-visible min-h-[500px] sm:min-h-[540px]">
+          <div
+            ref={containerRef}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => {
+              setIsHovered(false);
+              setHoveredSlot(null);
+            }}
+            onWheel={handleWheel}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            className={`relative w-full h-[500px] sm:h-[540px] flex items-end select-none overflow-visible ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+            style={{
+              perspective: `${CAROUSEL_3D_CONFIG.perspective}px`,
+              perspectiveOrigin: '50% 50%',
+              transformStyle: 'preserve-3d',
+              touchAction: 'pan-y',
+            }}
+          >
+            {/* Studio Floor Soft Shadow Underneath */}
+            <div
+              className="absolute bottom-[-14px] left-[0%] w-[95%] h-[65px] pointer-events-none rounded-[100%]"
+              style={{
+                background: 'radial-gradient(ellipse 70% 32% at 35% 82%, rgba(15,23,42,0.11) 0%, rgba(15,23,42,0.03) 55%, transparent 75%)',
+                filter: 'blur(10px)',
+                transform: 'translateZ(-200px)',
+              }}
+            />
+
+            {/* 3D Stage Elements - Continuous DOM nodes preserving keys for 60fps CSS transitions */}
+            <div
+              className="relative w-full h-full flex items-end pb-8 sm:pb-10"
+              style={{
+                transformStyle: 'preserve-3d',
+              }}
+            >
+              {modules.map((module, idx) => {
+                const slot = getSlotForModule(idx);
+                const prevSlot = prevSlotsRef.current[module.id];
+                const isInstantReset =
+                  (prevSlot === -1 && slot >= 7) ||
+                  (prevSlot >= 7 && slot === -1) ||
+                  (prevSlot === 8 && slot === -1);
+
+                const isActive = slot === 0;
+                const isSlotHovered = hoveredSlot === slot;
+                const transformStyles = getCardTransform(slot, isSlotHovered && !isActive, isInstantReset);
+
+                return (
+                  <div
+                    key={module.id}
+                    onMouseEnter={() => setHoveredSlot(slot)}
+                    onMouseLeave={() => setHoveredSlot(null)}
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      width: `${CAROUSEL_3D_CONFIG.cardWidth}px`,
+                      height: `${CAROUSEL_3D_CONFIG.cardHeight}px`,
+                      ...transformStyles,
+                    }}
+                  >
+                    <Home3DFeatureCard
+                      module={module}
+                      slotIndex={slot}
+                      isActive={isActive}
+                      isMuted={isMuted}
+                      onToggleMute={(e) => {
+                        e.stopPropagation();
+                        setIsMuted(!isMuted);
+                      }}
+                      onClick={() => {
+                        if (isActive) {
+                          if (module.action) module.action();
+                        } else if (slot > 0) {
+                          // Clicking any visible card directly brings it to front!
+                          updateIndex(activeIndex + slot);
+                        }
+                      }}
+                      className="w-full h-full"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HomeCookieBanner() {
+  const [isVisible, setIsVisible] = useState(true);
+  if (!isVisible) return null;
+
+  return (
+    <aside
+      aria-label="Cookie consent banner"
+      className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 max-w-sm w-[calc(100vw-2.5rem)] sm:w-80 bg-white rounded-[16px] p-4 sm:p-5 border border-slate-200/90 shadow-[0_16px_36px_-10px_rgba(15,23,42,0.14),0_0_1px_rgba(15,23,42,0.1)] transition-all duration-300 animate-fade-in-up"
+    >
+      <div className="flex items-start justify-between gap-3 mb-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
+              <path d="M8.5 8.5v.01" />
+              <path d="M16 15.5v.01" />
+              <path d="M12 12v.01" />
+              <path d="M11 17v.01" />
+              <path d="M7 14v.01" />
+            </svg>
+          </div>
+          <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+            Cookie Preference
+          </h4>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsVisible(false)}
+          aria-label="Close cookie consent banner"
+          className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <p className="text-[12px] sm:text-[13px] text-slate-500 leading-relaxed font-normal mb-4">
+        We use cookies to tailor care workflows, remember preference settings, and analyze anonymous network telemetry.
+      </p>
+
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => setIsVisible(false)}
+          className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer text-center active:scale-98"
+        >
+          Accept
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsVisible(false)}
+          className="py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 text-xs font-semibold transition-colors cursor-pointer active:scale-98"
+        >
+          Decline
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ==========================================
 // --- HOMEPAGE COMPONENT (PROFESSIONAL & STREAMLINED) ---
 // ==========================================
 function ScreenHomepage({
@@ -3062,91 +3663,8 @@ function ScreenHomepage({
         </div>
       </div>
 
-      {/* Main Content Container (Bounded width for modules & impact) */}
-      <div className="max-w-7xl xl:max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8 sm:space-y-10">
-        {/* Section Header: Centered Pill, Heading & Paragraph matching reference */}
-        <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#1565C0] border border-blue-200/80 shadow-2xs">
-            <svg className="w-3.5 h-3.5 text-[#1565C0]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l2.4 6.6L21 11l-5.6 4.4L17 22l-5-3.8L7 22l1.6-6.6L3 11l6.6-2.4L12 2z"/>
-            </svg>
-            <span>Our Features</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            One connected system for the whole care journey
-          </h2>
-          <p className="text-xs sm:text-sm md:text-base text-slate-500 font-normal max-w-2xl mx-auto leading-relaxed">
-            MedVeda brings navigation, care delivery, and records together so patients move forward and clinicians stay in the loop.
-          </p>
-        </div>
-
-        {/* 4 Cards per Row Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-          {displayModules.map((m) => {
-            const moduleThemes = {
-              feature1: { iconBg: 'bg-rose-50 text-rose-500 border-rose-100', hoverText: 'group-hover:text-rose-600' },
-              feature2: { iconBg: 'bg-sky-50 text-[#1565C0] border-sky-100', hoverText: 'group-hover:text-[#1565C0]' },
-              feature3: { iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100', hoverText: 'group-hover:text-emerald-600' },
-              feature4: { iconBg: 'bg-amber-50 text-amber-600 border-amber-100', hoverText: 'group-hover:text-amber-600' },
-              feature5: { iconBg: 'bg-purple-50 text-purple-600 border-purple-100', hoverText: 'group-hover:text-purple-600' },
-              feature6: { iconBg: 'bg-cyan-50 text-cyan-600 border-cyan-100', hoverText: 'group-hover:text-cyan-600' },
-              feature7: { iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100', hoverText: 'group-hover:text-indigo-600' },
-              feature8: { iconBg: 'bg-teal-50 text-teal-600 border-teal-100', hoverText: 'group-hover:text-teal-600' },
-              feature9: { iconBg: 'bg-blue-50 text-[#1565C0] border-blue-100', hoverText: 'group-hover:text-[#1565C0]' },
-              feature10: { iconBg: 'bg-violet-50 text-violet-600 border-violet-100', hoverText: 'group-hover:text-violet-600' }
-            };
-            const theme = moduleThemes[m.id] || { iconBg: 'bg-blue-50 text-[#1565C0] border-blue-100', hoverText: 'group-hover:text-[#1565C0]' };
-
-            return (
-              <div
-                key={m.id}
-                onClick={m.action}
-                title={`${m.title} - Verified: ${m.description}`}
-                className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-[#1565C0]/40 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
-              >
-                <div className="space-y-3.5">
-                  {/* Top: Icon box on left, Feature title text right beside it */}
-                  <div className="flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105 ${theme.iconBg}`}>
-                        <ModuleIcon id={m.id} className="w-5 h-5" />
-                      </div>
-                      <h4 className="text-base sm:text-[17px] font-bold text-slate-900 group-hover:text-[#1565C0] transition-colors leading-snug tracking-tight">
-                        {m.title}
-                      </h4>
-                    </div>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1565C0] shrink-0 self-start">
-                      <svg className="w-3.5 h-3.5 text-[#1565C0] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                      <span>Verified</span>
-                    </span>
-                  </div>
-
-                  {/* Description Paragraph */}
-                  <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed font-normal">
-                    {m.description}
-                  </p>
-                </div>
-
-                {/* Bottom Action Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    m.action();
-                  }}
-                  className="w-full py-2.5 px-3.5 bg-slate-50 hover:bg-[#1565C0] hover:text-white group-hover:bg-[#1565C0] group-hover:text-white text-slate-700 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200/90 group-hover:border-[#1565C0] shadow-2xs mt-5 cursor-pointer"
-                >
-                  <span>{m.actionLabel}</span>
-                  <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* 3D MEDIA CARD CAROUSEL FOR OUR FEATURES (using our already built cards) */}
+      <HomeFeaturesCarousel3D modules={displayModules} />
 
       {/* Healthcare Impact at a Glance Section (Full Width, matches carousel) */}
       <HealthcareImpactSection
@@ -3155,6 +3673,9 @@ function ScreenHomepage({
         onLaunchFeature4={onLaunchFeature4}
         onLaunchFeature7={onLaunchFeature7}
       />
+
+      {/* Floating Cookie Consent Banner */}
+      <HomeCookieBanner />
     </div>
   );
 }
@@ -17509,6 +18030,223 @@ function buildAccessiblePatientRecords(patientObj) {
   ];
 }
 
+// ============================================================================
+// --- MORPH IMAGE PILL: HEALTH ID CARD COMPONENT ---
+// --- Inspired by Framer Morph Image Pill (https://framer.com/m/Morph-Image-Pill-37VRK5.js@h6ukAKpg7kFF6bkTw7ek) ---
+// --- Spring physics: bounce 0.2, duration 0.4s, cubic-bezier(0.34, 1.25, 0.64, 1) ---
+// ============================================================================
+
+function MorphHealthIdPill({ patient, onOpenModal, onCopyId }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    if (onCopyId) {
+      onCopyId();
+    } else {
+      const idToCopy = patient?.internalMedicalId || 'MV-MED-2026-1024';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(idToCopy);
+      }
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      className="relative inline-block select-none"
+      style={{
+        width: '152px',
+        height: '36px',
+        zIndex: isHovered ? 50 : 20
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div
+        onClick={() => {
+          if (!isHovered) {
+            setIsHovered(true);
+          }
+        }}
+        className={`absolute right-0 bottom-0 overflow-hidden cursor-pointer ${
+          isHovered
+            ? 'border border-blue-200/90 bg-white text-slate-900 shadow-2xl'
+            : 'border border-blue-900/60 bg-[#0b2b82] text-white shadow-2xs hover:shadow-xs'
+        }`}
+        style={{
+          backgroundColor: isHovered ? '#ffffff' : '#0b2b82',
+          width: isHovered ? '460px' : '152px',
+          height: isHovered ? '316px' : '36px',
+          maxWidth: 'min(92vw, 460px)',
+          borderRadius: isHovered ? '20px' : '9999px',
+          transformOrigin: 'bottom right',
+          boxShadow: isHovered
+            ? '0 25px 50px -12px rgba(11, 43, 130, 0.35), 0 10px 20px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(11, 43, 130, 0.12)'
+            : '0 2px 6px 0 rgba(11, 43, 130, 0.2)',
+          transition: 'width 0.42s cubic-bezier(0.34, 1.25, 0.64, 1), height 0.42s cubic-bezier(0.34, 1.25, 0.64, 1), border-radius 0.38s cubic-bezier(0.34, 1.25, 0.64, 1), background-color 0.32s ease, box-shadow 0.4s ease',
+          willChange: 'width, height, border-radius, transform'
+        }}
+      >
+        {/* COLLAPSED PILL STATE */}
+        <div
+          className={`w-full h-full flex items-center justify-between px-3 transition-opacity duration-200 ${
+            isHovered ? 'opacity-0 pointer-events-none absolute inset-0' : 'opacity-100'
+          }`}
+          style={{ height: '36px' }}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div
+              className="w-5 h-5 rounded-full bg-sky-400 text-[#0b2b82] flex items-center justify-center font-black text-[9px] shrink-0 shadow-2xs"
+            >
+              MV
+            </div>
+            <span className="font-bold text-xs text-white tracking-wide truncate">
+              Health ID
+            </span>
+          </div>
+          <svg className="w-3.5 h-3.5 text-sky-300 shrink-0 ml-1 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+          </svg>
+        </div>
+
+        {/* EXPANDED HEALTH ID CARD CONTENT (Prescription-Style MedVeda Clinical Card) */}
+        <div
+          className={`p-4 text-slate-900 flex flex-col justify-between h-full relative transition-all ${
+            isHovered
+              ? 'opacity-100 translate-y-0 duration-300 delay-75'
+              : 'opacity-0 translate-y-3 duration-150 pointer-events-none absolute inset-0'
+          }`}
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.34, 1.25, 0.64, 1)'
+          }}
+        >
+          {/* Top Subtle Gradient Ribbon */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#0b2b82] via-[#1565C0] to-[#38bdf8]" />
+
+          {/* Faint Medical Caduceus Watermark in background */}
+          <div className="absolute right-4 top-8 pointer-events-none select-none opacity-[0.04]">
+            <svg className="w-48 h-48 text-[#0b2b82]" viewBox="0 0 200 240" fill="currentColor">
+              <rect x="96" y="28" width="8" height="195" rx="4" />
+              <circle cx="100" cy="20" r="12" />
+              <path d="M96 42 C60 20, 20 25, 8 52 C28 56, 52 54, 72 64 C48 66, 26 74, 16 90 C42 90, 68 82, 96 72 Z" />
+              <path d="M104 42 C140 20, 180 25, 192 52 C172 56, 148 54, 128 64 C152 66, 174 74, 184 90 C158 90, 132 82, 104 72 Z" />
+              <path d="M70 85 C50 105, 150 125, 130 148 C110 170, 65 182, 85 205" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" />
+              <path d="M130 85 C150 105, 50 125, 70 148 C90 170, 135 182, 115 205" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          {/* Card Top Header */}
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2 relative z-10 pt-1">
+            <div className="flex items-center gap-2.5">
+              {/* Faceted Medical Cross Emblem in MedVeda Blue */}
+              <div className="w-8 h-8 shrink-0 flex items-center justify-center bg-white rounded-lg shadow-2xs p-0.5 border border-blue-100">
+                <svg className="w-7 h-7" viewBox="0 0 64 64" fill="none">
+                  <defs>
+                    <linearGradient id="morphCrossTop" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="100%" stopColor="#1565C0" />
+                    </linearGradient>
+                    <linearGradient id="morphCrossDark" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#0b2b82" />
+                      <stop offset="100%" stopColor="#06194d" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="23" y="6" width="18" height="52" rx="2.5" fill="url(#morphCrossTop)" />
+                  <rect x="6" y="23" width="52" height="18" rx="2.5" fill="url(#morphCrossDark)" />
+                  <rect x="23" y="23" width="18" height="18" fill="#1e40af" />
+                  <path d="M23 23 L41 41 L23 41 Z" fill="#0b2b82" opacity="0.6" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-black tracking-wide text-[#0b2b82]">MEDVEDA DIGITAL HEALTH</div>
+                <div className="text-[8px] font-bold text-sky-700 uppercase tracking-widest">National Health Passport &bull; ABDM</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono font-black px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-full shadow-2xs">
+                ✓ ABDM VERIFIED
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsHovered(false);
+                }}
+                className="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-xs cursor-pointer transition-colors"
+                title="Collapse"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+
+          {/* Card Middle: Patient Info + SVG QR Code */}
+          <div className="flex items-center justify-between gap-3 relative z-10 py-1">
+            <div className="space-y-1 min-w-0 flex-1">
+              <h4 className="text-base font-black text-slate-900 truncate uppercase tracking-tight">
+                {patient?.name || 'PATIENT'}
+              </h4>
+              <div className="inline-block px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-[#0b2b82] font-mono text-[11px] font-bold">
+                {patient?.internalMedicalId || 'MV-MED-2026-1024'}
+              </div>
+              <div className="text-[11px] text-slate-600 font-medium pt-0.5">
+                {patient?.age || 35} Yrs &bull; {patient?.sex ? patient.sex.toUpperCase() : 'N/A'} &bull; Blood:{' '}
+                <strong className="text-rose-700 font-bold bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded text-[10px]">
+                  {patient?.bloodGroup || 'O+'}
+                </strong>
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">
+                📍 {patient?.location || patient?.address || 'Jharkhand, India'}
+              </div>
+              <div className="text-[10px] text-emerald-700 font-mono font-bold truncate">
+                ABHA: {patient?.abhaId || `${(patient?.name || 'patient').toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`}
+              </div>
+            </div>
+
+            {/* SVG QR Code */}
+            <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs shrink-0 flex flex-col items-center">
+              <DeterministicQrMatrixSvg value={patient?.internalMedicalId || 'MEDVEDA-PASSPORT'} size={60} />
+              <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider mt-1">
+                MedVeda Vault
+              </span>
+            </div>
+          </div>
+
+          {/* Validity & Phone */}
+          <div className="border-t border-slate-200 pt-1.5 flex items-center justify-between text-[9px] text-slate-500 font-medium relative z-10">
+            <span>Phone: {patient?.phone || '+91-94311-00000'}</span>
+            <span>Valid Across All ABDM Facilities</span>
+          </div>
+
+          {/* Quick Action Footer in Morphed Card */}
+          <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-200 relative z-10">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>{copied ? '✓ Copied' : '📋 Copy ID'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenModal) onOpenModal();
+              }}
+              className="px-3.5 py-1 bg-[#0b2b82] hover:bg-[#1565C0] text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1"
+            >
+              <span>🖨️ Full View &amp; Print</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScreenInteroperableRecords({
   actorRole,
   setActorRole,
@@ -19135,16 +19873,11 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
                       </svg>
                       <span>Edit Profile</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowCardModal(true)}
-                      className="px-4 py-1.5 bg-[#0b2b82] hover:bg-blue-900 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
-                      </svg>
-                      <span>Health ID Card</span>
-                    </button>
+                    <MorphHealthIdPill
+                      patient={patient}
+                      onOpenModal={() => setShowCardModal(true)}
+                      onCopyId={handleCopyId}
+                    />
                     <button
                       type="button"
                       onClick={() => setShowCardModal(true)}
@@ -20984,104 +21717,206 @@ Advice: Weekly BP review by ASHA worker. Follow up in Cardiology OPD in 14 days.
       {/* ========================================================================= */}
       {showCardModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-100 px-2 py-0.5 rounded">
-                  Digital Health Passport
-                </span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-[#0b2b82] text-[10px] font-extrabold uppercase tracking-widest">
+                  <span>MedVeda Digital Health</span>
+                </div>
                 <h3 className="text-xl font-black text-slate-900 mt-1">Official Medical ID Card</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCardModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-black text-lg"
+                className="text-slate-400 hover:text-slate-600 font-black text-2xl leading-none cursor-pointer p-1"
               >
                 &times;
               </button>
             </div>
 
-            {/* Printable ID Card Container */}
-            <div className="p-6 rounded-xl bg-[#0b2b82] text-white shadow-2xs border border-blue-900 relative overflow-hidden space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center font-black text-sm">
-                    MV
+            {/* HIGH-RES PRINTABLE OFFICIAL MEDVEDA HEALTH PASSPORT CARD (PRESCRIPTION STYLE) */}
+            <div className="rounded-2xl bg-white text-slate-900 shadow-md border-2 border-slate-200 relative overflow-hidden">
+              {/* Top Curved Wave Header with Faceted Cross & MedVeda Branding */}
+              <div className="relative bg-[#0b2b82]">
+                <svg className="w-full h-14 block" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="modalWavePrimary" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#0b2b82" />
+                      <stop offset="50%" stopColor="#1565C0" />
+                      <stop offset="100%" stopColor="#0284c7" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,0 L1200,0 L1200,120 C980,45 680,10 340,32 C160,44 50,75 0,95 Z" fill="url(#modalWavePrimary)" />
+                </svg>
+                <div className="px-5 pb-3 -mt-10 relative z-10 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    {/* Faceted Medical Cross Emblem in MedVeda Blue */}
+                    <div className="w-12 h-12 shrink-0 flex items-center justify-center bg-white rounded-xl shadow-md p-1 border border-blue-100">
+                      <svg className="w-10 h-10 drop-shadow-xs" viewBox="0 0 64 64" fill="none">
+                        <defs>
+                          <linearGradient id="modalCrossTop" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#38bdf8" />
+                            <stop offset="100%" stopColor="#1565C0" />
+                          </linearGradient>
+                          <linearGradient id="modalCrossDark" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#0b2b82" />
+                            <stop offset="100%" stopColor="#06194d" />
+                          </linearGradient>
+                        </defs>
+                        <rect x="23" y="6" width="18" height="52" rx="2.5" fill="url(#modalCrossTop)" />
+                        <rect x="6" y="23" width="52" height="18" rx="2.5" fill="url(#modalCrossDark)" />
+                        <rect x="23" y="23" width="18" height="18" fill="#1e40af" />
+                        <path d="M23 23 L41 41 L23 41 Z" fill="#0b2b82" opacity="0.6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-extrabold uppercase tracking-widest text-sky-200">
+                        National Health Passport
+                      </div>
+                      <h4 className="text-base sm:text-lg font-black text-white tracking-wide uppercase drop-shadow-xs">
+                        MEDVEDA SMART CARE
+                      </h4>
+                      <p className="text-[10px] font-bold text-sky-100 uppercase tracking-widest">
+                        Digital Health Authority &bull; ABDM Network
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-black tracking-wide text-white">MEDVEDA SMART CARE</div>
-                    <div className="text-[8px] font-bold text-sky-400 uppercase tracking-widest">Digital Health Authority</div>
+                  <div className="text-right">
+                    <span className="inline-block text-[10px] font-mono font-black px-2.5 py-0.5 bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 rounded-full shadow-2xs backdrop-blur-xs">
+                      ✓ ABDM VERIFIED
+                    </span>
+                    <div className="text-[8px] font-bold text-sky-200 uppercase tracking-widest mt-0.5">AYUSHMAN BHARAT</div>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono font-black px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full">
-                  VERIFIED PATIENT
-                </span>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-xl font-black text-white">{patient?.name || 'PATIENT'}</h4>
-                  <div className="text-xs font-mono font-bold text-sky-300 mt-0.5">{patient?.internalMedicalId || 'MV-MED-2026-XXXX'}</div>
-                  <div className="text-[11px] text-slate-300 mt-2 font-medium">
-                    {patient?.age || 35} Years &bull; {patient?.sex ? patient.sex.toUpperCase() : 'N/A'} &bull; Blood: <strong className="text-critical-400">{patient?.bloodGroup || 'O+'}</strong>
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1">📍 {patient?.location || patient?.address || 'Jharkhand'}</div>
-                  {patient?.abhaId && (
-                    <div className="text-[10px] text-emerald-400 font-mono mt-1 font-bold">ABHA: {patient.abhaId}</div>
-                  )}
-                </div>
-
-                {/* SVG QR Code */}
-                <div className="bg-white p-2.5 rounded-2xl shadow-md shrink-0">
-                  <svg viewBox="0 0 100 100" className="w-20 h-20">
-                    <rect width="100" height="100" fill="#ffffff" />
-                    <rect x="5" y="5" width="28" height="28" fill="#0f172a" rx="4" />
-                    <rect x="9" y="9" width="20" height="20" fill="#ffffff" rx="2" />
-                    <rect x="13" y="13" width="12" height="12" fill="#0f172a" rx="2" />
-                    <rect x="67" y="5" width="28" height="28" fill="#0f172a" rx="4" />
-                    <rect x="71" y="9" width="20" height="20" fill="#ffffff" rx="2" />
-                    <rect x="75" y="13" width="12" height="12" fill="#0f172a" rx="2" />
-                    <rect x="5" y="67" width="28" height="28" fill="#0f172a" rx="4" />
-                    <rect x="9" y="71" width="20" height="20" fill="#ffffff" rx="2" />
-                    <rect x="13" y="75" width="12" height="12" fill="#0f172a" rx="2" />
-                    <rect x="40" y="10" width="8" height="8" fill="#0284c7" />
-                    <rect x="52" y="18" width="8" height="8" fill="#0f172a" />
-                    <rect x="40" y="40" width="12" height="12" fill="#0f172a" rx="2" />
-                    <rect x="56" y="38" width="6" height="6" fill="#0284c7" />
-                    <rect x="70" y="45" width="8" height="8" fill="#0f172a" />
-                    <rect x="82" y="55" width="6" height="6" fill="#0284c7" />
-                    <rect x="45" y="60" width="8" height="8" fill="#0f172a" />
-                    <rect x="60" y="65" width="10" height="10" fill="#0f172a" />
-                    <rect x="75" y="75" width="8" height="8" fill="#0284c7" />
+              {/* Card Body with Watermark and Underlined Demographic Fields */}
+              <div className="p-5 sm:p-6 relative bg-white min-h-[220px]">
+                {/* Faint Medical Caduceus Watermark in background */}
+                <div className="absolute right-6 top-4 pointer-events-none select-none opacity-[0.05] flex items-center justify-center">
+                  <svg className="w-56 h-56 text-[#0b2b82]" viewBox="0 0 200 240" fill="currentColor">
+                    <rect x="96" y="28" width="8" height="195" rx="4" />
+                    <circle cx="100" cy="20" r="12" />
+                    <path d="M96 42 C60 20, 20 25, 8 52 C28 56, 52 54, 72 64 C48 66, 26 74, 16 90 C42 90, 68 82, 96 72 Z" />
+                    <path d="M104 42 C140 20, 180 25, 192 52 C172 56, 148 54, 128 64 C152 66, 174 74, 184 90 C158 90, 132 82, 104 72 Z" />
+                    <path d="M70 85 C50 105, 150 125, 130 148 C110 170, 65 182, 85 205" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" />
+                    <path d="M130 85 C150 105, 50 125, 70 148 C90 170, 135 182, 115 205" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" />
                   </svg>
                 </div>
+
+                <div className="relative z-10 flex flex-col sm:flex-row items-start justify-between gap-5">
+                  {/* Left Column: Underlined Demographics (Matching Prescription Style) */}
+                  <div className="flex-1 w-full space-y-3 text-xs text-slate-800">
+                    {/* MedVeda UHID Row */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-bold text-slate-600 shrink-0 text-[11px]">MedVeda UHID:</span>
+                      <span className="flex-1 border-b border-slate-300 pb-0.5 font-mono font-bold text-[#0b2b82] text-xs px-1">
+                        {patient?.internalMedicalId || 'MV-MED-2026-1024'}
+                      </span>
+                    </div>
+
+                    {/* Patient Name */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-bold text-slate-600 shrink-0 text-[11px]">Patient&apos;s Name:</span>
+                      <span className="flex-1 border-b border-slate-300 pb-0.5 font-extrabold text-slate-900 text-sm px-1 uppercase tracking-wide">
+                        {patient?.name || 'PATIENT'}
+                      </span>
+                    </div>
+
+                    {/* Age, Gender, Blood Group */}
+                    <div className="grid grid-cols-12 gap-2 items-baseline">
+                      <div className="col-span-5 flex items-baseline gap-1.5">
+                        <span className="font-bold text-slate-600 shrink-0 text-[11px]">Age:</span>
+                        <span className="flex-1 border-b border-slate-300 pb-0.5 font-semibold text-slate-900 px-1">
+                          {patient?.age || 35} Yrs
+                        </span>
+                      </div>
+                      <div className="col-span-4 flex items-baseline gap-1.5">
+                        <span className="font-bold text-slate-600 shrink-0 text-[11px]">Gender:</span>
+                        <span className="flex-1 border-b border-slate-300 pb-0.5 font-semibold text-slate-900 px-1">
+                          {patient?.sex ? patient.sex.toUpperCase() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="col-span-3 flex items-baseline gap-1.5">
+                        <span className="font-bold text-slate-600 shrink-0 text-[11px]">Blood:</span>
+                        <span className="flex-1 border-b border-slate-300 pb-0.5 font-bold text-rose-600 px-1">
+                          {patient?.bloodGroup || 'O+'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ABHA ID */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-bold text-slate-600 shrink-0 text-[11px]">Linked ABHA ID:</span>
+                      <span className="flex-1 border-b border-slate-300 pb-0.5 font-mono text-xs font-semibold text-emerald-700 px-1 truncate">
+                        {patient?.abhaId || `${(patient?.name || 'patient').toLowerCase().replace(/[^a-z0-9]/g, '.')}@abdm`}
+                      </span>
+                    </div>
+
+                    {/* Domicile / Location */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-bold text-slate-600 shrink-0 text-[11px]">Domicile / Location:</span>
+                      <span className="flex-1 border-b border-slate-300 pb-0.5 font-medium text-slate-800 text-[11px] px-1 truncate">
+                        {patient?.location || patient?.address || 'Katkamsandi, Hazaribagh, Jharkhand'}
+                      </span>
+                    </div>
+
+                    {/* Emergency Contact */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-bold text-slate-600 shrink-0 text-[11px]">Emergency Phone:</span>
+                      <span className="flex-1 border-b border-slate-300 pb-0.5 font-mono text-xs text-slate-800 px-1">
+                        {patient?.phone || '+91-94311-28901'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: QR Code Block */}
+                  <div className="shrink-0 flex flex-col items-center justify-center p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs w-full sm:w-36">
+                    <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                      <DeterministicQrMatrixSvg value={patient?.internalMedicalId || 'MEDVEDA-PASSPORT'} size={88} />
+                    </div>
+                    <span className="text-[9px] font-black text-[#0b2b82] uppercase tracking-wider mt-2 text-center">
+                      MedVeda Vault QR
+                    </span>
+                    <span className="text-[8px] text-slate-500 text-center leading-tight mt-0.5">
+                      Scan for OPD &amp; Emergency Access
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="border-t border-white/10 pt-2 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                <span>Phone: {patient?.phone || '+91-94311-00000'}</span>
-                <span>Valid Nationwide Across All ABDM Facilities</span>
+              {/* Card Footer Security Strip */}
+              <div className="bg-slate-50 border-t border-slate-200 px-5 py-2.5 flex items-center justify-between text-[10px] text-slate-600 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Valid Nationwide Across All Empanelled ABDM Facilities</span>
+                </div>
+                <span className="font-mono text-[9px] text-slate-400">MEDVEDA-SEC-V3</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3">
+            {/* Modal Action Buttons */}
+            <div className="flex items-center justify-between gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowCardModal(false)}
-                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs flex-1"
+                className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex-1 cursor-pointer transition-colors"
               >
                 Close
               </button>
               <button
                 type="button"
                 onClick={handleCopyId}
-                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex-1 flex items-center justify-center gap-1"
+                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
                 <span>📋 Copy ID</span>
               </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs flex-1 flex items-center justify-center gap-1 shadow-md shadow-sky-600/30"
+                className="px-4 py-2.5 bg-[#0b2b82] hover:bg-[#1565C0] text-white font-bold rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-blue-900/20 cursor-pointer transition-colors"
               >
                 <span>🖨️ Print Card</span>
               </button>

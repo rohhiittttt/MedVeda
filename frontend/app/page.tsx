@@ -1,10 +1,13 @@
+'use client';
+
 import React from 'react';
+import { Hero } from '../src/features/carousel/Hero';
+import { MEDVEDA_FEATURE_CARDS } from '../src/features/carousel/media';
 
 export default function Home() {
   return (
-    <main style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>
-      <h1>MedVeda</h1>
-      <p>Autonomous Cognitive Health Network &amp; Smart Care Navigator</p>
+    <main className="min-h-screen bg-[#FCFCFB] text-slate-900 flex flex-col justify-center">
+      <Hero cards={MEDVEDA_FEATURE_CARDS} showCookieBanner={true} />
     </main>
   );
 }
