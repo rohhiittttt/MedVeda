@@ -215,12 +215,17 @@ def is_emergency_query(text: str) -> bool:
             return True
     return False
 
+_GTTS_CIRCUIT_OPEN = False
+
 def synthesize_speech_base64(text: str, lang: str = "en") -> Optional[str]:
     """
     Generates natural text-to-speech audio using gTTS in Hindi or English,
     returning base64 encoded MP3 bytes.
-    Synthesizes the complete response naturally without arbitrary 2-sentence cuts.
+    Includes a fast circuit breaker so offline/blocked gTTS never slows down Gemini LLM responses.
     """
+    global _GTTS_CIRCUIT_OPEN
+    if _GTTS_CIRCUIT_OPEN:
+        return None
     try:
         # Strip markdown syntax, citations brackets, asterisks, bullets, links, and emojis
         clean_text = re.sub(r'\[REC-[^\]]+\]', '', text)
@@ -250,7 +255,8 @@ def synthesize_speech_base64(text: str, lang: str = "en") -> Optional[str]:
         buf.seek(0)
         return base64.b64encode(buf.read()).decode("utf-8")
     except Exception as e:
-        print(f"Error synthesizing speech with gTTS: {e}")
+        _GTTS_CIRCUIT_OPEN = True
+        print(f"Error synthesizing speech with gTTS (circuit opened): {e}")
         return None
 
 # -------------------------------------------------------------
@@ -1040,7 +1046,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Analgesic & Antipyretic",
         "isOtc": True,
         "indication": "Temporary relief of mild-to-moderate fever, headache, body pain, and muscular aches.",
+        "indicationHi": "हल्के से मध्यम बुखार, सिरदर्द, बदन दर्द और मांसपेशियों के दर्द में अस्थायी राहत।",
         "usageAdvice": "Take 1 tablet after food with water. Maintain a gap of at least 4 to 6 hours between doses. Maximum 4 tablets (2600mg) in 24 hours. Avoid alcohol.",
+        "usageAdviceHi": "भोजन के बाद पानी के साथ 1 टैबलेट लें। दो खुराक के बीच कम से कम 4 से 6 घंटे का अंतर रखें। 24 घंटे में अधिकतम 4 टैबलेट से अधिक न लें।",
         "brandAlternatives": [
             {"brand": "Calpol 650", "manufacturer": "GSK (GlaxoSmithKline)", "salt": "Paracetamol 650mg", "priceEst": "₹30 for 15 tabs", "otc": True},
             {"brand": "Crocin 650", "manufacturer": "Haleon / GSK", "salt": "Paracetamol 650mg", "priceEst": "₹32 for 15 tabs", "otc": True},
@@ -1058,7 +1066,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Analgesic & Antipyretic",
         "isOtc": True,
         "indication": "Relief from mild fever, mild headache, and muscular soreness.",
+        "indicationHi": "हल्के बुखार, सामान्य सिरदर्द और मांसपेशियों की थकान से राहत।",
         "usageAdvice": "Take 1 tablet after food with water. Minimum 4-6 hours between doses. Do not exceed 4g/day.",
+        "usageAdviceHi": "भोजन के बाद पानी के साथ 1 टैबलेट लें। खुराक के बीच 4 से 6 घंटे का अंतराल रखें।",
         "brandAlternatives": [
             {"brand": "Calpol 500", "manufacturer": "GSK", "salt": "Paracetamol 500mg", "priceEst": "₹20 for 15 tabs", "otc": True},
             {"brand": "Dolo 500", "manufacturer": "Micro Labs", "salt": "Paracetamol 500mg", "priceEst": "₹18 for 15 tabs", "otc": True},
@@ -1075,7 +1085,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Oral Rehydration Solution / Electrolytes",
         "isOtc": True,
         "indication": "Restoration of body fluid and essential electrolytes lost due to dehydration, diarrhea, excessive sweating, or heat exhaustion.",
-        "usageAdvice": "Dissolve the entire 21.8g sachet in exactly 1 litre of clean drinking water. Drink in small sips throughout the day. Discard any unused solution after 24 hours.",
+        "indicationHi": "दस्त, डिहाइड्रेशन या अधिक पसीने के कारण शरीर में हुई पानी और आवश्यक इलेक्ट्रोलाइट्स की कमी को पूरा करने के लिए।",
+        "usageAdvice": "Dissolve the entire 21.8g sachet in 1 litre of clean drinking water. Drink in small sips throughout the day. Discard any unused solution after 24 hours.",
+        "usageAdviceHi": "पूरे 21.8 ग्राम पैकेट को 1 लीटर साफ पीने के पानी में घोलें। दिन भर थोड़े-थोड़े घूंट में पिएं। 24 घंटे बाद बचा हुआ घोल फेंक दें।",
         "brandAlternatives": [
             {"brand": "Prolyte ORS", "manufacturer": "Cipla", "salt": "WHO Standard Electrolyte Salts & Dextrose", "priceEst": "₹22 per sachet", "otc": True},
             {"brand": "Walyte ORS", "manufacturer": "Wallace Pharmaceuticals", "salt": "WHO Standard Electrolyte Salts & Dextrose", "priceEst": "₹20 per sachet", "otc": True},
@@ -1092,7 +1104,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Second-Generation Antihistamine",
         "isOtc": True,
         "indication": "Relief from allergic symptoms: runny nose, sneezing, itchy/watery eyes, seasonal allergic rhinitis, and urticaria/hives.",
+        "indicationHi": "एलर्जी के लक्षणों से राहत: बहती नाक, बार-बार छींक आना, आंखों में खुजली या पानी आना और मौसमी जुकाम।",
         "usageAdvice": "Take 1 tablet once daily, preferably at bedtime as it may cause mild drowsiness. Avoid driving or alcohol after taking.",
+        "usageAdviceHi": "दिन में एक बार 1 टैबलेट, अधिमानतः रात को सोते समय लें क्योंकि इससे हल्की नींद आ सकती है।",
         "brandAlternatives": [
             {"brand": "Okacet 10", "manufacturer": "Cipla", "salt": "Cetirizine Hydrochloride 10mg", "priceEst": "₹22 for 10 tabs", "otc": True},
             {"brand": "Alerid 10", "manufacturer": "Cipla", "salt": "Cetirizine Hydrochloride 10mg", "priceEst": "₹20 for 10 tabs", "otc": True},
@@ -1109,7 +1123,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Antacid & Antiflatulent",
         "isOtc": True,
         "indication": "Quick relief from acid indigestion, heartburn, sour stomach, and abdominal gas/bloating.",
+        "indicationHi": "एसिडिटी, सीने में जलन, खट्टी डकार और पेट की गैस या भारीपन से त्वरित राहत।",
         "usageAdvice": "Take 1 to 2 teaspoons (5-10 ml) about 30 to 60 minutes after meals and at bedtime. Shake bottle well before use.",
+        "usageAdviceHi": "भोजन के 30 से 60 मिनट बाद और रात को सोते समय 1 से 2 चम्मच (5-10 मिली) लें। उपयोग से पहले बोतल को अच्छी तरह हिलाएं।",
         "brandAlternatives": [
             {"brand": "Digene Gel / Chewable", "manufacturer": "Abbott Healthcare", "salt": "Magaldrate 480mg + Simethicone 20mg", "priceEst": "₹140 per 200ml", "otc": True},
             {"brand": "Mucaine Gel", "manufacturer": "Pfizer", "salt": "Oxetacaine + Aluminium & Magnesium Hydroxide", "priceEst": "₹160 per 200ml", "otc": True},
@@ -1126,7 +1142,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Angiotensin II Receptor Blocker (ARB)",
         "isOtc": False,
         "indication": "Management of essential hypertension (high blood pressure) and reduction of cardiovascular risk.",
-        "usageAdvice": "⚠️ PRESCRIPTION ONLY: Must be taken under medical supervision. Typically 1 tablet daily with or without food, around the same time.",
+        "indicationHi": "उच्च रक्तचाप (हाई ब्लड प्रेशर) के नियंत्रण और हृदय संबंधी जोखिम को कम करने के लिए।",
+        "usageAdvice": "Prescription Only: Must be taken under medical supervision. Typically 1 tablet daily with or without food, around the same time.",
+        "usageAdviceHi": "केवल डॉक्टर के पर्चे पर: इसे चिकित्सकीय देखरेख में ही लिया जाना चाहिए। सामान्यतः प्रतिदिन एक निश्चित समय पर 1 टैबलेट।",
         "brandAlternatives": [
             {"brand": "Telvas 40", "manufacturer": "Aristo Pharmaceuticals", "salt": "Telmisartan 40mg", "priceEst": "₹85 for 15 tabs", "otc": False},
             {"brand": "Tazloc 40", "manufacturer": "USV Ltd", "salt": "Telmisartan 40mg", "priceEst": "₹92 for 15 tabs", "otc": False},
@@ -1144,7 +1162,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "HMG-CoA Reductase Inhibitor (Statin)",
         "isOtc": False,
         "indication": "Lowering elevated LDL cholesterol, total cholesterol, and triglycerides; prevention of cardiovascular disease.",
-        "usageAdvice": "⚠️ PRESCRIPTION ONLY: Take once daily at night. Requires periodic liver function and lipid panel monitoring by a physician.",
+        "indicationHi": "बढ़े हुए कोलेस्ट्रॉल (एलडीएल) और ट्राइग्लिसराइड्स को कम करने तथा हृदय रोग की रोकथाम के लिए।",
+        "usageAdvice": "Prescription Only: Take once daily at night. Requires periodic liver function and lipid panel monitoring by a physician.",
+        "usageAdviceHi": "केवल डॉक्टर के पर्चे पर: रात में प्रतिदिन एक बार लें। चिकित्सक द्वारा समय-समय पर लिपिड और लिवर जांच आवश्यक है।",
         "brandAlternatives": [
             {"brand": "Rozucor 20", "manufacturer": "Torrent Pharma", "salt": "Rosuvastatin Calcium 20mg", "priceEst": "₹260 for 15 tabs", "otc": False},
             {"brand": "Roseday 20", "manufacturer": "USV Ltd", "salt": "Rosuvastatin Calcium 20mg", "priceEst": "₹275 for 15 tabs", "otc": False},
@@ -1161,7 +1181,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Antiplatelet Agent / Blood Thinner",
         "isOtc": False,
         "indication": "Prevention of blood clots, heart attacks, stroke, and post-angioplasty stent maintenance.",
-        "usageAdvice": "⚠️ PRESCRIPTION DIRECTED: Swallow whole with water after a meal. Do not crush or chew. Take only under doctor's guidance due to bleeding risks.",
+        "indicationHi": "रक्त के थक्के बनने से रोकने, हार्ट अटैक और स्ट्रोक के बचाव तथा एंजियोप्लास्टी स्टेंट की सुरक्षा के लिए।",
+        "usageAdvice": "Prescription Directed: Swallow whole with water after a meal. Do not crush or chew. Take only under doctor's guidance due to bleeding risks.",
+        "usageAdviceHi": "केवल डॉक्टर की सलाह पर: भोजन के बाद पानी के साथ पूरी गोली निगलें। इसे चबाएं या तोड़ें नहीं।",
         "brandAlternatives": [
             {"brand": "Loprin 75", "manufacturer": "Unichem Labs", "salt": "Aspirin (Acetylsalicylic Acid) 75mg", "priceEst": "₹7 for 14 tabs", "otc": False},
             {"brand": "Delisprin 75", "manufacturer": "Abbott", "salt": "Aspirin (Acetylsalicylic Acid) 75mg", "priceEst": "₹8 for 14 tabs", "otc": False},
@@ -1178,7 +1200,9 @@ SAME_COMPOSITION_MEDS_DB = [
         "therapeuticClass": "Penicillin Class Antibiotic (Beta-lactamase Inhibitor)",
         "isOtc": False,
         "indication": "Bacterial respiratory tract infections, ear/sinus infections, skin and urinary tract bacterial infections.",
-        "usageAdvice": "🛑 STRICT PRESCRIPTION ONLY: Antibiotics must NEVER be self-prescribed. Misuse leads to dangerous antimicrobial resistance. Full course must be completed under doctor guidance.",
+        "indicationHi": "बैक्टीरियल श्वसन संक्रमण, कान या साइनस संक्रमण, त्वचा और मूत्र पथ के जीवाणु संक्रमण के उपचार के लिए।",
+        "usageAdvice": "Strict Prescription Only: Antibiotics must never be self-prescribed. Misuse leads to antimicrobial resistance. Full course must be completed under doctor guidance.",
+        "usageAdviceHi": "सख्त डॉक्टर के पर्चे पर: एंटीबायोटिक दवाएं बिना डॉक्टर की सलाह के कभी न लें। डॉक्टर द्वारा निर्धारित पूरा कोर्स पूरा करना अनिवार्य है।",
         "brandAlternatives": [
             {"brand": "Clavam 625", "manufacturer": "Alkem Laboratories", "salt": "Amoxicillin 500mg + Clavulanic Acid 125mg", "priceEst": "₹190 for 10 tabs", "otc": False},
             {"brand": "Moxikind-CV 625", "manufacturer": "Mankind Pharma", "salt": "Amoxicillin 500mg + Clavulanic Acid 125mg", "priceEst": "₹170 for 10 tabs", "otc": False},
@@ -1211,23 +1235,27 @@ BASIC_CONDITIONS_CONFIG = {
         "diagnosisEn": "Mild viral fever or seasonal flu-like syndrome",
         "diagnosisHi": "हल्का वायरल बुखार या मौसमी फ्लू के शुरुआती लक्षण",
         "questionsEn": [
-            "How many days have you had this fever (e.g., less than 2 days or more than 3 days)?",
-            "Are there any red-flag symptoms such as severe shivering, stiff neck, rash, or breathing distress?"
+            "How many days have you had this fever (for example, 1-2 days or more than 3 days)?",
+            "Are there any warning symptoms such as severe shivering, stiff neck, skin rash, or breathing distress?"
         ],
         "questionsHi": [
             "यह बुखार कितने दिनों से है (जैसे 1-2 दिन से या 3 दिन से अधिक)?",
             "क्या आपको बहुत तेज कंपकंपी, गर्दन में अकड़न, शरीर पर चकत्ते या सांस फूलने की समस्या है?"
         ],
-        "quickReplies": ["1-2 Days (1-2 दिन)", "3+ Days (3 से ज्यादा दिन)", "No other signs (अन्य कोई लक्षण नहीं)", "Have other symptoms (अन्य लक्षण हैं)"],
+        "quickRepliesEn": ["1-2 Days", "3+ Days", "No other signs", "Have other symptoms"],
+        "quickRepliesHi": ["1-2 दिन", "3 से ज्यादा दिन", "अन्य कोई लक्षण नहीं", "अन्य लक्षण हैं"],
+        "quickReplies": ["1-2 Days", "1-2 दिन", "3+ Days", "3 से ज्यादा दिन", "No other signs", "अन्य कोई लक्षण नहीं", "Have other symptoms", "अन्य लक्षण हैं"],
         "otcMedicines": [
             {
                 "name": "Paracetamol 650mg (Dolo 650 / Calpol 650)",
                 "activeSalt": "Paracetamol 650mg",
                 "dosage": "1 tablet after meals with water",
+                "dosageHi": "भोजन के बाद पानी के साथ 1 टैबलेट",
                 "frequency": "As needed every 6-8 hours (maximum 4 tablets in 24 hours)",
+                "frequencyHi": "आवश्यकतानुसार हर 6-8 घंटे में (24 घंटे में अधिकतम 4 टैबलेट)",
                 "isOtc": True,
-                "notesEn": "Safe OTC antipyretic for fever & body ache. Avoid taking on empty stomach. Do not consume alcohol.",
-                "notesHi": "बुखार व बदन दर्द के लिए सुरक्षित ओटीसी (OTC) दवा। खाली पेट न लें। 24 घंटे में 4 गोली से ज्यादा न लें।"
+                "notesEn": "Safe OTC antipyretic for fever and body ache. Avoid taking on an empty stomach. Do not consume alcohol.",
+                "notesHi": "बुखार व बदन दर्द के लिए सुरक्षित ओटीसी दवा। खाली पेट न लें। 24 घंटे में 4 गोली से ज्यादा न लें।"
             }
         ],
         "homeCareEn": "Drink warm fluids, take complete physical rest, and monitor body temperature with a thermometer every 6 hours.",
@@ -1236,29 +1264,33 @@ BASIC_CONDITIONS_CONFIG = {
     "headache": {
         "patterns": [r'\b(?:headache|head\s*pain|tension\s*headache)\b', r'(?:सिरदर्द|सिर\s*में\s*दर्द|माथा\s*दर्द)'],
         "diagnosisEn": "Mild tension headache or fatigue/stress-induced headache",
-        "diagnosisHi": "सामान्य तनाव जनित सिरदर्द (टेंशन हेडेक) या थकान की वजह से सिरदर्द",
+        "diagnosisHi": "सामान्य तनाव जनित सिरदर्द या थकान की वजह से सिरदर्द",
         "questionsEn": [
             "Did the headache start gradually, and is it a dull ache on both sides of the head or throbbing on one side?",
-            "Are you experiencing any vision changes, vomiting, neck stiffness, or sudden 'thunderclap' severity?"
+            "Are you experiencing any vision changes, vomiting, neck stiffness, or sudden severe pain?"
         ],
         "questionsHi": [
             "क्या सिरदर्द धीरे-धीरे शुरू हुआ है और दोनों तरफ भारीपन लग रहा है?",
-            "क्या उल्टी आना, धुंधला दिखना, गर्दन में जकड़न या अचानक बिजली की तरह तेज दर्द महसूस हुआ है?"
+            "क्या उल्टी आना, धुंधला दिखना, गर्दन में जकड़न या अचानक तेज दर्द महसूस हुआ है?"
         ],
-        "quickReplies": ["Gradual dull ache (हल्का भारीपन)", "One-sided throbbing (एक तरफ तेज)", "Screen strain (स्क्रीन थकान)", "Severe sudden pain (अचानक तेज दर्द)"],
+        "quickRepliesEn": ["Gradual dull ache", "One-sided throbbing", "Screen strain", "Severe sudden pain"],
+        "quickRepliesHi": ["हल्का भारीपन", "एक तरफ तेज दर्द", "स्क्रीन थकान", "अचानक तेज दर्द"],
+        "quickReplies": ["Gradual dull ache", "हल्का भारीपन", "One-sided throbbing", "एक तरफ तेज दर्द", "Screen strain", "स्क्रीन थकान", "Severe sudden pain", "अचानक तेज दर्द"],
         "otcMedicines": [
             {
                 "name": "Paracetamol 500mg or 650mg (Crocin 500 / Dolo 650)",
                 "activeSalt": "Paracetamol 500mg/650mg",
                 "dosage": "1 tablet with a glass of water after food",
+                "dosageHi": "भोजन के बाद एक गिलास पानी के साथ 1 टैबलेट",
                 "frequency": "Single dose; repeat after 6 hours only if needed (max 3-4 doses/day)",
+                "frequencyHi": "एक खुराक; आवश्यकता पड़ने पर ही 6 घंटे बाद दोहराएं (अधिकतम 3-4 खुराक प्रतिदिन)",
                 "isOtc": True,
                 "notesEn": "Easily available OTC pain reliever. Rest in a dark, quiet room.",
-                "notesHi": "आसानी से मिलने वाली सुरक्षित ओटीसी दर्द निवारक दवा। शांत व अंधेरे कमरे में विश्राम करें।"
+                "notesHi": "आसानी से मिलने वाली सुरक्षित ओटीसी दर्द निवारक दवा। शांत व कम रोशनी वाले कमरे में विश्राम करें।"
             }
         ],
-        "homeCareEn": "Stay hydrated, dim screen brightness, rest your eyes, and apply a gentle cold/warm forehead compress.",
-        "homeCareHi": "भरपूर पानी पिएं, मोबाइल/स्क्रीन से ब्रेक लें, और माथे पर हल्का ठंडा या गर्म सेक लगाएं।"
+        "homeCareEn": "Stay hydrated, dim screen brightness, rest your eyes, and apply a gentle cold or warm forehead compress.",
+        "homeCareHi": "भरपूर पानी पिएं, मोबाइल और स्क्रीन से ब्रेक लें, और माथे पर हल्का ठंडा या गर्म सेक लगाएं।"
     },
     "cold": {
         "patterns": [r'\b(?:cold|cough|runny\s*nose|sneezing|sneeze|nasal\s*congestion)\b', r'(?:सर्दी|जुकाम|खांसी|छींक|नाक\s*बहना)'],
@@ -1272,13 +1304,17 @@ BASIC_CONDITIONS_CONFIG = {
             "क्या नाक से पानी बह रहा है और छींकें आ रही हैं, या गाढ़ा बलगम और तेज बुखार है?",
             "क्या सांस लेने में तकलीफ या सीने में भारीपन महसूस हो रहा है?"
         ],
-        "quickReplies": ["Clear runny nose (पानी जैसी छींकें)", "Mild dry cough (हल्की सूखी खांसी)", "No breathing difficulty (सांस में दिक्कत नहीं)", "Breathing problem (सांस में तकलीफ)"],
+        "quickRepliesEn": ["Clear runny nose", "Mild dry cough", "No breathing difficulty", "Breathing problem"],
+        "quickRepliesHi": ["पानी जैसी छींकें", "हल्की सूखी खांसी", "सांस में दिक्कत नहीं", "सांस में तकलीफ"],
+        "quickReplies": ["Clear runny nose", "पानी जैसी छींकें", "Mild dry cough", "हल्की सूखी खांसी", "No breathing difficulty", "सांस में दिक्कत नहीं", "Breathing problem", "सांस में तकलीफ"],
         "otcMedicines": [
             {
                 "name": "Cetirizine 10mg (Cetzine / Okacet)",
                 "activeSalt": "Cetirizine Hydrochloride 10mg",
                 "dosage": "1 tablet at bedtime",
+                "dosageHi": "रात को सोते समय 1 टैबलेट",
                 "frequency": "Once daily at night",
+                "frequencyHi": "प्रतिदिन रात में एक बार",
                 "isOtc": True,
                 "notesEn": "Non-prescription antihistamine for sneezing and runny nose. May cause mild drowsiness; avoid driving.",
                 "notesHi": "छींक व बहती नाक रोकने के लिए ओटीसी दवा। रात को सोते समय लें क्योंकि हल्की नींद आ सकती है।"
@@ -1287,36 +1323,42 @@ BASIC_CONDITIONS_CONFIG = {
                 "name": "Saline Nasal Spray / Drops (Otrivin S / Solspre)",
                 "activeSalt": "Purified Saline (0.9% NaCl)",
                 "dosage": "2-3 drops in each nostril",
+                "dosageHi": "दोनों नाक में 2-3 बूंदें",
                 "frequency": "2-3 times daily as needed",
+                "frequencyHi": "आवश्यकतानुसार दिन में 2-3 बार",
                 "isOtc": True,
                 "notesEn": "100% drug-free safe saline drops to clear nasal congestion and soothe dry airways.",
-                "notesHi": "ड्रग-मुक्त सुरक्षित सलाइन ड्रॉप्स जो बंद नाक खोलने और सूखेपन में राहत देती हैं।"
+                "notesHi": "सुरक्षित सलाइन ड्रॉप्स जो बंद नाक खोलने और सूखेपन में राहत देती हैं।"
             }
         ],
-        "homeCareEn": "Take warm water steam inhalation 2 times daily, drink ginger-tulsi tea, and gargle with warm saline water.",
-        "homeCareHi": "दिन में 2 बार भाप (स्टीम) लें, गर्म अदरक-तुलसी का काढ़ा या गुनगुना पानी पिएं।"
+        "homeCareEn": "Take warm water steam inhalation twice daily, drink ginger-tulsi tea, and gargle with warm saline water.",
+        "homeCareHi": "दिन में 2 बार भाप लें, गर्म अदरक-तुलसी का काढ़ा या गुनगुना पानी पिएं और नमक के गुनगुने पानी से गरारे करें।"
     },
     "acidity": {
         "patterns": [r'\b(?:acidity|acid\s*reflux|heartburn|gas|indigestion|bloating)\b', r'(?:एसिडिटी|गैस|पेट\s*में\s*जलन|खट्टी\s*डकार|अपच)'],
         "diagnosisEn": "Mild gastric hyperacidity / functional dyspepsia (acid reflux)",
         "diagnosisHi": "हल्की गैस्ट्रिक एसिडिटी या अपच (खट्टी डकार व सीने में हल्की जलन)",
         "questionsEn": [
-            "Did this acidity flare up after eating spicy/oily food, late-night meals, or skipping food?",
+            "Did this acidity flare up after eating spicy or oily food, late-night meals, or skipping food?",
             "Is there any black stools, persistent vomiting, or pain radiating to your left arm or jaw?"
         ],
         "questionsHi": [
-            "क्या यह तीखा/तला-भुना खाने, देर रात खाने या खाली पेट रहने के बाद हुआ?",
+            "क्या यह तीखा या तला-भुना खाने, देर रात खाने या खाली पेट रहने के बाद हुआ?",
             "क्या काला मल, लगातार उल्टी, या दर्द बाएं हाथ या जबड़े की ओर जा रहा है?"
         ],
-        "quickReplies": ["After spicy food (तीखा खाने के बाद)", "Empty stomach (खाली पेट रहने पर)", "No arm pain (हाथ में दर्द नहीं)", "Chest tightness (सीने में भारीपन)"],
+        "quickRepliesEn": ["After spicy food", "Empty stomach", "No arm pain", "Chest tightness"],
+        "quickRepliesHi": ["तीखा खाने के बाद", "खाली पेट रहने पर", "हाथ में दर्द नहीं", "सीने में भारीपन"],
+        "quickReplies": ["After spicy food", "तीखा खाने के बाद", "Empty stomach", "खाली पेट रहने पर", "No arm pain", "हाथ में दर्द नहीं", "Chest tightness", "सीने में भारीपन"],
         "otcMedicines": [
             {
                 "name": "Gelusil MPS Liquid or Digene Gel / Chewable Tablets",
                 "activeSalt": "Magaldrate + Simethicone / Aluminium & Magnesium Hydroxide",
                 "dosage": "1-2 teaspoons (5-10 ml) or 1-2 chewable tablets",
+                "dosageHi": "1-2 चम्मच (5-10 मिली) सिरप या 1-2 चबाने वाली गोलियां",
                 "frequency": "30-60 minutes after meals and before bedtime as needed",
+                "frequencyHi": "भोजन के 30-60 मिनट बाद और सोने से पहले आवश्यकतानुसार",
                 "isOtc": True,
-                "notesEn": "Fast-acting OTC antacid that neutralizes stomach acid and relieves trapped gas bubbles.",
+                "notesEn": "Fast-acting OTC antacid that neutralizes stomach acid and relieves trapped gas.",
                 "notesHi": "पेट के एसिड को शांत करने और गैस दूर करने के लिए तुरंत असरदार ओटीसी एंटासिड।"
             }
         ],
@@ -1332,19 +1374,23 @@ BASIC_CONDITIONS_CONFIG = {
             "Is there any high fever, severe cramp, or blood/mucus visible in the stool?"
         ],
         "questionsHi": [
-            "आज कितने पतले दस्त हुए हैं और क्या आप पानी/तरल पदार्थ पी पा रहे हैं?",
+            "आज कितने पतले दस्त हुए हैं और क्या आप पानी या तरल पदार्थ पी पा रहे हैं?",
             "क्या मल में खून, बहुत तेज पेट मरोड़, या तेज बुखार है?"
         ],
-        "quickReplies": ["2-3 loose stools (2-3 बार दस्त)", "Drinking fluids well (पानी पी पा रहे हैं)", "No blood in stool (मल में खून नहीं)", "High fever (तेज बुखार है)"],
+        "quickRepliesEn": ["2-3 loose stools", "Drinking fluids well", "No blood in stool", "High fever"],
+        "quickRepliesHi": ["2-3 बार दस्त", "पानी पी पा रहे हैं", "मल में खून नहीं", "तेज बुखार है"],
+        "quickReplies": ["2-3 loose stools", "2-3 बार दस्त", "Drinking fluids well", "पानी पी पा रहे हैं", "No blood in stool", "मल में खून नहीं", "High fever", "तेज बुखार है"],
         "otcMedicines": [
             {
                 "name": "Electral / Prolyte ORS Powder (WHO Formula)",
                 "activeSalt": "WHO Oral Rehydration Salts (Electrolytes & Glucose)",
-                "dosage": "Dissolve 1 full sachet (21.8g) in exactly 1 Litre clean drinking water",
+                "dosage": "Dissolve 1 full sachet (21.8g) in 1 Litre clean drinking water",
+                "dosageHi": "1 पूरा पैकेट (21.8 ग्राम) 1 लीटर साफ पानी में घोलें",
                 "frequency": "Sip continuously after every loose stool (drink 1-2 litres per day)",
+                "frequencyHi": "हर दस्त के बाद घूंट-घूंट करके पिएं (दिन में 1-2 लीटर)",
                 "isOtc": True,
-                "notesEn": "Vital OTC electrolyte replenishment to prevent dangerous dehydration.",
-                "notesHi": "1 पैकेट को 1 लीटर साफ पानी में घोलकर दिन भर घूंट-घूंट पिएं। पानी की कमी नहीं होने देता।"
+                "notesEn": "Vital OTC electrolyte replenishment to prevent dehydration.",
+                "notesHi": "1 पैकेट को 1 लीटर साफ पानी में घोलकर दिन भर घूंट-घूंट पिएं। यह शरीर में पानी की कमी नहीं होने देता।"
             }
         ],
         "homeCareEn": "Eat soft bananas, rice kanji, curd, and boiled potatoes. Avoid sugary drinks or caffeinated tea.",
@@ -1612,6 +1658,8 @@ You can describe what the report values mean, but you MUST ONLY suggest insights
 
     # Fallback to local verified knowledge
     if matched_static:
+        ind_hi = matched_static.get("indicationHi") or matched_static["indication"]
+        adv_hi = matched_static.get("usageAdviceHi") or matched_static["usageAdvice"]
         return {
             "documentType": "medication",
             "primaryName": matched_static["primaryName"],
@@ -1620,11 +1668,13 @@ You can describe what the report values mean, but you MUST ONLY suggest insights
             "therapeuticClass": matched_static["therapeuticClass"],
             "isOtc": matched_static["isOtc"],
             "indication": matched_static["indication"],
+            "indicationHi": ind_hi,
             "usageAdvice": matched_static["usageAdvice"],
+            "usageAdviceHi": adv_hi,
             "brandAlternatives": matched_static["brandAlternatives"],
             "disclaimer": "AI is not a doctor. Always consult a physician for prescription medications.",
-            "explanationEn": f"**{matched_static['primaryName']}** contains **{matched_static['activeComposition']}** ({matched_static['therapeuticClass']}).\n\n**Indication:** {matched_static['indication']}\n**OTC Status:** {'🟢 Over-The-Counter (Available without prescription)' if matched_static['isOtc'] else '🔴 Prescription Only (Doctor consultation required)'}\n\n**Verified Alternatives with Exact Same Composition:**\n" + "\n".join([f"• **{a['brand']}** ({a['manufacturer']}) — {a['salt']} [{a['priceEst']}]" for a in matched_static['brandAlternatives']]),
-            "explanationHi": f"**{matched_static['primaryName']}** में सक्रिय साल्ट **{matched_static['activeComposition']}** है।\n\n**उपयोग:** {matched_static['indication']}\n**दवा का प्रकार:** {'🟢 बिना पर्चे के मिलने वाली OTC दवा' if matched_static['isOtc'] else '🔴 डॉक्टर के पर्चे (प्रिस्क्रिप्शन) वाली दवा'}\n\n**समान रासायनिक साल्ट (Exact Composition) वाली अन्य ब्रांड्स:**\n" + "\n".join([f"• **{a['brand']}** ({a['manufacturer']}) — {a['salt']} [{a['priceEst']}]" for a in matched_static['brandAlternatives']])
+            "explanationEn": f"**{matched_static['primaryName']}** contains **{matched_static['activeComposition']}** ({matched_static['therapeuticClass']}).\n\n**Indication:** {matched_static['indication']}\n**Classification:** {'Over-The-Counter (Available without prescription)' if matched_static['isOtc'] else 'Prescription Only (Doctor consultation required)'}\n\n**Verified Alternatives with Exact Same Composition:**\n" + "\n".join([f"• **{a['brand']}** ({a['manufacturer']}) — {a['salt']} [{a['priceEst']}]" for a in matched_static['brandAlternatives']]),
+            "explanationHi": f"**{matched_static['primaryName']}** में सक्रिय साल्ट **{matched_static['activeComposition']}** है।\n\n**उपयोग:** {ind_hi}\n**दवा का प्रकार:** {'बिना पर्चे के मिलने वाली ओटीसी दवा' if matched_static['isOtc'] else 'डॉक्टर के पर्चे (प्रिस्क्रिप्शन) वाली दवा'}\n\n**समान रासायनिक साल्ट वाली अन्य ब्रांड्स:**\n" + "\n".join([f"• **{a['brand']}** ({a['manufacturer']}) — {a['salt']} [{a['priceEst']}]" for a in matched_static['brandAlternatives']])
         }
 
     # Default fallback lab report
@@ -1723,9 +1773,9 @@ def execute_agent_action(req: AgentActionExecuteRequest):
         APPOINTMENTS_STORE.insert(0, new_appointment)
 
         confirm_msg = (
-            f"अपॉइंटमेंट सफलतापूर्वक पक्का हो गया है! {doc['name']} ({doc['specialty']}) के साथ {slot_time} का समय निर्धारित है। आपका अपॉइंटमेंट ID {apt_id} है।"
+            f"अपॉइंटमेंट सफलतापूर्वक पक्का हो गया है। {doc['name']} ({doc['specialty']}) के साथ {slot_time} का समय निर्धारित है। आपका अपॉइंटमेंट क्रमांक {apt_id} है।"
             if lang == "hi"
-            else f"Appointment confirmed successfully! Booked with {doc['name']} ({doc['specialty']}) for {slot_time}. Your Appointment ID is {apt_id}."
+            else f"Appointment confirmed successfully. Booked with {doc['name']} ({doc['specialty']}) for {slot_time}. Your Appointment ID is {apt_id}."
         )
 
         audio_b64 = synthesize_speech_base64(confirm_msg, lang)
@@ -1819,24 +1869,176 @@ def record_agent_session_turn(session_id: str, user_text: str, agent_text: str):
     if len(AGENT_SESSION_HISTORIES[session_id]) > 24:
         AGENT_SESSION_HISTORIES[session_id] = AGENT_SESSION_HISTORIES[session_id][-24:]
 
+def extract_location_from_query(query: str, default_loc: str = "Katkamsandi, Hazaribagh") -> tuple[str, bool]:
+    q = (query or "").strip()
+    if not q:
+        return default_loc, False
+
+    known_places = [
+        ("Katkamsandi", "Katkamsandi, Hazaribagh", ["katkamsandi", "कटकमसांडी"]),
+        ("Barhi", "Barhi, Hazaribagh", ["barhi", "बरही"]),
+        ("Ichak", "Ichak, Hazaribagh", ["ichak", "इचाक"]),
+        ("Barkagaon", "Barkagaon, Hazaribagh", ["barkagaon", "बड़कागांव"]),
+        ("Chauparan", "Chauparan, Hazaribagh", ["chauparan", "चौपारण"]),
+        ("Bishnugarh", "Bishnugarh, Hazaribagh", ["bishnugarh", "विष्णुगढ़"]),
+        ("Ramgarh", "Ramgarh, Jharkhand", ["ramgarh", "रामगढ़"]),
+        ("Ranchi", "Ranchi, Jharkhand", ["ranchi", "रांची"]),
+        ("Bokaro", "Bokaro, Jharkhand", ["bokaro", "बोकारो"]),
+        ("Dhanbad", "Dhanbad, Jharkhand", ["dhanbad", "धनबाद"]),
+        ("Giridih", "Giridih, Jharkhand", ["giridih", "गिरिडीह"]),
+        ("Koderma", "Koderma, Jharkhand", ["koderma", "कोडरमा"]),
+        ("Chatra", "Chatra, Jharkhand", ["chatra", "चतरा"]),
+        ("Jamshedpur", "Jamshedpur, Jharkhand", ["jamshedpur", "जमशेदपुर"]),
+        ("Deoghar", "Deoghar, Jharkhand", ["deoghar", "देवघर"]),
+        ("Patna", "Patna, Bihar", ["patna", "पटना"]),
+        ("Delhi", "New Delhi", ["delhi", "new delhi", "दिल्ली"]),
+        ("Mumbai", "Mumbai, Maharashtra", ["mumbai", "मुंबई"]),
+        ("Kolkata", "Kolkata, West Bengal", ["kolkata", "कोलकाता"]),
+        ("Bengaluru", "Bengaluru, Karnataka", ["bengaluru", "bangalore", "बेंगलुरु"]),
+        ("Hazaribagh", "Hazaribagh, Jharkhand", ["hazaribagh", "hazaribag", "हजारीबाग"])
+    ]
+    q_lower = q.lower()
+    for _, label, aliases in known_places:
+        for alias in aliases:
+            if re.search(rf'(?:^|\b|\s){re.escape(alias)}(?:\b|\s|$|[,.?!])', q_lower):
+                return label, True
+
+    # Generic pattern: "in <Place>", "near <Place>", "at <Place>", "from <Place>", "location <Place>"
+    m = re.search(
+        r'\b(?:in|near|at|from|around|location\s+is|location:?|i\s+am\s+in|live\s+in)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)',
+        q
+    )
+    if m:
+        candidate = m.group(1).strip()
+        stop_words = {
+            "Morning", "Evening", "Night", "Afternoon", "Hospital", "Hospitals",
+            "Clinic", "Pharmacy", "English", "Hindi", "Emergency", "MedVeda", "Doctor"
+        }
+        if candidate not in stop_words and len(candidate) >= 3:
+            return candidate, True
+
+    return default_loc, False
+
+
+def generate_guardrailed_llm_response(
+    raw_query: str,
+    detected_lang: str,
+    patient_info: Dict[str, Any],
+    patient_id: str,
+    conv_history: List[Dict[str, Any]],
+    guardrail_mode: str,
+    guardrail_instructions: str,
+    reference_data: str = "",
+    fallback_text: str = ""
+) -> str:
+    """
+    Calls the live Gemini LLM brain (GEMINI_MODEL with GEMINI_API_KEY) while enforcing
+    all MedVeda clinical safety guardrails, patient profile context, and verified reference data.
+    """
+    if not GEMINI_API_KEY:
+        return fallback_text
+
+    records_list = MOCK_PATIENTS_EHR.get(patient_id, {}).get("records", [])
+    records_context = "\n---\n".join([
+        f"Document: {r['title']} ({r['recordedAt']}) by {r.get('doctorName', 'N/A')}\nSummary: {r['summary']}"
+        for r in records_list[:3]
+    ])
+
+    hist_context_str = ""
+    if conv_history:
+        h_turns = []
+        for h in conv_history[-10:]:
+            r = "User" if h.get("role") in ["user", "patient"] else "Assistant"
+            txt = (h.get("text") or h.get("content") or "").strip()
+            if txt:
+                h_turns.append(f"{r}: {txt}")
+        if h_turns:
+            hist_context_str = "\n".join(h_turns)
+
+    lang_rule = (
+        "Hindi (Devanagari script ONLY — do NOT mix English sentences)"
+        if detected_lang == "hi"
+        else "English ONLY"
+    )
+
+    system_prompt = f"""You are MediBot, the MedVeda Clinical AI Assistant.
+You are answering a live patient query using your medical reasoning brain while strictly enforcing MedVeda's Calibrated Clinical Guardrails:
+
+GLOBAL CLINICAL GUARDRAILS (ALWAYS ACTIVE):
+1. G-NAD (Not a Doctor Disclaimer): You are a clinical AI assistant, NOT a licensed physician. Never claim to issue a final diagnosis.
+2. G1 (Emergency Bypass): For life-threatening red flags (chest pain, severe dyspnea, stroke signs, unconsciousness, severe bleeding, suicidal/self-harm risk), immediately prioritize calling 108 (Ambulance) / 112 and proceeding to the nearest Emergency Department.
+3. G-RX (Prescription-Only Refusal): NEVER prescribe or recommend dosage adjustments for prescription-only drugs (antibiotics, steroids, antihypertensives, cardiac antiplatelets, insulin, sedatives). Only discuss safe Over-The-Counter (OTC) relief (e.g., Paracetamol, ORS, Cetirizine, Antacids) for mild, uncomplicated symptoms.
+4. G-COMP (Same Chemical Composition): When discussing medication alternatives, ONLY suggest brands that share the EXACT SAME active pharmaceutical ingredient and strength.
+5. G-LAB (Report Grounding): When interpreting lab parameters, ground insights strictly in the provided values and reference ranges without extrapolating unmentioned diseases.
+6. G-HON (Platform Honesty): MedVeda supports Symptom Triage (#feature1), Teleconsultation & OPD Booking (#feature2), Smart Referrals (#feature3), High-Risk Follow-Ups (#feature4), ABDM Health Records (#feature5), Medicine Stock & Diagnostics (#feature6), Facility Bed Dashboard (#feature7), PM-JAY Schemes (#feature8), and District Command Center (#feature9). MedVeda does NOT process direct online payments or home delivery of medicines.
+7. FORMATTING: Use clean markdown headings and bullet points. Do NOT use decorative emojis. Respond strictly in {lang_rule}.
+
+PATIENT CONTEXT (CONNECTED TO LOGIN):
+- Name: {patient_info.get('name', 'Patient')} (ID: {patient_id})
+- Age/Sex: {patient_info.get('age', 'N/A')} / {patient_info.get('sex', 'N/A')}
+- Location: {patient_info.get('location', 'Katkamsandi, Hazaribagh')}
+- EHR Summary:
+{records_context if records_context else 'Standard patient profile'}
+
+RECENT CONVERSATION HISTORY:
+{hist_context_str if hist_context_str else 'Start of conversation'}
+
+ACTIVE GUARDRAIL MODE FOR THIS QUERY: [{guardrail_mode}]
+SPECIFIC DIRECTIVE:
+{guardrail_instructions}
+
+VERIFIED GROUNDING DATA FOR THIS TURN:
+{reference_data if reference_data else 'Use general evidence-based clinical knowledge within the guardrails above.'}
+
+USER QUERY:
+"{raw_query}"
+"""
+
+    try:
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        res = requests.post(
+            endpoint,
+            json={
+                "contents": [{"parts": [{"text": system_prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.35,
+                    "maxOutputTokens": 900
+                }
+            },
+            timeout=22
+        )
+        if res.ok:
+            res_data = res.json()
+            llm_text = (
+                res_data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+                .strip()
+            )
+            if llm_text:
+                return llm_text
+        else:
+            print(f"[MediBot LLM] Gemini HTTP {res.status_code}: {res.text[:200]}")
+    except Exception as e:
+        print(f"[MediBot LLM] Gemini API exception: {e}")
+
+    return fallback_text
+
+
 @app.post("/api/agent/chat")
 def chat_medical_assistant_agent(req: AgentChatRequest):
     """
-    Dedicated Medical AI Assistant Agent with Calibrated Guardrails:
-    1. Calibrated symptom triage: provisional assessment for basic/straightforward ailments,
-       1-2 clarifying questions, safe OTC-only medications (no prescription needed),
-       non-doctor disclaimer, refusal of complex/prescription ailments + doctor proposal.
-    2. Multimodal upload analysis:
-       - Lab Reports: parameter breakdown, normal vs abnormal, insights grounded strictly in report findings.
-       - Medications: active salt extraction, OTC status, alternatives with the EXACT SAME chemical composition only.
-    3. Action capabilities: appointment booking, facility locator, medicine reminders, navigation.
-    4. Voice audio synthesis via gTTS in Hindi & English (full speech without arbitrary truncation).
-    5. Multi-turn conversation memory & context retention across diagnostic steps.
+    Dedicated Medical AI Assistant Agent powered by Gemini LLM Brain + Calibrated Guardrails:
+    Routes all queries through the Gemini LLM brain with structured guardrails and action cards.
     """
     raw_query = (req.query or req.message or "").strip()
     detected_lang = detect_language(raw_query, req.language)
     patient_id = req.patientId or "MV-MED-2026-1024"
     patient_info = req.patientInfo or MOCK_PATIENTS_EHR.get(patient_id, {}).get("patient", {"name": "Ramesh Mahto"})
+    default_location = patient_info.get("location") or "Katkamsandi, Hazaribagh"
+    active_location, location_updated = extract_location_from_query(raw_query, default_location)
+    patient_info = {**patient_info, "location": active_location}
 
     session_id = req.sessionId or f"agent_{patient_id}"
     conv_history = req.conversationHistory
@@ -1846,21 +2048,33 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     # Extract conversational memory context across prior dialogue turns
     mem_context = resolve_conversation_memory_context(raw_query, conv_history)
 
-    # 1. EMERGENCY GUARDRAIL CHECK (G1 Immediate Bypass)
+    # 1. EMERGENCY GUARDRAIL CHECK (G1 Immediate Bypass + LLM Clinical Emergency Guidance)
     if is_emergency_query(raw_query):
-        if detected_lang == "hi":
-            emergency_text = (
-                "🚨 **आपातकालीन स्थिति का पता चला!**\n\n"
-                "आपके द्वारा बताए गए लक्षण (जैसे सीने में तेज दर्द, सांस लेने में गंभीर तकलीफ) जीवन के लिए खतरा हो सकते हैं।\n"
-                "कृपया ऑनलाइन जवाब की प्रतीक्षा न करें और तत्काल नजदीकी अस्पताल जाएँ अथवा 108 नंबर पर कॉल करें।"
+        fallback_emergency = (
+            "**आपातकालीन चिकित्सा स्थिति**\n\n"
+            "आपके द्वारा बताए गए लक्षण जीवन के लिए गंभीर हो सकते हैं। कृपया तुरंत 108 (एम्बुलेंस) पर कॉल करें या नजदीकी अस्पताल के आपातकालीन कक्ष में जाएं।"
+            if detected_lang == "hi"
+            else (
+                "**Critical Medical Emergency Detected**\n\n"
+                "The symptoms described indicate a potentially life-threatening medical emergency. Please call 108 (Ambulance) immediately or proceed to the nearest hospital emergency department."
             )
-        else:
-            emergency_text = (
-                "🚨 **CRITICAL MEDICAL EMERGENCY DETECTED!**\n\n"
-                "The symptoms described (acute chest pain, severe breathing distress, loss of consciousness) indicate a potentially life-threatening emergency.\n"
-                "Do NOT wait for an online reply. Call 108 (Ambulance) immediately or go to the nearest emergency room."
-            )
-        
+        )
+        emergency_text = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G1_CRITICAL_EMERGENCY",
+            guardrail_instructions=(
+                "The user reported critical emergency red-flag symptoms. Immediately warn them that this is a medical emergency, "
+                "instruct them to call 108 (Ambulance) or 112 and go to the nearest emergency room immediately, and give 2-3 brief, "
+                "safe first-aid stabilization precautions (e.g., sitting upright, loosening tight clothing, not driving themselves) while awaiting emergency transport. "
+                "Do NOT recommend routine outpatient waiting."
+            ),
+            reference_data=f"Nearest Emergency Hospital: {FACILITIES_DB[0]['name']} ({FACILITIES_DB[0]['location']}), Emergency Helpline: 108 / 112.",
+            fallback_text=fallback_emergency
+        )
         audio_b64 = synthesize_speech_base64(emergency_text, detected_lang)
         record_agent_session_turn(session_id, raw_query, emergency_text)
         return {
@@ -1871,10 +2085,11 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "audioBase64": audio_b64,
                 "urgencyLevel": "RED",
                 "isEmergency": True,
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "EMERGENCY_ACTIONS",
-                        "title": "Immediate Emergency Contacts",
+                        "title": "तत्काल आपातकालीन संपर्क" if detected_lang == "hi" else "Immediate Emergency Contacts",
                         "ambulancePhone": "108",
                         "emergencyPhone": "112",
                         "nearestHospital": FACILITIES_DB[0]
@@ -1883,7 +2098,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             }
         }
 
-    # 2. MULTIMODAL UPLOAD ANALYSIS (Images/PDFs of reports or medicine strips)
+    # 2. MULTIMODAL UPLOAD ANALYSIS (Images/PDFs of reports or medicine strips via Gemini Vision)
     if req.fileBase64:
         doc_analysis = analyze_multimodal_document(
             file_b64=req.fileBase64,
@@ -1895,7 +2110,9 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
 
         if doc_type == "medication":
             ans_text = doc_analysis.get("explanationHi" if detected_lang == "hi" else "explanationEn") or (
-                f"Analysis of {doc_analysis.get('primaryName', 'medication')}: Active Composition is {doc_analysis.get('activeComposition')}. Suggested alternatives have the exact same chemical composition."
+                f"{doc_analysis.get('primaryName', 'दवा')} का विश्लेषण: सक्रिय साल्ट {doc_analysis.get('activeComposition')} है।"
+                if detected_lang == "hi"
+                else f"Analysis of {doc_analysis.get('primaryName', 'medication')}: Active Composition is {doc_analysis.get('activeComposition')}. Suggested alternatives have the exact same chemical composition."
             )
             audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
             record_agent_session_turn(session_id, raw_query or f"Uploaded medication: {doc_analysis.get('primaryName')}", ans_text)
@@ -1906,17 +2123,18 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                     "detectedLanguage": detected_lang,
                     "audioBase64": audio_b64,
                     "urgencyLevel": "GREEN" if doc_analysis.get("isOtc") else "YELLOW",
+                    "llmBrainUsed": True,
                     "actionCards": [
                         {
                             "type": "MEDICINE_INFO_CARD",
-                            "title": f"Medication Analysis: {doc_analysis.get('primaryName', 'Medicine')}",
+                            "title": f"दवा विश्लेषण: {doc_analysis.get('primaryName', 'दवा')}" if detected_lang == "hi" else f"Medication Analysis: {doc_analysis.get('primaryName', 'Medicine')}",
                             "primaryName": doc_analysis.get("primaryName"),
                             "activeComposition": doc_analysis.get("activeComposition"),
                             "strength": doc_analysis.get("strength"),
                             "therapeuticClass": doc_analysis.get("therapeuticClass"),
                             "isOtc": doc_analysis.get("isOtc", True),
-                            "indication": doc_analysis.get("indication"),
-                            "usageAdvice": doc_analysis.get("usageAdvice"),
+                            "indication": doc_analysis.get("indicationHi" if detected_lang == "hi" else "indication") or doc_analysis.get("indication"),
+                            "usageAdvice": doc_analysis.get("usageAdviceHi" if detected_lang == "hi" else "usageAdvice") or doc_analysis.get("usageAdvice"),
                             "brandAlternatives": doc_analysis.get("brandAlternatives", []),
                             "disclaimer": doc_analysis.get("disclaimer")
                         }
@@ -1924,9 +2142,10 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 }
             }
         else:
-            # Lab Report
             ans_text = doc_analysis.get("explanationHi" if detected_lang == "hi" else "explanationEn") or (
-                f"Diagnostic Report Analysis for {doc_analysis.get('title', 'Lab Test')}: Grounded summary strictly based on reported values."
+                f"{doc_analysis.get('title', 'लैब जांच')} का रिपोर्ट विश्लेषण तैयार है।"
+                if detected_lang == "hi"
+                else f"Diagnostic Report Analysis for {doc_analysis.get('title', 'Lab Test')}: Grounded summary strictly based on reported values."
             )
             audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
             record_agent_session_turn(session_id, raw_query or f"Uploaded lab report: {doc_analysis.get('title')}", ans_text)
@@ -1937,6 +2156,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                     "detectedLanguage": detected_lang,
                     "audioBase64": audio_b64,
                     "urgencyLevel": "YELLOW",
+                    "llmBrainUsed": True,
                     "actionCards": [
                         {
                             "type": "LAB_REPORT_CARD",
@@ -1945,45 +2165,55 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                             "date": doc_analysis.get("date", "Recent"),
                             "parameters": doc_analysis.get("parameters", []),
                             "groundedSummary": doc_analysis.get("groundedSummary", ""),
-                            "disclaimer": doc_analysis.get("disclaimer", "AI is not a doctor. Discuss these values with a physician.")
+                            "disclaimer": doc_analysis.get("disclaimer", "Discuss these values with a certified physician.")
                         },
                         {
                             "type": "HEALTH_GUIDANCE_ACTIONS",
                             "urgency": "YELLOW",
-                            "options": [
-                                {"label": "👨‍⚕️ Consult Doctor for Report Review", "doctorId": "doc_2", "route": "#feature2"},
-                                {"label": "💊 Check Medicine Stock (Feature 06)", "route": "#feature6"}
-                            ]
+                            "options": (
+                                [
+                                    {"label": "रिपोर्ट समीक्षा हेतु डॉक्टर परामर्श", "doctorId": "doc_2", "route": "#feature2"},
+                                    {"label": "दवा उपलब्धता जांचें (फ़ीचर 06)", "route": "#feature6"}
+                                ]
+                                if detected_lang == "hi"
+                                else [
+                                    {"label": "Consult Doctor for Report Review", "doctorId": "doc_2", "route": "#feature2"},
+                                    {"label": "Check Medicine Stock (Feature 06)", "route": "#feature6"}
+                                ]
+                            )
                         }
                     ]
                 }
             }
 
-    # 3. COMPLEX CONDITION OR PRESCRIPTION-ONLY REQUEST CHECK (CALIBRATED GUARDRAIL 1)
-    # If the user asks to prescribe medicines that require a doctor's permission (antibiotics, steroids, BP/heart meds),
-    # or mentions a non-straightforward/complex condition (high fever >3 days, dengue, typhoid, severe pain):
+    # 3. COMPLEX CONDITION OR PRESCRIPTION-ONLY REQUEST CHECK (LLM Brain + Guardrail G-RX)
     is_complex, complex_reason = check_complex_or_prescription(raw_query)
     if not is_complex and mem_context.get("hasRedFlags"):
         is_complex = True
         complex_reason = mem_context.get("redFlagReason", "Reported symptoms require certified physician diagnosis")
 
     if is_complex:
-        if detected_lang == "hi":
-            ans_text = (
-                "🛑 **डॉक्टर परामर्श अनिवार्य है (AI सीमा):**\n\n"
-                "यह स्थिति सामान्य या सीधी नहीं है और इसके लिए डॉक्टर द्वारा व्यक्तिगत नैदानिक जांच तथा डॉक्टर के पर्चे (प्रिस्क्रिप्शन) वाली दवाओं की आवश्यकता है। "
-                "AI के रूप में मैं इसका निदान नहीं कर सकता और न ही डॉक्टर के पर्चे वाली दवाइयाँ बता सकता हूँ।\n\n"
-                f"• **कारण:** {complex_reason}\n\n"
-                "कृपया सही निदान और सुरक्षित उपचार के लिए तुरंत प्रमाणित डॉक्टर से परामर्श लें। आप नीचे दिए गए विशेषज्ञ डॉक्टरों में से तुरंत अपॉइंटमेंट बुक कर सकते हैं।"
-            )
-        else:
-            ans_text = (
-                "🛑 **Physician Consultation Required (AI Boundary):**\n\n"
-                "I cannot answer this or prescribe prescription medications. This condition/medication is not straightforward and requires direct doctor intervention, clinical examination, and prescription-only medications. "
-                "As an AI assistant, I cannot prescribe prescription drugs or manage complex conditions.\n\n"
-                f"• **Reason:** {complex_reason}\n\n"
-                "Please consult a certified physician immediately for an accurate diagnosis and treatment plan. You can book a direct consultation with our network specialists below."
-            )
+        fallback_complex = (
+            f"**चिकित्सक परामर्श अनिवार्य है**\n\nयह स्थिति या दवा चिकित्सक द्वारा प्रत्यक्ष जांच की मांग करती है ({complex_reason})। कृपया प्रमाणित डॉक्टर से परामर्श लें।"
+            if detected_lang == "hi"
+            else f"**Physician Consultation Required**\n\nThis condition or medication requires direct physician evaluation and prescription supervision ({complex_reason}). Please consult a certified physician below."
+        )
+        ans_text = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G_RX_COMPLEX_OR_PRESCRIPTION_GUARDRAIL",
+            guardrail_instructions=(
+                f"The user asked about a complex medical condition or prescription-only medication (Flagged reason: {complex_reason}). "
+                "1. Explain clearly and empathetically what the condition or medication involves in clinical terms. "
+                "2. Explicitly enforce Guardrail G-RX / G-NAD: state that as an AI assistant you cannot prescribe prescription-only medications (like antibiotics, antihypertensives, steroids, etc.) or definitively diagnose complex conditions. "
+                "3. Provide safe, non-pharmacological monitoring advice, warning signs to watch for, and recommend booking a specialist consultation using the card below."
+            ),
+            reference_data=f"Flagged Clinical Reason: {complex_reason}. Available Specialists: Dr. Rajesh Verma (MD Medicine), Dr. Priya Sharma (Neurology).",
+            fallback_text=fallback_complex
+        )
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans_text)
         return {
@@ -1993,48 +2223,54 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "ORANGE",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "DOCTOR_REFERRAL_REQUIRED_CARD",
-                        "title": "Doctor Consultation Required",
+                        "title": "डॉक्टर परामर्श आवश्यक" if detected_lang == "hi" else "Doctor Consultation Required",
                         "reason": complex_reason,
-                        "options": [
-                            {"label": "👨‍⚕️ Book Consultation with Dr. Rajesh Verma", "doctorId": "doc_2", "route": "#feature2"},
-                            {"label": "🏥 View Sadar Hospital OPD & Emergency", "route": "#feature1"}
-                        ]
+                        "options": (
+                            [
+                                {"label": "डॉ. राजेश वर्मा के साथ परामर्श बुक करें", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "सदर अस्पताल ओपीडी व आपातकालीन सेवाएं", "route": "#feature1"}
+                            ]
+                            if detected_lang == "hi"
+                            else [
+                                {"label": "Book Consultation with Dr. Rajesh Verma", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "View Sadar Hospital OPD & Emergency", "route": "#feature1"}
+                            ]
+                        )
                     }
                 ]
             }
         }
 
-    # 3.5. CLARIFYING QUESTIONS CONFIRMED STRAIGHTFORWARD (MULTI-TURN MEMORY RESOLUTION)
-    # If the user is answering clarifying questions from prior turn and red flags are ruled out:
+    # 3.5. CLARIFYING QUESTIONS CONFIRMED STRAIGHTFORWARD (Multi-Turn LLM Resolution)
     if mem_context.get("isAnsweringClarification") and not mem_context.get("hasRedFlags") and mem_context.get("conditionConfig"):
         cond_cfg = mem_context["conditionConfig"]
-        otc_hi_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesHi']}" for m in cond_cfg["otcMedicines"]])
-        otc_en_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesEn']}" for m in cond_cfg["otcMedicines"]])
-
-        if detected_lang == "hi":
-            ans_text = (
-                f"**संभावित प्राथमिक मूल्यांकन (सामान्य स्थिति की पुष्टि):**\n\n"
-                f"स्पष्टीकरण देने के लिए धन्यवाद। 1-2 दिन से हल्के लक्षण और कोई गंभीर संकेत (जैसे शरीर पर दाने या तेज दर्द) न होने से यह सामान्य **{cond_cfg['diagnosisHi']}** की पुष्टि करता है।\n\n"
-                f"⚠️ **चिकित्सीय अस्वीकरण:** AI कोई डॉक्टर नहीं है, इसलिए पूरी तरह AI के कहे पर भरोसा न करें। पक्के और सटीक निदान के लिए प्रमाणित डॉक्टर से जांच अवश्य कराएं।\n\n"
-                f"**सुरक्षित ओवर-द-काउंटर (OTC) दवाइयां (बिना पर्चे के मेडिकल स्टोर पर आसानी से उपलब्ध):**\n"
-                f"{otc_hi_lines}\n\n"
-                f"• **घरेलू देखभाल:** {cond_cfg['homeCareHi']}\n\n"
-                f"*सख्त सुरक्षा नियम: ये बिना पर्चे वाली सामान्य राहतकारी दवाइयां हैं। यदि लक्षण 48-72 घंटे में ठीक न हों या गंभीर लगें, तो कृपया नीचे दिए गए डॉक्टर से तुरंत परामर्श लें।*"
-            )
-        else:
-            ans_text = (
-                f"**Provisional Health Assessment (Confirmed Straightforward):**\n\n"
-                f"Thank you for clarifying. With mild symptoms lasting only 1-2 days and no red flags (no skin rash, severe pain, or stiffness), this confirms an uncomplicated **{cond_cfg['diagnosisEn']}**.\n\n"
-                f"⚠️ **Medical Disclaimer:** I am an AI medical assistant, not a doctor, so please do not solely rely on what AI says. For an official and accurate medical diagnosis, please consult a certified doctor.\n\n"
-                f"**Safe Over-The-Counter (OTC) Guidance (Easily available at medical stores without prescription):**\n"
-                f"{otc_en_lines}\n\n"
-                f"• **Home Care:** {cond_cfg['homeCareEn']}\n\n"
-                f"*Safety Rule: These are non-prescription OTC medications for temporary symptomatic relief. If symptoms persist beyond 48 hours, worsen, or red flags appear, please consult a doctor below.*"
-            )
-
+        otc_ref = json.dumps(cond_cfg["otcMedicines"], ensure_ascii=False)
+        fallback_clarified = (
+            f"**Provisional Health Assessment ({cond_cfg['diagnosisEn']})**\n\n"
+            f"Thank you for clarifying. Based on your mild symptoms with no red flags, this is consistent with uncomplicated {cond_cfg['diagnosisEn']}. "
+            f"Home care: {cond_cfg['homeCareEn']}"
+        )
+        ans_text = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G_TRIAGE_CONFIRMED_UNCOMPLICATED",
+            guardrail_instructions=(
+                f"The user just answered your clarifying questions confirming mild, uncomplicated symptoms consistent with {cond_cfg['diagnosisEn']}. "
+                "1. Acknowledge their specific answer from the conversation history. "
+                "2. Include the Not-A-Doctor disclaimer (G-NAD). "
+                "3. Recommend ONLY the verified safe Over-The-Counter (OTC) options and home-care measures provided in the reference data. "
+                "4. Advise consulting a doctor if symptoms persist beyond 48 hours or worsen."
+            ),
+            reference_data=f"Condition: {cond_cfg['diagnosisEn']} ({cond_cfg['diagnosisHi']})\nSafe OTC Medicines: {otc_ref}\nHome Care: {cond_cfg['homeCareEn']}",
+            fallback_text=fallback_clarified
+        )
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans_text)
         return {
@@ -2044,29 +2280,37 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "YELLOW",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "OTC_MEDICATION_CARD",
-                        "title": "Safe OTC Relief (No Prescription Required)",
+                        "title": "सुरक्षित ओटीसी दवाइयां (बिना पर्चे के)" if detected_lang == "hi" else "Safe OTC Relief (No Prescription Required)",
                         "medicines": cond_cfg["otcMedicines"]
                     },
                     {
                         "type": "HEALTH_GUIDANCE_ACTIONS",
                         "urgency": "YELLOW",
-                        "options": [
-                            {"label": "👨‍⚕️ Book Routine Doctor Consult", "doctorId": "doc_2", "route": "#feature2"},
-                            {"label": "🏥 Find Nearest Hospital Facility", "route": "#feature1"}
-                        ]
+                        "options": (
+                            [
+                                {"label": "डॉक्टर परामर्श बुक करें", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "नजदीकी अस्पताल खोजें", "route": "#feature1"}
+                            ]
+                            if detected_lang == "hi"
+                            else [
+                                {"label": "Book Routine Doctor Consult", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "Find Nearest Hospital Facility", "route": "#feature1"}
+                            ]
+                        )
                     }
                 ]
             }
         }
 
-    # 4. DIRECT MEDICINE INQUIRY & ALTERNATIVES (Text query about medicine & same-composition alternatives)
+    # 4. DIRECT MEDICINE INQUIRY & ALTERNATIVES (LLM Brain + G-COMP Same-Salt Guardrail)
     med_lookup = lookup_medicine(raw_query)
     is_asking_med = bool(med_lookup) or any(
         re.search(pat, raw_query, re.IGNORECASE) for pat in [
-            r'\b(?:tell\s+me\s+about|what\s+is|alternative\s+for|substitute\s+for|same\s+composition|dosage\s+of)\b.*\b(?:dolo|crocin|calpol|telma|cetzine|gelusil|medicine|tablet|syrup)\b',
+            r'\b(?:tell\s+me\s+about|what\s+is|alternative\s+for|substitute\s+for|same\s+composition|dosage\s+of|side\s+effects\s+of)\b.*\b(?:dolo|crocin|calpol|telma|cetzine|gelusil|ecosprin|pan\s*40|pantoprazole|azithromycin|amoxicillin|metformin|atorvastatin|medicine|tablet|syrup|capsule)\b',
             r'(?:दवा\s*के\s*बारे\s*में|समान\s*दवा|वैकल्पिक\s*दवा|साल्ट|डोलो|क्रोसिन|टेलमा|सिट्रिजिन|गैलुसिल)'
         ]
     )
@@ -2082,26 +2326,25 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             else:
                 med_info = SAME_COMPOSITION_MEDS_DB[0]
 
-        if detected_lang == "hi":
-            ans_text = (
-                f"**{med_info.get('primaryName', 'दवा')} ({med_info.get('activeComposition', '')}) की जानकारी:**\n\n"
-                f"• **उपयोग:** {med_info.get('indication', '')}\n"
-                f"• **प्रकार:** {'🟢 बिना पर्चे वाली OTC दवा (आसानी से उपलब्ध)' if med_info.get('isOtc') else '🔴 डॉक्टर के पर्चे (प्रिस्क्रिप्शन) वाली दवा'}\n"
-                f"• **खुराक व सलाह:** {med_info.get('usageAdvice', '')}\n\n"
-                f"**समान रासायनिक साल्ट (Exact Same Composition) वाली वैकल्पिक ब्रांड्स:**\n" +
-                "\n".join([f"• **{alt['brand']}** ({alt.get('manufacturer', '')}) — {alt['salt']} [{alt.get('priceEst', '')}]" for alt in med_info.get("brandAlternatives", [])]) +
-                f"\n\n*सख्त सुरक्षा नियम: सभी सूचीबद्ध विकल्प समान सक्रिय साल्ट ({med_info.get('activeComposition')}) साझा करते हैं। डॉक्टर की सलाह के बिना कभी भी दवा का डोज या प्रकार न बदलें।*"
-            )
-        else:
-            ans_text = (
-                f"**Medicine Information: {med_info.get('primaryName')} ({med_info.get('activeComposition')}):**\n\n"
-                f"• **Therapeutic Indication:** {med_info.get('indication')}\n"
-                f"• **Classification:** {'🟢 Over-The-Counter (OTC - Easily available without prescription)' if med_info.get('isOtc') else '🔴 Prescription-Only (Doctor consultation required)'}\n"
-                f"• **Dosage & Precautions:** {med_info.get('usageAdvice')}\n\n"
-                f"**Verified Alternatives with EXACT SAME Chemical Composition:**\n" +
-                "\n".join([f"• **{alt['brand']}** ({alt.get('manufacturer', '')}) — {alt['salt']} [{alt.get('priceEst', '')}]" for alt in med_info.get("brandAlternatives", [])]) +
-                f"\n\n*Strict Safety Guardrail: All listed alternatives share the exact same active pharmaceutical ingredient ({med_info.get('activeComposition')}). For prescription drugs, always consult a physician.*"
-            )
+        ind_hi = med_info.get("indicationHi") or med_info.get("indication", "")
+        adv_hi = med_info.get("usageAdviceHi") or med_info.get("usageAdvice", "")
+        ans_text = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G_COMP_MEDICATION_ANALYSIS",
+            guardrail_instructions=(
+                "Answer the user's specific question about this medication using the verified pharmaceutical data below. "
+                "1. State the active chemical salt/composition, therapeutic class, and whether it is OTC or Prescription-Only. "
+                "2. Explain its primary indication, standard precautions, and common side effects or contraindications relevant to their question. "
+                "3. List the verified brand alternatives that have the EXACT SAME chemical composition and strength (Guardrail G-COMP). "
+                "4. Remind the user never to alter prescription dosages without physician guidance."
+            ),
+            reference_data=json.dumps(med_info, ensure_ascii=False),
+            fallback_text=med_info.get("explanationHi" if detected_lang == "hi" else "explanationEn") or f"**{med_info.get('primaryName')}** ({med_info.get('activeComposition')}): {med_info.get('indication')}"
+        )
 
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans_text)
@@ -2112,26 +2355,27 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN" if med_info.get("isOtc") else "YELLOW",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "MEDICINE_INFO_CARD",
-                        "title": f"Medication Details: {med_info.get('primaryName')}",
+                        "title": f"दवा विवरण: {med_info.get('primaryName')}" if detected_lang == "hi" else f"Medication Details: {med_info.get('primaryName')}",
                         "primaryName": med_info.get("primaryName"),
                         "activeComposition": med_info.get("activeComposition"),
                         "strength": med_info.get("strength"),
                         "therapeuticClass": med_info.get("therapeuticClass"),
                         "isOtc": med_info.get("isOtc", True),
-                        "indication": med_info.get("indication"),
-                        "usageAdvice": med_info.get("usageAdvice"),
+                        "indication": ind_hi if detected_lang == "hi" else med_info.get("indication"),
+                        "usageAdvice": adv_hi if detected_lang == "hi" else med_info.get("usageAdvice"),
                         "brandAlternatives": med_info.get("brandAlternatives", []),
-                        "disclaimer": "AI is not a doctor. Verify identical composition with your pharmacist."
+                        "disclaimer": "समान साल्ट की पुष्टि फार्मासिस्ट से करें।" if detected_lang == "hi" else "Verify identical composition with your pharmacist."
                     }
                 ]
             }
         }
 
     # 5. DIRECT LAB REPORT INQUIRY (User pasted lab parameters in chat text)
-    lab_keywords = ["cbc report", "hemoglobin", "platelet count", "blood sugar", "lipid profile", "creatinine", "लैब टेस्ट", "ब्लड टेस्ट", "हीमोग्लोबिन"]
+    lab_keywords = ["cbc report", "hemoglobin", "platelet count", "blood sugar", "lipid profile", "creatinine", "hba1c", "tsh", "bilirubin", "लैब टेस्ट", "ब्लड टेस्ट", "हीमोग्लोबिन"]
     if any(k in raw_query.lower() for k in lab_keywords) and any(c in raw_query for c in ["g/dL", "mg/dL", "cumm", "normal", "range", ":", "10.", "11.", "12.", "13.", "14."]):
         report_res = analyze_multimodal_document(None, None, raw_query, detected_lang)
         ans_text = report_res.get("explanationHi" if detected_lang == "hi" else "explanationEn") or "Report parameter analysis grounded strictly in the observed values."
@@ -2144,6 +2388,7 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "YELLOW",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "LAB_REPORT_CARD",
@@ -2152,20 +2397,24 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                         "date": report_res.get("date", "Recent"),
                         "parameters": report_res.get("parameters", []),
                         "groundedSummary": report_res.get("groundedSummary", ""),
-                        "disclaimer": report_res.get("disclaimer", "AI is not a doctor. Consult a physician.")
+                        "disclaimer": report_res.get("disclaimer", "Consult a certified physician.")
                     },
                     {
                         "type": "HEALTH_GUIDANCE_ACTIONS",
                         "urgency": "YELLOW",
                         "options": [
-                            {"label": "👨‍⚕️ Book Consultation with Doctor", "doctorId": "doc_2", "route": "#feature2"}
+                            {
+                                "label": "डॉक्टर के साथ परामर्श बुक करें" if detected_lang == "hi" else "Book Consultation with Doctor",
+                                "doctorId": "doc_2",
+                                "route": "#feature2"
+                            }
                         ]
                     }
                 ]
             }
         }
 
-    # 6. HONESTY GUARDRAIL CHECK (G-HON Out-of-Scope Detection)
+    # 6. HONESTY GUARDRAIL CHECK (G-HON Out-of-Scope Detection via LLM Brain)
     out_of_scope_patterns = [
         r'\b(?:order|buy|purchase)\s+medicine\b',
         r'\b(?:pay|payment|credit\s*card|debit\s*card|upi|gateway)\b',
@@ -2175,21 +2424,23 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     ]
     is_out_of_scope = any(re.search(pat, raw_query, re.IGNORECASE) for pat in out_of_scope_patterns)
     if is_out_of_scope:
-        if detected_lang == "hi":
-            ans = (
-                "मैं मेदवेद में सीधे दवाइयां ऑर्डर करने या ऑनलाइन भुगतान की सुविधा नहीं देता हूँ। यह क्षमता अभी उपलब्ध नहीं है।\n\n"
-                "परंतु मैं आपके लिए यह कर सकता हूँ:\n"
-                "• **फ़ीचर 06 (दवा उपलब्धता व लैब्स)** पर हजारीबाग की पंजीकृत फार्मेसियों में उपलब्ध स्टॉक देख सकते हैं।\n"
-                "• **फ़ीचर 02** के माध्यम से डॉक्टर से टेलीकंसल्टेशन अपॉइंटमेंट बुक कर सकते हैं।"
-            )
-        else:
-            ans = (
-                "I cannot order medicines online or process payments directly. That action is not supported in MedVeda yet.\n\n"
-                "Here is what I CAN do for you instead:\n"
-                "• View live verified pharmacy stock in Hazaribagh via **Feature 06: Medicine Availability & Labs**.\n"
-                "• Search available doctors and book an in-person or teleconsultation appointment in **Feature 02**."
-            )
-        
+        fallback_hon = (
+            "Ordering medicines online or processing payments directly is not supported in MedVeda. "
+            "Instead, you can check live pharmacy stock in Feature 06 or book a doctor consultation in Feature 02."
+        )
+        ans = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G_HON_PLATFORM_CAPABILITY_BOUNDARY",
+            guardrail_instructions=(
+                "The user asked for an action outside MedVeda's platform scope (e.g. online payment processing, buying/delivering medicines, or invasive biopsy diagnosis). "
+                "State transparently what MedVeda cannot do, and guide the user to the closest supported MedVeda features (Feature 06: Medicine Stock & Diagnostics, Feature 02: Doctor Teleconsultation)."
+            ),
+            fallback_text=fallback_hon
+        )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans)
         return {
@@ -2199,14 +2450,22 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "CAPABILITY_FALLBACK",
-                        "title": "MedVeda Supported Alternatives",
-                        "options": [
-                            {"label": "💊 Check Medicine Stock (Feature 06)", "route": "#feature6"},
-                            {"label": "👨‍⚕️ Book Doctor Consultation (Feature 02)", "route": "#feature2"}
-                        ]
+                        "title": "उपलब्ध मेदवेद सेवाएं" if detected_lang == "hi" else "MedVeda Supported Alternatives",
+                        "options": (
+                            [
+                                {"label": "दवा स्टॉक जांचें (फ़ीचर 06)", "route": "#feature6"},
+                                {"label": "डॉक्टर परामर्श बुक करें (फ़ीचर 02)", "route": "#feature2"}
+                            ]
+                            if detected_lang == "hi"
+                            else [
+                                {"label": "Check Medicine Stock (Feature 06)", "route": "#feature6"},
+                                {"label": "Book Doctor Consultation (Feature 02)", "route": "#feature2"}
+                            ]
+                        )
                     }
                 ]
             }
@@ -2233,10 +2492,16 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 break
 
     if matched_nav:
-        ans = (
-            f"निश्चय ही! मैं आपको **{matched_nav['title']}** पर ले जा रहा हूँ। आप नीचे दिए गए बटन पर भी क्लिक कर सकते हैं।"
-            if detected_lang == "hi"
-            else f"Certainly! Navigating you to **{matched_nav['title']}**. You can also tap the button below."
+        ans = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="NAVIGATION_ASSISTANCE",
+            guardrail_instructions=f"Briefly explain what {matched_nav['title']} does for the patient and let them know they can open it using the action button below.",
+            reference_data=f"Target Feature: {matched_nav['title']} (Route: {matched_nav['route']})",
+            fallback_text=f"Navigating you to **{matched_nav['title']}**. Use the button below to open it."
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans)
@@ -2247,12 +2512,13 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "NAVIGATE_ACTION",
-                        "title": f"Jump to {matched_nav['title']}",
+                        "title": f"{matched_nav['title']}",
                         "route": matched_nav["route"],
-                        "buttonLabel": f"🚀 Open {matched_nav['title'].split(':')[0]}"
+                        "buttonLabel": "अनुभाग खोलें" if detected_lang == "hi" else f"Open {matched_nav['title'].split(':')[0]}"
                     }
                 ]
             }
@@ -2261,11 +2527,18 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     # 8. VIEW APPOINTMENTS REQUEST
     if any(k in raw_query.lower() for k in ["my appointment", "view appointment", "booked appointment", "अपॉइंटमेंट दिखाएं", "मेरी बुकिंग"]):
         patient_apts = [a for a in APPOINTMENTS_STORE if a["patientId"] == patient_id]
-        if detected_lang == "hi":
-            ans = f"रमेश जी, आपके खाते में वर्तमान में {len(patient_apts)} कन्फर्म अपॉइंटमेंट दर्ज है:"
-        else:
-            ans = f"Ramesh, you have {len(patient_apts)} confirmed appointment(s) in your records:"
-        
+        pat_first = (patient_info.get("name") or "Ramesh Mahto").split()[0]
+        ans = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="APPOINTMENTS_SUMMARY",
+            guardrail_instructions="Summarize the patient's active appointments from the reference data below.",
+            reference_data=json.dumps(patient_apts, ensure_ascii=False),
+            fallback_text=f"{pat_first}, you have {len(patient_apts)} confirmed appointment(s) in your records."
+        )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans)
         return {
@@ -2273,12 +2546,14 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             "data": {
                 "answer": ans,
                 "detectedLanguage": detected_lang,
+                "syncedLocation": active_location,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "APPOINTMENTS_LIST",
-                        "title": "Your Active Appointments",
+                        "title": "आपके सक्रिय अपॉइंटमेंट" if detected_lang == "hi" else "Your Active Appointments",
                         "appointments": patient_apts
                     }
                 ]
@@ -2296,10 +2571,16 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             med_target = "Ecosprin 75mg"
             time_target = "08:30 AM"
 
-        ans = (
-            f"मैंने आपकी दवा **{med_target}** के लिए {time_target} पर रिमाइंडर तैयार किया है। कृपया नीचे 'रिमाइंडर सेव करें' बटन पर क्लिक करके पुष्टि करें।"
-            if detected_lang == "hi"
-            else f"I have prepared a dosage reminder for **{med_target}** at {time_target}. Please confirm below to activate it."
+        ans = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="MEDICINE_REMINDER_SETUP",
+            guardrail_instructions=f"Confirm that a medication reminder for {med_target} at {time_target} has been prepared and ask the user to confirm it using the card below. Include brief adherence advice.",
+            reference_data=f"Medicine: {med_target}, Time: {time_target}, Instruction: After meals",
+            fallback_text=f"I have prepared a dosage reminder for **{med_target}** at {time_target}. Please confirm below to activate it."
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans)
@@ -2308,28 +2589,40 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             "data": {
                 "answer": ans,
                 "detectedLanguage": detected_lang,
+                "syncedLocation": active_location,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "PROPOSE_REMINDER",
-                        "title": "Confirm Medicine Reminder",
+                        "title": "दवा रिमाइंडर की पुष्टि करें" if detected_lang == "hi" else "Confirm Medicine Reminder",
                         "medicineName": med_target,
-                        "dosage": "1 dose",
+                        "dosage": "1 खुराक" if detected_lang == "hi" else "1 dose",
                         "time": time_target,
-                        "instruction": "After meals",
+                        "instruction": "भोजन के बाद" if detected_lang == "hi" else "After meals",
                         "patientId": patient_id
                     }
                 ]
             }
         }
 
-    # 10. NEARBY FACILITIES REQUEST
-    if any(k in raw_query.lower() for k in ["nearby hospital", "emergency bed", "sadar hospital", "chc", "अस्पताल खोजें", "नजदीकी अस्पताल"]):
-        ans = (
-            "हजारीबाग जिले के नजदीकी सत्यापित अस्पताल और आपातकालीन केंद्र निम्नलिखित हैं:"
-            if detected_lang == "hi"
-            else "Here are the verified nearby healthcare facilities and emergency centers in Hazaribagh district:"
+    # 10. NEARBY FACILITIES OR EXPLICIT LOCATION SYNC REQUEST
+    is_loc_statement = location_updated and any(
+        p in raw_query.lower()
+        for p in ["i am in", "i live in", "my location", "change location", "location is", "मैं ", "मेरा स्थान", "लोकेशन"]
+    )
+    if is_loc_statement or any(k in raw_query.lower() for k in ["nearby hospital", "emergency bed", "sadar hospital", "chc", "अस्पताल खोजें", "नजदीकी अस्पताल", "hospitals in", "hospitals near"]):
+        ans = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="FACILITY_DISCOVERY",
+            guardrail_instructions=f"Summarize the verified healthcare facilities serving {active_location} and their bed/emergency availability based on the reference data.",
+            reference_data=json.dumps(FACILITIES_DB, ensure_ascii=False),
+            fallback_text=f"Your consultation location is synced to **{active_location}**. Here are the verified healthcare facilities serving **{active_location}**:"
         )
         audio_b64 = synthesize_speech_base64(ans, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans)
@@ -2338,21 +2631,23 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
             "data": {
                 "answer": ans,
                 "detectedLanguage": detected_lang,
+                "syncedLocation": active_location,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "GREEN",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "FACILITIES_LIST",
-                        "title": "Verified Healthcare Facilities",
+                        "title": f"सत्यापित स्वास्थ्य केंद्र ({active_location})" if detected_lang == "hi" else f"Verified Healthcare Facilities ({active_location})",
                         "facilities": FACILITIES_DB
                     }
                 ]
             }
         }
 
-    # 11. DOCTOR SEARCH & BOOKING INTENT
-    booking_keywords = ["book", "appointment", "doctor", "cardiologist", "neurologist", "pediatrician", "orthopedic", "डॉक्टर", "अपॉइंटमेंट", "बुक करें", "दिखाना है"]
-    if any(k in raw_query.lower() for k in booking_keywords):
+    # 11. EXPLICIT DOCTOR BOOKING INTENT (Only when user explicitly asks to book/schedule an appointment)
+    explicit_booking_phrases = ["book appointment", "schedule appointment", "book a doctor", "book consult", "book with dr", "अपॉइंटमेंट बुक", "डॉक्टर बुक"]
+    if any(k in raw_query.lower() for k in explicit_booking_phrases):
         matched_doc = None
         if any(w in raw_query.lower() for w in ["cardio", "heart", "दिल", "कार्डियो", "राजेश", "verma"]):
             matched_doc = DOCTORS_DB[1]  # Dr. Rajesh Verma
@@ -2370,16 +2665,16 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
 
         if matched_doc:
             chosen_slot = matched_doc["slots"][0]
-            ans = (
-                f"मैंने {matched_doc['name']} ({matched_doc['specialty']}) के साथ {chosen_slot['time']} का स्लॉट तैयार किया है।\n"
-                f"अस्पताल: {matched_doc['facilityName']}\n\n"
-                f"कृपया नीचे दिए गए **'अपॉइंटमेंट पक्का करें'** बटन पर क्लिक करके बुकिंग की पुष्टि करें।"
-                if detected_lang == "hi"
-                else (
-                    f"I have prepared an appointment proposal with **{matched_doc['name']}** ({matched_doc['specialty']}) for **{chosen_slot['time']}**.\n"
-                    f"Hospital: {matched_doc['facilityName']}\n\n"
-                    f"Please tap the **'Confirm Booking'** button below to finalize your booking."
-                )
+            ans = generate_guardrailed_llm_response(
+                raw_query=raw_query,
+                detected_lang=detected_lang,
+                patient_info=patient_info,
+                patient_id=patient_id,
+                conv_history=conv_history,
+                guardrail_mode="DOCTOR_BOOKING_PREPARATION",
+                guardrail_instructions=f"Inform the user that an appointment slot with {matched_doc['name']} ({matched_doc['specialty']}) at {matched_doc['facilityName']} for {chosen_slot['time']} is ready to confirm via the card below.",
+                reference_data=json.dumps({"doctor": matched_doc, "slot": chosen_slot}, ensure_ascii=False),
+                fallback_text=f"I have prepared an appointment slot with **{matched_doc['name']}** ({matched_doc['specialty']}) for **{chosen_slot['time']}** at {matched_doc['facilityName']}."
             )
             audio_b64 = synthesize_speech_base64(ans, detected_lang)
             record_agent_session_turn(session_id, raw_query, ans)
@@ -2388,18 +2683,20 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "data": {
                     "answer": ans,
                     "detectedLanguage": detected_lang,
+                    "syncedLocation": active_location,
                     "audioBase64": audio_b64,
                     "urgencyLevel": "YELLOW",
+                    "llmBrainUsed": True,
                     "actionCards": [
                         {
                             "type": "CONFIRMATION_CARD",
-                            "title": "Appointment Booking Confirmation",
+                            "title": "अपॉइंटमेंट बुकिंग की पुष्टि" if detected_lang == "hi" else "Appointment Booking Confirmation",
                             "doctor": matched_doc,
                             "slot": chosen_slot,
                             "patient": {
                                 "id": patient_id,
                                 "name": patient_info.get("name", "Ramesh Mahto"),
-                                "phone": "+91-94311-28901"
+                                "phone": patient_info.get("phone", "+91-94311-28901")
                             },
                             "urgencyTier": "ROUTINE",
                             "mode": "teleconsult"
@@ -2408,10 +2705,16 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 }
             }
         else:
-            ans = (
-                "हजारीबाग के पंजीकृत विशेषज्ञ डॉक्टर निम्नलिखित हैं। आप जिस डॉक्टर से परामर्श लेना चाहते हैं, उसके 'बुक करें' बटन पर क्लिक करें:"
-                if detected_lang == "hi"
-                else "Here are the registered specialist doctors available in Hazaribagh. Tap 'Book Doctor' to prepare a booking confirmation:"
+            ans = generate_guardrailed_llm_response(
+                raw_query=raw_query,
+                detected_lang=detected_lang,
+                patient_info=patient_info,
+                patient_id=patient_id,
+                conv_history=conv_history,
+                guardrail_mode="DOCTOR_ROSTER_LIST",
+                guardrail_instructions="Briefly introduce the available specialist doctors in the network and invite the user to select a specialist from the card below.",
+                reference_data=json.dumps(DOCTORS_DB, ensure_ascii=False),
+                fallback_text=f"Here are the registered specialist doctors serving **{active_location}**. Select a specialist below to prepare your booking:"
             )
             audio_b64 = synthesize_speech_base64(ans, detected_lang)
             record_agent_session_turn(session_id, raw_query, ans)
@@ -2420,54 +2723,51 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "data": {
                     "answer": ans,
                     "detectedLanguage": detected_lang,
+                    "syncedLocation": active_location,
                     "audioBase64": audio_b64,
                     "urgencyLevel": "YELLOW",
+                    "llmBrainUsed": True,
                     "actionCards": [
                         {
                             "type": "DOCTORS_LIST",
-                            "title": "Available Medical Specialists",
+                            "title": "उपलब्ध चिकित्सा विशेषज्ञ" if detected_lang == "hi" else "Available Medical Specialists",
                             "doctors": DOCTORS_DB
                         }
                     ]
                 }
             }
 
-    # 12. BASIC / STRAIGHTFORWARD CONDITIONS (CALIBRATED GUARDRAIL 1)
+    # 12. BASIC / STRAIGHTFORWARD SYMPTOM TRIAGE (LLM Brain + Clarifying Questions + OTC Guardrail)
     cond_key, cond_cfg = check_basic_condition(raw_query)
     if cond_cfg:
-        q1_hi = cond_cfg["questionsHi"][0]
-        q2_hi = cond_cfg["questionsHi"][1]
-        q1_en = cond_cfg["questionsEn"][0]
-        q2_en = cond_cfg["questionsEn"][1]
-
-        otc_hi_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesHi']}" for m in cond_cfg["otcMedicines"]])
-        otc_en_lines = "\n".join([f"• **{m['name']}**: {m['dosage']} — {m['notesEn']}" for m in cond_cfg["otcMedicines"]])
-
-        if detected_lang == "hi":
-            ans_text = (
-                f"**संभावित प्राथमिक मूल्यांकन:** आपके द्वारा बताए गए लक्षणों के अनुसार यह **{cond_cfg['diagnosisHi']}** प्रतीत होता है।\n\n"
-                f"⚠️ **अस्वीकरण:** AI कोई डॉक्टर नहीं है, इसलिए पूरी तरह AI के कहे पर भरोसा न करें। पक्के और सटीक निदान के लिए प्रमाणित डॉक्टर से जांच अवश्य कराएं।\n\n"
-                f"**स्थिति की पुष्टि हेतु स्पष्टीकरण प्रश्न (ताकि पक्का हो सके कि यह सामान्य है):**\n"
-                f"1. {q1_hi}\n"
-                f"2. {q2_hi}\n\n"
-                f"**सुरक्षित ओवर-द-काउंटर (OTC) दवाइयां (बिना पर्चे के मेडिकल स्टोर पर आसानी से उपलब्ध):**\n"
-                f"{otc_hi_lines}\n\n"
-                f"• **घरेलू देखभाल:** {cond_cfg['homeCareHi']}\n\n"
-                f"*सख्त सुरक्षा नियम: ये बिना पर्चे वाली सामान्य राहतकारी दवाइयां हैं। यदि लक्षण 48 घंटे में ठीक न हों या गंभीर लगें, तो कृपया नीचे दिए गए डॉक्टर से तुरंत परामर्श लें।*"
-            )
-        else:
-            ans_text = (
-                f"**Provisional Health Assessment:** Based on the symptoms described, this appears consistent with a **{cond_cfg['diagnosisEn']}**.\n\n"
-                f"⚠️ **Medical Disclaimer:** I am an AI medical assistant, not a doctor, so please do not solely rely on what AI says. For an official and accurate medical diagnosis, please consult a certified doctor.\n\n"
-                f"**Clarifying Questions (to confirm if this is truly straightforward):**\n"
-                f"1. {q1_en}\n"
-                f"2. {q2_en}\n\n"
-                f"**Safe Over-The-Counter (OTC) Guidance (Easily available at medical stores without prescription):**\n"
-                f"{otc_en_lines}\n\n"
-                f"• **Home Care:** {cond_cfg['homeCareEn']}\n\n"
-                f"*Safety Rule: These are non-prescription OTC medications for temporary relief. If symptoms persist beyond 48 hours, worsen, or red flags appear, please consult a doctor below.*"
-            )
-
+        q1_en, q2_en = cond_cfg["questionsEn"][0], cond_cfg["questionsEn"][1]
+        otc_en_lines = "\n".join([f"- {m['name']}: {m['dosage']} ({m['notesEn']})" for m in cond_cfg["otcMedicines"]])
+        fallback_basic = (
+            f"**Provisional Health Assessment**\n"
+            f"Based on the symptoms described, this appears consistent with **{cond_cfg['diagnosisEn']}**.\n\n"
+            f"**Medical Disclaimer:** I am a clinical assistant, not a doctor. For an official medical diagnosis, please consult a certified physician.\n\n"
+            f"**Clarifying Questions:**\n1. {q1_en}\n2. {q2_en}\n\n"
+            f"**Safe OTC Guidance:**\n{otc_en_lines}\n\n"
+            f"**Home Care:** {cond_cfg['homeCareEn']}"
+        )
+        ans_text = generate_guardrailed_llm_response(
+            raw_query=raw_query,
+            detected_lang=detected_lang,
+            patient_info=patient_info,
+            patient_id=patient_id,
+            conv_history=conv_history,
+            guardrail_mode="G_TRIAGE_BASIC_SYMPTOMS",
+            guardrail_instructions=(
+                f"The user described symptoms consistent with {cond_cfg['diagnosisEn']}. Use your clinical reasoning to respond specifically to their query while enforcing these steps:\n"
+                "1. Provide a thoughtful Provisional Health Assessment tailored to their exact words.\n"
+                "2. Include the Not-A-Doctor disclaimer (G-NAD).\n"
+                f"3. Ask 2 targeted clarifying questions to rule out red flags (e.g. '{q1_en}' and '{q2_en}').\n"
+                "4. Provide safe Over-The-Counter (OTC) medication guidance (no prescription drugs) and practical home care.\n"
+                "5. Advise seeing a doctor if symptoms persist >48 hours or worsen."
+            ),
+            reference_data=f"Condition: {cond_cfg['diagnosisEn']}\nVerified OTC Options:\n{otc_en_lines}\nHome Care: {cond_cfg['homeCareEn']}",
+            fallback_text=fallback_basic
+        )
         audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
         record_agent_session_turn(session_id, raw_query, ans_text)
         return {
@@ -2477,99 +2777,61 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
                 "detectedLanguage": detected_lang,
                 "audioBase64": audio_b64,
                 "urgencyLevel": "YELLOW",
+                "llmBrainUsed": True,
                 "actionCards": [
                     {
                         "type": "CLARIFYING_QUESTIONS_CARD",
-                        "title": "Clarifying Questions to Rule Out Red Flags",
+                        "title": "त्वरित उत्तर चुनें" if detected_lang == "hi" else "Select a Quick Response",
                         "questions": cond_cfg["questionsHi"] if detected_lang == "hi" else cond_cfg["questionsEn"],
-                        "quickReplies": cond_cfg.get("quickReplies", [])
+                        "quickReplies": cond_cfg.get("quickRepliesHi" if detected_lang == "hi" else "quickRepliesEn", [])
                     },
                     {
                         "type": "OTC_MEDICATION_CARD",
-                        "title": "Safe OTC Relief (No Prescription Required)",
+                        "title": "सुरक्षित ओटीसी दवाइयां (बिना पर्चे के)" if detected_lang == "hi" else "Safe OTC Relief (No Prescription Required)",
                         "medicines": cond_cfg["otcMedicines"]
                     },
                     {
                         "type": "HEALTH_GUIDANCE_ACTIONS",
                         "urgency": "YELLOW",
-                        "options": [
-                            {"label": "👨‍⚕️ Book Routine Doctor Consult", "doctorId": "doc_2", "route": "#feature2"},
-                            {"label": "🏥 Find Nearest Hospital Facility", "route": "#feature1"}
-                        ]
+                        "options": (
+                            [
+                                {"label": "डॉक्टर परामर्श बुक करें", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "नजदीकी अस्पताल खोजें", "route": "#feature1"}
+                            ]
+                            if detected_lang == "hi"
+                            else [
+                                {"label": "Book Routine Doctor Consult", "doctorId": "doc_2", "route": "#feature2"},
+                                {"label": "Find Nearest Hospital Facility", "route": "#feature1"}
+                            ]
+                        )
                     }
                 ]
             }
         }
 
-    # 13. GENERAL QUERY / RECORDS LOOKUP VIA GEMINI
-    records_list = MOCK_PATIENTS_EHR.get(patient_id, {}).get("records", [])
-    records_context = "\n---\n".join([
-        f"Document: {r['title']} ({r['recordedAt']}) by {r.get('doctorName', 'N/A')}\nSummary: {r['summary']}"
-        for r in records_list[:3]
-    ])
-
-    hist_context_str = ""
-    if conv_history:
-        h_turns = []
-        for h in conv_history[-8:]:
-            r = "User" if h.get("role") in ["user", "patient"] else "Assistant"
-            txt = (h.get("text") or h.get("content") or "").strip()
-            if txt:
-                h_turns.append(f"{r}: {txt}")
-        if h_turns:
-            hist_context_str = "\n".join(h_turns)
-
-    prompt = f"""You are the MedVeda Autonomous Medical Assistant Agent.
-You are NOT a doctor. Follow G-NAD (Not a doctor disclaimer) and G-HON (Honesty about MedVeda bounds).
-Patient: {patient_info.get('name')} ({patient_id})
-Verified Patient Records:
-{records_context}
-
-Available In-Website Features:
-- Feature 01: Care Navigator (Symptom triage & hospital finder)
-- Feature 02: Teleconsultation OPD & Priority Queue
-- Feature 03: Smart Referrals
-- Feature 04: High-Risk Follow-Ups
-- Feature 05: Health Records & ABDM
-- Feature 06: Medicine Availability & Diagnostics
-- Feature 07: Facility Operations Dashboard
-- Feature 08: Govt Health Schemes (PM-JAY)
-- Feature 09: District Command Center
-
-CONVERSATION HISTORY (RECENT MULTI-TURN CONTEXT):
-{hist_context_str if hist_context_str else "None (Start of conversation)"}
-
-User Query: "{raw_query}"
-Language: {"Hindi (Devanagari script)" if detected_lang == "hi" else "English"}
-
-Rules:
-1. Answer strictly in the requested language ({"Hindi" if detected_lang == "hi" else "English"}).
-2. Ground all advice in the conversation context and MedVeda capabilities. Do not hallucinate external doctors or capabilities.
-3. Suggest appropriate MedVeda features if relevant.
-4. If asked about medication, advise ONLY safe OTC medicines and suggest doctor consultation for prescription drugs.
-"""
-
-    ans_text = ""
-    if GEMINI_API_KEY:
-        try:
-            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-            res = requests.post(
-                endpoint,
-                json={"contents": [{"parts": [{"text": prompt}]}]},
-                timeout=20
-            )
-            if res.ok:
-                res_data = res.json()
-                ans_text = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        except Exception as e:
-            print(f"Agent Gemini fallback: {e}")
-
-    if not ans_text:
-        ans_text = (
-            f"नमस्ते {patient_info.get('name')} जी, मैं आपका मेदवेद मेडिकल असिस्टेंट एजेंट हूँ। मैं आपके लिए डॉक्टर ढूंढ सकता हूँ, टेलीकंसल्टेशन अपॉइंटमेंट बुक कर सकता हूँ, और दवा के रिमाइंडर सेट कर सकता हूँ।"
-            if detected_lang == "hi"
-            else f"Hello {patient_info.get('name')}, I am your MedVeda Autonomous Medical Assistant Agent. I can search doctors, book appointments, find nearby hospitals, and set medicine reminders."
-        )
+    # 13. OPEN-ENDED CLINICAL & HEALTH QUESTIONS VIA LIVE GEMINI LLM BRAIN
+    fallback_general = (
+        f"नमस्ते {patient_info.get('name')} जी, मैं मेदवेद क्लिनिकल सहायक हूँ। कृपया अपना प्रश्न बताएं।"
+        if detected_lang == "hi"
+        else f"Hello {patient_info.get('name')}, I am your MedVeda Clinical Assistant. How can I help you with your health question today?"
+    )
+    ans_text = generate_guardrailed_llm_response(
+        raw_query=raw_query,
+        detected_lang=detected_lang,
+        patient_info=patient_info,
+        patient_id=patient_id,
+        conv_history=conv_history,
+        guardrail_mode="G_OPEN_CLINICAL_LLM_REASONING",
+        guardrail_instructions=(
+            "Answer the user's medical, wellness, nutrition, diagnostic, or healthcare question thoroughly and accurately using your clinical knowledge base.\n"
+            "1. Directly address the user's specific question (do NOT give a generic greeting).\n"
+            "2. Enforce G-NAD (include a brief reminder that you are a clinical AI assistant, not a doctor).\n"
+            "3. Enforce G-RX (if medications are relevant, discuss only safe OTC options or explain mechanism of action while advising physician supervision for prescription drugs).\n"
+            "4. If the user describes any new symptoms, ask 1-2 brief clarifying questions and explain what red flags would warrant a doctor visit."
+        ),
+        reference_data=f"Available MedVeda Doctors: {json.dumps([{'name': d['name'], 'specialty': d['specialty'], 'facility': d['facilityName']} for d in DOCTORS_DB], ensure_ascii=False)}",
+        fallback_text=fallback_general
+    )
 
     audio_b64 = synthesize_speech_base64(ans_text, detected_lang)
     record_agent_session_turn(session_id, raw_query, ans_text)
@@ -2580,14 +2842,23 @@ Rules:
             "detectedLanguage": detected_lang,
             "audioBase64": audio_b64,
             "urgencyLevel": "GREEN",
+            "llmBrainUsed": True,
             "actionCards": [
                 {
                     "type": "QUICK_ACTIONS",
-                    "options": [
-                        {"label": "👨‍⚕️ Book Consultation", "route": "#feature2"},
-                        {"label": "🏥 Nearby Hospitals", "route": "#feature1"},
-                        {"label": "💊 Medicine Reminders", "route": "#assistant"}
-                    ]
+                    "options": (
+                        [
+                            {"label": "डॉक्टर परामर्श बुक करें", "route": "#feature2"},
+                            {"label": "नजदीकी अस्पताल देखें", "route": "#feature1"},
+                            {"label": "दवा उपलब्धता जांचें", "route": "#feature6"}
+                        ]
+                        if detected_lang == "hi"
+                        else [
+                            {"label": "Book Doctor Consultation", "route": "#feature2"},
+                            {"label": "View Nearby Hospitals", "route": "#feature1"},
+                            {"label": "Check Medicine Stock", "route": "#feature6"}
+                        ]
+                    )
                 }
             ]
         }

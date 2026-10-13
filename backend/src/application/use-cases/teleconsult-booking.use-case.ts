@@ -29,7 +29,7 @@ export class TeleconsultBookingUseCase {
     };
   }> {
     const doctor = await this.store.getDoctorById(request.doctorId);
-    const doctorName = doctor ? doctor.name : 'Dr. On Duty';
+    const doctorName = request.doctorName || (doctor ? doctor.name : 'Dr. On Duty');
     const facilityName = 'SBMC&H / Sadar Regional Network';
 
     const appointmentId = `APT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;

@@ -221,20 +221,24 @@ import { PipelineStreamManager } from '../backend/src/presentation/sse/pipeline-
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-// Initialize Domain Pipeline (Feature 01: Persistent SQLite + Optional Redis Cache + Live SSE Stream)
-const navigationStore = new SqliteNavigationStore();
+// Initialize Domain Pipeline (Feature 01: Zero-Cache Live Location Discovery + Live SSE Stream)
+const navigationStore = new SqliteNavigationStore(':memory:');
 const pipelineStreamManager = new PipelineStreamManager();
 const triageUseCase = new AssessTriageUseCase();
-const cacheAdapter = new RedisOrSqliteHospitalCacheAdapter(navigationStore);
+const cacheAdapter = {
+  findNearby: async () => [],
+  save: async () => {},
+  saveBatch: async () => {}
+};
 const searchAdapter = new GoogleSearchMcpAdapter();
-const geminiAdapter = new GeminiHospitalDiscoveryAdapter();
+const geminiAdapter = new GeminiHospitalDiscoveryAdapter(undefined, undefined, true);
 const researchUseCase = new ResearchHospitalsUseCase(searchAdapter, cacheAdapter, geminiAdapter);
 const rankUseCase = new RankFacilitiesUseCase();
 const pipelineUseCase = new CareNavigationPipelineUseCase(
   triageUseCase,
   researchUseCase,
   rankUseCase,
-  navigationStore,
+  undefined,
   pipelineStreamManager
 );
 
@@ -780,14 +784,42 @@ const server = http.createServer(async (req, res) => {
       }
 
       if ((normPath === '/api/triage/assess') && req.method === 'POST') {
-        const body = await readJsonBody(req);
+        const rawBody = await readJsonBody(req);
+        const normalizedRedFlags = Array.isArray(rawBody.redFlags)
+          ? {
+              facialDroopOrSpeech: rawBody.redFlags.includes('facialDroopOrSpeech'),
+              chestPain: rawBody.redFlags.includes('chestPain'),
+              breathingDistress: rawBody.redFlags.includes('breathingDistress'),
+              unconsciousOrConfusion: rawBody.redFlags.includes('unconsciousOrConfusion'),
+              severeBleeding: rawBody.redFlags.includes('severeBleeding')
+            }
+          : rawBody.redFlags || {
+              facialDroopOrSpeech: false,
+              chestPain: false,
+              breathingDistress: false,
+              unconsciousOrConfusion: false,
+              severeBleeding: false
+            };
+        const primarySymptoms =
+          rawBody.primarySymptoms ||
+          (Array.isArray(rawBody.symptoms) ? rawBody.symptoms.join(', ') : String(rawBody.symptoms || ''));
+        const body = {
+          ...rawBody,
+          age: Number(rawBody.age || 45),
+          sex: String(rawBody.sex || 'female').toLowerCase(),
+          location: String(rawBody.location || 'India').trim(),
+          primarySymptoms,
+          duration: String(rawBody.duration || '60 minutes'),
+          severity:
+            typeof rawBody.severity === 'string'
+              ? rawBody.severity
+              : Number(rawBody.severity) >= 7
+              ? 'severe'
+              : 'moderate',
+          redFlags: normalizedRedFlags
+        };
         const triage = await triageUseCase.execute(body);
         const sessionId = body.sessionId || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        try {
-          navigationStore.saveTriageSession(sessionId, body, triage);
-        } catch (dbErr) {
-          console.warn('[Server] Could not persist standalone triage session:', dbErr);
-        }
         if (triage.urgency === 'CRITICAL') {
           dashboardStore.addAlert({
             alertId: `ALT-CRIT-${Date.now().toString(36).toUpperCase()}`,
@@ -815,43 +847,6 @@ const server = http.createServer(async (req, res) => {
       if ((normPath === '/api/recommendations/rank') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const ranking = await rankUseCase.execute(body);
-        try {
-          let sessionId = body.sessionId;
-          if (!sessionId) {
-            sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            navigationStore.saveTriageSession(
-              sessionId,
-              {
-                age: Number(body.age || 35),
-                sex: body.sex || 'other',
-                location: body.location || 'India',
-                primarySymptoms: body.primarySymptoms || body.requiredSpecialty || 'Clinical Evaluation',
-                duration: body.duration || 'acute',
-                severity: body.urgency === 'CRITICAL' ? 'severe' : 'moderate',
-                redFlags: {
-                  facialDroopOrSpeech: false,
-                  chestPain: false,
-                  breathingDistress: false,
-                  unconsciousOrConfusion: false,
-                  severeBleeding: false
-                }
-              },
-              {
-                urgency: body.urgency || 'URGENT',
-                acuityBadge: body.urgency || 'URGENT',
-                requiredSpecialty: body.requiredSpecialty || 'General Medicine',
-                conditionCategory: body.requiredSpecialty || 'General',
-                clinicalRoutingAdvice: 'Evaluated via Smart Care Navigator.',
-                emergencyRequired: Boolean(body.emergencyRequired),
-                redFlagsDetected: [],
-                searchQueries: []
-              }
-            );
-          }
-          navigationStore.saveRecommendations(sessionId, ranking.topFacilities);
-        } catch (dbErr) {
-          console.warn('[Server] Could not persist recommendations:', dbErr);
-        }
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, data: ranking }));
         return;
@@ -887,8 +882,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       // === FEATURE 02: TELECONSULTATION & QUEUE ENDPOINTS ===
-      // 1. Doctor Roster: GET /api/doctors/roster
-      if (normPath === '/api/doctors/roster' && req.method === 'GET') {
+      // 1. Doctor Roster: GET /api/doctors/roster or /api/v1/doctors/roster
+      if ((normPath === '/api/doctors/roster' || normPath === '/api/v1/doctors/roster') && req.method === 'GET') {
         const facilityId = urlObj.searchParams.get('facility_id') || undefined;
         const specialty = urlObj.searchParams.get('specialty') || undefined;
         const roster = await bookingUseCase.getRoster(facilityId, specialty);
@@ -897,8 +892,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 2. Slots: GET /api/teleconsult/slots
-      if (normPath === '/api/teleconsult/slots' && req.method === 'GET') {
+      // 2. Slots: GET /api/teleconsult/slots or /api/v1/teleconsult/slots
+      if ((normPath === '/api/teleconsult/slots' || normPath === '/api/v1/teleconsult/slots') && req.method === 'GET') {
         const doctorId = urlObj.searchParams.get('doctor_id') || undefined;
         const specialty = urlObj.searchParams.get('specialty') || undefined;
         const date = urlObj.searchParams.get('date') || undefined;
@@ -908,8 +903,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 3. Book: POST /api/teleconsult/book
-      if (normPath === '/api/teleconsult/book' && req.method === 'POST') {
+      // 3. Book: POST /api/teleconsult/book or /api/v1/teleconsult/book
+      if ((normPath === '/api/teleconsult/book' || normPath === '/api/v1/teleconsult/book') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const booking = await bookingUseCase.bookAppointment(body);
         res.writeHead(200);
@@ -917,8 +912,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 4. Join Queue: POST /api/teleconsult/queue/join
-      if (normPath === '/api/teleconsult/queue/join' && req.method === 'POST') {
+      // 4. Join Queue: POST /api/teleconsult/queue/join or /api/v1/teleconsult/queue/join
+      if ((normPath === '/api/teleconsult/queue/join' || normPath === '/api/v1/teleconsult/queue/join') && req.method === 'POST') {
         const body = await readJsonBody(req);
         const entry = await queueUseCase.joinQueue(body);
         res.writeHead(200);
@@ -926,8 +921,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 5. Queue Status: GET /api/teleconsult/queue/status?queue_id=
-      if (normPath === '/api/teleconsult/queue/status' && req.method === 'GET') {
+      // 5. Queue Status: GET /api/teleconsult/queue/status or /api/v1/teleconsult/queue/status
+      if ((normPath === '/api/teleconsult/queue/status' || normPath === '/api/v1/teleconsult/queue/status') && req.method === 'GET') {
         const queueId = urlObj.searchParams.get('queue_id') || '';
         const status = await queueUseCase.getQueueStatus(queueId);
         res.writeHead(200);
@@ -935,8 +930,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // 6. Doctor Queue: GET /api/teleconsult/queue/doctor?doctor_id=
-      if (normPath === '/api/teleconsult/queue/doctor' && req.method === 'GET') {
+      // 6. Doctor Queue: GET /api/teleconsult/queue/doctor or /api/v1/teleconsult/queue/doctor
+      if ((normPath === '/api/teleconsult/queue/doctor' || normPath === '/api/v1/teleconsult/queue/doctor') && req.method === 'GET') {
         const doctorId = urlObj.searchParams.get('doctor_id') || 'doc_1';
         const queue = await queueUseCase.getDoctorQueue(doctorId);
         res.writeHead(200);
@@ -1638,22 +1633,188 @@ const server = http.createServer(async (req, res) => {
             if (subPath === '/api/agent/chat') {
               const query = String(body.query || body.message || '').trim();
               const patientId = body.patientId || 'MV-MED-2026-1024';
-              const ragRes = await recordsRagUseCase.queryPatientRecordsChat({
-                patientId,
-                question: query || 'Summarize my current medications and recent lab results.',
-                language: body.language || 'en',
-                requesterRole: 'patient'
-              });
+              const patientContext = body.patientContext || {};
+              const patientName = patientContext.name || body.patientName || 'Patient';
+              const patientAge = patientContext.age || 48;
+              const patientSex = patientContext.sex || 'Male';
+              const patientLocation = patientContext.location || 'Hazaribagh, Jharkhand';
+              const historyList = Array.isArray(body.history) ? body.history.slice(-8) : [];
+
+              const qLower = query.toLowerCase();
+              const emergencyKeywords = [
+                'chest pain', 'heart attack', 'crushing pain', 'shortness of breath',
+                'can\'t breathe', 'cannot breathe', 'stroke', 'paralysis', 'slurred speech',
+                'unconscious', 'fainted', 'seizure', 'severe bleeding', 'coughing blood',
+                'vomiting blood', 'suicidal', 'overdose', 'poisoning', 'anaphylaxis'
+              ];
+              const isEmergency = emergencyKeywords.some((k) => qLower.includes(k));
+              const urgencyLevel = isEmergency ? 'RED' : (
+                ['fever', 'dizziness', 'high bp', '160/', '170/', '180/', 'blurred vision', 'palpitations', 'swelling'].some((k) => qLower.includes(k))
+                  ? 'YELLOW'
+                  : 'GREEN'
+              );
+
+              // Build action cards when relevant to the user's intent
+              const actionCards = [];
+              if (isEmergency) {
+                actionCards.push({
+                  id: `act_emg_${Date.now()}`,
+                  type: 'EMERGENCY_ALERT',
+                  title: 'Immediate Emergency Care Required (Call 108)',
+                  subtitle: 'Potential life-threatening symptoms detected',
+                  badge: 'RED ALERT',
+                  details: {
+                    Headline: 'Proceed to Nearest Emergency Department Immediately',
+                    Facility: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H) Emergency Trauma Center',
+                    Helpline: '108 (National Ambulance Service - Toll Free)',
+                    Instruction: 'Do not drive yourself. Avoid physical exertion while awaiting transport.'
+                  },
+                  primaryAction: {
+                    label: 'Trigger Emergency Dispatch (108)',
+                    actionType: 'TRIGGER_EMERGENCY',
+                    params: { patientId, urgencyTier: 'EMERGENCY' }
+                  }
+                });
+              } else if (['book', 'appointment', 'schedule', 'consult', 'doctor', 'cardio', 'specialist'].some((k) => qLower.includes(k))) {
+                const roster = await teleconsultStore.getDoctorRoster();
+                const doc = roster[1] || roster[0] || {
+                  id: 'doc_2',
+                  name: 'Dr. Rajesh Verma',
+                  specialties: ['Cardiology'],
+                  availabilityWindows: [{ facilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)' }]
+                };
+                actionCards.push({
+                  id: `act_book_${Date.now()}`,
+                  type: 'BOOK_APPOINTMENT',
+                  title: `Schedule Consultation: ${doc.name}`,
+                  subtitle: `${(doc.specialties && doc.specialties[0]) || 'Cardiology'} • ${(doc.availabilityWindows && doc.availabilityWindows[0]?.facilityName) || 'SBMC&H'}`,
+                  badge: 'AVAILABLE SLOT',
+                  details: {
+                    Doctor: doc.name,
+                    Specialty: (doc.specialties && doc.specialties[0]) || 'Cardiology',
+                    Facility: (doc.availabilityWindows && doc.availabilityWindows[0]?.facilityName) || 'SBMC&H',
+                    Slot: 'Tomorrow, 10:00 AM',
+                    Patient: `${patientName} (${patientAge}y/${patientSex})`
+                  },
+                  primaryAction: {
+                    label: 'Confirm Appointment Slot',
+                    actionType: 'CONFIRM_BOOKING',
+                    params: {
+                      doctorId: doc.id,
+                      slotTime: 'Tomorrow 10:00 AM',
+                      patientName,
+                      urgencyTier: urgencyLevel === 'YELLOW' ? 'URGENT' : 'ROUTINE',
+                      reasonNote: query.slice(0, 120)
+                    }
+                  }
+                });
+              }
+
+              const systemInstruction = `You are MediBot, the live Clinical AI Assistant for MedVeda Smart Care Navigator.
+You must answer EVERY medical, health, wellness, medication, lab, symptom, or care navigation question dynamically using your clinical reasoning brain while strictly enforcing MedVeda's Calibrated Clinical Safety Guardrails:
+
+1. [G-NAD] NON-AUTONOMOUS DIAGNOSIS: Never state a definitive autonomous diagnosis (e.g., do not say "You have condition X"). Instead, explain possible clinical differentials or educational context ("Your symptoms could be associated with...") and recommend clinician evaluation.
+2. [G1] EMERGENCY TRIAGE ESCALATION: If the user reports red-flag symptoms (chest pain, dyspnea, stroke signs, severe bleeding, syncope, suicidal ideation), start with a clear emergency warning advising immediate emergency care / calling 108.
+3. [G-RX] PRESCRIPTION & DOSAGE SAFETY: Never autonomously initiate a new prescription or tell a patient to stop/change their prescribed dosage without consulting their physician. You may explain mechanism of action, side effects, timing, and food/drug interactions.
+4. [G-COMP] OTC & SUPPLEMENT INTERACTION CHECK: When asked about supplements, herbal remedies, or OTC painkillers (especially NSAIDs like Ibuprofen/Diclofenac or potassium supplements in hypertension/CKD), explicitly highlight potential interactions with their active medications (e.g., Telmisartan, Amlodipine, Metformin, Atorvastatin).
+5. [G-LAB] LAB INTERPRETATION WITH REFERENCE CONTEXT: When discussing lab values (e.g., HbA1c, eGFR, Creatinine, Lipid Panel, BP), explain what the marker measures, compare against standard reference ranges, and suggest questions for their doctor.
+6. [G-HON] CLINICAL HONESTY & SCOPE: If asked a question outside medicine/health or with insufficient data, be transparent about what additional clinical details would help.
+
+ACTIVE LOGGED-IN PATIENT CONTEXT:
+- Name: ${patientName}
+- Patient ID: ${patientId}
+- Age / Sex: ${patientAge} yrs / ${patientSex}
+- Location: ${patientLocation}
+- Clinical Summary: ${patientContext.conditions ? JSON.stringify(patientContext.conditions) : 'Stage 2 Hypertension, Type 2 Diabetes Mellitus (HbA1c 7.4%), Mild Renal Impairment (eGFR 58 mL/min)'}
+- Active Medications: ${patientContext.medications ? JSON.stringify(patientContext.medications) : 'Telmisartan 40mg OD, Amlodipine 5mg OD, Metformin 500mg BD, Atorvastatin 20mg HS'}
+
+Formatting requirements:
+- Provide a thorough, empathetic, directly helpful clinical response tailored to the user's exact question.
+- Use clean Markdown headings, bullet points, and bold key terms. Do not use canned/generic filler.`;
+
+              const geminiKey = process.env.GEMINI_API_KEY;
+              let llmAnswer = null;
+              let llmModelUsed = 'gemini-3.5-flash-lite';
+
+              if (geminiKey) {
+                try {
+                  const contents = [];
+                  for (const msg of historyList) {
+                    const role = (msg.role === 'assistant' || msg.role === 'model' || msg.sender === 'bot') ? 'model' : 'user';
+                    const text = String(msg.text || msg.content || '').trim();
+                    if (text) {
+                      contents.push({ role, parts: [{ text }] });
+                    }
+                  }
+                  contents.push({
+                    role: 'user',
+                    parts: [{ text: query || 'Summarize my current medications, recent lab results, and care priorities.' }]
+                  });
+
+                  const candidateModels = ['gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+                  for (const modelName of candidateModels) {
+                    const geminiRes = await fetch(
+                      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`,
+                      {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          systemInstruction: { parts: [{ text: systemInstruction }] },
+                          contents,
+                          generationConfig: {
+                            temperature: 0.35,
+                            maxOutputTokens: 1024
+                          }
+                        }),
+                        signal: AbortSignal.timeout(15000)
+                      }
+                    );
+                    if (geminiRes.ok) {
+                      const geminiJson = await geminiRes.json();
+                      const textOut = geminiJson?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('\n').trim();
+                      if (textOut) {
+                        llmAnswer = textOut;
+                        llmModelUsed = modelName;
+                        break;
+                      }
+                    }
+                  }
+                } catch (geminiErr) {
+                  console.warn('[MediBot Node Gemini Fallback] Error calling Gemini API:', geminiErr.message);
+                }
+              }
+
+              if (!llmAnswer) {
+                const ragRes = await recordsRagUseCase.queryPatientRecordsChat({
+                  patientId,
+                  question: query || 'Summarize my current medications and recent lab results.',
+                  language: body.language || 'en',
+                  requesterRole: 'patient'
+                });
+                llmAnswer = ragRes.answer;
+                llmModelUsed = 'rag-fallback';
+              }
+
               res.writeHead(200);
               res.end(JSON.stringify({
                 success: true,
                 data: {
-                  answer: ragRes.answer,
-                  detectedLanguage: ragRes.detectedLanguage || 'en',
-                  urgencyLevel: ragRes.isEmergencyBypass ? 'RED' : 'GREEN',
-                  isEmergency: Boolean(ragRes.isEmergencyBypass),
-                  citations: ragRes.citations || [],
-                  actionCards: []
+                  answer: llmAnswer,
+                  detectedLanguage: body.language || 'en',
+                  urgencyLevel,
+                  isEmergency,
+                  llmPowered: llmModelUsed !== 'rag-fallback',
+                  llmModel: llmModelUsed,
+                  guardrailsActive: ['G-NAD', 'G1', 'G-RX', 'G-COMP', 'G-LAB', 'G-HON'],
+                  citations: [
+                    {
+                      docId: 'REC-1024-SUMMARY',
+                      title: `${patientName} — Longitudinal Clinical Record (${patientId})`,
+                      date: '2026-03-25',
+                      category: 'Clinical Dossier'
+                    }
+                  ],
+                  actionCards
                 }
               }));
               return;

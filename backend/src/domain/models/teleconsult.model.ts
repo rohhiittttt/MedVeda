@@ -133,6 +133,7 @@ export interface BookSlotRequest {
   readonly patientLocation: string;
   readonly specialty: string;
   readonly doctorId: string;
+  readonly doctorName?: string;
   readonly facilityId: string;
   readonly scheduledTime: string;
   readonly urgencyTier?: UrgencyTier;
