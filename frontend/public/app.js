@@ -983,6 +983,75 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     }));
   };
 
+  const handleDirectPrototypeLogin = (roleKey, idVal, defaultName, subtypeVal = 'hospital') => {
+    setSelectedRole(roleKey);
+    if (roleKey === 'facility') setFacilitySubtype(subtypeVal);
+
+    const abhaId = idVal.includes('@') ? idVal : `${idVal}@abdm`;
+    const resolvedRole = roleKey === 'facility' && subtypeVal === 'medicine'
+      ? 'shop_owner'
+      : roleKey === 'facility' && subtypeVal === 'lab'
+      ? 'lab_staff'
+      : roleKey === 'officer'
+      ? 'admin'
+      : roleKey;
+
+    const roleLabels = {
+      patient: 'Patient (Citizen ABHA)',
+      doctor: 'Medical Practitioner / Doctor',
+      worker: 'ASHA Health Activist',
+      facility: 'Healthcare Facility (Hospital)',
+      shop_owner: 'Pharmacy Shop Owner',
+      lab_staff: 'Diagnostic Lab',
+      admin: 'District Health Administrator'
+    };
+
+    const userPayload = {
+      name: defaultName,
+      role: resolvedRole,
+      abhaId,
+      roleLabel: roleLabels[resolvedRole] || 'Authorized User',
+      phone: '+91-94311-28901',
+      district: 'Hazaribagh',
+      state: 'Jharkhand',
+      accountType: 'authenticated',
+      isPrototype: true,
+      customData: {}
+    };
+
+    if (resolvedRole === 'doctor') {
+      userPayload.doctorName = defaultName;
+      userPayload.qualification = 'MBBS, MD (Cardiology)';
+      userPayload.specialty = 'Cardiology';
+      userPayload.registrationNo = 'MCI-JH-2022-9014';
+      userPayload.facility = 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)';
+    } else if (resolvedRole === 'facility') {
+      userPayload.facilityName = 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)';
+      userPayload.facilitySubtype = 'hospital';
+      userPayload.hospitalId = 'fac_sbmch';
+    } else if (resolvedRole === 'worker') {
+      userPayload.ashaId = 'ASHA-JH-HZB-0142';
+      userPayload.subCenter = 'Sub-Center Katkamsandi';
+      userPayload.phcName = 'PHC Katkamsandi';
+    } else if (resolvedRole === 'admin') {
+      userPayload.officerId = 'DHO-HZB-001';
+      userPayload.department = 'District Health Administration';
+    }
+
+    try {
+      localStorage.setItem('medveda_auth_user', JSON.stringify(userPayload));
+      const savedMap = JSON.parse(localStorage.getItem('medveda_real_accounts_v1') || '{}');
+      savedMap[idVal.toLowerCase()] = userPayload;
+      savedMap[abhaId.toLowerCase()] = userPayload;
+      localStorage.setItem('medveda_real_accounts_v1', JSON.stringify(savedMap));
+    } catch (err) {}
+
+    setAuthSuccessMsg(`Prototype Login: Opening directly as ${defaultName}...`);
+    setTimeout(() => {
+      onAuthSuccess(userPayload);
+    }, 150);
+  };
+
   const fieldMeta = getIdentifierFieldMeta();
 
   return (
@@ -1183,44 +1252,80 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                       Sign In to {roleLabel} &rarr;
                     </button>
 
-                    {/* Subtle quick fill */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                      <span className="text-[11px] font-mono uppercase text-slate-400">Quick Fill:</span>
+                    {/* Prototype Direct Login Section */}
+                    <div className="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Prototype:
+                        </span>
+                      </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* 1. Patient Box */}
                         <button
                           type="button"
-                          onClick={() => handleFastFill('patient', 'ramesh.mahto@abdm')}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => handleDirectPrototypeLogin('patient', 'ramesh.mahto@abdm', 'Ramesh Mahto')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#0b2b82]/5 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer group"
+                          title="Instant Direct Login: Patient (Ramesh Mahto)"
                         >
-                          Patient
+                          <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                          <span>Patient</span>
                         </button>
+
+                        {/* 2. Doctor Box */}
                         <button
                           type="button"
-                          onClick={() => handleFastFill('doctor', 'priya.sharma@abdm')}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => handleDirectPrototypeLogin('doctor', 'dr.rajesh.verma@abdm', 'Dr. Rajesh Verma')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#0b2b82]/5 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer group"
+                          title="Instant Direct Login: Doctor (Dr. Rajesh Verma)"
                         >
-                          Doctor
+                          <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4.5 3v5a4.5 4.5 0 0 0 9 0V3" />
+                            <path d="M9 12.5v4a4.5 4.5 0 0 0 9 0V15" />
+                            <circle cx="18" cy="15" r="2" />
+                          </svg>
+                          <span>Doctor</span>
                         </button>
+
+                        {/* 3. ASHA Box */}
                         <button
                           type="button"
-                          onClick={() => handleFastFill('worker', 'anita.devi.asha@abdm')}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => handleDirectPrototypeLogin('worker', 'anita.devi.asha@abdm', 'Anita Devi')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#0b2b82]/5 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer group"
+                          title="Instant Direct Login: ASHA Worker (Anita Devi)"
                         >
-                          ASHA
+                          <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                          <span>ASHA</span>
                         </button>
+
+                        {/* 4. Hospital Box */}
                         <button
                           type="button"
-                          onClick={() => handleFastFill('facility', 'admin.sbmch@abdm', 'hospital')}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => handleDirectPrototypeLogin('facility', 'admin.sbmch@abdm', 'Sheikh Bhikhari Medical College & Hospital', 'hospital')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#0b2b82]/5 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer group"
+                          title="Instant Direct Login: Hospital (SBMC&H)"
                         >
-                          Hospital
+                          <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h6M9 13h6M12 7v8" />
+                          </svg>
+                          <span>Hospital</span>
                         </button>
+
+                        {/* 5. Admin Box */}
                         <button
                           type="button"
-                          onClick={() => handleFastFill('officer', 'dho.hazaribagh@gov.in')}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => handleDirectPrototypeLogin('officer', 'dho.hazaribagh@gov.in', 'Dr. S. P. Mishra (DHO)')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#0b2b82]/5 hover:border-[#0b2b82] text-slate-700 hover:text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer group"
+                          title="Instant Direct Login: District Health Admin"
                         >
-                          Admin
+                          <svg className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          </svg>
+                          <span>Admin</span>
                         </button>
                       </div>
                     </div>
@@ -1389,15 +1494,6 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
               )}
             </>
           )}
-        </div>
-
-        {/* Security Footer */}
-        <div className="px-5 sm:px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-            Statutory ABDM M1–M3 Compliance
-          </span>
-          <span>SHA-256 Encrypted</span>
         </div>
       </div>
     </div>
@@ -1608,7 +1704,6 @@ function ModuleIcon({ id, className = "w-4 h-4", strokeWidth = 2 }) {
 function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser }) {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [featuresPinned, setFeaturesPinned] = useState(false);
-  const [workspaceSearch, setWorkspaceSearch] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
   const [localUser, setLocalUser] = useState(null);
@@ -1621,14 +1716,12 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
       if (featuresRef.current && !featuresRef.current.contains(event.target)) {
         setFeaturesOpen(false);
         setFeaturesPinned(false);
-        setWorkspaceSearch('');
       }
     }
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setFeaturesOpen(false);
         setFeaturesPinned(false);
-        setWorkspaceSearch('');
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -1920,28 +2013,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
 
   const isFeatureActive = currentView.startsWith('feature') || currentView === 'overview' || currentView === 'asha_tracker';
 
-  const filteredFeatureItems = workspaceSearch.trim()
-    ? featureItems.filter(item =>
-        item.label.toLowerCase().includes(workspaceSearch.toLowerCase()) ||
-        item.code.toLowerCase().includes(workspaceSearch.toLowerCase())
-      )
-    : featureItems;
-
-  const clinicalItems = filteredFeatureItems.filter(item =>
-    ['overview', 'feature1', 'feature2'].includes(item.id)
-  );
-
-  const operationsItems = filteredFeatureItems.filter(item =>
-    ['feature3', 'feature4', 'feature7', 'asha_tracker'].includes(item.id)
-  );
-
-  const complianceItems = filteredFeatureItems.filter(item =>
-    ['feature5', 'feature6', 'feature8', 'feature10', 'feature9'].includes(item.id) ||
-    (!['overview', 'feature1', 'feature2', 'feature3', 'feature4', 'feature7', 'asha_tracker'].includes(item.id))
-  );
-
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-4">
         {/* Logo & Brand */}
@@ -1958,8 +2031,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
           </div>
         </div>
 
-        {/* Standardized Navigation - Clean text links without floating capsule/pill container */}
-        <nav className="flex items-center gap-6 sm:gap-8 text-sm font-medium relative">
+        {/* Standardized Navigation - Clean pill container matching website brand theme */}
+        <nav className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs font-semibold relative">
           {/* Section 1: Home */}
           <button
             type="button"
@@ -1967,15 +2040,16 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setView('home');
               setFeaturesOpen(false);
             }}
-            className={`transition-colors cursor-pointer ${currentView === 'home'
-              ? 'text-slate-900 font-semibold'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              currentView === 'home'
+                ? 'bg-[#0b2b82] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+            }`}
           >
             Home
           </button>
 
-          {/* Section 2: Features Dropdown Trigger (Clean text link, no solid blue button background) */}
+          {/* Section 2: Features Dropdown Trigger */}
           <div
             className="relative"
             ref={featuresRef}
@@ -1997,10 +2071,11 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setFeaturesOpen(true);
                 }
               }}
-              className={`transition-colors flex items-center gap-1.5 cursor-pointer ${isFeatureActive || featuresOpen
-                ? 'text-slate-900 font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
-                }`}
+              className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                isFeatureActive || featuresOpen
+                  ? 'bg-[#0b2b82] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+              }`}
               aria-expanded={featuresOpen}
               aria-haspopup="true"
               aria-label="Features Menu"
@@ -2008,238 +2083,86 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
             >
               <span>Features</span>
               <svg
-                className={`w-3.5 h-3.5 transition-transform duration-200 text-slate-400 group-hover:text-slate-600 ${featuresOpen ? 'rotate-180 text-slate-900' : ''}`}
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  featuresOpen ? 'rotate-180 text-white' : ''
+                }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
-            {/* Structured 2-Column Workspaces Popover with Grouped Categories */}
+            {/* Clean, Non-AI-Bloated Features Popover with Website Blue Theme */}
             {featuresOpen && (
-              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 pt-2 w-[calc(100vw-2rem)] sm:w-[580px] md:w-[620px] max-w-[620px] z-50">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden">
-                  {/* Top Bar with Title, Count & Search Filter */}
-                  <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 pt-2 w-[calc(100vw-2rem)] sm:w-[580px] md:w-[620px] max-w-[620px] z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xl overflow-hidden p-2">
+                  {/* Clean Header Bar matching website theme */}
+                  <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 font-mono">
-                        Platform Workspaces
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
-                        {filteredFeatureItems.length} Available
+                      <span className="w-2 h-2 rounded-full bg-[#0b2b82]"></span>
+                      <span className="text-xs font-bold text-slate-800">
+                        Platform Features &amp; Workspaces
                       </span>
                     </div>
-
-                    <div className="relative flex-1 max-w-[190px]">
-                      <input
-                        type="text"
-                        value={workspaceSearch}
-                        onChange={(e) => setWorkspaceSearch(e.target.value)}
-                        placeholder="Filter workspaces..."
-                        className="w-full text-xs px-2.5 py-1 rounded border border-slate-300 bg-white text-slate-800 focus:outline-hidden focus:border-slate-500 font-medium placeholder:text-slate-400"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      {workspaceSearch && (
-                        <button
-                          type="button"
-                          onClick={() => setWorkspaceSearch('')}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs px-1 cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0b2b82] border border-blue-100">
+                      {featureItems.length} Available
+                    </span>
                   </div>
 
-                  {/* Multi-Column Grouped Layout */}
-                  {filteredFeatureItems.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-slate-500 space-y-1.5">
-                      <p>No workspaces matching &ldquo;<strong className="text-slate-800">{workspaceSearch}</strong>&rdquo;</p>
-                      <button
-                        type="button"
-                        onClick={() => setWorkspaceSearch('')}
-                        className="text-xs text-[#0b2b82] font-semibold hover:underline cursor-pointer"
-                      >
-                        Clear filter
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
-                      {/* Column 1: Clinical & Triage (3 items), then Operations & Referrals (3 items) */}
-                      <div className="space-y-4">
-                        {clinicalItems.length > 0 && (
-                          <div>
-                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
-                              <span>Clinical &amp; Triage</span>
-                              <span className="text-[9px] text-slate-400 font-normal">{clinicalItems.length}</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              {clinicalItems.map((item) => {
-                                const isActive = currentView === item.id;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => {
-                                      item.onSelect();
-                                      setFeaturesOpen(false);
-                                      setFeaturesPinned(false);
-                                      setWorkspaceSearch('');
-                                    }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-between group cursor-pointer ${
-                                      isActive
-                                        ? 'bg-slate-100 text-slate-900 font-bold'
-                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div
-                                        className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
-                                          isActive
-                                            ? 'bg-slate-900 text-white border-slate-900'
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white group-hover:border-slate-300'
-                                        }`}
-                                      >
-                                        <ModuleIcon id={item.id} className="w-3.5 h-3.5" />
-                                      </div>
-                                      <span className="text-xs font-bold truncate">
-                                        {item.label}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
-                                      {item.code.replace('Module ', 'M')}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                  {/* 2-Column Grid of Features with Website Signature Blue Hover Effect */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1 max-h-[75vh] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    {featureItems.map((item) => {
+                      const isActive = currentView === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            item.onSelect();
+                            setFeaturesOpen(false);
+                            setFeaturesPinned(false);
+                          }}
+                          title={item.label}
+                          className={`w-full text-left p-2.5 rounded-xl transition-all flex items-center gap-3 group cursor-pointer border ${
+                            isActive
+                              ? 'bg-blue-50/90 text-[#0b2b82] border-blue-200 shadow-2xs font-bold'
+                              : 'bg-white hover:bg-blue-50/70 text-slate-800 border-transparent hover:border-blue-100'
+                          }`}
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                              isActive
+                                ? 'bg-[#0b2b82] text-white shadow-xs'
+                                : 'bg-blue-50/80 text-[#0b2b82] group-hover:bg-[#0b2b82] group-hover:text-white group-hover:scale-105'
+                            }`}
+                          >
+                            <ModuleIcon id={item.id} className="w-4 h-4" />
                           </div>
-                        )}
-
-                        {operationsItems.length > 0 && (
-                          <div>
-                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
-                              <span>Operations &amp; Referrals</span>
-                              <span className="text-[9px] text-slate-400 font-normal">{operationsItems.length}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`text-xs font-bold leading-tight truncate transition-colors ${
+                                isActive ? 'text-[#0b2b82]' : 'text-slate-900 group-hover:text-[#0b2b82]'
+                              }`}>
+                                {item.label}
+                              </span>
+                              <svg
+                                className="w-3.5 h-3.5 text-[#0b2b82] shrink-0 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                              </svg>
                             </div>
-                            <div className="space-y-0.5">
-                              {operationsItems.map((item) => {
-                                const isActive = currentView === item.id;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => {
-                                      item.onSelect();
-                                      setFeaturesOpen(false);
-                                      setFeaturesPinned(false);
-                                      setWorkspaceSearch('');
-                                    }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-between group cursor-pointer ${
-                                      isActive
-                                        ? 'bg-slate-100 text-slate-900 font-bold'
-                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div
-                                        className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
-                                          isActive
-                                            ? 'bg-slate-900 text-white border-slate-900'
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white group-hover:border-slate-300'
-                                        }`}
-                                      >
-                                        <ModuleIcon id={item.id} className="w-3.5 h-3.5" />
-                                      </div>
-                                      <span className="text-xs font-bold truncate">
-                                        {item.label}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
-                                      {item.code.replace('Module ', 'M')}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            <p className="text-[11px] text-slate-500 group-hover:text-slate-600 leading-snug font-normal truncate mt-0.5">
+                              {item.description}
+                            </p>
                           </div>
-                        )}
-                      </div>
-
-                      {/* Column 2: Records & Compliance (4 items) + System Telemetry */}
-                      <div className="space-y-4">
-                        {complianceItems.length > 0 && (
-                          <div>
-                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
-                              <span>Records &amp; Compliance</span>
-                              <span className="text-[9px] text-slate-400 font-normal">{complianceItems.length}</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              {complianceItems.map((item) => {
-                                const isActive = currentView === item.id;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => {
-                                      item.onSelect();
-                                      setFeaturesOpen(false);
-                                      setFeaturesPinned(false);
-                                      setWorkspaceSearch('');
-                                    }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-between group cursor-pointer ${
-                                      isActive
-                                        ? 'bg-slate-100 text-slate-900 font-bold'
-                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div
-                                        className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
-                                          isActive
-                                            ? 'bg-slate-900 text-white border-slate-900'
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white group-hover:border-slate-300'
-                                        }`}
-                                      >
-                                        <ModuleIcon id={item.id} className="w-3.5 h-3.5" />
-                                      </div>
-                                      <span className="text-xs font-bold truncate">
-                                        {item.label}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
-                                      {item.code.replace('Module ', 'M')}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Subtle Telemetry Status Card */}
-                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
-                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
-                            <span className="font-bold uppercase tracking-wider text-slate-700">System Telemetry</span>
-                            <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                              Active
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-1 leading-normal font-sans">
-                            ABDM sandbox &bull; NHA gazette rules &bull; Closed-loop routing
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Clean Footer Bar */}
-                  <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                    <span className="truncate">Context: <strong className="text-slate-700 font-semibold">{currentUser?.roleLabel || getRoleBadgeLabel(actorRole)}</strong></span>
-                    <span>Press Esc to close</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -2254,10 +2177,11 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setFeaturesOpen(false);
               setFeaturesPinned(false);
             }}
-            className={`transition-colors cursor-pointer ${currentView === 'about'
-              ? 'text-slate-900 font-semibold'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              currentView === 'about'
+                ? 'bg-[#0b2b82] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0b2b82] hover:bg-blue-50/70'
+            }`}
           >
             About Us
           </button>
@@ -31542,7 +31466,7 @@ function ScreenSchemeFinder({
       if (answer === 'yes') {
         setClarificationNotice({
           type: 'success',
-          msg: `Verified: '${docName}' added to patient credentials. Rules engine updated match scores!`
+          msg: `✓ Added '${docName}' to your documents. Your eligible schemes have been updated!`
         });
         setProfile(prev => ({
           ...prev,
@@ -31553,12 +31477,12 @@ function ScreenSchemeFinder({
       } else if (answer === 'no') {
         setClarificationNotice({
           type: 'info',
-          msg: `Actionable Guidance Recorded: Scheme retained under Partial Eligibility. Follow the procurement guidelines to unlock full coverage.`
+          msg: `Noted. You can still receive partial assistance, or apply for '${docName}' at your local government office.`
         });
       } else {
         setClarificationNotice({
           type: 'neutral',
-          msg: `Marked as 'Not Sure': Assessment stays active and can be verified later without restarting.`
+          msg: `Saved for later. You can confirm '${docName}' at any time.`
         });
       }
     }
@@ -31630,36 +31554,36 @@ function ScreenSchemeFinder({
   });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 pb-12 space-y-5 max-w-7xl mx-auto">
-      {/* 1. Official Header & Navigation Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+    <div className="p-4 sm:p-6 lg:p-8 pb-12 space-y-6 max-w-7xl mx-auto">
+      {/* 1. Header & Navigation Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">
-              Statutory v2026.1
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#0b2b82] border border-blue-200/60">
+              Government Welfare Assistance
             </span>
-            <span className="text-[11px] font-semibold text-slate-500">
-              National Health Authority &bull; State Health Agency Gazette Rules
+            <span className="text-xs text-slate-500 font-medium">
+              Central &amp; State Hospital Schemes
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5 mt-1">
-            <div className="w-7 h-7 rounded bg-[#0b2b82] text-white flex items-center justify-center shrink-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5 mt-1.5">
+            <div className="w-8 h-8 rounded-xl bg-[#0b2b82] text-white flex items-center justify-center shrink-0 shadow-xs">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <span>Government Welfare &amp; Scheme Eligibility Engine</span>
+            <span>Government Health Schemes &amp; Financial Aid</span>
           </h2>
-          <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Evaluate statutory benefit eligibility based on income, demographics, and statutory rules.
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            Find out which free hospital treatment, surgery aid, and medical welfare schemes you and your family qualify for.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded border border-slate-300 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl border border-slate-200 text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:border-slate-300"
           >
             <span>&larr; Portal Home</span>
           </button>
@@ -31667,18 +31591,18 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setShowAdminLoginModal(true)}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Official Government Health Authority & Audit Login"
+              className="px-3.5 py-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all border border-slate-200 hover:border-[#0b2b82]/40 cursor-pointer shadow-2xs"
+              title="Official Government Health Authority View"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              <span>Auditor Console</span>
+              <span>Admin / Authority View</span>
             </button>
           ) : isDistrictAdmin ? (
             <span
-              className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded text-xs flex items-center gap-1.5"
-              title="District Health Administrator Official View Active"
+              className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded-xl text-xs flex items-center gap-1.5"
+              title="District Health Administrator Active View"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
               <span>District Admin Mode</span>
@@ -31687,8 +31611,8 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setIsAdminLoggedIn(false)}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded text-xs flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
-              title="Return to Patient Scheme Finder"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all cursor-pointer shadow-2xs"
+              title="Return to Citizen Scheme Finder"
             >
               <span>Exit Admin View</span>
             </button>
@@ -31697,24 +31621,42 @@ function ScreenSchemeFinder({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. ADMIN PORTAL VIEW (Data Ingestion & Verification Audit + Scheme KB)   */}
+      {/* 2. ADMIN VIEW (With Prominent Prototype Demonstration Warning)             */}
       {/* ========================================================================= */}
       {isAdminLoggedIn ? (
         <div className="space-y-6">
-          {/* Admin Header Banner */}
-          <div className="bg-slate-900 text-white rounded-md p-4 sm:p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  Government Scheme Governance Console
+          {/* PROTOTYPE DEMONSTRATION WARNING BANNER */}
+          <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl flex items-start gap-3.5 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 text-base shadow-xs">
+              ⚠️
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-bold text-amber-900">Prototype Demonstration Only</h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-200/80 text-amber-900">
+                  Simulation Environment
                 </span>
-                <span className="text-xs text-slate-400 font-mono">Authenticated: admin@medveda.gov.in</span>
               </div>
-              <h3 className="text-base font-bold text-white">
-                Official Scheme Administration, Data Ingestion &amp; Verification Audit
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                This administrative console, data verification logs, and portal crawler sync are for demonstration and interactive testing only. In a live deployment, schemes synchronize securely with official National Health Authority gazettes and State Health Agency feeds.
+              </p>
+            </div>
+          </div>
+
+          {/* Admin Header Card */}
+          <div className="bg-[#0b2b82] text-white rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/15 text-white border border-white/20">
+                  Government Authority Console
+                </span>
+                <span className="text-xs text-blue-200">admin@medveda.gov.in</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white mt-1">
+                Official Scheme Database &amp; Portal Verification
               </h3>
-              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-                Restricted portal for Ministry of Health &amp; State Health Agency auditors to monitor automated web ingestion, circular scraping, and official package integrity.
+              <p className="text-xs text-blue-100 max-w-2xl leading-relaxed">
+                Review verified government schemes, benefit coverage rules, and automated portal sync status across Central and State ministries.
               </p>
             </div>
 
@@ -31723,36 +31665,39 @@ function ScreenSchemeFinder({
                 type="button"
                 onClick={handleTriggerSync}
                 disabled={isSyncingSources}
-                className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+                className="px-4 py-2 bg-white hover:bg-blue-50 text-[#0b2b82] font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-75"
               >
-                <svg className={`w-3.5 h-3.5 ${isSyncingSources ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <svg className={`w-3.5 h-3.5 ${isSyncingSources ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>{isSyncingSources ? 'Ingesting Portals...' : 'Trigger Web Ingestion Sync'}</span>
+                <span>{isSyncingSources ? 'Checking Portals...' : 'Check For Portal Updates'}</span>
               </button>
             </div>
           </div>
 
           {syncNotice && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded text-xs font-medium flex items-center justify-between">
-              <span>{syncNotice}</span>
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-medium flex items-center justify-between shadow-2xs">
+              <span className="flex items-center gap-2">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>{syncNotice}</span>
+              </span>
               <button type="button" onClick={() => setSyncNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 cursor-pointer">✕</button>
             </div>
           )}
 
           {/* Admin Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200">
+          <div className="flex items-center gap-3 border-b border-slate-200">
             <button
               type="button"
               onClick={() => setAdminActiveTab('ingestion_audit')}
-              className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              className={`pb-3 px-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                 adminActiveTab === 'ingestion_audit'
                   ? 'border-[#0b2b82] text-[#0b2b82]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span>Data Ingestion &amp; Verification Audit</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 font-bold">
+              <span>Verified Government Portals</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
                 {ingestionLogsList.length || 5} Sources
               </span>
             </button>
@@ -31760,33 +31705,33 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setAdminActiveTab('all_schemes')}
-              className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              className={`pb-3 px-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                 adminActiveTab === 'all_schemes'
                   ? 'border-[#0b2b82] text-[#0b2b82]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span>Official Government Scheme Knowledge Base</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 font-bold">
+              <span>Available Schemes Repository</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
                 {allSchemesList.length || 16} Verified
               </span>
             </button>
           </div>
 
-          {/* Admin Tab 1: Ingestion & Verification Audit */}
+          {/* Tab 1: Portals Table */}
           {adminActiveTab === 'ingestion_audit' && (
-            <div className="bg-white rounded-md border border-slate-200 p-4 sm:p-5 space-y-4 shadow-2xs">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Official Ministry &amp; State Portal Ingestion Audit Trail
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Official Government Portals &amp; Verification Status
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Automated ingestion crawlers verify that eligibility guidelines derive strictly from whitelisted statutory government websites.
+                    Ensures all scheme details and benefits derive directly from official Central and State government websites.
                   </p>
                 </div>
-                <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-semibold font-mono">
-                  All 16 Portals Verified Fresh
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
+                  All Portals Active &amp; Verified
                 </span>
               </div>
 
@@ -31794,32 +31739,28 @@ function ScreenSchemeFinder({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                     <tr>
-                      <th className="p-2.5">Ingestion ID</th>
-                      <th className="p-2.5">Portal / Ministry</th>
-                      <th className="p-2.5">Official URL</th>
-                      <th className="p-2.5">Run Timestamp</th>
-                      <th className="p-2.5">Status</th>
-                      <th className="p-2.5">Integrity</th>
+                      <th className="p-3">Portal / Ministry</th>
+                      <th className="p-3">Official Website</th>
+                      <th className="p-3">Last Verified</th>
+                      <th className="p-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {(ingestionLogsList.length > 0 ? ingestionLogsList : []).map(log => (
-                      <tr key={log.ingestion_id} className="hover:bg-slate-50/70">
-                        <td className="p-2.5 font-mono font-bold text-slate-600">{log.ingestion_id}</td>
-                        <td className="p-2.5 font-bold text-slate-900">{log.portal_name}</td>
-                        <td className="p-2.5 font-mono text-[#0b2b82]">
-                          <a href={log.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                      <tr key={log.ingestion_id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3 font-bold text-slate-900">{log.portal_name}</td>
+                        <td className="p-3 text-[#0b2b82]">
+                          <a href={log.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1 font-medium">
                             <span>{log.source_url}</span>
                             <span>↗</span>
                           </a>
                         </td>
-                        <td className="p-2.5 text-slate-500 font-mono">{log.run_at}</td>
-                        <td className="p-2.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase font-mono">
-                            {log.ingestion_status}
+                        <td className="p-3 text-slate-500">{log.run_at}</td>
+                        <td className="p-3">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Verified Active
                           </span>
                         </td>
-                        <td className="p-2.5 font-medium text-emerald-700 font-mono">SHA-256 Verified</td>
                       </tr>
                     ))}
                   </tbody>
@@ -31828,39 +31769,39 @@ function ScreenSchemeFinder({
             </div>
           )}
 
-          {/* Admin Tab 2: All Official Schemes Repository */}
+          {/* Tab 2: All Schemes */}
           {adminActiveTab === 'all_schemes' && (
-            <div className="bg-white rounded-md border border-slate-200 p-4 sm:p-5 space-y-4 shadow-2xs">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Official Government Health Scheme Knowledge Base
+                  <h3 className="text-sm font-bold text-slate-900">
+                    All Available Government Schemes
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Complete statutory repository of 16 Central and State schemes, benefit formulas, and official circular references.
+                    Browse all Central and State welfare programs and maximum financial assistance limits.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center rounded border border-slate-300 p-0.5 bg-slate-50 text-xs">
+                  <div className="flex items-center rounded-xl border border-slate-200 p-1 bg-slate-50 text-xs">
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('all')}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'all' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${adminSchemeFilter === 'all' ? 'bg-white shadow-xs text-[#0b2b82]' : 'text-slate-600 hover:text-slate-900'}`}
                     >
                       All
                     </button>
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('central')}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'central' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${adminSchemeFilter === 'central' ? 'bg-white shadow-xs text-[#0b2b82]' : 'text-slate-600 hover:text-slate-900'}`}
                     >
                       Central
                     </button>
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('state')}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'state' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${adminSchemeFilter === 'state' ? 'bg-white shadow-xs text-[#0b2b82]' : 'text-slate-600 hover:text-slate-900'}`}
                     >
                       State
                     </button>
@@ -31871,32 +31812,32 @@ function ScreenSchemeFinder({
                     value={adminSchemeSearch}
                     onChange={(e) => setAdminSchemeSearch(e.target.value)}
                     placeholder="Search schemes..."
-                    className="px-2.5 py-1 text-xs rounded border border-slate-300 bg-white focus:outline-hidden focus:border-[#0b2b82]"
+                    className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-[#0b2b82] transition-colors"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredAdminSchemes.map(s => (
-                  <div key={s.scheme_id} className="p-3.5 rounded border border-slate-200 hover:border-slate-300 transition-all space-y-2 bg-slate-50/50">
+                  <div key={s.scheme_id} className="p-4 rounded-xl border border-slate-200 hover:border-[#0b2b82]/40 transition-all space-y-2.5 bg-slate-50/50 hover:bg-white shadow-2xs">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-200 text-slate-800">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-[#0b2b82] border border-blue-200/60">
                           {s.short_code}
                         </span>
-                        <h4 className="text-xs font-bold text-slate-900 mt-1">{s.scheme_name}</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 mt-1">{s.scheme_name}</h4>
                       </div>
-                      <span className="text-xs font-mono tabular-nums font-bold text-[#0b2b82]">
-                        ₹{s.max_benefit_amount.toLocaleString()}
+                      <span className="text-xs font-bold text-[#0b2b82] shrink-0">
+                        Up to ₹{s.max_benefit_amount.toLocaleString()}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
                       {s.benefit_amount_or_formula}
                     </p>
-                    <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 flex items-center justify-between font-mono">
-                      <span className="truncate">Ministry: {s.source_portal_name}</span>
+                    <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                      <span className="truncate">{s.source_portal_name}</span>
                       <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="text-[#0b2b82] font-semibold hover:underline flex items-center gap-1">
-                        <span>Portal ↗</span>
+                        <span>Official Portal ↗</span>
                       </a>
                     </div>
                   </div>
@@ -31907,52 +31848,52 @@ function ScreenSchemeFinder({
         </div>
       ) : (
         /* ========================================================================= */
-        /* 3. PATIENT WORKFLOW (Assessment Intake -> Evaluated Scheme Packages)      */
+        /* 3. CITIZEN WORKFLOW (Stage 1: Intake -> Stage 2: Schemes Found)            */
         /* ========================================================================= */
-        <div className="space-y-4">
-          {/* STAGE 1: PATIENT INTAKE ASSESSMENT (NOT SIDE-BY-SIDE) */}
+        <div className="space-y-6">
+          {/* STAGE 1: CITIZEN INTAKE FORM */}
           {patientStage === 'assessment' && (
-            <div className="space-y-4">
-              {/* Compact Administrative Case Profile Reference Toolbar */}
-              <div className="bg-slate-100/90 border border-slate-200 rounded-md p-2.5 sm:px-3.5 sm:py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+            <div className="space-y-5">
+              {/* Sample Profile Selector */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="w-2 h-2 rounded-full bg-[#0b2b82]"></span>
-                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Administrative Case Profile:
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#0b2b82]"></div>
+                  <span className="font-bold text-slate-700">
+                    Try an Example Profile:
                   </span>
                 </div>
 
-                <div className="flex-1 max-w-xl">
+                <div className="flex-1 max-w-md">
                   <select
                     value={activePresetKey}
                     onChange={(e) => handleSelectPreset(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-[#0b2b82] cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#0b2b82] cursor-pointer"
                   >
-                    <option value="custom" disabled={activePresetKey !== 'custom'}>Custom Intake (Manual Case Parameters)</option>
-                    <option value="anita">Case #01 — Anita Devi (Acute Stroke / BPL • Jharkhand)</option>
-                    <option value="rameshwar">Case #02 — Rameshwar Rao (Senior Cardiac 74y / APL • Maharashtra)</option>
-                    <option value="pooja">Case #03 — Pooja Patil (High-Risk Maternal / BPL • Maharashtra)</option>
-                    <option value="arif">Case #04 — Mohammad Arif (Pulmonary TB / BPL • Jharkhand)</option>
-                    <option value="kavita">Case #05 — Kavita Soren (Pediatric Congenital Cardiac / APL • Jharkhand)</option>
+                    <option value="custom" disabled={activePresetKey !== 'custom'}>Custom Details (Enter your own below)</option>
+                    <option value="anita">Anita Devi — Stroke Treatment &bull; Low Income (Jharkhand)</option>
+                    <option value="rameshwar">Rameshwar Rao — Senior Citizen 74y &bull; Heart Surgery (Maharashtra)</option>
+                    <option value="pooja">Pooja Patil — Maternity Care &bull; High-Risk Delivery (Maharashtra)</option>
+                    <option value="arif">Mohammad Arif — TB Care &amp; Nutrition Support (Jharkhand)</option>
+                    <option value="kavita">Kavita Soren — Child 8y &bull; Heart Condition (Jharkhand)</option>
                   </select>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                   {[
-                    { key: 'anita', label: 'Case #01' },
-                    { key: 'rameshwar', label: 'Case #02' },
-                    { key: 'pooja', label: 'Case #03' },
-                    { key: 'arif', label: 'Case #04' },
-                    { key: 'kavita', label: 'Case #05' }
+                    { key: 'anita', label: 'Anita (Stroke)' },
+                    { key: 'rameshwar', label: 'Rameshwar (Heart)' },
+                    { key: 'pooja', label: 'Pooja (Maternity)' },
+                    { key: 'arif', label: 'Arif (TB)' },
+                    { key: 'kavita', label: 'Kavita (Child)' }
                   ].map(item => (
                     <button
                       key={item.key}
                       type="button"
                       onClick={() => handleSelectPreset(item.key)}
-                      className={`px-2 py-1 text-[11px] font-mono font-bold rounded border transition-colors cursor-pointer ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
                         activePresetKey === item.key
-                          ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
-                          : 'bg-white text-slate-600 hover:text-slate-900 border-slate-200 hover:border-slate-300'
+                          ? 'bg-[#0b2b82] text-white border-[#0b2b82] shadow-xs'
+                          : 'bg-white text-slate-600 hover:text-[#0b2b82] hover:border-[#0b2b82]/40 border-slate-200'
                       }`}
                     >
                       {item.label}
@@ -31961,84 +31902,79 @@ function ScreenSchemeFinder({
                 </div>
               </div>
 
-              {/* Unified Administrative Intake Console (Clean surface, 1px borders, no card-in-card nesting) */}
-              <div className="bg-white border border-slate-200 rounded-md shadow-2xs divide-y divide-slate-200">
-                {/* Console Section Header */}
-                <div className="bg-slate-50/80 px-4 py-2.5 flex items-center justify-between border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      FORM SEC-01 &bull; REQ-08
-                    </span>
-                    <span className="text-slate-300">|</span>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Statutory Parameters &amp; Clinical Demographics Intake
-                    </h3>
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Mode: Deterministic Rules Evaluation
-                  </span>
+              {/* Main Citizen Intake Form */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm p-6 sm:p-7 space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                    Your Health &amp; Family Details
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Please provide these simple details to find all financial assistance schemes you are eligible for.
+                  </p>
                 </div>
 
-                {/* Panel 1: Clinical Diagnosis & Procedure */}
-                <div className="p-4 sm:p-5 space-y-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <span>01. Clinical Presentation &amp; Treatment Need</span>
-                  </div>
+                {/* Section 1: Illness & Treatment */}
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0b2b82] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-50 text-[#0b2b82] text-xs flex items-center justify-center font-bold">1</span>
+                    <span>Medical Need &amp; Treatment</span>
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        Diagnosis / Clinical Condition
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        Illness or Diagnosis
                       </label>
                       <input
                         type="text"
                         value={profile.diagnosis || ''}
                         onChange={e => setProfile({ ...profile, diagnosis: e.target.value })}
-                        placeholder="e.g. Acute Ischemic Stroke, Coronary Artery Disease, Cancer"
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
+                        placeholder="e.g. Heart Attack, Stroke, Cancer, Tuberculosis, Normal Delivery"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 transition-colors"
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        Treatment Required / Procedure Category
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        Treatment or Surgery Needed
                       </label>
                       <input
                         type="text"
                         value={profile.treatment_required || ''}
                         onChange={e => setProfile({ ...profile, treatment_required: e.target.value })}
-                        placeholder="e.g. Emergency Surgery, ICU Hospitalization, Chemotherapy"
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
+                        placeholder="e.g. Surgery, ICU Hospitalization, Chemotherapy, Regular Medicines"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 transition-colors"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Panel 2: Demographics & Jurisdiction */}
-                <div className="p-4 sm:p-5 space-y-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <span>02. Patient Demographics &amp; Residency Jurisdiction</span>
-                  </div>
+                {/* Section 2: Patient Age & Location */}
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0b2b82] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-50 text-[#0b2b82] text-xs flex items-center justify-center font-bold">2</span>
+                    <span>Patient Age &amp; Location</span>
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        Patient Age (Years)
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        Age (in Years)
                       </label>
                       <input
                         type="number"
                         value={profile.age || 0}
                         onChange={e => setProfile({ ...profile, age: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 text-xs font-mono tabular-nums rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-semibold bg-white text-slate-900"
+                        className="w-full px-3.5 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 transition-colors"
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
                         Gender
                       </label>
                       <select
                         value={profile.gender}
                         onChange={e => setProfile({ ...profile, gender: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 cursor-pointer transition-colors"
                       >
                         <option value="female">Female</option>
                         <option value="male">Male</option>
@@ -32046,14 +31982,14 @@ function ScreenSchemeFinder({
                       </select>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        State of Domicile
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        State of Residence
                       </label>
                       <select
                         value={profile.state}
                         onChange={e => setProfile({ ...profile, state: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 cursor-pointer transition-colors"
                       >
                         <option value="Jharkhand">Jharkhand</option>
                         <option value="Maharashtra">Maharashtra</option>
@@ -32061,96 +31997,101 @@ function ScreenSchemeFinder({
                         <option value="Odisha">Odisha</option>
                         <option value="Uttar Pradesh">Uttar Pradesh</option>
                         <option value="West Bengal">West Bengal</option>
-                        <option value="National">National / Central</option>
+                        <option value="National">All India / Central</option>
                       </select>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        District
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        District or City
                       </label>
                       <input
                         type="text"
                         value={profile.district || ''}
                         onChange={e => setProfile({ ...profile, district: e.target.value })}
                         placeholder="e.g. Hazaribagh, Pune"
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 transition-colors"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Panel 3: Financial & Facility Criteria */}
-                <div className="p-4 sm:p-5 space-y-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <span>03. Socio-Economic Tier &amp; Statutory Thresholds</span>
-                  </div>
+                {/* Section 3: Income & Hospital */}
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0b2b82] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-50 text-[#0b2b82] text-xs flex items-center justify-center font-bold">3</span>
+                    <span>Family Income &amp; Hospital Preference</span>
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                          Annual Household Income
+                        <label className="text-xs font-bold text-slate-700">
+                          Yearly Family Income
                         </label>
-                        <span className="font-mono text-[10px] text-slate-600 font-bold">
+                        <span className="text-[11px] text-slate-500 font-semibold">
                           ₹ {Number(profile.family_income_annual || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="relative flex items-center">
-                        <span className="absolute left-3 font-mono font-bold text-slate-400 text-xs select-none">₹</span>
+                        <span className="absolute left-3.5 text-slate-400 text-xs font-bold select-none">₹</span>
                         <input
                           type="number"
                           value={profile.family_income_annual || 0}
                           onChange={e => setProfile({ ...profile, family_income_annual: parseFloat(e.target.value) || 0 })}
-                          className="w-full pl-7 pr-3 py-2 text-xs font-mono tabular-nums font-semibold rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900"
+                          className="w-full pl-8 pr-3.5 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 transition-colors"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        Ration Card Category
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        Ration Card Type
                       </label>
                       <select
                         value={profile.ration_card_status}
                         onChange={e => setProfile({ ...profile, ration_card_status: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 cursor-pointer transition-colors"
                       >
-                        <option value="BPL">BPL (Below Poverty Line)</option>
-                        <option value="Antyodaya">Antyodaya Anna Yojana (AAY)</option>
-                        <option value="APL">APL (Above Poverty Line)</option>
+                        <option value="BPL">BPL (Below Poverty Line / Yellow Card)</option>
+                        <option value="Antyodaya">Antyodaya Anna Yojana (AAY / Poorest of Poor)</option>
+                        <option value="APL">APL (Above Poverty Line / White or Orange Card)</option>
                         <option value="none">No Ration Card</option>
                       </select>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                        Hospital Facility Type
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        Hospital Type
                       </label>
                       <select
                         value={profile.hospital_type}
                         onChange={e => setProfile({ ...profile, hospital_type: e.target.value })}
-                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900 cursor-pointer transition-colors"
                       >
-                        <option value="government">Government Hospital (DH / Medical College / AIIMS)</option>
-                        <option value="empanelled_private">Empanelled Private Hospital (NABH / PM-JAY)</option>
+                        <option value="government">Government Hospital (AIIMS, District Hospital, Medical College)</option>
+                        <option value="empanelled_private">Empanelled Private Hospital (NABH / PM-JAY Partner Hospital)</option>
                         <option value="charitable">Charitable / Trust Hospital</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
-                {/* Panel 4: Document Registry */}
-                <div className="p-4 sm:p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      04. Verified Identity &amp; Statutory Credentials
-                    </span>
-                    <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                      {(profile.existing_documents || []).length} / {ALL_DOCUMENTS_CATALOG.length} Documents Verified
+                {/* Section 4: Available Documents */}
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#0b2b82] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-blue-50 text-[#0b2b82] text-xs flex items-center justify-center font-bold">4</span>
+                      <span>Documents You Have With You</span>
+                    </h4>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {(profile.existing_documents || []).length} of {ALL_DOCUMENTS_CATALOG.length} selected
                     </span>
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Click to select documents you already have. Don't worry if you don't have all of them; we will show how to apply.
+                  </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
                     {ALL_DOCUMENTS_CATALOG.map(doc => {
                       const isHeld = (profile.existing_documents || []).includes(doc);
                       return (
@@ -32158,13 +32099,13 @@ function ScreenSchemeFinder({
                           key={doc}
                           type="button"
                           onClick={() => toggleDocument(doc)}
-                          className={`p-2 rounded text-left text-xs font-medium border transition-colors flex items-center gap-2 cursor-pointer ${
+                          className={`p-2.5 rounded-xl text-left text-xs transition-all flex items-center gap-2.5 cursor-pointer border ${
                             isHeld
-                              ? 'bg-blue-50/70 border-[#0b2b82] text-[#0b2b82] font-semibold'
-                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                              ? 'bg-blue-50/80 border-[#0b2b82] text-[#0b2b82] font-semibold shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                           }`}
                         >
-                          <span className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center shrink-0 text-[10px] font-bold border ${
+                          <span className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold border transition-colors ${
                             isHeld ? 'bg-[#0b2b82] border-[#0b2b82] text-white' : 'border-slate-300 bg-white text-transparent'
                           }`}>
                             ✓
@@ -32176,27 +32117,27 @@ function ScreenSchemeFinder({
                   </div>
                 </div>
 
-                {/* Utilitarian Execution Action Bar */}
-                <div className="bg-slate-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200">
-                  <div className="text-[11px] text-slate-500 flex items-center gap-2 font-mono">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                    <span>Rules Engine Ready (16 Statutory Schemes Whitelisted)</span>
+                {/* Submit Action Bar */}
+                <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="text-xs text-slate-600 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>Ready to check 16+ Central &amp; State government schemes</span>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setProfile(SCHEME_PRESETS.anita)}
-                      className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-300 text-xs transition-colors cursor-pointer"
+                      className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl border border-slate-200 text-xs transition-all cursor-pointer shadow-2xs hover:border-slate-300"
                     >
-                      Reset Parameters
+                      Reset Form
                     </button>
                     <button
                       type="button"
                       onClick={handleStartEvaluation}
-                      className="px-5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                      className="px-6 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 shadow-sm cursor-pointer"
                     >
-                      <span>Execute Statutory Rules Engine</span>
+                      <span>Find Eligible Schemes For Me</span>
                       <span>&rarr;</span>
                     </button>
                   </div>
@@ -32207,40 +32148,40 @@ function ScreenSchemeFinder({
 
           {/* STAGE 2: MATCHING RELEVANT GOVERNMENT HEALTH SCHEMES */}
           {patientStage === 'results' && (
-            <div className="space-y-4">
-              {/* Summary Dossier Bar */}
-              <div className="bg-white rounded-md border border-slate-200 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+            <div className="space-y-5">
+              {/* Patient Condition Summary Bar */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      Evaluation Complete
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                      Schemes Found
                     </span>
-                    <span className="text-xs font-bold text-slate-900">
-                      {profile.diagnosis || 'Clinical Condition'}
-                    </span>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                      {profile.diagnosis || 'Your Medical Condition'}
+                    </h3>
                   </div>
-                  <div className="text-xs font-mono tabular-nums text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                    <span>Age: {profile.age}y ({profile.gender})</span>
+                  <div className="text-xs text-slate-600 flex flex-wrap gap-x-2.5 gap-y-1 pt-0.5">
+                    <span>Patient: {profile.age} years ({profile.gender})</span>
                     <span>&bull;</span>
-                    <span>Domicile: {profile.district}, {profile.state}</span>
+                    <span>Location: {profile.district}, {profile.state}</span>
                     <span>&bull;</span>
-                    <span>Income: ₹{Number(profile.family_income_annual || 0).toLocaleString()}/yr</span>
+                    <span>Income: ₹{Number(profile.family_income_annual || 0).toLocaleString()}/year</span>
                     <span>&bull;</span>
-                    <span>Category: {profile.ration_card_status}</span>
+                    <span>Ration Card: {profile.ration_card_status}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setPatientStage('assessment')}
-                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-300 text-xs transition-colors flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                  className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-[#0b2b82] font-semibold rounded-xl border border-slate-200 hover:border-slate-300 text-xs transition-all flex items-center gap-1.5 self-start md:self-auto cursor-pointer shadow-2xs"
                 >
-                  <span>&larr; Reconfigure Parameters</span>
+                  <span>&larr; Change Details</span>
                 </button>
               </div>
 
               {clarificationNotice && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-md text-xs font-medium flex items-center justify-between">
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-medium flex items-center justify-between shadow-2xs">
                   <span>{clarificationNotice.msg}</span>
                   <button type="button" onClick={() => setClarificationNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 cursor-pointer">✕</button>
                 </div>
@@ -32248,40 +32189,35 @@ function ScreenSchemeFinder({
 
               {/* SKELETON LOADERS WHILE ASSESSING */}
               {isAssessing && (
-                <div className="space-y-3">
-                  <div className="text-xs font-mono font-semibold text-slate-500 uppercase tracking-wider">
-                    Analyzing Eligibility Criteria &bull; Evaluating Whitelisted Packages...
+                <div className="space-y-4">
+                  <div className="text-xs font-semibold text-slate-500">
+                    Checking eligibility against Central and State health schemes...
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[1, 2, 3, 4].map(idx => (
-                      <div key={idx} className="bg-white rounded-md p-4 border border-slate-200 shadow-2xs space-y-3 animate-pulse">
+                      <div key={idx} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3 animate-pulse">
                         <div className="h-4 bg-slate-200 rounded w-3/4"></div>
                         <div className="h-3 bg-slate-100 rounded w-1/2"></div>
-                        <div className="h-8 bg-slate-100 rounded w-full mt-2"></div>
+                        <div className="h-10 bg-slate-100 rounded-xl w-full mt-2"></div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* ACTIONABLE DOCUMENT GAP-FILLING NOTICE */}
+              {/* ACTIONABLE DOCUMENT GAP-FILLING CARD */}
               {!isAssessing && assessment?.pending_clarifications?.length > 0 && (
-                <div className="bg-amber-50/40 border border-amber-200 rounded-md p-4 space-y-3 shadow-2xs">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded bg-amber-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                      !
+                <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-5 space-y-4 shadow-xs">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                      💡
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
-                          Single-Document Gap Action Required
-                        </span>
-                        <span className="text-[10px] font-mono text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                          1 Verification Pending
-                        </span>
-                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-amber-900">
+                        Helpful Tip: Unlock 100% Free Treatment
+                      </h4>
                       <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                        A single credential confirmation can upgrade this patient profile to 100% full cashless package eligibility.
+                        Adding just 1 missing document can unlock complete cashless coverage without out-of-pocket hospital costs.
                       </p>
                     </div>
                   </div>
@@ -32289,39 +32225,39 @@ function ScreenSchemeFinder({
                   {assessment.pending_clarifications.map(q => {
                     const isProcessing = clarifyingId === q.question_id;
                     return (
-                      <div key={q.question_id} className="bg-white rounded p-3 border border-amber-200/80 space-y-2">
-                        <div className="text-xs font-bold text-slate-900">
+                      <div key={q.question_id} className="bg-white rounded-xl p-4 border border-amber-200/70 space-y-2.5 shadow-2xs">
+                        <div className="text-xs sm:text-sm font-bold text-slate-900">
                           {q.question_text}
                         </div>
                         {q.guidance_if_no && (
-                          <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
-                            <strong>Procurement Directive:</strong> {q.guidance_if_no}
+                          <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                            <strong>How to get this:</strong> {q.guidance_if_no}
                           </div>
                         )}
-                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <div className="flex items-center gap-2.5 pt-1 flex-wrap">
                           <button
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'yes', q.document_name)}
                             disabled={isProcessing}
-                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded text-xs transition-colors cursor-pointer"
+                            className="px-3.5 py-1.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-semibold rounded-lg text-xs transition-all cursor-pointer shadow-2xs"
                           >
-                            <span>Yes, Document Available</span>
+                            <span>✓ Yes, I have this document</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'no', q.document_name)}
                             disabled={isProcessing}
-                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded text-xs border border-slate-300 transition-colors cursor-pointer"
+                            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs border border-slate-200 hover:border-slate-300 transition-all cursor-pointer shadow-2xs"
                           >
-                            <span>No, Lacking Document</span>
+                            <span>No, I don't have it</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'not_sure', q.document_name)}
                             disabled={isProcessing}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded text-xs transition-colors cursor-pointer"
+                            className="px-3 py-1.5 text-slate-500 hover:text-slate-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                           >
-                            <span>Verify Later</span>
+                            <span>Check later</span>
                           </button>
                         </div>
                       </div>
@@ -32330,68 +32266,68 @@ function ScreenSchemeFinder({
                 </div>
               )}
 
-              {/* RELEVANT SCHEMES FULL-WIDTH 2-COLUMN GRID */}
+              {/* RELEVANT SCHEMES 2-COLUMN GRID */}
               {!isAssessing && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                        {assessment?.ranked_recommendations?.length || 0} Evaluated Statutory Scheme Packages
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                        Available Schemes For You ({assessment?.ranked_recommendations?.length || 0} Found)
                       </h3>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        Scoring Model: Clinical Need (25%) &bull; Benefit Volume (20%) &bull; Feasibility (20%)
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Arranged by highest financial assistance and best eligibility match.
                       </p>
                     </div>
                   </div>
 
                   {(!assessment || assessment.ranked_recommendations?.length === 0) ? (
-                    <div className="bg-white rounded-md border border-slate-200 p-8 text-center space-y-2">
-                      <h4 className="text-sm font-bold text-slate-800">No schemes directly matched current parameters</h4>
+                    <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2 shadow-xs">
+                      <h4 className="text-sm font-bold text-slate-800">No schemes directly matched these details</h4>
                       <p className="text-xs text-slate-500 max-w-md mx-auto">
-                        Check if annual income or residency requirements are within statutory caps, or modify the assessment profile above.
+                        Try modifying your income or state of residence above to check for national emergency funds.
                       </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {assessment.ranked_recommendations.map((rec, index) => {
+                      {assessment.ranked_recommendations.map((rec) => {
                         const isPassed = rec.status === 'PASS';
                         return (
                           <div
                             key={rec.scheme_id}
-                            className="bg-white rounded-md p-4 sm:p-5 border border-slate-200 hover:border-slate-300 shadow-2xs transition-colors flex flex-col justify-between space-y-3.5"
+                            className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 hover:border-[#0b2b82]/40 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
                           >
-                            <div className="space-y-2.5">
-                              {/* Header: Title & Badges */}
-                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
-                                <div className="space-y-0.5 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                            <div className="space-y-3">
+                              {/* Header: Title & Eligibility Badge */}
+                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                                <div className="space-y-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-[#0b2b82] border border-blue-200/60">
                                       {rec.short_code}
                                     </span>
-                                    <span className="text-[11px] font-semibold text-slate-500 truncate">
-                                      {rec.issuing_body === 'central' ? 'Central Government' : rec.issuing_body.replace('state:', 'State of ')}
+                                    <span className="text-xs font-medium text-slate-500 truncate">
+                                      {rec.issuing_body === 'central' ? 'Central Government' : rec.issuing_body.replace('state:', 'Government of ')}
                                     </span>
                                   </div>
-                                  <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                                  <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
                                     {rec.scheme_name}
                                   </h4>
                                 </div>
 
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider shrink-0 border ${
+                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 border ${
                                   isPassed
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                     : 'bg-amber-50 text-amber-800 border-amber-200'
                                 }`}>
-                                  {rec.match_score_pct}% &bull; {isPassed ? 'Eligible' : 'Partial'}
+                                  {isPassed ? '✓ Fully Eligible' : 'Partially Eligible'}
                                 </span>
                               </div>
 
-                              {/* Financial Coverage in font-mono tabular-nums */}
-                              <div className="bg-slate-50/70 p-2.5 rounded border border-slate-200/80 space-y-1">
-                                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                                  <span>Statutory Cashless Ceiling:</span>
-                                  <span className="font-mono tabular-nums font-bold text-slate-900 text-sm">
-                                    ₹ {rec.max_benefit_amount.toLocaleString()}
+                              {/* Financial Coverage Display */}
+                              <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100/80 space-y-1">
+                                <div className="flex items-center justify-between text-xs text-slate-700">
+                                  <span className="font-medium">Free Treatment Coverage:</span>
+                                  <span className="font-bold text-[#0b2b82] text-sm">
+                                    Up to ₹{rec.max_benefit_amount.toLocaleString()}
                                   </span>
                                 </div>
                                 <p className="text-xs text-slate-600 leading-relaxed font-normal">
@@ -32399,31 +32335,31 @@ function ScreenSchemeFinder({
                                 </p>
                               </div>
 
-                              {/* Verified Source Footer */}
-                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 font-mono">
-                                <span className="truncate">Source: {rec.source_portal_name}</span>
-                                <span className="shrink-0">Verified: {rec.last_verified_date}</span>
+                              {/* Source Info */}
+                              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                                <span className="truncate">{rec.source_portal_name}</span>
+                                <span className="shrink-0 text-slate-400">Verified Scheme</span>
                               </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
                               <button
                                 type="button"
                                 onClick={() => handleOpenExplain(rec.scheme_id, rec.scheme_name, 'why_eligible')}
-                                className="flex-1 py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded text-xs transition-colors flex items-center justify-center gap-1 border border-slate-300 cursor-pointer"
+                                className="flex-1 py-2 px-3.5 bg-white hover:bg-blue-50/50 text-[#0b2b82] hover:text-[#071a4f] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 border border-slate-200 hover:border-[#0b2b82]/40 shadow-2xs cursor-pointer"
                               >
-                                <span>Eligibility Guidance</span>
+                                <span>How to Apply &amp; Benefits</span>
                                 <span>&rarr;</span>
                               </button>
                               <a
                                 href={rec.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="py-1.5 px-2.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-semibold rounded text-xs border border-slate-300 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                                className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-semibold rounded-xl text-xs border border-slate-200 hover:border-slate-300 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
                                 title="Open official government scheme website"
                               >
-                                <span>Gazette ↗</span>
+                                <span>Official Portal ↗</span>
                               </a>
                             </div>
                           </div>
@@ -32439,48 +32375,52 @@ function ScreenSchemeFinder({
       )}
 
       {/* ========================================================================= */}
-      {/* 4. ADMIN LOGIN MODAL (Clean, Professional Government Access Authentication) */}
+      {/* 4. ADMIN LOGIN MODAL (With Explicit Prototype Notice)                     */}
       {/* ========================================================================= */}
       {showAdminLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl p-6 space-y-4">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block">
-                  Restricted Authority Access
+                  Official Portal Console
                 </span>
                 <h3 className="text-lg font-bold text-slate-900 mt-0.5">
-                  Government Scheme Authority Login
+                  Authority Login
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAdminLoginModal(false)}
-                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Login as a Ministry of Health &amp; Family Welfare or State NHA official to manage web ingestion pipelines, view source crawler logs, and audit all official circulars.
-            </p>
+            {/* PROTOTYPE NOTICE INSIDE MODAL */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+              <span className="text-sm">⚠️</span>
+              <p className="leading-relaxed">
+                <strong>Prototype Notice:</strong> This login is strictly for demonstration to inspect verified portal links and test crawler sync logs.
+              </p>
+            </div>
 
             {adminLoginError && (
-              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
                 {adminLoginError}
               </div>
             )}
 
             <form onSubmit={handleAdminLoginSubmit} className="space-y-3.5">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Official Government ID / Email</label>
+                <label className="text-xs font-bold text-slate-700">Official Email</label>
                 <input
                   type="email"
                   value={adminUsername}
                   onChange={(e) => setAdminUsername(e.target.value)}
                   placeholder="admin@medveda.gov.in"
-                  className="w-full px-3.5 py-2 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium"
                 />
               </div>
 
@@ -32491,21 +32431,25 @@ function ScreenSchemeFinder({
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium"
                 />
               </div>
 
               <div className="pt-1 flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-medium">
+                  Instant Test Login:
+                </span>
                 <button
                   type="button"
                   onClick={() => {
-                    setAdminUsername('admin@medveda.gov.in');
-                    setAdminPassword('MedVeda2026!');
+                    setIsAdminLoggedIn(true);
+                    setShowAdminLoginModal(false);
                     setAdminLoginError('');
                   }}
-                  className="text-[11px] text-[#0b2b82] font-bold hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-blue-50/50 hover:border-[#0b2b82]/40 text-[#0b2b82] text-xs font-semibold transition-all shadow-2xs cursor-pointer"
+                  title="Direct 1-Click Login for Prototype"
                 >
-                  Quick Fill Demo Credentials
+                  <span>1-Click Prototype Access &rarr;</span>
                 </button>
               </div>
 
@@ -32513,15 +32457,15 @@ function ScreenSchemeFinder({
                 <button
                   type="button"
                   onClick={() => setShowAdminLoginModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  Sign In to Admin Console &rarr;
+                  Sign In &rarr;
                 </button>
               </div>
             </form>
@@ -32530,27 +32474,27 @@ function ScreenSchemeFinder({
       )}
 
       {/* ========================================================================= */}
-      {/* 5. TRACEABLE EXPLANATION MODAL (Section 9)                                */}
+      {/* 5. SCHEME ELIGIBILITY & APPLICATION GUIDE MODAL                           */}
       {/* ========================================================================= */}
       {explainModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-xl p-6 sm:p-7 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200/60">
-                  Traceable Rules Engine Audit
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#0b2b82] border border-blue-200/60">
+                  Scheme Guide
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-1">
-                  {explainModal.perspective === 'why_eligible' ? 'Why Am I Eligible?' : 'What Could Disqualify Me?'}
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1">
+                  How This Scheme Helps You &amp; How to Apply
                 </h3>
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
                   {explainModal.schemeName}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setExplainModal(null)}
-                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -32558,57 +32502,59 @@ function ScreenSchemeFinder({
 
             {explainLoading ? (
               <div className="py-12 text-center text-xs text-slate-500 space-y-2">
-                <div className="w-6 h-6 border-2 border-[#0b2b82] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <div>Synthesizing traceable explanation from stored rules engine evaluation...</div>
+                <div className="w-7 h-7 border-2 border-[#0b2b82] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <div>Preparing eligibility steps and guidelines...</div>
               </div>
             ) : explainModal.data ? (
               <div className="space-y-4 text-xs">
                 {/* Plain-Language Explanation */}
-                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-slate-800 leading-relaxed font-medium">
+                <div className="bg-blue-50/50 border border-blue-100/80 p-4 rounded-xl text-slate-800 leading-relaxed font-normal">
                   {explainModal.data.explanation}
                 </div>
 
                 {/* Key Highlights */}
                 {explainModal.data.key_highlights?.length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider">
-                      Factual Eligibility Highlights
-                    </div>
-                    <ul className="space-y-1">
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider text-[#0b2b82]">
+                      Why You Qualify
+                    </h4>
+                    <div className="space-y-1.5">
                       {explainModal.data.key_highlights.map((h, i) => (
-                        <li key={i} className="text-slate-700 font-medium flex items-center gap-1.5">
+                        <div key={i} className="text-slate-700 font-normal flex items-start gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                          <span className="text-emerald-600 font-bold mt-0.5">✓</span>
                           <span>{h}</span>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
 
-                {/* Cautions / Missing Factors */}
+                {/* Steps and Action Checklist */}
                 {explainModal.data.cautions_or_actions?.length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider">
-                      Mandatory Prerequisites &amp; Verification Checks
-                    </div>
-                    <ul className="space-y-1">
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider text-[#0b2b82]">
+                      Important Steps &amp; Hospital Requirements
+                    </h4>
+                    <div className="space-y-1.5">
                       {explainModal.data.cautions_or_actions.map((c, i) => (
-                        <li key={i} className="text-slate-700 font-medium flex items-center gap-1.5">
+                        <div key={i} className="text-slate-700 font-normal flex items-start gap-2 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100">
+                          <span className="text-amber-600 font-bold mt-0.5">ℹ</span>
                           <span>{c}</span>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
               </div>
             ) : null}
 
-            <div className="pt-2 border-t border-slate-100 flex justify-end">
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
                 type="button"
                 onClick={() => setExplainModal(null)}
-                className="px-5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-xs"
               >
-                Close Audit Rationale
+                Close Guide
               </button>
             </div>
           </div>
@@ -33582,7 +33528,7 @@ function ScreenCommandCenter({
                         <td className="p-3">
                           {fac.isStale ? (
                             <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono text-[10px] font-bold">
-                              BREACH (>24H)
+                              BREACH (&gt;24H)
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-bold">
