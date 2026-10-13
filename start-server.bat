@@ -8,6 +8,6 @@ if not exist "node_modules" (
     echo Installing dependencies for fresh clone...
     call npm install
 )
-node --experimental-transform-types frontend/server.js
+npx tsx frontend/server.js
 pause
 

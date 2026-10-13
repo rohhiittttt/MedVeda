@@ -47,6 +47,10 @@ function resolvePythonPath() {
   if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
     return process.env.PYTHON_PATH;
   }
+  const rootVenv = path.resolve(__dirname, process.platform === 'win32' ? '../.venv/Scripts/python.exe' : '../.venv/bin/python');
+  if (fs.existsSync(rootVenv)) {
+    return rootVenv;
+  }
   const explicitPaths = [
     'C:\\Python314\\python.exe',
     'C:\\Users\\rohit das\\AppData\\Local\\Programs\\Python\\Python312\\python.exe'

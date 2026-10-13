@@ -4,15 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-transform-types ../frontend/server.js",
-    "build": "node -e \"console.log('@nexusmind/backend: use-cases ready for node --experimental-transform-types')\"",
-    "start": "node --experimental-transform-types ../frontend/server.js",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --noEmit",
+    "start": "tsx src/index.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-transform-types --test tests/unit/*.spec.ts",
-    "test:watch": "node --experimental-transform-types --watch --test tests/unit/*.spec.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --experimental-transform-types src/infrastructure/db/migrate.ts"
+    "db:migrate": "tsx src/infrastructure/db/migrate.ts"
   },
   "dependencies": {
     "fastify": "^5.2.0",

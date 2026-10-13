@@ -16,6 +16,6 @@ if not exist "node_modules" (
 )
 
 echo Starting MedVeda Unified Server (Port 3000 + Python AI Port 8001)...
-node --experimental-transform-types frontend/server.js
+npx tsx frontend/server.js
 pause
 

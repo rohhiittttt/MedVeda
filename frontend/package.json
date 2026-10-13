@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "node build.js",
-    "start": "node --experimental-transform-types server.js",
-    "serve": "node --experimental-transform-types server.js",
+    "start": "tsx server.js",
+    "serve": "tsx server.js",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

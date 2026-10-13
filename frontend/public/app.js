@@ -2999,6 +2999,7 @@ function ModuleIcon({ id, className = "w-4 h-4", strokeWidth = 2 }) {
 function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser }) {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [featuresPinned, setFeaturesPinned] = useState(false);
+  const [workspaceSearch, setWorkspaceSearch] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
   const [localUser, setLocalUser] = useState(null);
@@ -3011,12 +3012,14 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
       if (featuresRef.current && !featuresRef.current.contains(event.target)) {
         setFeaturesOpen(false);
         setFeaturesPinned(false);
+        setWorkspaceSearch('');
       }
     }
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setFeaturesOpen(false);
         setFeaturesPinned(false);
+        setWorkspaceSearch('');
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -3308,26 +3311,46 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
 
   const isFeatureActive = currentView.startsWith('feature') || currentView === 'overview' || currentView === 'asha_tracker';
 
+  const filteredFeatureItems = workspaceSearch.trim()
+    ? featureItems.filter(item =>
+        item.label.toLowerCase().includes(workspaceSearch.toLowerCase()) ||
+        item.code.toLowerCase().includes(workspaceSearch.toLowerCase())
+      )
+    : featureItems;
+
+  const clinicalItems = filteredFeatureItems.filter(item =>
+    ['feature1', 'feature2', 'feature4', 'feature10', 'asha_tracker'].includes(item.id)
+  );
+
+  const operationsItems = filteredFeatureItems.filter(item =>
+    ['feature3', 'feature6', 'feature7'].includes(item.id)
+  );
+
+  const complianceItems = filteredFeatureItems.filter(item =>
+    ['feature5', 'feature8', 'feature9', 'overview'].includes(item.id) ||
+    (!['feature1', 'feature2', 'feature4', 'feature10', 'asha_tracker', 'feature3', 'feature6', 'feature7'].includes(item.id))
+  );
+
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
       {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-4">
         {/* Logo & Brand */}
         <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setView('home')}>
-          <MedVedaLogo className="h-10 w-10" />
+          <MedVedaLogo className="h-9 w-9" />
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-black text-slate-900 text-lg tracking-tight flex items-center">
+            <div className="flex items-center gap-1.5">
+              <h1 className="font-extrabold text-slate-900 text-lg tracking-tight flex items-center">
                 <span>MED</span>
                 <span className="text-teal-600 font-extrabold">VEDA</span>
               </h1>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">Making quality healthcare accessible</p>
+            <p className="text-[11px] text-slate-500 font-medium leading-none">Making quality healthcare accessible</p>
           </div>
         </div>
 
-        {/* Navigation Tabs - Exactly 3 Sections: Home, Features (with Dropdown), About Us */}
-        <nav className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs font-semibold relative">
+        {/* Standardized Navigation - Clean text links without floating capsule/pill container */}
+        <nav className="flex items-center gap-6 sm:gap-8 text-sm font-medium relative">
           {/* Section 1: Home */}
           <button
             type="button"
@@ -3335,15 +3358,15 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setView('home');
               setFeaturesOpen(false);
             }}
-            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'home'
-              ? 'bg-[#1565C0] text-white shadow-sm'
-              : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
+            className={`transition-colors cursor-pointer ${currentView === 'home'
+              ? 'text-slate-900 font-semibold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Home
           </button>
 
-          {/* Section 2: Features (Clicking toggles dropdown pin, hovering previews without gap) */}
+          {/* Section 2: Features Dropdown Trigger (Clean text link, no solid blue button background) */}
           <div
             className="relative"
             ref={featuresRef}
@@ -3365,9 +3388,9 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setFeaturesOpen(true);
                 }
               }}
-              className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${isFeatureActive || featuresOpen
-                ? 'bg-[#1565C0] text-white shadow-sm'
-                : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
+              className={`transition-colors flex items-center gap-1.5 cursor-pointer ${isFeatureActive || featuresOpen
+                ? 'text-slate-900 font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
                 }`}
               aria-expanded={featuresOpen}
               aria-haspopup="true"
@@ -3376,65 +3399,238 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
             >
               <span>Features</span>
               <svg
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${featuresOpen ? 'rotate-180' : ''}`}
+                className={`w-3.5 h-3.5 transition-transform duration-200 text-slate-400 group-hover:text-slate-600 ${featuresOpen ? 'rotate-180 text-slate-900' : ''}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
-            {/* Dropdown Menu with all Feature Map options - ZERO GAP & ULTRA COMPACT */}
+            {/* Structured 2-Column Workspaces Popover with Grouped Categories */}
             {featuresOpen && (
-              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 pt-1.5 w-80 sm:w-96 z-50">
-                <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-1.5">
-                  <div className="px-2.5 py-1 border-b border-slate-100 flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Platform Workspaces
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {featureItems.length} Available
-                    </span>
+              <div className="absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 pt-2 w-[calc(100vw-2rem)] sm:w-[580px] md:w-[620px] max-w-[620px] z-50">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden">
+                  {/* Top Bar with Title, Count & Search Filter */}
+                  <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 font-mono">
+                        Platform Workspaces
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
+                        {filteredFeatureItems.length} Available
+                      </span>
+                    </div>
+
+                    <div className="relative flex-1 max-w-[190px]">
+                      <input
+                        type="text"
+                        value={workspaceSearch}
+                        onChange={(e) => setWorkspaceSearch(e.target.value)}
+                        placeholder="Filter workspaces..."
+                        className="w-full text-xs px-2.5 py-1 rounded border border-slate-300 bg-white text-slate-800 focus:outline-hidden focus:border-slate-500 font-medium placeholder:text-slate-400"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      {workspaceSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setWorkspaceSearch('')}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs px-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="space-y-0.5 max-h-[85vh] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                    {featureItems.map((item) => {
-                      const isActive = currentView === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            item.onSelect();
-                            setFeaturesOpen(false);
-                            setFeaturesPinned(false);
-                          }}
-                          title={`${item.code}: ${item.label}  -  ${item.description}`}
-                          className={`w-full text-left py-1 px-2 rounded-lg transition-all flex items-center gap-2.5 group cursor-pointer ${isActive
-                            ? 'bg-blue-50 text-[#1565C0]'
-                            : 'hover:bg-slate-50 text-slate-800'
-                            }`}
-                        >
-                          <div
-                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isActive ? 'bg-[#1565C0] text-white' : 'bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-[#1565C0]'
-                              }`}
-                          >
-                            <ModuleIcon id={item.id} className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-bold leading-tight group-hover:text-[#1565C0] truncate">
-                                {item.label}
-                              </span>
+                  {/* Multi-Column Grouped Layout */}
+                  {filteredFeatureItems.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500 space-y-1.5">
+                      <p>No workspaces matching &ldquo;<strong className="text-slate-800">{workspaceSearch}</strong>&rdquo;</p>
+                      <button
+                        type="button"
+                        onClick={() => setWorkspaceSearch('')}
+                        className="text-xs text-[#0b2b82] font-semibold hover:underline cursor-pointer"
+                      >
+                        Clear filter
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+                      {/* Column 1: Clinical & Triage, then Operations & Referrals */}
+                      <div className="space-y-4">
+                        {clinicalItems.length > 0 && (
+                          <div>
+                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span>Clinical &amp; Triage</span>
+                              <span className="text-[9px] text-slate-400 font-normal">{clinicalItems.length}</span>
                             </div>
-                            <p className="text-[10px] text-slate-400 leading-tight font-normal line-clamp-1">
-                              {item.description}
-                            </p>
+                            <div className="space-y-0.5">
+                              {clinicalItems.map((item) => {
+                                const isActive = currentView === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                      item.onSelect();
+                                      setFeaturesOpen(false);
+                                      setFeaturesPinned(false);
+                                      setWorkspaceSearch('');
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded transition-colors flex items-center justify-between group cursor-pointer ${
+                                      isActive
+                                        ? 'bg-slate-100 text-slate-900 font-semibold'
+                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div
+                                        className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
+                                          isActive
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-slate-100 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white'
+                                        }`}
+                                      >
+                                        <ModuleIcon id={item.id} className="w-3 h-3" />
+                                      </div>
+                                      <span className="text-xs font-medium group-hover:font-semibold truncate">
+                                        {item.label}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
+                                      {item.code.replace('Module ', 'M')}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </button>
-                      );
-                    })}
+                        )}
+
+                        {operationsItems.length > 0 && (
+                          <div>
+                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span>Operations &amp; Referrals</span>
+                              <span className="text-[9px] text-slate-400 font-normal">{operationsItems.length}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              {operationsItems.map((item) => {
+                                const isActive = currentView === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                      item.onSelect();
+                                      setFeaturesOpen(false);
+                                      setFeaturesPinned(false);
+                                      setWorkspaceSearch('');
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded transition-colors flex items-center justify-between group cursor-pointer ${
+                                      isActive
+                                        ? 'bg-slate-100 text-slate-900 font-semibold'
+                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div
+                                        className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
+                                          isActive
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-slate-100 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white'
+                                        }`}
+                                      >
+                                        <ModuleIcon id={item.id} className="w-3 h-3" />
+                                      </div>
+                                      <span className="text-xs font-medium group-hover:font-semibold truncate">
+                                        {item.label}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
+                                      {item.code.replace('Module ', 'M')}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Column 2: Records & Compliance + System Telemetry */}
+                      <div className="space-y-4">
+                        {complianceItems.length > 0 && (
+                          <div>
+                            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 pb-1 mb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span>Records &amp; Compliance</span>
+                              <span className="text-[9px] text-slate-400 font-normal">{complianceItems.length}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              {complianceItems.map((item) => {
+                                const isActive = currentView === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                      item.onSelect();
+                                      setFeaturesOpen(false);
+                                      setFeaturesPinned(false);
+                                      setWorkspaceSearch('');
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded transition-colors flex items-center justify-between group cursor-pointer ${
+                                      isActive
+                                        ? 'bg-slate-100 text-slate-900 font-semibold'
+                                        : 'hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div
+                                        className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
+                                          isActive
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-slate-100 border-slate-200 text-slate-600 group-hover:text-slate-900 group-hover:bg-white'
+                                        }`}
+                                      >
+                                        <ModuleIcon id={item.id} className="w-3 h-3" />
+                                      </div>
+                                      <span className="text-xs font-medium group-hover:font-semibold truncate">
+                                        {item.label}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-600 shrink-0 ml-1.5">
+                                      {item.code.replace('Module ', 'M')}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Subtle Telemetry Status Card */}
+                        <div className="p-2.5 rounded bg-slate-50 border border-slate-200/80">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
+                            <span className="font-bold uppercase tracking-wider text-slate-700">System Telemetry</span>
+                            <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                              Active
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1 leading-normal font-sans">
+                            ABDM sandbox &bull; NHA gazette rules &bull; Closed-loop routing
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clean Footer Bar */}
+                  <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                    <span className="truncate">Context: <strong className="text-slate-700 font-semibold">{currentUser?.roleLabel || getRoleBadgeLabel(actorRole)}</strong></span>
+                    <span>Press Esc to close</span>
                   </div>
                 </div>
               </div>
@@ -3449,27 +3645,27 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               setFeaturesOpen(false);
               setFeaturesPinned(false);
             }}
-            className={`px-3.5 py-1.5 rounded-lg transition-all text-xs font-bold whitespace-nowrap ${currentView === 'about'
-              ? 'bg-[#1565C0] text-white shadow-sm'
-              : 'text-slate-600 hover:text-[#1565C0] hover:bg-blue-50/70'
+            className={`transition-colors cursor-pointer ${currentView === 'about'
+              ? 'text-slate-900 font-semibold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             About Us
           </button>
         </nav>
 
-        {/* Right Controls: Auth (Log In / Sign Up) or Logged In Pill */}
+        {/* Right Controls: Unified Administrative Authentication & Profile Bar */}
         <div className="flex items-center gap-2 flex-wrap">
           {currentUser ? (
-            <div className="flex items-center gap-2 bg-[#edf5ff] border border-[#bfdbfe] rounded-full px-2.5 py-1 shadow-2xs">
-              <div className="w-6 h-6 rounded-full bg-[#1565C0] text-white text-[11px] font-black flex items-center justify-center">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1">
+              <div className="w-6 h-6 rounded bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
                 {currentUser.name ? currentUser.name.charAt(0) : 'P'}
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[11px] font-extrabold text-slate-900 leading-none truncate max-w-[100px] sm:max-w-[130px]">
+                <span className="text-xs font-bold text-slate-900 leading-none truncate max-w-[100px] sm:max-w-[130px]">
                   {currentUser.name}
                 </span>
-                <span className="text-[9px] text-[#1565C0] font-bold uppercase leading-tight mt-0.5">
+                <span className="text-[10px] text-slate-500 font-mono font-semibold uppercase leading-tight mt-0.5">
                   {currentUser.roleLabel || getRoleBadgeLabel(actorRole)}
                 </span>
               </div>
@@ -3482,7 +3678,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                     setActorRole(nextRole);
                     setView(nextRole === 'patient' ? 'overview' : 'feature1');
                   }}
-                  className="bg-white border border-[#93c5fd] hover:border-[#3b82f6] text-[#1565C0] rounded-full px-2 py-0.5 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer ml-1"
+                  className="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-900 rounded px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ml-1"
                   title={actorRole === 'patient' ? "Switch to Doctor View" : "Switch to Patient View"}
                 >
                   <span>{actorRole === 'patient' ? 'Doctor View' : 'Patient View'}</span>
@@ -3496,7 +3692,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setActorRole('patient');
                   setView('home');
                 }}
-                className="text-[11px] font-semibold text-slate-500 hover:text-rose-600 ml-1 px-1 py-0.5 rounded hover:bg-white transition-colors cursor-pointer"
+                className="text-[11px] font-medium text-slate-500 hover:text-rose-600 ml-1 px-1.5 py-0.5 rounded hover:bg-white transition-colors cursor-pointer"
                 title="Log out"
               >
                 Log Out
@@ -3510,7 +3706,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('login');
                   setAuthModalOpen(true);
                 }}
-                className="px-4 py-1.5 text-xs font-bold text-[#1565C0] bg-white hover:bg-blue-50/70 rounded-xl transition-all border border-[#bfdbfe] cursor-pointer shadow-2xs"
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer"
               >
                 Log In
               </button>
@@ -3521,7 +3717,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('signup');
                   setAuthModalOpen(true);
                 }}
-                className="px-4 py-1.5 text-xs font-bold bg-[#1565C0] hover:bg-blue-700 text-white rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-md shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>Sign Up</span>
               </button>
@@ -32825,47 +33021,54 @@ function ScreenSchemeFinder({
   });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 pb-12 space-y-6 max-w-7xl mx-auto">
-      {/* 1. Header & Navigation Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+    <div className="p-4 sm:p-6 lg:p-8 pb-12 space-y-5 max-w-7xl mx-auto">
+      {/* 1. Official Header & Navigation Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0b2b82] flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">
+              Statutory v2026.1
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              National Health Authority &bull; State Health Agency Gazette Rules
+            </span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5 mt-1">
+            <div className="w-7 h-7 rounded bg-[#0b2b82] text-white flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <span>AI Government Health Scheme Finder</span>
+            <span>Government Welfare &amp; Scheme Eligibility Engine</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Instant affordability discovery: deterministic eligibility rules engine (Income, Age, Location, Medical Need), single-document gap filling, and verified benefit ranking.
+          <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            Evaluate statutory benefit eligibility based on income, demographics, and statutory rules.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={onBackToHome}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded border border-slate-300 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>Home</span>
+            <span>&larr; Portal Home</span>
           </button>
-          {/* Admin Mode Toggle / Login */}
           {!isAdminLoggedIn ? (
             <button
               type="button"
               onClick={() => setShowAdminLoginModal(true)}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Official Government Health Authority & Audit Login"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              <span>Admin Portal</span>
+              <span>Auditor Console</span>
             </button>
           ) : isDistrictAdmin ? (
             <span
-              className="px-3.5 py-2 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded-lg text-xs flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded text-xs flex items-center gap-1.5"
               title="District Health Administrator Official View Active"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
@@ -32875,7 +33078,7 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setIsAdminLoggedIn(false)}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded text-xs flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
               title="Return to Patient Scheme Finder"
             >
               <span>Exit Admin View</span>
@@ -32890,15 +33093,15 @@ function ScreenSchemeFinder({
       {isAdminLoggedIn ? (
         <div className="space-y-6">
           {/* Admin Header Banner */}
-          <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-slate-900 text-white rounded-md p-4 sm:p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
                   Government Scheme Governance Console
                 </span>
-                <span className="text-xs text-slate-400">Authenticated: admin@medveda.gov.in</span>
+                <span className="text-xs text-slate-400 font-mono">Authenticated: admin@medveda.gov.in</span>
               </div>
-              <h3 className="text-lg font-bold text-white">
+              <h3 className="text-base font-bold text-white">
                 Official Scheme Administration, Data Ingestion &amp; Verification Audit
               </h3>
               <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
@@ -32911,7 +33114,7 @@ function ScreenSchemeFinder({
                 type="button"
                 onClick={handleTriggerSync}
                 disabled={isSyncingSources}
-                className="px-4 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="px-3.5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
               >
                 <svg className={`w-3.5 h-3.5 ${isSyncingSources ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -32922,9 +33125,9 @@ function ScreenSchemeFinder({
           </div>
 
           {syncNotice && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-medium flex items-center justify-between">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded text-xs font-medium flex items-center justify-between">
               <span>{syncNotice}</span>
-              <button type="button" onClick={() => setSyncNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2">✕</button>
+              <button type="button" onClick={() => setSyncNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 cursor-pointer">✕</button>
             </div>
           )}
 
@@ -32933,14 +33136,14 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setAdminActiveTab('ingestion_audit')}
-              className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                 adminActiveTab === 'ingestion_audit'
                   ? 'border-[#0b2b82] text-[#0b2b82]'
                   : 'border-transparent text-slate-500 hover:text-slate-900'
               }`}
             >
               <span>Data Ingestion &amp; Verification Audit</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 font-bold">
                 {ingestionLogsList.length || 5} Sources
               </span>
             </button>
@@ -32948,14 +33151,14 @@ function ScreenSchemeFinder({
             <button
               type="button"
               onClick={() => setAdminActiveTab('all_schemes')}
-              className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                 adminActiveTab === 'all_schemes'
                   ? 'border-[#0b2b82] text-[#0b2b82]'
                   : 'border-transparent text-slate-500 hover:text-slate-900'
               }`}
             >
               <span>Official Government Scheme Knowledge Base</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 font-bold">
                 {allSchemesList.length || 16} Verified
               </span>
             </button>
@@ -32963,17 +33166,17 @@ function ScreenSchemeFinder({
 
           {/* Admin Tab 1: Ingestion & Verification Audit */}
           {adminActiveTab === 'ingestion_audit' && (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-2xs">
+            <div className="bg-white rounded-md border border-slate-200 p-4 sm:p-5 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                     Official Ministry &amp; State Portal Ingestion Audit Trail
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Automated ingestion crawlers verify that eligibility guidelines derive strictly from whitelisted statutory government websites.
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
+                <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-semibold font-mono">
                   All 16 Portals Verified Fresh
                 </span>
               </div>
@@ -32982,32 +33185,32 @@ function ScreenSchemeFinder({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                     <tr>
-                      <th className="p-3">Ingestion ID</th>
-                      <th className="p-3">Portal / Ministry</th>
-                      <th className="p-3">Official URL</th>
-                      <th className="p-3">Run Timestamp</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Integrity</th>
+                      <th className="p-2.5">Ingestion ID</th>
+                      <th className="p-2.5">Portal / Ministry</th>
+                      <th className="p-2.5">Official URL</th>
+                      <th className="p-2.5">Run Timestamp</th>
+                      <th className="p-2.5">Status</th>
+                      <th className="p-2.5">Integrity</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {(ingestionLogsList.length > 0 ? ingestionLogsList : []).map(log => (
                       <tr key={log.ingestion_id} className="hover:bg-slate-50/70">
-                        <td className="p-3 font-mono font-bold text-slate-600">{log.ingestion_id}</td>
-                        <td className="p-3 font-bold text-slate-900">{log.portal_name}</td>
-                        <td className="p-3 font-mono text-[#0b2b82]">
+                        <td className="p-2.5 font-mono font-bold text-slate-600">{log.ingestion_id}</td>
+                        <td className="p-2.5 font-bold text-slate-900">{log.portal_name}</td>
+                        <td className="p-2.5 font-mono text-[#0b2b82]">
                           <a href={log.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
                             <span>{log.source_url}</span>
                             <span>↗</span>
                           </a>
                         </td>
-                        <td className="p-3 text-slate-500 font-mono">{log.run_at}</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
+                        <td className="p-2.5 text-slate-500 font-mono">{log.run_at}</td>
+                        <td className="p-2.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase font-mono">
                             {log.ingestion_status}
                           </span>
                         </td>
-                        <td className="p-3 font-medium text-emerald-700">SHA-256 Verified</td>
+                        <td className="p-2.5 font-medium text-emerald-700 font-mono">SHA-256 Verified</td>
                       </tr>
                     ))}
                   </tbody>
@@ -33018,37 +33221,37 @@ function ScreenSchemeFinder({
 
           {/* Admin Tab 2: All Official Schemes Repository */}
           {adminActiveTab === 'all_schemes' && (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-2xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="bg-white rounded-md border border-slate-200 p-4 sm:p-5 space-y-4 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                     Official Government Health Scheme Knowledge Base
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Complete statutory repository of 16 Central and State schemes, benefit formulas, and official circular references.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs">
+                  <div className="flex items-center rounded border border-slate-300 p-0.5 bg-slate-50 text-xs">
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('all')}
-                      className={`px-3 py-1 rounded-md font-semibold cursor-pointer ${adminSchemeFilter === 'all' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'all' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
                     >
                       All
                     </button>
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('central')}
-                      className={`px-3 py-1 rounded-md font-semibold cursor-pointer ${adminSchemeFilter === 'central' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'central' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
                     >
                       Central
                     </button>
                     <button
                       type="button"
                       onClick={() => setAdminSchemeFilter('state')}
-                      className={`px-3 py-1 rounded-md font-semibold cursor-pointer ${adminSchemeFilter === 'state' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
+                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${adminSchemeFilter === 'state' ? 'bg-white shadow-2xs text-[#0b2b82]' : 'text-slate-600'}`}
                     >
                       State
                     </button>
@@ -33059,29 +33262,29 @@ function ScreenSchemeFinder({
                     value={adminSchemeSearch}
                     onChange={(e) => setAdminSchemeSearch(e.target.value)}
                     placeholder="Search schemes..."
-                    className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-hidden focus:border-[#0b2b82]"
+                    className="px-2.5 py-1 text-xs rounded border border-slate-300 bg-white focus:outline-hidden focus:border-[#0b2b82]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {filteredAdminSchemes.map(s => (
-                  <div key={s.scheme_id} className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2 bg-slate-50/40">
+                  <div key={s.scheme_id} className="p-3.5 rounded border border-slate-200 hover:border-slate-300 transition-all space-y-2 bg-slate-50/50">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200/80 text-slate-800">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-200 text-slate-800">
                           {s.short_code}
                         </span>
-                        <h4 className="text-sm font-bold text-slate-900 mt-1">{s.scheme_name}</h4>
+                        <h4 className="text-xs font-bold text-slate-900 mt-1">{s.scheme_name}</h4>
                       </div>
-                      <span className="text-xs font-bold text-[#0b2b82]">
+                      <span className="text-xs font-mono tabular-nums font-bold text-[#0b2b82]">
                         ₹{s.max_benefit_amount.toLocaleString()}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
                       {s.benefit_amount_or_formula}
                     </p>
-                    <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                    <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200/60 flex items-center justify-between font-mono">
                       <span className="truncate">Ministry: {s.source_portal_name}</span>
                       <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="text-[#0b2b82] font-semibold hover:underline flex items-center gap-1">
                         <span>Portal ↗</span>
@@ -33095,144 +33298,153 @@ function ScreenSchemeFinder({
         </div>
       ) : (
         /* ========================================================================= */
-        /* 3. PATIENT WORKFLOW (Assessment First -> Full Relevant Schemes View)      */
+        /* 3. PATIENT WORKFLOW (Assessment Intake -> Evaluated Scheme Packages)      */
         /* ========================================================================= */
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* STAGE 1: PATIENT INTAKE ASSESSMENT (NOT SIDE-BY-SIDE) */}
           {patientStage === 'assessment' && (
-            <div className="space-y-6">
-              {/* Patient Persona Presets Banner */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Quick-Fill Real Patient Personas
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Auto-populates clinical need, income tier, ration card, and documents in 1 click
+            <div className="space-y-4">
+              {/* Compact Administrative Case Profile Reference Toolbar */}
+              <div className="bg-slate-100/90 border border-slate-200 rounded-md p-2.5 sm:px-3.5 sm:py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-[#0b2b82]"></span>
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    Administrative Case Profile:
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {Object.entries(SCHEME_PRESETS).map(([key, p]) => {
-                    const isActive = activePresetKey === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => handleSelectPreset(key)}
-                        className={`p-2.5 rounded-lg text-left text-xs transition-all border cursor-pointer ${
-                          isActive
-                            ? 'bg-blue-50/70 border-[#0b2b82] text-[#0b2b82] font-bold shadow-2xs'
-                            : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-medium'
-                        }`}
-                      >
-                        <div className="font-bold truncate">{p.name.split('(')[0]}</div>
-                        <div className="text-[10px] text-slate-500 truncate mt-0.5">
-                          {p.diagnosis.split('/')[0]}
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          {p.state} &bull; ₹{p.family_income_annual.toLocaleString()}/yr
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="flex-1 max-w-xl">
+                  <select
+                    value={activePresetKey}
+                    onChange={(e) => handleSelectPreset(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-[#0b2b82] cursor-pointer"
+                  >
+                    <option value="custom" disabled={activePresetKey !== 'custom'}>Custom Intake (Manual Case Parameters)</option>
+                    <option value="anita">Case #01 — Anita Devi (Acute Stroke / BPL • Jharkhand)</option>
+                    <option value="rameshwar">Case #02 — Rameshwar Rao (Senior Cardiac 74y / APL • Maharashtra)</option>
+                    <option value="pooja">Case #03 — Pooja Patil (High-Risk Maternal / BPL • Maharashtra)</option>
+                    <option value="arif">Case #04 — Mohammad Arif (Pulmonary TB / BPL • Jharkhand)</option>
+                    <option value="kavita">Case #05 — Kavita Soren (Pediatric Congenital Cardiac / APL • Jharkhand)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                  {[
+                    { key: 'anita', label: 'Case #01' },
+                    { key: 'rameshwar', label: 'Case #02' },
+                    { key: 'pooja', label: 'Case #03' },
+                    { key: 'arif', label: 'Case #04' },
+                    { key: 'kavita', label: 'Case #05' }
+                  ].map(item => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => handleSelectPreset(item.key)}
+                      className={`px-2 py-1 text-[11px] font-mono font-bold rounded border transition-colors cursor-pointer ${
+                        activePresetKey === item.key
+                          ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
+                          : 'bg-white text-slate-600 hover:text-slate-900 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Assessment Form Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 sm:p-7 space-y-6">
-                <div className="border-b border-slate-100 pb-3">
-                  <h3 className="text-base font-bold text-slate-900">
-                    Patient Demographics &amp; Clinical Parameters
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Deterministic parameters evaluated against statutory Government Scheme benefit packages.
-                  </p>
+              {/* Unified Administrative Intake Console (Clean surface, 1px borders, no card-in-card nesting) */}
+              <div className="bg-white border border-slate-200 rounded-md shadow-2xs divide-y divide-slate-200">
+                {/* Console Section Header */}
+                <div className="bg-slate-50/80 px-4 py-2.5 flex items-center justify-between border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      FORM SEC-01 &bull; REQ-08
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Statutory Parameters &amp; Clinical Demographics Intake
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Mode: Deterministic Rules Evaluation
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Diagnosis & Clinical Need */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Diagnosis / Clinical Condition</label>
-                    <input
-                      type="text"
-                      value={profile.diagnosis || ''}
-                      onChange={e => setProfile({ ...profile, diagnosis: e.target.value })}
-                      placeholder="e.g. Acute Ischemic Stroke, Coronary Artery Disease, Cancer"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
-                    />
+                {/* Panel 1: Clinical Diagnosis & Procedure */}
+                <div className="p-4 sm:p-5 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>01. Clinical Presentation &amp; Treatment Need</span>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Diagnosis / Clinical Condition
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.diagnosis || ''}
+                        onChange={e => setProfile({ ...profile, diagnosis: e.target.value })}
+                        placeholder="e.g. Acute Ischemic Stroke, Coronary Artery Disease, Cancer"
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
+                      />
+                    </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Treatment Required / Surgical Procedure</label>
-                    <input
-                      type="text"
-                      value={profile.treatment_required || ''}
-                      onChange={e => setProfile({ ...profile, treatment_required: e.target.value })}
-                      placeholder="e.g. Emergency Surgery, ICU Hospitalization, Chemotherapy"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
-                    />
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Treatment Required / Procedure Category
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.treatment_required || ''}
+                        onChange={e => setProfile({ ...profile, treatment_required: e.target.value })}
+                        placeholder="e.g. Emergency Surgery, ICU Hospitalization, Chemotherapy"
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
+                      />
+                    </div>
                   </div>
+                </div>
 
-                  {/* Age & Gender */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Patient Age (Years)</label>
+                {/* Panel 2: Demographics & Jurisdiction */}
+                <div className="p-4 sm:p-5 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>02. Patient Demographics &amp; Residency Jurisdiction</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Patient Age (Years)
+                      </label>
                       <input
                         type="number"
                         value={profile.age || 0}
                         onChange={e => setProfile({ ...profile, age: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
+                        className="w-full px-3 py-2 text-xs font-mono tabular-nums rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-semibold bg-white text-slate-900"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Gender</label>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Gender
+                      </label>
                       <select
                         value={profile.gender}
                         onChange={e => setProfile({ ...profile, gender: e.target.value })}
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
                       >
                         <option value="female">Female</option>
                         <option value="male">Male</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
-                  </div>
 
-                  {/* Income & Ration Card */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Annual Family Income (₹)</label>
-                      <input
-                        type="number"
-                        value={profile.family_income_annual || 0}
-                        onChange={e => setProfile({ ...profile, family_income_annual: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">Ration Card Category</label>
-                      <select
-                        value={profile.ration_card_status}
-                        onChange={e => setProfile({ ...profile, ration_card_status: e.target.value })}
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
-                      >
-                        <option value="BPL">BPL (Below Poverty Line)</option>
-                        <option value="Antyodaya">Antyodaya Anna Yojana (AAY)</option>
-                        <option value="APL">APL (Above Poverty Line)</option>
-                        <option value="none">No Ration Card</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* State & District */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">State of Domicile</label>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        State of Domicile
+                      </label>
                       <select
                         value={profile.state}
                         onChange={e => setProfile({ ...profile, state: e.target.value })}
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
                       >
                         <option value="Jharkhand">Jharkhand</option>
                         <option value="Maharashtra">Maharashtra</option>
@@ -33240,48 +33452,96 @@ function ScreenSchemeFinder({
                         <option value="Odisha">Odisha</option>
                         <option value="Uttar Pradesh">Uttar Pradesh</option>
                         <option value="West Bengal">West Bengal</option>
-                        <option value="National">All India / Central</option>
+                        <option value="National">National / Central</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">District</label>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        District
+                      </label>
                       <input
                         type="text"
                         value={profile.district || ''}
                         onChange={e => setProfile({ ...profile, district: e.target.value })}
                         placeholder="e.g. Hazaribagh, Pune"
-                        className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900"
                       />
                     </div>
                   </div>
+                </div>
 
-                  {/* Hospital Type */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Hospital Facility Type</label>
-                    <select
-                      value={profile.hospital_type}
-                      onChange={e => setProfile({ ...profile, hospital_type: e.target.value })}
-                      className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-slate-50/50"
-                    >
-                      <option value="government">Government Hospital (District Hospital / Medical College / AIIMS)</option>
-                      <option value="empanelled_private">Empanelled Private Hospital (NABH / PM-JAY Network)</option>
-                      <option value="charitable">Charitable / Trust Hospital</option>
-                    </select>
+                {/* Panel 3: Financial & Facility Criteria */}
+                <div className="p-4 sm:p-5 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>03. Socio-Economic Tier &amp; Statutory Thresholds</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                          Annual Household Income
+                        </label>
+                        <span className="font-mono text-[10px] text-slate-600 font-bold">
+                          ₹ {Number(profile.family_income_annual || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 font-mono font-bold text-slate-400 text-xs select-none">₹</span>
+                        <input
+                          type="number"
+                          value={profile.family_income_annual || 0}
+                          onChange={e => setProfile({ ...profile, family_income_annual: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-7 pr-3 py-2 text-xs font-mono tabular-nums font-semibold rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Ration Card Category
+                      </label>
+                      <select
+                        value={profile.ration_card_status}
+                        onChange={e => setProfile({ ...profile, ration_card_status: e.target.value })}
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                      >
+                        <option value="BPL">BPL (Below Poverty Line)</option>
+                        <option value="Antyodaya">Antyodaya Anna Yojana (AAY)</option>
+                        <option value="APL">APL (Above Poverty Line)</option>
+                        <option value="none">No Ration Card</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                        Hospital Facility Type
+                      </label>
+                      <select
+                        value={profile.hospital_type}
+                        onChange={e => setProfile({ ...profile, hospital_type: e.target.value })}
+                        className="w-full px-3 py-2 text-xs rounded border border-slate-300 focus:outline-hidden focus:border-[#0b2b82] font-medium bg-white text-slate-900 cursor-pointer"
+                      >
+                        <option value="government">Government Hospital (DH / Medical College / AIIMS)</option>
+                        <option value="empanelled_private">Empanelled Private Hospital (NABH / PM-JAY)</option>
+                        <option value="charitable">Charitable / Trust Hospital</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {/* Existing Official Documents */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
+                {/* Panel 4: Document Registry */}
+                <div className="p-4 sm:p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">
-                      Existing Official Identity &amp; Eligibility Documents (Click to Toggle)
-                    </label>
-                    <span className="text-[11px] text-slate-500">
-                      {(profile.existing_documents || []).length} Selected
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      04. Verified Identity &amp; Statutory Credentials
+                    </span>
+                    <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      {(profile.existing_documents || []).length} / {ALL_DOCUMENTS_CATALOG.length} Documents Verified
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
                     {ALL_DOCUMENTS_CATALOG.map(doc => {
                       const isHeld = (profile.existing_documents || []).includes(doc);
                       return (
@@ -33289,116 +33549,130 @@ function ScreenSchemeFinder({
                           key={doc}
                           type="button"
                           onClick={() => toggleDocument(doc)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          className={`p-2 rounded text-left text-xs font-medium border transition-colors flex items-center gap-2 cursor-pointer ${
                             isHeld
-                              ? 'bg-[#0b2b82] border-[#0b2b82] text-white shadow-2xs'
-                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                              ? 'bg-blue-50/70 border-[#0b2b82] text-[#0b2b82] font-semibold'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
                           }`}
                         >
-                          <span>{doc}</span>
+                          <span className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center shrink-0 text-[10px] font-bold border ${
+                            isHeld ? 'bg-[#0b2b82] border-[#0b2b82] text-white' : 'border-slate-300 bg-white text-transparent'
+                          }`}>
+                            ✓
+                          </span>
+                          <span className="truncate">{doc}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Primary Evaluation CTA Button */}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={handleStartEvaluation}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-xl text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Evaluate Eligibility &amp; Find Relevant Schemes</span>
-                    <span>&rarr;</span>
-                  </button>
+                {/* Utilitarian Execution Action Bar */}
+                <div className="bg-slate-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200">
+                  <div className="text-[11px] text-slate-500 flex items-center gap-2 font-mono">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                    <span>Rules Engine Ready (16 Statutory Schemes Whitelisted)</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setProfile(SCHEME_PRESETS.anita)}
+                      className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-300 text-xs transition-colors cursor-pointer"
+                    >
+                      Reset Parameters
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartEvaluation}
+                      className="px-5 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <span>Execute Statutory Rules Engine</span>
+                      <span>&rarr;</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* STAGE 2: MATCHING RELEVANT GOVERNMENT HEALTH SCHEMES (NOT SIDE-BY-SIDE) */}
+          {/* STAGE 2: MATCHING RELEVANT GOVERNMENT HEALTH SCHEMES */}
           {patientStage === 'results' && (
-            <div className="space-y-6">
-              {/* Summary Bar & Modify Intake */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <span className="text-[11px] font-bold text-[#0b2b82] uppercase tracking-wider block">
-                    Assessed Patient Profile
-                  </span>
-                  <div className="text-sm font-bold text-slate-900">
-                    {profile.diagnosis || 'Clinical Condition'} &bull; {profile.age}y {profile.gender} &bull; ₹{Number(profile.family_income_annual || 0).toLocaleString()}/yr &bull; {profile.state} ({profile.ration_card_status})
+            <div className="space-y-4">
+              {/* Summary Dossier Bar */}
+              <div className="bg-white rounded-md border border-slate-200 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Evaluation Complete
+                    </span>
+                    <span className="text-xs font-bold text-slate-900">
+                      {profile.diagnosis || 'Clinical Condition'}
+                    </span>
+                  </div>
+                  <div className="text-xs font-mono tabular-nums text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>Age: {profile.age}y ({profile.gender})</span>
+                    <span>&bull;</span>
+                    <span>Domicile: {profile.district}, {profile.state}</span>
+                    <span>&bull;</span>
+                    <span>Income: ₹{Number(profile.family_income_annual || 0).toLocaleString()}/yr</span>
+                    <span>&bull;</span>
+                    <span>Category: {profile.ration_card_status}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setPatientStage('assessment')}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-300 text-xs transition-colors flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
                 >
-                  <span>&larr; Modify Assessment Profile</span>
+                  <span>&larr; Reconfigure Parameters</span>
                 </button>
               </div>
 
               {clarificationNotice && (
-                <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-medium flex items-center justify-between">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-md text-xs font-medium flex items-center justify-between">
                   <span>{clarificationNotice.msg}</span>
-                  <button type="button" onClick={() => setClarificationNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2">✕</button>
+                  <button type="button" onClick={() => setClarificationNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 cursor-pointer">✕</button>
                 </div>
               )}
 
               {/* SKELETON LOADERS WHILE ASSESSING */}
               {isAssessing && (
-                <div className="space-y-4">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <div className="space-y-3">
+                  <div className="text-xs font-mono font-semibold text-slate-500 uppercase tracking-wider">
                     Analyzing Eligibility Criteria &bull; Evaluating Whitelisted Packages...
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[1, 2, 3, 4].map(idx => (
-                      <div key={idx} className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4 animate-pulse">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3.5 flex-1">
-                            <div className="w-10 h-10 rounded-lg bg-slate-200 shrink-0"></div>
-                            <div className="space-y-1.5 flex-1">
-                              <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                              <div className="h-3 bg-slate-100 rounded w-1/3"></div>
-                            </div>
-                          </div>
-                          <div className="h-6 w-24 bg-slate-100 rounded-full shrink-0"></div>
-                        </div>
-                        <div className="space-y-2 pt-2">
-                          <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                          <div className="h-3 bg-slate-100 rounded w-full"></div>
-                          <div className="h-3 bg-slate-100 rounded w-5/6"></div>
-                        </div>
-                        <div className="h-9 bg-slate-100 rounded-lg w-full mt-2"></div>
+                      <div key={idx} className="bg-white rounded-md p-4 border border-slate-200 shadow-2xs space-y-3 animate-pulse">
+                        <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                        <div className="h-8 bg-slate-100 rounded w-full mt-2"></div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* INTERACTIVE DOCUMENT GAP-FILLING CARD (When needed) */}
+              {/* ACTIONABLE DOCUMENT GAP-FILLING NOTICE */}
               {!isAssessing && assessment?.pending_clarifications?.length > 0 && (
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-[#0b2b82] font-bold text-sm flex items-center justify-center shrink-0 border border-blue-100">
-                      Doc
+                <div className="bg-amber-50/40 border border-amber-200 rounded-md p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-6 h-6 rounded bg-amber-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                      !
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
-                          Interactive Document Gap-Filling
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                          Single-Document Gap Action Required
                         </span>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          1 Verification Action Pending
+                        <span className="text-[10px] font-mono text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                          1 Verification Pending
                         </span>
                       </div>
-                      <h4 className="text-base font-bold text-slate-900 mt-1">
-                        A Single Missing Document Can Unlock Full Coverage!
-                      </h4>
-                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                        Rather than marking a scheme as partial and discarding it silently, we verify your status right now so the rules engine can upgrade you to eligible.
+                      <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                        A single credential confirmation can upgrade this patient profile to 100% full cashless package eligibility.
                       </p>
                     </div>
                   </div>
@@ -33406,13 +33680,13 @@ function ScreenSchemeFinder({
                   {assessment.pending_clarifications.map(q => {
                     const isProcessing = clarifyingId === q.question_id;
                     return (
-                      <div key={q.question_id} className="bg-slate-50/70 rounded-xl p-4 border border-slate-200 space-y-3">
-                        <div className="text-xs font-bold text-slate-800">
+                      <div key={q.question_id} className="bg-white rounded p-3 border border-amber-200/80 space-y-2">
+                        <div className="text-xs font-bold text-slate-900">
                           {q.question_text}
                         </div>
                         {q.guidance_if_no && (
-                          <div className="text-[11px] text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
-                            <strong>Procurement Guidance:</strong> {q.guidance_if_no}
+                          <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                            <strong>Procurement Directive:</strong> {q.guidance_if_no}
                           </div>
                         )}
                         <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -33420,25 +33694,25 @@ function ScreenSchemeFinder({
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'yes', q.document_name)}
                             disabled={isProcessing}
-                            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded text-xs transition-colors cursor-pointer"
                           >
-                            <span>Yes, I have it</span>
+                            <span>Yes, Document Available</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'no', q.document_name)}
                             disabled={isProcessing}
-                            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs border border-slate-200 transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded text-xs border border-slate-300 transition-colors cursor-pointer"
                           >
-                            <span>No, I do not have it</span>
+                            <span>No, Lacking Document</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleClarification(q.question_id, 'not_sure', q.document_name)}
                             disabled={isProcessing}
-                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded text-xs transition-colors cursor-pointer"
                           >
-                            <span>Not sure</span>
+                            <span>Verify Later</span>
                           </button>
                         </div>
                       </div>
@@ -33447,102 +33721,100 @@ function ScreenSchemeFinder({
                 </div>
               )}
 
-              {/* RELEVANT SCHEMES FULL-WIDTH 2-COLUMN GRID (Matching Home Feature Cards Look) */}
+              {/* RELEVANT SCHEMES FULL-WIDTH 2-COLUMN GRID */}
               {!isAssessing && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900">
-                        {assessment?.ranked_recommendations?.length || 0} Relevant Government Health Schemes
+                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                        {assessment?.ranked_recommendations?.length || 0} Evaluated Statutory Scheme Packages
                       </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Ranked strictly by Clinical Need (25%) &bull; Benefit Coverage (20%) &bull; Feasibility (20%)
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        Scoring Model: Clinical Need (25%) &bull; Benefit Volume (20%) &bull; Feasibility (20%)
                       </p>
                     </div>
                   </div>
 
                   {(!assessment || assessment.ranked_recommendations?.length === 0) ? (
-                    <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
-                      <h4 className="text-sm font-bold text-slate-800">No schemes directly matched current criteria</h4>
+                    <div className="bg-white rounded-md border border-slate-200 p-8 text-center space-y-2">
+                      <h4 className="text-sm font-bold text-slate-800">No schemes directly matched current parameters</h4>
                       <p className="text-xs text-slate-500 max-w-md mx-auto">
                         Check if annual income or residency requirements are within statutory caps, or modify the assessment profile above.
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {assessment.ranked_recommendations.map((rec, index) => {
                         const isPassed = rec.status === 'PASS';
                         return (
                           <div
                             key={rec.scheme_id}
-                            className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#0b2b82]/40 transition-all duration-200 flex flex-col justify-between space-y-4 group cursor-pointer"
+                            className="bg-white rounded-md p-4 sm:p-5 border border-slate-200 hover:border-slate-300 shadow-2xs transition-colors flex flex-col justify-between space-y-3.5"
                           >
-                            <div className="space-y-3">
-                              {/* Header: Icon on left, Title shifted to right of icon, and clean Verified badge on far right */}
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3.5 min-w-0">
-                                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#0b2b82] flex items-center justify-center shrink-0 group-hover:bg-[#0b2b82] group-hover:text-white transition-colors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <h4 className="text-base font-bold text-slate-900 group-hover:text-[#0b2b82] transition-colors leading-snug truncate">
-                                      {rec.scheme_name}
-                                    </h4>
-                                    <span className="text-[11px] font-medium text-slate-500 block">
+                            <div className="space-y-2.5">
+                              {/* Header: Title & Badges */}
+                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                                      {rec.short_code}
+                                    </span>
+                                    <span className="text-[11px] font-semibold text-slate-500 truncate">
                                       {rec.issuing_body === 'central' ? 'Central Government' : rec.issuing_body.replace('state:', 'State of ')}
                                     </span>
                                   </div>
+                                  <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                                    {rec.scheme_name}
+                                  </h4>
                                 </div>
 
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/90 shadow-2xs shrink-0">
-                                  <svg className="w-3.5 h-3.5 text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                  </svg>
-                                  <span>{rec.match_score_pct}% Match &bull; {isPassed ? 'Eligible' : 'Partial'}</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider shrink-0 border ${
+                                  isPassed
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}>
+                                  {rec.match_score_pct}% &bull; {isPassed ? 'Eligible' : 'Partial'}
                                 </span>
                               </div>
 
-                              {/* Financial Coverage & Plain Description */}
-                              <div className="pt-1">
-                                <div className="text-xs font-semibold text-slate-500">
-                                  Maximum Cashless Coverage: <span className="font-extrabold text-[#0b2b82] text-sm">₹{rec.max_benefit_amount.toLocaleString()}</span>
+                              {/* Financial Coverage in font-mono tabular-nums */}
+                              <div className="bg-slate-50/70 p-2.5 rounded border border-slate-200/80 space-y-1">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                                  <span>Statutory Cashless Ceiling:</span>
+                                  <span className="font-mono tabular-nums font-bold text-slate-900 text-sm">
+                                    ₹ {rec.max_benefit_amount.toLocaleString()}
+                                  </span>
                                 </div>
-                                <p className="text-xs text-slate-600 leading-relaxed font-normal mt-1.5">
+                                <p className="text-xs text-slate-600 leading-relaxed font-normal">
                                   {rec.financial_assistance}
                                 </p>
                               </div>
 
-                              {/* Verified Source Footer in subtle text with hover title placeholder */}
-                              <div
-                                className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100"
-                                title={`Verified official statutory package from ${rec.source_portal_name} as of ${rec.last_verified_date}`}
-                              >
+                              {/* Verified Source Footer */}
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 font-mono">
                                 <span className="truncate">Source: {rec.source_portal_name}</span>
-                                <span className="shrink-0 font-medium">Verified: {rec.last_verified_date}</span>
+                                <span className="shrink-0">Verified: {rec.last_verified_date}</span>
                               </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex items-center gap-2 pt-1">
+                            <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                               <button
                                 type="button"
                                 onClick={() => handleOpenExplain(rec.scheme_id, rec.scheme_name, 'why_eligible')}
-                                className="flex-1 py-2 px-3.5 bg-slate-50 hover:bg-[#0b2b82] hover:text-white group-hover:bg-[#0b2b82] group-hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 border border-slate-200/80 group-hover:border-[#0b2b82] cursor-pointer"
+                                className="flex-1 py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded text-xs transition-colors flex items-center justify-center gap-1 border border-slate-300 cursor-pointer"
                               >
                                 <span>Eligibility Guidance</span>
-                                <span className="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+                                <span>&rarr;</span>
                               </button>
                               <a
                                 href={rec.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-semibold rounded-lg text-xs border border-slate-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                                className="py-1.5 px-2.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-semibold rounded text-xs border border-slate-300 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                                 title="Open official government scheme website"
                               >
-                                <span>Portal ↗</span>
+                                <span>Gazette ↗</span>
                               </a>
                             </div>
                           </div>
