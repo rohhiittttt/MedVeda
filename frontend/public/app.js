@@ -752,6 +752,90 @@ function getRoleBadgeLabel(role) {
   return map[role] || 'User';
 }
 
+// ==========================================
+// --- LOGOUT CONFIRMATION MODAL ---
+// --- Responsive MedVeda UI Confirmation ---
+// ==========================================
+function LogoutConfirmModal({ isOpen, onClose, onConfirm }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'Enter') {
+        onConfirm();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, onConfirm]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logout-dialog-title"
+      aria-describedby="logout-dialog-desc"
+    >
+      <div
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 max-w-[340px] sm:max-w-[380px] w-full overflow-hidden text-center animate-in zoom-in-95 duration-200 select-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Content Area */}
+        <div className="px-6 pt-7 pb-6 sm:px-8 sm:pt-8 sm:pb-7 flex flex-col items-center">
+          {/* Circular Shield with Question Mark Icon in MedVeda Blue Palette */}
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-50 border border-blue-100/80 flex items-center justify-center text-[#0b2b82] shadow-2xs mb-3.5 sm:mb-4">
+            <svg
+              className="w-7 h-7 sm:w-8 sm:h-8"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#0b2b82"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth="2.5" />
+            </svg>
+          </div>
+
+          <h3 id="logout-dialog-title" className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            Are you sure?
+          </h3>
+          <p id="logout-dialog-desc" className="text-xs sm:text-sm text-slate-500 font-normal mt-1 sm:mt-1.5 leading-relaxed">
+            You can always log in later to your account.
+          </p>
+        </div>
+
+        {/* Action Buttons Footer with Split Vertical Divider */}
+        <div className="grid grid-cols-2 border-t border-slate-100 divide-x divide-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-3.5 sm:py-4 px-4 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50/90 active:bg-slate-100 transition-colors cursor-pointer select-none rounded-bl-2xl sm:rounded-bl-3xl"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="w-full py-3.5 sm:py-4 px-4 text-xs sm:text-sm font-bold text-[#0b2b82] hover:text-[#071a4f] hover:bg-blue-50/60 active:bg-blue-100/60 transition-colors cursor-pointer select-none rounded-br-2xl sm:rounded-br-3xl"
+          >
+            Yes, Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess, isPage = false }) {
   const [activeTab, setActiveTab] = useState(initialTab === 'signup' ? 'signup' : 'login');
   const [selectedRole, setSelectedRole] = useState(
@@ -1701,11 +1785,12 @@ function ModuleIcon({ id, className = "w-4 h-4", strokeWidth = 2 }) {
   }
 }
 
-function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser }) {
+function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser, onRequestLogout }) {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [featuresPinned, setFeaturesPinned] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [localUser, setLocalUser] = useState(null);
   const currentUser = propCurrentUser !== undefined ? propCurrentUser : localUser;
   const setCurrentUser = propSetCurrentUser || setLocalUser;
@@ -2221,9 +2306,11 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               <button
                 type="button"
                 onClick={() => {
-                  setCurrentUser(null);
-                  setActorRole('patient');
-                  setView('home');
+                  if (onRequestLogout) {
+                    onRequestLogout();
+                  } else {
+                    setShowLogoutModal(true);
+                  }
                 }}
                 className="text-[11px] font-medium text-slate-500 hover:text-rose-600 ml-1 px-1.5 py-0.5 rounded hover:bg-white transition-colors cursor-pointer"
                 title="Log out"
@@ -2272,6 +2359,18 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
           }}
         />
       )}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          if (setCurrentUser) setCurrentUser(null);
+          if (setActorRole) setActorRole('patient');
+          if (setView) setView('home');
+        }}
+      />
     </header>
   );
 }
@@ -2460,7 +2559,7 @@ function VitalsConfidenceBadge({ source }) {
 }
 
 // ==========================================
-// --- HEALTHCARE IMPACT AT A GLANCE (PERFORMANCE OVERVIEW) ---
+// --- OUR IMPACT SECTION (PERFORMANCE & REACH) ---
 // ==========================================
 function HealthcareImpactSection({
   onLaunchFeature1,
@@ -2468,90 +2567,216 @@ function HealthcareImpactSection({
   onLaunchFeature4,
   onLaunchFeature7
 }) {
-  const [mousePos, setMousePos] = useState({ x: 350, y: 180 });
-  const [isHovered, setIsHovered] = useState(false);
-  const containerRef = useRef(null);
+  const sectionRef = useRef(null);
+  const [isInView, setIsInView] = useState(false);
 
-  const handleMouseMove = (e) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setMousePos({
-      x: Math.round(e.clientX - rect.left),
-      y: Math.round(e.clientY - rect.top)
-    });
-  };
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  const titleWords = ['Our', 'Impact'];
+  const subtitleWords = ['Trusted', 'by', 'thousands', 'of', 'people'];
 
   const cards = [
     {
-      id: 'patients',
-      img: './impact-card-1.png',
-      alt: '38K+ Patients Served - 12.4% increase',
-      title: '38K+ Patients Served',
-      action: onLaunchFeature1,
-      offset: false
-    },
-    {
-      id: 'facilities',
-      img: './impact-card-2.png',
-      alt: '152+ Healthcare Facilities - 18 facilities added',
-      title: '152+ Healthcare Facilities',
-      action: onLaunchFeature7,
-      offset: true
-    },
-    {
       id: 'doctors',
-      img: './impact-card-3.png',
-      alt: '759+ Doctors Connected - 8.6% increase',
-      title: '759+ Doctors Connected',
+      img: './impact-doctors-connected.jpg',
+      alt: 'Doctors connected across MedVeda network',
+      stat: '2,500+',
+      words: ['Doctors', 'Connected'],
+      subtext: 'Verified specialists on call 24/7',
       action: onLaunchFeature2,
-      offset: false
+      baseDelay: 200
+    },
+    {
+      id: 'patients',
+      img: './impact-patients-served.jpg',
+      alt: 'Patients served with immediate clinical care',
+      stat: '150,000+',
+      words: ['Patients', 'Served'],
+      subtext: 'Accurately triaged & treated',
+      action: onLaunchFeature1,
+      baseDelay: 284
     },
     {
       id: 'rating',
-      img: './impact-card-4.png',
-      alt: '4.9 Average Rating - 20K+ Ratings - Patient Satisfaction',
-      title: '4.9 Patient Satisfaction Rating',
+      img: './impact-average-rating.jpg',
+      alt: 'Average rating from verified patient feedback',
+      stat: '4.9 ★',
+      words: ['Average', 'Rating'],
+      subtext: 'Based on 25,000+ patient reviews',
       action: onLaunchFeature4,
-      offset: true
+      baseDelay: 368
+    },
+    {
+      id: 'facilities',
+      img: './impact-facilities-connected.jpg',
+      alt: 'Healthcare facilities connected nationwide',
+      stat: '850+',
+      words: ['Facilities', 'Connected'],
+      subtext: 'Hospitals, clinics & diagnostic centers',
+      action: onLaunchFeature7,
+      baseDelay: 452
     }
   ];
 
   return (
     <section
-      className="relative w-full bg-slate-50/80 border-t border-slate-200 py-10 sm:py-14 select-none mt-4"
-      aria-label="Healthcare Impact at a Glance"
+      ref={sectionRef}
+      id="our-impact-section"
+      className="relative w-full bg-white py-16 sm:py-20 lg:py-24 select-none overflow-hidden"
+      aria-label="Our Impact"
     >
-      <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
-        {/* Section Header */}
-        <div className="max-w-3xl space-y-1.5 mb-6 sm:mb-8">
-          <div className="text-xs font-bold uppercase tracking-wider text-[#1565C0]">
-            Performance Overview
-          </div>
+      <style>{`
+        @keyframes blurLiftSettle {
+          0% {
+            opacity: 0;
+            transform: translateY(22px);
+            filter: blur(12px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0px);
+          }
+        }
+      `}</style>
 
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
-            Healthcare Impact at a Glance
+      <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        {/* Centered Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 flex flex-col items-center justify-center">
+          {/* Main Title: "Our Impact" in big font */}
+          <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.08] flex items-center justify-center gap-x-3 sm:gap-x-4">
+            {titleWords.map((word, idx) => (
+              <span
+                key={word}
+                className="inline-block"
+                style={
+                  isInView
+                    ? {
+                        animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                        animationDelay: `${idx * 28}ms`,
+                        willChange: 'transform, filter, opacity',
+                      }
+                    : { opacity: 0 }
+                }
+              >
+                {word}
+              </span>
+            ))}
           </h2>
 
-          <p className="text-sm sm:text-base text-slate-600 font-normal max-w-2xl leading-relaxed">
-            Connecting patients, healthcare facilities and doctors for better access to care.
+          {/* Subtitle: "Trusted by thousands of people" in small sized font */}
+          <p className="text-base sm:text-lg text-slate-600 font-normal mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-x-1.5">
+            {subtitleWords.map((word, idx) => (
+              <span
+                key={`${word}-${idx}`}
+                className="inline-block"
+                style={
+                  isInView
+                    ? {
+                        animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                        animationDelay: `${(titleWords.length + idx) * 28}ms`,
+                        willChange: 'transform, filter, opacity',
+                      }
+                    : { opacity: 0 }
+                }
+              >
+                {word}
+              </span>
+            ))}
           </p>
         </div>
 
-        {/* 4 Clean Enterprise Impact Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* 4 Impact Cards with Attached Compressed Images */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-7">
           {cards.map((card) => (
             <div
               key={card.id}
               onClick={card.action}
-              title={`Open ${card.title}`}
-              className="group/card relative rounded-lg overflow-hidden bg-white border border-slate-200 shadow-2xs hover:shadow-xs hover:border-[#1565C0]/40 cursor-pointer transition-all duration-300"
+              title={`View ${card.stat} ${card.words.join(' ')}`}
+              className="group/card relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm hover:shadow-2xl hover:border-sky-400/50 hover:-translate-y-1.5 cursor-pointer transition-all duration-300 flex flex-col justify-end aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5]"
             >
-              <div className="relative aspect-[4/5] w-full overflow-hidden">
-                <img
-                  src={card.img}
-                  alt={card.alt}
-                  className="w-full h-full object-cover object-center transform transition-transform duration-500 group-hover/card:scale-[1.02] select-none"
-                />
+              {/* Compressed Image */}
+              <img
+                src={card.img}
+                alt={card.alt}
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover/card:scale-105 select-none"
+              />
+
+              {/* Cinematic Vignette Overlay ensuring text contrast */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent pointer-events-none" />
+
+              {/* Animated Text on Card: Words lift out of a soft blur and settle into place */}
+              <div className="relative z-10 p-6 sm:p-7 flex flex-col justify-end pointer-events-none">
+                {/* Metric Number */}
+                <div
+                  className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md"
+                  style={
+                    isInView
+                      ? {
+                          animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                          animationDelay: `${card.baseDelay}ms`,
+                          willChange: 'transform, filter, opacity',
+                        }
+                      : { opacity: 0 }
+                  }
+                >
+                  {card.stat}
+                </div>
+
+                {/* Metric Words */}
+                <div className="text-sm sm:text-base font-bold text-sky-300 tracking-wide mt-1.5 drop-shadow-sm flex flex-wrap gap-x-1.5">
+                  {card.words.map((word, wIdx) => (
+                    <span
+                      key={word}
+                      className="inline-block"
+                      style={
+                        isInView
+                          ? {
+                              animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                              animationDelay: `${card.baseDelay + (wIdx + 1) * 28}ms`,
+                              willChange: 'transform, filter, opacity',
+                            }
+                          : { opacity: 0 }
+                      }
+                    >
+                      {word}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Subtext */}
+                <div
+                  className="text-xs text-slate-300/90 font-medium mt-1 drop-shadow-sm"
+                  style={
+                    isInView
+                      ? {
+                          animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                          animationDelay: `${card.baseDelay + 3 * 28}ms`,
+                          willChange: 'transform, filter, opacity',
+                        }
+                      : { opacity: 0 }
+                  }
+                >
+                  {card.subtext}
+                </div>
               </div>
             </div>
           ))}
@@ -2672,7 +2897,7 @@ function HomeTestimonialsSection() {
   const col3 = MEDVEDA_TESTIMONIALS.slice(6, 9);
 
   return (
-    <section className="bg-slate-50/70 py-16 sm:py-24 relative overflow-hidden border-t border-slate-200" aria-label="Customer Testimonials">
+    <section className="bg-white py-16 sm:py-24 relative overflow-hidden" aria-label="Customer Testimonials">
       <div className="max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 relative z-10">
         <div className="flex flex-col items-center justify-center max-w-[640px] mx-auto text-center mb-12 sm:mb-14">
           <div className="inline-flex items-center gap-1.5 border border-blue-200/90 bg-blue-50/80 py-1 px-4 rounded-full text-xs font-semibold text-[#1565C0] shadow-2xs mb-4">
@@ -3130,14 +3355,8 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
     <section
       ref={sectionRef}
       aria-label="MedVeda Features 3D Carousel"
-      className="relative w-full bg-[#FCFCFB] border-b border-slate-200/80 py-12 sm:py-16 md:py-20 select-none overflow-hidden"
+      className="relative w-full bg-white py-12 sm:py-16 md:py-20 select-none overflow-hidden"
     >
-      {/* Studio Floor Background Aura */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 left-1/4 w-[600px] h-[600px] rounded-full bg-blue-50/50 blur-3xl opacity-50" />
-        <div className="absolute -bottom-20 right-10 w-[700px] h-[350px] rounded-[100%] bg-slate-200/50 blur-2xl opacity-40" />
-      </div>
-
       <div className="relative z-10 max-w-7xl xl:max-w-[1440px] w-full mx-auto px-4 sm:px-8 lg:px-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
         {/* Left Side (about 30-35% width): Text Block */}
         <div className="w-full lg:w-[34%] xl:w-[32%] flex flex-col justify-center shrink-0 pr-0 lg:pr-4">
@@ -3312,6 +3531,320 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
   );
 }
 
+// ==========================================
+// --- OUR PLATFORM: ALL FEATURE CARDS SECTION ---
+// ==========================================
+function HomeOurPlatformSection({
+  isDHO = false,
+  onLaunchFeature1,
+  onLaunchFeature2,
+  onLaunchFeature3,
+  onLaunchFeature4,
+  onLaunchFeature5,
+  onLaunchFeature6,
+  onLaunchFeature7,
+  onLaunchFeature8,
+  onLaunchFeature9,
+  onLaunchFeature10
+}) {
+  const sectionRef = useRef(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  const allFeatures = [
+    {
+      id: 'feature1',
+      title: 'Smart Care Navigator',
+      tagline: 'Quick symptom check',
+      actionLabel: 'Check Symptoms',
+      action: onLaunchFeature1,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature2',
+      title: 'Teleconsultation',
+      tagline: 'Doctor video call',
+      actionLabel: 'Talk to Doctor',
+      action: onLaunchFeature2,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature3',
+      title: 'Referral Routing',
+      tagline: 'Find specialist hospital',
+      actionLabel: 'Find Hospital',
+      action: onLaunchFeature3,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3" />
+          <circle cx="6" cy="12" r="3" />
+          <circle cx="18" cy="19" r="3" />
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature4',
+      title: 'Health Monitoring',
+      tagline: 'Daily health checkup',
+      actionLabel: 'Track Health',
+      action: onLaunchFeature4,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature5',
+      title: 'Unified Health Records',
+      tagline: 'Save medical reports',
+      actionLabel: 'View Records',
+      action: onLaunchFeature5,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M9 15l2 2 4-4" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature6',
+      title: 'Medicine Search & Delivery',
+      tagline: 'Find medicines nearby',
+      actionLabel: 'Find Medicines',
+      action: onLaunchFeature6,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+          <path d="m8.5 8.5 7 7" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature7',
+      title: 'Facility Operations Dashboard',
+      tagline: 'Check hospital beds',
+      actionLabel: 'Check Hospital Beds',
+      action: onLaunchFeature7,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1" />
+          <rect x="14" y="3" width="7" height="5" rx="1" />
+          <rect x="14" y="12" width="7" height="9" rx="1" />
+          <rect x="3" y="16" width="7" height="5" rx="1" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature8',
+      title: 'AI Govt Health Scheme Finder',
+      tagline: 'Free government schemes',
+      actionLabel: 'Find Schemes',
+      action: onLaunchFeature8,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature9',
+      title: 'District Admin Command Center',
+      tagline: 'District health monitor',
+      actionLabel: 'Command Center',
+      action: onLaunchFeature9,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      )
+    },
+    {
+      id: 'feature10',
+      title: 'MediBot AI Assistant',
+      tagline: 'Voice health helper',
+      actionLabel: 'Talk to MediBot',
+      action: onLaunchFeature10,
+      icon: (
+        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="10" rx="2" />
+          <circle cx="12" cy="5" r="2" />
+          <path d="M12 7v4" />
+          <line x1="8" y1="16" x2="8.01" y2="16" />
+          <line x1="16" y1="16" x2="16.01" y2="16" />
+        </svg>
+      )
+    }
+  ];
+
+  // District Admin Control is visible only to DHO / Admins. Hidden for public.
+  const features = isDHO
+    ? allFeatures
+    : allFeatures.filter((f) => f.id !== 'feature9');
+
+  return (
+    <section
+      ref={sectionRef}
+      id="our-platform-section"
+      aria-label="Our Platform"
+      className="relative w-full bg-white py-16 sm:py-20 lg:py-28 select-none overflow-hidden"
+    >
+      <style>{`
+        @keyframes blurLiftSettle1s {
+          0% {
+            opacity: 0;
+            transform: translateY(28px);
+            filter: blur(14px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0px);
+          }
+        }
+      `}</style>
+
+      <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        {/* Main Heading in the Middle with 1.0s Y-direction fade in */}
+        <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
+          <div
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#1565C0]/10 text-[#1565C0] border border-[#1565C0]/20 mb-4"
+            style={
+              isInView
+                ? {
+                    animation: 'blurLiftSettle1s 1s cubic-bezier(0.16, 1, 0.3, 1) both',
+                    animationDelay: '0ms',
+                    willChange: 'transform, filter, opacity',
+                  }
+                : { opacity: 0 }
+            }
+          >
+            <span className="w-2 h-2 rounded-full bg-[#1565C0]" />
+            <span className="tracking-wider uppercase">Healthcare Services</span>
+          </div>
+
+          <h2
+            className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.08] flex items-center justify-center gap-x-3 sm:gap-x-4"
+          >
+            {['Our', 'Platform'].map((word, idx) => (
+              <span
+                key={word}
+                className="inline-block"
+                style={
+                  isInView
+                    ? {
+                        animation: 'blurLiftSettle1s 1s cubic-bezier(0.16, 1, 0.3, 1) both',
+                        animationDelay: `${40 + idx * 35}ms`,
+                        willChange: 'transform, filter, opacity',
+                      }
+                    : { opacity: 0 }
+                }
+              >
+                {word}
+              </span>
+            ))}
+          </h2>
+
+          <p
+            className="mt-4 text-base sm:text-lg text-slate-600 font-normal leading-relaxed"
+            style={
+              isInView
+                ? {
+                    animation: 'blurLiftSettle1s 1s cubic-bezier(0.16, 1, 0.3, 1) both',
+                    animationDelay: '120ms',
+                    willChange: 'transform, filter, opacity',
+                  }
+                : { opacity: 0 }
+            }
+          >
+            Simple and accessible care for every family — quick symptom checkups, verified doctors, and emergency hospital services.
+          </p>
+        </div>
+
+        {/* Feature Cards Grid: Strictly 3 feature cards in a row on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
+          {features.map((feat, idx) => (
+            <div
+              key={feat.id}
+              onClick={feat.action}
+              className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/90 hover:border-[#1565C0]/40 shadow-sm hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between cursor-pointer group"
+              style={
+                isInView
+                  ? {
+                      animation: 'blurLiftSettle1s 1s cubic-bezier(0.16, 1, 0.3, 1) both',
+                      animationDelay: `${140 + idx * 50}ms`,
+                      willChange: 'transform, filter, opacity',
+                    }
+                  : { opacity: 0 }
+              }
+            >
+              {/* Logo on the left, Feature title and gray descriptive 2-3 word line on the right side of the logo */}
+              <div className="flex items-start gap-4">
+                {/* Feature Logo */}
+                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-[#1565C0]/10 border border-[#1565C0]/20 flex items-center justify-center shrink-0 group-hover:bg-[#1565C0] group-hover:border-[#1565C0] transition-all duration-300 shadow-2xs">
+                  {React.cloneElement(feat.icon, {
+                    className: 'w-6 h-6 sm:w-7 sm:h-7 text-[#1565C0] group-hover:text-white transition-colors duration-300'
+                  })}
+                </div>
+
+                {/* Feature Title and Gray Descriptive Line */}
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-xl sm:text-[22px] font-bold text-slate-900 tracking-tight leading-snug group-hover:text-[#1565C0] transition-colors">
+                    {feat.title}
+                  </h3>
+                  <p className="text-slate-500 text-sm sm:text-base font-normal mt-1 leading-snug">
+                    {feat.tagline}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom Action Row */}
+              <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#1565C0] group-hover:text-blue-700">
+                <span>{feat.actionLabel}</span>
+                <span className="text-base group-hover:translate-x-1.5 transition-transform">
+                  &rarr;
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HomeCookieBanner() {
   const [isVisible, setIsVisible] = useState(true);
   if (!isVisible) return null;
@@ -3372,6 +3905,420 @@ function HomeCookieBanner() {
         </button>
       </div>
     </aside>
+  );
+}
+
+// ==========================================
+// --- 3D CLINICAL VIDEO HERO SHOWCASE (TOP OF HOMEPAGE) ---
+// ==========================================
+function Home3DVideoShowcase() {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const containerRef = useRef(null);
+  const videoRef = useRef(null);
+
+  const handleMouseMove = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) - 0.5;
+    const y = ((e.clientY - rect.top) / rect.height) - 0.5;
+    setMousePos({ x, y });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePos({ x: 0, y: 0 });
+    setIsHovered(false);
+  };
+
+  const toggleSound = (e) => {
+    if (e) e.stopPropagation();
+    if (!videoRef.current) return;
+    const nextMuted = !videoRef.current.muted;
+    videoRef.current.muted = nextMuted;
+    if (!nextMuted) {
+      videoRef.current.volume = 1.0;
+      videoRef.current.play().catch(() => {});
+    }
+    setIsMuted(nextMuted);
+  };
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    v.muted = false;
+    v.volume = 1.0;
+    const p = v.play();
+    if (p !== undefined) {
+      p.then(() => {
+        setIsMuted(false);
+      }).catch(() => {
+        v.muted = true;
+        setIsMuted(true);
+        v.play().catch(() => {});
+
+        const onFirstInteraction = () => {
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            videoRef.current.volume = 1.0;
+            videoRef.current.play().catch(() => {});
+            setIsMuted(false);
+          }
+          window.removeEventListener('click', onFirstInteraction);
+          window.removeEventListener('keydown', onFirstInteraction);
+          window.removeEventListener('touchstart', onFirstInteraction);
+        };
+        window.addEventListener('click', onFirstInteraction, { once: true });
+        window.addEventListener('keydown', onFirstInteraction, { once: true });
+        window.addEventListener('touchstart', onFirstInteraction, { once: true });
+      });
+    }
+  }, []);
+
+  return (
+    <section
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      className="relative w-full bg-white overflow-hidden py-8 sm:py-12 lg:py-16 flex items-center justify-center select-none"
+    >
+      {/* Centered 3D Video Stage */}
+      <div
+        className="relative z-10 max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto px-4 sm:px-8 flex items-center justify-center"
+        style={{
+          perspective: '1200px',
+          transformStyle: 'preserve-3d',
+        }}
+      >
+        <div
+          className="relative w-full flex items-center justify-center cursor-pointer"
+          onClick={toggleSound}
+          style={{
+            transform: `rotateY(${mousePos.x * 12}deg) rotateX(${-mousePos.y * 10}deg)`,
+            transformStyle: 'preserve-3d',
+            transition: isHovered ? 'transform 0.12s ease-out' : 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {/* Studio Pedestal Drop Shadow underneath */}
+          <div
+            className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-[90%] h-[50px] pointer-events-none rounded-[100%]"
+            style={{
+              background: 'radial-gradient(ellipse 70% 40% at 50% 50%, rgba(30,25,18,0.22) 0%, rgba(30,25,18,0.06) 55%, transparent 75%)',
+              filter: 'blur(14px)',
+              transform: 'translateZ(-40px)',
+            }}
+          />
+
+          {/* 3D Video Frame with seamlessly feathered background */}
+          <div
+            className="relative w-full aspect-video rounded-3xl overflow-hidden transition-all duration-300"
+            style={{
+              transform: 'translateZ(10px)',
+              maskImage: 'radial-gradient(ellipse 94% 92% at 50% 50%, black 75%, transparent 100%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 94% 92% at 50% 50%, black 75%, transparent 100%)',
+            }}
+          >
+            <video
+              ref={videoRef}
+              src="./gemini_generated_video_b7af3c29.mp4"
+              poster="./video_poster.jpg"
+              autoPlay
+              loop
+              playsInline
+              className="w-full h-full object-cover object-center select-none transform scale-[1.03]"
+            />
+
+            {/* Subtle top scrim vignette to give bold white text crisp, cinematic contrast */}
+            <div
+              className="absolute inset-x-0 top-0 h-44 sm:h-56 md:h-64 pointer-events-none z-15"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.38) 45%, rgba(0, 0, 0, 0.10) 75%, transparent 100%)',
+              }}
+            />
+
+            {/* Fading Bold White Headline from Left to Right */}
+            <div className="absolute top-0 inset-x-0 pt-4 sm:pt-6 md:pt-8 lg:pt-10 px-4 sm:px-8 md:px-12 z-20 pointer-events-none flex items-center justify-center text-center">
+              <h1
+                className="text-white font-black tracking-tight leading-[1.12] max-w-5xl select-none"
+                style={{
+                  fontSize: 'clamp(1.5rem, 4vw, 3.75rem)',
+                  textShadow: '0 4px 24px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 0, 0, 0.6)',
+                  animation: 'medvedaFadeSlideLeftToRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                }}
+              >
+                India's First Fully Connected HealthCare Ecosystem
+              </h1>
+            </div>
+
+            <style>{`
+              @keyframes medvedaFadeSlideLeftToRight {
+                0% {
+                  opacity: 0;
+                  transform: translateX(-45px);
+                  filter: blur(10px);
+                }
+                40% {
+                  opacity: 0.7;
+                }
+                100% {
+                  opacity: 1;
+                  transform: translateX(0);
+                  filter: blur(0);
+                }
+              }
+            `}</style>
+
+            {/* Subtle Interactive Sound Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+              className="absolute bottom-4 right-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-lg cursor-pointer transition-all hover:scale-105 active:scale-95"
+            >
+              {isMuted ? (
+                <>
+                  <svg className="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                  <span>Click to Unmute</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 text-emerald-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                  </svg>
+                  <span>Sound On</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==========================================
+// --- WELCOME TO MEDVEDA & CORE MOTIVES SECTION ---
+// ==========================================
+function HomeWelcomeMotiveSection({ onLaunchFeature1, onLaunchFeature2, onLaunchFeature8 }) {
+  const sectionRef = useRef(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  const motives = [
+    {
+      kicker: 'Universal Access',
+      title: 'Democratizing Quality Healthcare',
+      description:
+        'Eliminating geographic and financial boundaries to bring certified clinical specialists, instant AI triage, and transparent medical navigation to every doorstep across India.',
+      action: onLaunchFeature2 || onLaunchFeature1,
+      badge: '24/7 Specialist Connect',
+      icon: (
+        <svg className="w-6 h-6 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 21h18" />
+          <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+          <path d="M9 10h6" />
+          <path d="M12 7v6" />
+        </svg>
+      )
+    },
+    {
+      kicker: 'Urgent Intervention',
+      title: 'Preventing Avoidable Mortality',
+      description:
+        'Intercepting critical emergencies before it is too late. Intelligent triage assesses symptom severity in real-time and routes acute cases directly to equipped emergency centers with verified bed availability.',
+      action: onLaunchFeature1,
+      badge: 'Zero-Delay Emergency Triage',
+      icon: (
+        <svg className="w-6 h-6 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+      )
+    },
+    {
+      kicker: 'Grassroots Empowerment',
+      title: 'Uplifting Underserved & Rural Regions',
+      description:
+        'Extending modern clinical infrastructure to Tier-2, Tier-3, and remote rural districts with vernacular voice triage, community health worker tools, and automated Ayushman Bharat scheme navigation.',
+      action: onLaunchFeature8 || onLaunchFeature1,
+      badge: 'Last-Mile Public Health',
+      icon: (
+        <svg className="w-6 h-6 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      )
+    }
+  ];
+
+  return (
+    <section
+      ref={sectionRef}
+      id="welcome-medveda"
+      aria-label="Welcome to MedVeda and Core Purpose"
+      className="relative w-full bg-white py-16 sm:py-20 lg:py-24 select-none overflow-hidden"
+    >
+      <style>{`
+        @keyframes blurLiftSettle {
+          0% {
+            opacity: 0;
+            transform: translateY(24px);
+            filter: blur(14px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0px);
+          }
+        }
+      `}</style>
+
+      <div className="max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
+        {/* Header / Introduction */}
+        <div className="text-center max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#1565C0]/10 text-[#1565C0] border border-[#1565C0]/20 mb-5">
+            <span className="w-2 h-2 rounded-full bg-[#1565C0]" />
+            <span className="tracking-wider uppercase">Our Foundational Purpose</span>
+          </div>
+
+          {/* Large Animated Title: Words lift out of a soft blur and settle into place */}
+          <h2
+            className="font-black tracking-tight leading-[1.06] select-none flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 md:gap-x-5"
+            style={{ fontSize: 'clamp(2.75rem, 6.8vw, 5.75rem)' }}
+          >
+            <span
+              className="inline-block text-slate-900"
+              style={
+                isInView
+                  ? {
+                      animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                      animationDelay: '0ms',
+                      willChange: 'transform, filter, opacity',
+                    }
+                  : { opacity: 0 }
+              }
+            >
+              Welcome
+            </span>
+            <span
+              className="inline-block text-slate-900"
+              style={
+                isInView
+                  ? {
+                      animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                      animationDelay: '28ms',
+                      willChange: 'transform, filter, opacity',
+                    }
+                  : { opacity: 0 }
+              }
+            >
+              to
+            </span>
+            <span className="inline-flex items-center whitespace-nowrap">
+              <span
+                className="inline-block text-slate-900"
+                style={
+                  isInView
+                    ? {
+                        animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                        animationDelay: '56ms',
+                        willChange: 'transform, filter, opacity',
+                      }
+                    : { opacity: 0 }
+                }
+              >
+                Med
+              </span>
+              <span
+                className="inline-block text-[#0ea5e9]"
+                style={
+                  isInView
+                    ? {
+                        animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
+                        animationDelay: '84ms',
+                        willChange: 'transform, filter, opacity',
+                      }
+                    : { opacity: 0 }
+                }
+              >
+                Veda
+              </span>
+            </span>
+          </h2>
+
+          <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg md:text-xl leading-relaxed font-normal max-w-2xl mx-auto">
+            Bridging healthcare disparity across India through an intelligent, connected ecosystem designed to deliver timely, compassionate care to every citizen.
+          </p>
+        </div>
+
+        {/* 3 Core Motive Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mt-12 sm:mt-16 lg:mt-20">
+          {motives.map((m, idx) => (
+            <div
+              key={idx}
+              onClick={m.action}
+              className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200 hover:border-[#1565C0]/40 shadow-sm hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between cursor-pointer group"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-50/90 border border-blue-100 flex items-center justify-center mb-6 group-hover:bg-[#1565C0] transition-colors duration-300">
+                  <div className="group-hover:text-white transition-colors duration-300">
+                    {React.cloneElement(m.icon, {
+                      className: 'w-6 h-6 text-[#1565C0] group-hover:text-white transition-colors duration-300'
+                    })}
+                  </div>
+                </div>
+
+                <div className="text-xs font-bold uppercase tracking-wider text-[#1565C0] mb-2">
+                  {m.kicker}
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug group-hover:text-[#1565C0] transition-colors">
+                  {m.title}
+                </h3>
+
+                <p className="text-slate-600 text-sm sm:text-base leading-relaxed mt-3.5 font-normal">
+                  {m.description}
+                </p>
+              </div>
+
+              <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
+                <span className="text-[#1565C0] font-bold">{m.badge}</span>
+                <span className="text-slate-400 group-hover:text-[#1565C0] group-hover:translate-x-1.5 transition-transform">
+                  &rarr;
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -3545,35 +4492,26 @@ function ScreenHomepage({
 
   return (
     <div className="w-full">
-      {/* Interactive Hero Carousel (Full Width) */}
+      {/* 3D Clinical Video Showcase (Very Top of Homepage) */}
+      <Home3DVideoShowcase
+        onLaunchTriage={onLaunchFeature1}
+        onLaunchTeleconsult={onLaunchFeature2}
+      />
+
+      {/* Welcome to MedVeda & Core Motives Section (Just after Video, Before Carousels) */}
+      <HomeWelcomeMotiveSection
+        onLaunchFeature1={onLaunchFeature1}
+        onLaunchFeature2={onLaunchFeature2}
+        onLaunchFeature8={onLaunchFeature8}
+      />
+
+      {/* Interactive Hero Carousel (Full Width - Moved Down) */}
       <div
-        className="relative w-full min-h-[580px] lg:h-[calc(100vh-65px)] lg:max-h-[820px] overflow-hidden bg-white border-b border-slate-200 select-none group"
+        id="hero-carousel-section"
+        className="relative w-full min-h-[580px] lg:h-[calc(100vh-65px)] lg:max-h-[820px] overflow-hidden bg-white select-none group"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
       >
-        {/* Atmospheric Blue Cloud & Soft Sky Background (Inspired by overview light-blue palette & 2nd image) */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-          {/* Base soft sky gradient wash */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#edf5ff] via-[#f4f9fd]/90 to-white" />
-
-          {/* Organic atmospheric light blue glows / cloud aura on top and left */}
-          <div className="absolute -top-32 -left-20 w-[640px] h-[640px] rounded-full bg-[#dbeafe]/70 blur-[90px]" />
-          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[#e0effe]/80 blur-[80px]" />
-          <div className="absolute -bottom-24 left-12 w-[520px] h-[440px] rounded-full bg-[#edf5ff] blur-[70px]" />
-
-          {/* Airy cloud formations mimicking the 2nd image cloud design */}
-          <svg className="absolute -top-10 -left-10 w-[780px] h-[580px] opacity-40 mix-blend-multiply" viewBox="0 0 800 600" fill="none">
-            <path d="M150,300 Q200,160 360,180 Q460,110 580,210 Q680,190 700,320 Q720,440 560,460 Q420,500 270,470 Q130,450 150,300 Z" fill="#b9ddfd" filter="url(#heroCloudBlur)" />
-            <defs>
-              <filter id="heroCloudBlur" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="55" />
-              </filter>
-            </defs>
-          </svg>
-
-          {/* Clean fade to white on right: ensures right side is without color behind the pic */}
-          <div className="absolute inset-y-0 right-0 w-1/2 lg:w-3/5 bg-gradient-to-l from-white via-white/85 to-transparent" />
-        </div>
 
         {/* Slide 0: Smart Care Navigator */}
         <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
@@ -3878,6 +4816,21 @@ function ScreenHomepage({
 
       {/* 3D MEDIA CARD CAROUSEL FOR OUR FEATURES (using our already built cards) */}
       <HomeFeaturesCarousel3D modules={displayModules} />
+
+      {/* Our Platform: All Feature Cards (3 Cards Per Row, Clean & Professional) */}
+      <HomeOurPlatformSection
+        isDHO={isDistrictAdmin}
+        onLaunchFeature1={onLaunchFeature1}
+        onLaunchFeature2={onLaunchFeature2}
+        onLaunchFeature3={onLaunchFeature3}
+        onLaunchFeature4={onLaunchFeature4}
+        onLaunchFeature5={onLaunchFeature5}
+        onLaunchFeature6={onLaunchFeature6}
+        onLaunchFeature7={onLaunchFeature7}
+        onLaunchFeature8={onLaunchFeature8}
+        onLaunchFeature9={onLaunchFeature9}
+        onLaunchFeature10={onLaunchFeature10}
+      />
 
       {/* Healthcare Impact at a Glance Section (Full Width, matches carousel) */}
       <HealthcareImpactSection
@@ -30658,8 +31611,10 @@ function ScreenLogin({
   setCurrentUser,
   setActorRole,
   onLoginSuccess,
-  onBackToHome
+  onBackToHome,
+  onRequestLogout
 }) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const isDistrictAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin');
   const isHospitalFacility = currentUser && currentUser.role === 'facility';
   const isMedicineFacility = currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine');
@@ -30695,8 +31650,11 @@ function ScreenLogin({
             <button
               type="button"
               onClick={() => {
-                if (setCurrentUser) setCurrentUser(null);
-                if (setActorRole) setActorRole('patient');
+                if (onRequestLogout) {
+                  onRequestLogout();
+                } else {
+                  setShowLogoutModal(true);
+                }
               }}
               className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer"
             >
@@ -30713,6 +31671,17 @@ function ScreenLogin({
             </button>
           </div>
         </div>
+
+        {/* Logout Confirmation Modal */}
+        <LogoutConfirmModal
+          isOpen={showLogoutModal}
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={() => {
+            setShowLogoutModal(false);
+            if (setCurrentUser) setCurrentUser(null);
+            if (setActorRole) setActorRole('patient');
+          }}
+        />
       </div>
     );
   }
@@ -52573,6 +53542,15 @@ function App() {
     }
   };
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogout = () => {
+    handleSetCurrentUser(null);
+    setActorRole('patient');
+    setView('home');
+    setShowLogoutConfirm(false);
+  };
+
   const handleUpdateUser = (updatedUser) => {
     if (!updatedUser) return;
     setCurrentUser(updatedUser);
@@ -52903,6 +53881,7 @@ function App() {
         setActorRole={setActorRole}
         currentUser={currentUser}
         setCurrentUser={handleSetCurrentUser}
+        onRequestLogout={() => setShowLogoutConfirm(true)}
       />
 
       {/* HOMEPAGE VIEW */}
@@ -52958,6 +53937,7 @@ function App() {
             currentUser={currentUser}
             setCurrentUser={handleSetCurrentUser}
             setActorRole={setActorRole}
+            onRequestLogout={() => setShowLogoutConfirm(true)}
             onLoginSuccess={(user) => {
               handleSetCurrentUser(user);
               setView('overview');
@@ -53670,6 +54650,13 @@ function App() {
         setScreen={setScreen}
         setTeleconsultScreen={setTeleconsultScreen}
         setActorRole={setActorRole}
+      />
+
+      {/* Global App-Level Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
       />
     </div>
   );

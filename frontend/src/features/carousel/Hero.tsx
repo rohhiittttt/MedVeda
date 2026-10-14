@@ -43,13 +43,8 @@ export const Hero: React.FC<HeroProps> = ({
   return (
     <section
       aria-label="3D Media Card Carousel Hero"
-      className={`relative w-full min-h-[640px] lg:min-h-[720px] bg-[#FCFCFB] text-slate-900 overflow-hidden flex flex-col justify-center select-none ${className}`}
+      className={`relative w-full min-h-[640px] lg:min-h-[720px] bg-white text-slate-900 overflow-hidden flex flex-col justify-center select-none ${className}`}
     >
-      {/* Studio lighting & subtle background glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[700px] h-[700px] rounded-full bg-gradient-to-br from-blue-50/40 via-slate-100/30 to-transparent blur-3xl opacity-60" />
-        <div className="absolute -bottom-20 right-10 w-[600px] h-[300px] rounded-[100%] bg-slate-200/40 blur-2xl opacity-40" />
-      </div>
 
       <div className="relative z-10 max-w-[1440px] w-full mx-auto px-6 sm:px-10 lg:px-16 py-12 lg:py-16 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
         {/* Left Column (about 30–35% width): text block, vertically centered */}
