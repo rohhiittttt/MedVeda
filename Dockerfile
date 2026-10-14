@@ -3,7 +3,7 @@
 # Runs both Server 1 (Frontend/API) and Server 2 (Python RAG)
 # ========================================================
 
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # Install Python 3, pip, and required system tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,6 +37,7 @@ ENV PORT=3000
 ENV PYTHON_PORT=8001
 ENV PYTHON_PATH=/usr/bin/python3
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--experimental-sqlite"
 
 EXPOSE 3000
 
