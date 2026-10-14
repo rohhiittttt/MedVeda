@@ -41997,9 +41997,9 @@ function ScreenMedicalAssistantAgent({
     setIsStoresLoading(true);
     try {
       const [docRes, facRes, aptRes] = await Promise.all([
-        fetch('/api/agent/doctors').then((r) => r.json()).catch(() => null),
-        fetch('/api/agent/facilities').then((r) => r.json()).catch(() => null),
-        fetch('/api/agent/appointments?patient_id=PAT-2026-1024').then((r) => r.json()).catch(() => null)
+        fetch(getApiUrl('/api/agent/doctors')).then((r) => r.json()).catch(() => null),
+        fetch(getApiUrl('/api/agent/facilities')).then((r) => r.json()).catch(() => null),
+        fetch(getApiUrl('/api/agent/appointments?patient_id=PAT-2026-1024')).then((r) => r.json()).catch(() => null)
       ]);
       if (docRes && docRes.success) setDoctorsList(docRes.data || []);
       if (facRes && facRes.success) setFacilitiesList(facRes.data || []);
@@ -42194,7 +42194,7 @@ function ScreenMedicalAssistantAgent({
     }));
 
     try {
-      const fetchPromise = fetch('/api/agent/chat', {
+      const fetchPromise = fetch(getApiUrl('/api/agent/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42354,7 +42354,7 @@ function ScreenMedicalAssistantAgent({
         };
       }
 
-      const res = await fetch('/api/agent/action/execute', {
+      const res = await fetch(getApiUrl('/api/agent/action/execute'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody)

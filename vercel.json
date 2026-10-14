@@ -5,7 +5,7 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/v1/(.*)", "destination": "/api/v1/$1" },
-    { "source": "/((?!.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
+    { "source": "/((?!api|v1|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
