@@ -2887,6 +2887,7 @@ async def api_triage_screening_answer(payload: ScreeningAnswerRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting MedVeda Python Multilingual & Voice AI Service on http://127.0.0.1:8001")
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    py_port = int(os.environ.get("PYTHON_PORT", 8001))
+    print(f"Starting MedVeda Python Multilingual & Voice AI Service on http://127.0.0.1:{py_port}")
+    uvicorn.run(app, host="127.0.0.1", port=py_port)
 

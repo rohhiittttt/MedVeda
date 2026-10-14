@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.mp4
+Recording*.mp4
+gemini_generated_video_*.mp4
+.gemini/
+scratch/
+tests/
+.vscode/

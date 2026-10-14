@@ -19,9 +19,7 @@
     "dev": "tsx frontend/server.js"
   },
   "dependencies": {
-    "sucrase": "^3.35.1"
-  },
-  "devDependencies": {
+    "sucrase": "^3.35.1",
     "tsx": "^4.23.15"
   }
 }
