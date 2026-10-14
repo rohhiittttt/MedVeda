@@ -1796,6 +1796,26 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   const setCurrentUser = propSetCurrentUser || setLocalUser;
   const featuresRef = useRef(null);
 
+  const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
+
+  useEffect(() => {
+    if (currentView !== 'home') {
+      setIsScrolledPastHero(true);
+      return;
+    }
+
+    const checkScroll = () => {
+      // In first few scrolls of 3D video hero showcase, only buttons appear, not the head bar.
+      // Once scrolled past hero section, reveal full head bar.
+      const threshold = typeof window !== 'undefined' ? Math.max(window.innerHeight * 0.85, 650) : 700;
+      setIsScrolledPastHero(window.scrollY > threshold);
+    };
+
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    checkScroll();
+    return () => window.removeEventListener('scroll', checkScroll);
+  }, [currentView]);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (featuresRef.current && !featuresRef.current.contains(event.target)) {
@@ -2097,13 +2117,37 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     : allFeatureItems;
 
   const isFeatureActive = currentView.startsWith('feature') || currentView === 'overview' || currentView === 'asha_tracker';
+  const isHomeView = currentView === 'home';
+  const showHeadBar = !isHomeView || isScrolledPastHero;
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
+    <header
+      className={`z-40 transition-all duration-300 ${
+        isHomeView
+          ? `fixed top-0 inset-x-0 ${
+              showHeadBar
+                ? 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs'
+                : 'bg-transparent border-b border-transparent shadow-none pointer-events-none'
+            }`
+          : 'sticky top-0 bg-white border-b border-slate-200 shadow-xs'
+      }`}
+    >
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-4">
         {/* Logo & Brand */}
-        <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setView('home')}>
+        <div
+          className={`flex items-center gap-3 cursor-pointer select-none transition-all duration-300 ${
+            showHeadBar
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 -translate-y-4 pointer-events-none'
+          }`}
+          onClick={() => {
+            setView('home');
+            if (typeof window !== 'undefined') {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+        >
           <MedVedaLogo className="h-9 w-9" />
           <div>
             <div className="flex items-center gap-1.5">
@@ -2117,13 +2161,16 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
         </div>
 
         {/* Modern Minimalist Navigation with Text Color Change and Active/Hover Underline */}
-        <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold relative">
+        <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold relative pointer-events-auto">
           {/* Section 1: Home */}
           <button
             type="button"
             onClick={() => {
               setView('home');
               setFeaturesOpen(false);
+              if (typeof window !== 'undefined') {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
             }}
             className={`relative px-3 sm:px-3.5 py-2 transition-colors duration-200 text-xs sm:text-sm font-semibold whitespace-nowrap cursor-pointer group ${
               currentView === 'home'
@@ -2298,7 +2345,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
         </nav>
 
         {/* Right Controls: Unified Administrative Authentication & Profile Bar */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
           {currentUser ? (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1">
               <div className="w-6 h-6 rounded bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
@@ -2351,7 +2398,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('login');
                   setAuthModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer shadow-2xs"
               >
                 Log In
               </button>
@@ -2593,7 +2640,27 @@ function HealthcareImpactSection({
   onLaunchFeature7
 }) {
   const sectionRef = useRef(null);
+  const containerRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
+  const cardElementsRef = useRef([]);
+
+  // Animation, Drag & Inertia Refs (direct DOM updates for silky 60/120fps)
+  const offsetRef = useRef(0);
+  const targetOffsetRef = useRef(null);
+  const velocityRef = useRef(0);
+  const isHoveredRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartOffsetRef = useRef(0);
+  const lastPointerXRef = useRef(0);
+  const lastPointerTimeRef = useRef(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') {
@@ -2660,6 +2727,186 @@ function HealthcareImpactSection({
     }
   ];
 
+  // Repeat 4 unique cards 4 times (16 cards total) for continuous infinite 3D loop
+  const REPEAT_COUNT = 4;
+  const ribbonCards = useMemo(() => {
+    const list = [];
+    for (let rep = 0; rep < REPEAT_COUNT; rep++) {
+      for (let i = 0; i < cards.length; i++) {
+        list.push({
+          ...cards[i],
+          instanceIndex: list.length,
+          uniqueKey: `impact-${cards[i].id}-${rep}`
+        });
+      }
+    }
+    return list;
+  }, []);
+
+  // 60FPS / 120FPS Direct DOM Animation Loop
+  useEffect(() => {
+    let animId;
+    let lastTime = performance.now();
+
+    const updateLoop = (now) => {
+      const dt = Math.min(32, Math.max(10, now - lastTime));
+      lastTime = now;
+      const container = containerRef.current;
+
+      if (container && isInView) {
+        const containerWidth = container.clientWidth || 1200;
+        const isMobile = containerWidth < 640;
+        const isTablet = containerWidth < 1024;
+
+        // Dynamic card dimensions based on viewport width
+        const cardWidth = isMobile ? 290 : (isTablet ? 350 : 410);
+        const cardGap = isMobile ? 18 : 26;
+        const stride = cardWidth + cardGap;
+        const totalTrack = ribbonCards.length * stride;
+        const xCenter = containerWidth / 2;
+
+        // Auto flow speed: smooth cinematic progression
+        let autoSpeed = 0.65 * (dt / 16.67);
+        if (isPausedRef.current) {
+          autoSpeed = 0;
+        } else if (isHoveredRef.current) {
+          autoSpeed = 0.12 * (dt / 16.67);
+        }
+
+        // Apply drag, inertia, or smooth step targeting
+        if (!isDraggingRef.current) {
+          if (targetOffsetRef.current !== null) {
+            const diff = targetOffsetRef.current - offsetRef.current;
+            if (Math.abs(diff) < 0.5) {
+              offsetRef.current = targetOffsetRef.current;
+              targetOffsetRef.current = null;
+            } else {
+              offsetRef.current += diff * 0.12;
+            }
+          } else {
+            if (Math.abs(velocityRef.current) > 0.05) {
+              offsetRef.current += velocityRef.current;
+              velocityRef.current *= 0.94;
+            } else {
+              velocityRef.current = 0;
+              offsetRef.current += autoSpeed;
+            }
+          }
+        }
+
+        // Keep offset bounded within totalTrack to prevent float drift
+        offsetRef.current = ((offsetRef.current % totalTrack) + totalTrack) % totalTrack;
+        const currentOffset = offsetRef.current;
+
+        // Radius for curvature normalization
+        const radius = Math.max(340, containerWidth * 0.54);
+
+        // Update each card in the 3D cylindrical stage
+        for (let k = 0; k < ribbonCards.length; k++) {
+          const cardEl = cardElementsRef.current[k];
+          if (!cardEl) continue;
+
+          const base = k * stride - currentOffset;
+          const cardSlotCenter = base + cardWidth / 2;
+          let dx = cardSlotCenter - xCenter;
+          dx = (((dx + totalTrack / 2) % totalTrack + totalTrack) % totalTrack) - totalTrack / 2;
+          const screenX = xCenter + dx - cardWidth / 2;
+
+          // Cull off-screen cards
+          if (screenX < -cardWidth * 1.5 || screenX > containerWidth + cardWidth * 1.5) {
+            cardEl.style.display = 'none';
+            continue;
+          }
+
+          cardEl.style.display = 'flex';
+          const u = dx / radius; // -1 to +1 normalized distance from viewport center
+          const absU = Math.abs(u);
+
+          // 3D Curved Cylindrical Geometry:
+          // Center: flat (rotateY = 0, z = 0, scale = 1.05)
+          // Edges: curve inwards with rotateY, outer edge flares taller towards camera
+          const rotateY = -u * 28.5; // Negative on right, positive on left
+          const zCurve = Math.min(130, Math.pow(absU, 1.65) * 115); // Concave cylinder bow
+          const scale = Math.max(0.86, 1.05 - absU * 0.12);
+          const opacity = Math.max(0.18, 1 - Math.max(0, absU - 0.65) * 1.7);
+          const blur = Math.max(0, (absU - 0.8) * 5.5);
+
+          cardEl.style.width = `${cardWidth}px`;
+          cardEl.style.transform = `translate3d(${screenX}px, -50%, ${zCurve}px) rotateY(${rotateY}deg) scale(${scale})`;
+          cardEl.style.opacity = opacity.toFixed(3);
+          cardEl.style.filter = blur > 0.1 ? `blur(${blur.toFixed(1)}px)` : 'none';
+          cardEl.style.zIndex = Math.round(100 - absU * 20);
+        }
+      }
+
+      animId = requestAnimationFrame(updateLoop);
+    };
+
+    animId = requestAnimationFrame(updateLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [isInView, ribbonCards.length]);
+
+  // Pointer Drag Handlers (Mouse & Touch)
+  const handlePointerDown = (e) => {
+    isDraggingRef.current = true;
+    hasDraggedRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragStartOffsetRef.current = offsetRef.current;
+    lastPointerXRef.current = e.clientX;
+    lastPointerTimeRef.current = performance.now();
+    velocityRef.current = 0;
+    targetOffsetRef.current = null;
+    if (containerRef.current && e.pointerId !== undefined) {
+      try {
+        containerRef.current.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const currentX = e.clientX;
+    const deltaX = currentX - dragStartXRef.current;
+    if (Math.abs(deltaX) > 6) {
+      hasDraggedRef.current = true;
+    }
+    offsetRef.current = dragStartOffsetRef.current - deltaX;
+
+    const now = performance.now();
+    const timeDelta = now - lastPointerTimeRef.current;
+    if (timeDelta > 8) {
+      velocityRef.current = -((currentX - lastPointerXRef.current) / (timeDelta / 16.67));
+      lastPointerXRef.current = currentX;
+      lastPointerTimeRef.current = now;
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (containerRef.current && e.pointerId !== undefined) {
+      try {
+        containerRef.current.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+    setTimeout(() => {
+      hasDraggedRef.current = false;
+    }, 80);
+  };
+
+  const stepCarousel = (direction) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const containerWidth = container.clientWidth || 1200;
+    const isMobile = containerWidth < 640;
+    const isTablet = containerWidth < 1024;
+    const cardWidth = isMobile ? 290 : (isTablet ? 350 : 410);
+    const cardGap = isMobile ? 18 : 26;
+    const stride = cardWidth + cardGap;
+    velocityRef.current = 0;
+    targetOffsetRef.current = offsetRef.current + direction * stride;
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -2684,7 +2931,7 @@ function HealthcareImpactSection({
 
       <div className="relative z-10 max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
         {/* Centered Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 flex flex-col items-center justify-center">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14 flex flex-col items-center justify-center">
           {/* Main Title: "Our Impact" in big font */}
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.08] flex items-center justify-center gap-x-3 sm:gap-x-4">
             {titleWords.map((word, idx) => (
@@ -2727,84 +2974,128 @@ function HealthcareImpactSection({
             ))}
           </p>
         </div>
+      </div>
 
-        {/* 4 Impact Cards with Attached Compressed Images */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-7">
-          {cards.map((card) => (
-            <div
-              key={card.id}
-              onClick={card.action}
-              title={`View ${card.stat} ${card.words.join(' ')}`}
-              className="group/card relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm hover:shadow-2xl hover:border-sky-400/50 hover:-translate-y-1.5 cursor-pointer transition-all duration-300 flex flex-col justify-end aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5]"
-            >
-              {/* Compressed Image */}
-              <img
-                src={card.img}
-                alt={card.alt}
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover/card:scale-105 select-none"
-              />
-
-              {/* Cinematic Vignette Overlay ensuring text contrast */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent pointer-events-none" />
-
-              {/* Animated Text on Card: Words lift out of a soft blur and settle into place */}
-              <div className="relative z-10 p-6 sm:p-7 flex flex-col justify-end pointer-events-none">
-                {/* Metric Number */}
-                <div
-                  className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md"
-                  style={
-                    isInView
-                      ? {
-                          animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
-                          animationDelay: `${card.baseDelay}ms`,
-                          willChange: 'transform, filter, opacity',
-                        }
-                      : { opacity: 0 }
+      {/* 3D Curved Cylindrical Carousel Viewport matching reference video */}
+      <div className="relative w-full overflow-hidden py-4 sm:py-6">
+        {/* Soft edge masking for smooth fade in/out at boundaries */}
+        <div
+          ref={containerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onMouseEnter={() => { isHoveredRef.current = true; }}
+          onMouseLeave={(e) => { isHoveredRef.current = false; handlePointerUp(e); }}
+          className="relative w-full h-[280px] sm:h-[320px] md:h-[350px] cursor-grab active:cursor-grabbing touch-pan-y"
+          style={{
+            perspective: '1100px',
+            perspectiveOrigin: '50% 50%',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
+          }}
+        >
+          {/* 3D Stage */}
+          <div
+            className="absolute inset-0 w-full h-full"
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            {ribbonCards.map((card, idx) => (
+              <div
+                key={card.uniqueKey}
+                ref={(el) => { cardElementsRef.current[idx] = el; }}
+                onClick={(e) => {
+                  if (hasDraggedRef.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
                   }
-                >
-                  {card.stat}
-                </div>
+                  card.action?.();
+                }}
+                title={`View ${card.stat} ${card.words.join(' ')}`}
+                className="group/card absolute top-1/2 left-0 h-[210px] sm:h-[250px] md:h-[280px] rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-xl hover:shadow-2xl hover:border-sky-400/60 cursor-pointer transition-colors duration-200 flex flex-col justify-end select-none will-change-transform"
+                style={{
+                  transformStyle: 'preserve-3d',
+                  backfaceVisibility: 'hidden',
+                }}
+              >
+                {/* Image */}
+                <img
+                  src={card.img}
+                  alt={card.alt}
+                  loading="lazy"
+                  draggable={false}
+                  className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover/card:scale-105 select-none pointer-events-none"
+                />
 
-                {/* Metric Words */}
-                <div className="text-sm sm:text-base font-bold text-sky-300 tracking-wide mt-1.5 drop-shadow-sm flex flex-wrap gap-x-1.5">
-                  {card.words.map((word, wIdx) => (
-                    <span
-                      key={word}
-                      className="inline-block"
-                      style={
-                        isInView
-                          ? {
-                              animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
-                              animationDelay: `${card.baseDelay + (wIdx + 1) * 28}ms`,
-                              willChange: 'transform, filter, opacity',
-                            }
-                          : { opacity: 0 }
-                      }
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </div>
+                {/* Cinematic Vignette Overlay ensuring text contrast */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent pointer-events-none" />
 
-                {/* Subtext */}
-                <div
-                  className="text-xs text-slate-300/90 font-medium mt-1 drop-shadow-sm"
-                  style={
-                    isInView
-                      ? {
-                          animation: 'blurLiftSettle 0.56s cubic-bezier(0.16, 1, 0.3, 1) both',
-                          animationDelay: `${card.baseDelay + 3 * 28}ms`,
-                          willChange: 'transform, filter, opacity',
-                        }
-                      : { opacity: 0 }
-                  }
-                >
-                  {card.subtext}
+                {/* Metric Content */}
+                <div className="relative z-10 p-5 sm:p-6 flex flex-col justify-end pointer-events-none">
+                  <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-md">
+                    {card.stat}
+                  </div>
+                  <div className="text-xs sm:text-sm md:text-base font-bold text-sky-300 tracking-wide mt-1 drop-shadow-sm flex flex-wrap gap-x-1.5">
+                    {card.words.map((word) => (
+                      <span key={word} className="inline-block">{word}</span>
+                    ))}
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-slate-300/90 font-medium mt-0.5 drop-shadow-sm line-clamp-1">
+                    {card.subtext}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* Elegant Navigation Controls (Prev / Next & Play/Pause) */}
+        <div className="flex items-center justify-center gap-3 mt-6 sm:mt-8">
+          <button
+            type="button"
+            onClick={() => stepCarousel(-1)}
+            aria-label="Previous impact slide"
+            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-all shadow-xs border border-slate-200/80 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPaused((prev) => !prev)}
+            aria-label={isPaused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
+            className="px-3.5 h-10 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1.5 transition-all shadow-xs border border-slate-200/80 cursor-pointer"
+          >
+            {isPaused ? (
+              <>
+                <svg className="w-3.5 h-3.5 text-emerald-600 fill-current" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <span>Play</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5 text-slate-600 fill-current" viewBox="0 0 24 24">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+                <span>Pause</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => stepCarousel(1)}
+            aria-label="Next impact slide"
+            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-all shadow-xs border border-slate-200/80 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </section>
@@ -4167,17 +4458,29 @@ function Home3DVideoShowcase({ onLaunchOverview, onLaunchAbout, onExploreNow }) 
         {/* ============================================================== */}
 
         {/* Bottom Center: Scroll Prompt (Only visible at top, quickly fades out on scroll) */}
-        <div
-          className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-1.5 transition-opacity duration-200"
+        <button
+          type="button"
+          onClick={() => {
+            if (containerRef.current) {
+              const rect = containerRef.current.getBoundingClientRect();
+              window.scrollTo({
+                top: window.scrollY + rect.height,
+                behavior: 'smooth'
+              });
+            }
+          }}
+          className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 transition-opacity duration-200 cursor-pointer group"
           style={{
             opacity: Math.max(0, 1 - scrollProgress * 7),
+            pointerEvents: scrollProgress < 0.15 ? 'auto' : 'none',
           }}
+          title="Scroll to explore"
         >
-          <span className="text-white/80 text-[10px] sm:text-[11px] font-bold tracking-widest uppercase">
+          <span className="text-white/80 group-hover:text-white text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-colors">
             Scroll
           </span>
           <svg
-            className="w-4 h-4 text-white/80 animate-bounce"
+            className="w-4 h-4 text-white/80 group-hover:text-white group-hover:translate-y-0.5 animate-bounce transition-all"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -4187,7 +4490,7 @@ function Home3DVideoShowcase({ onLaunchOverview, onLaunchAbout, onExploreNow }) 
           >
             <polyline points="6 9 12 15 18 9" />
           </svg>
-        </div>
+        </button>
 
         {/* Bottom Right: Explore Now & About Us Action Buttons */}
         <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-30 flex items-center gap-2.5 sm:gap-3">

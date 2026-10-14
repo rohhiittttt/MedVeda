@@ -244,17 +244,29 @@ export const Home3DVideoShowcase: React.FC<Home3DVideoShowcaseProps> = ({
         {/* ============================================================== */}
 
         {/* Bottom Center: Scroll Prompt (Only visible at top, quickly fades out on scroll) */}
-        <div
-          className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-1.5 transition-opacity duration-200"
+        <button
+          type="button"
+          onClick={() => {
+            if (containerRef.current) {
+              const rect = containerRef.current.getBoundingClientRect();
+              window.scrollTo({
+                top: window.scrollY + rect.height,
+                behavior: 'smooth'
+              });
+            }
+          }}
+          className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 transition-opacity duration-200 cursor-pointer group"
           style={{
             opacity: Math.max(0, 1 - scrollProgress * 7),
+            pointerEvents: scrollProgress < 0.15 ? 'auto' : 'none',
           }}
+          title="Scroll to explore"
         >
-          <span className="text-white/80 text-[10px] sm:text-[11px] font-bold tracking-widest uppercase">
+          <span className="text-white/80 group-hover:text-white text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-colors">
             Scroll
           </span>
           <svg
-            className="w-4 h-4 text-white/80 animate-bounce"
+            className="w-4 h-4 text-white/80 group-hover:text-white group-hover:translate-y-0.5 animate-bounce transition-all"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -264,7 +276,7 @@ export const Home3DVideoShowcase: React.FC<Home3DVideoShowcaseProps> = ({
           >
             <polyline points="6 9 12 15 18 9" />
           </svg>
-        </div>
+        </button>
 
         {/* Bottom Right: Explore Now & About Us Action Buttons */}
         <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-30 flex items-center gap-2.5 sm:gap-3">
