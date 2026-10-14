@@ -1144,8 +1144,8 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
   const fieldMeta = getIdentifierFieldMeta();
 
   return (
-    <div className={isPage ? "w-full max-w-lg sm:max-w-xl mx-auto my-4" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"}>
-      <div className="bg-white rounded-xl w-full max-w-lg sm:max-w-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className={isPage ? "w-full max-w-lg sm:max-w-xl mx-auto my-4 pointer-events-auto" : "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto pointer-events-auto"}>
+      <div className="bg-white rounded-xl w-full max-w-lg sm:max-w-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 pointer-events-auto">
         {/* Streamlined Authoritative Header */}
         <div className="p-5 sm:p-6 border-b border-slate-200 flex items-start justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
@@ -2127,12 +2127,12 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
 
   return (
     <header
-      className={`z-40 transition-all duration-300 ${
+      className={`z-50 transition-all duration-300 pointer-events-auto ${
         isHomeView
           ? `fixed top-0 inset-x-0 ${
               showHeadBar
                 ? 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs'
-                : 'bg-transparent border-b border-transparent shadow-none pointer-events-none'
+                : 'bg-transparent border-b border-transparent shadow-none'
             }`
           : 'sticky top-0 bg-white border-b border-slate-200 shadow-xs'
       }`}
@@ -2141,10 +2141,10 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-4">
         {/* Logo & Brand */}
         <div
-          className={`flex items-center gap-3 cursor-pointer select-none transition-all duration-300 ${
+          className={`items-center gap-3 cursor-pointer select-none transition-all duration-300 ${
             showHeadBar
-              ? 'opacity-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 -translate-y-4 pointer-events-none'
+              ? 'flex opacity-100 translate-y-0 pointer-events-auto'
+              : 'hidden sm:flex sm:opacity-0 sm:-translate-y-4 pointer-events-none'
           }`}
           onClick={() => {
             setView('home');
@@ -2396,14 +2396,14 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pointer-events-auto relative z-10">
               <button
                 type="button"
                 onClick={() => {
                   setAuthTab('login');
                   setAuthModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer shadow-2xs"
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer shadow-2xs active:scale-95 touch-manipulation select-none"
               >
                 Log In
               </button>
@@ -2414,7 +2414,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                   setAuthTab('signup');
                   setAuthModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 text-xs font-semibold bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-md shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-md shadow-2xs transition-colors flex items-center gap-1 cursor-pointer active:scale-95 touch-manipulation select-none"
               >
                 <span>Sign Up</span>
               </button>
