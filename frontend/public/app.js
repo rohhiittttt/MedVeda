@@ -3,11 +3,16 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 function getApiUrl(endpoint) {
   if (!endpoint) return '';
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return endpoint;
-  const isDirectFile = typeof window !== 'undefined' && window.location.protocol === 'file:';
-  const isOtherPort = typeof window !== 'undefined' && window.location.port && window.location.port !== '3000';
-  if (isDirectFile || isOtherPort) {
-    return `http://localhost:3000${endpoint}`;
+  // In local development (file:// protocol or port other than 80/443/3000), proxy to local server
+  if (typeof window !== 'undefined') {
+    const loc = window.location;
+    const isDirectFile = loc.protocol === 'file:';
+    const isLocalDev = loc.hostname === 'localhost' || loc.hostname === '127.0.0.1';
+    if (isDirectFile || (isLocalDev && loc.port && loc.port !== '80' && loc.port !== '443')) {
+      return `http://localhost:3000${endpoint}`;
+    }
   }
+  // On Vercel / production: use relative URL (same origin)
   return endpoint;
 }
 

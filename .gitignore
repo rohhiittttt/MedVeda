@@ -79,3 +79,15 @@ Thumbs.db
 
 # Antigravity Brain Scratch Files
 scratch/
+
+# Large Media Files (not needed in deploy)
+*.mp4
+Recording*.mp4
+gemini_generated_video_*.mp4
+
+# Vercel
+.vercel/
+
+# Python service (not deployed to Vercel)
+python_service/__pycache__/
+backend-python/__pycache__/
