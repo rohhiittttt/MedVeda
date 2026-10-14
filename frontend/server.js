@@ -52,6 +52,9 @@ function resolvePythonPath() {
     return rootVenv;
   }
   const explicitPaths = [
+    '/usr/bin/python3',
+    '/usr/local/bin/python3',
+    '/usr/bin/python',
     'C:\\Python314\\python.exe',
     'C:\\Users\\rohit das\\AppData\\Local\\Programs\\Python\\Python312\\python.exe'
   ];
@@ -60,7 +63,7 @@ function resolvePythonPath() {
       return p;
     }
   }
-  return 'python';
+  return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 async function isPythonRunning() {
