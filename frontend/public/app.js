@@ -2562,22 +2562,178 @@ function HealthcareImpactSection({
 }
 
 // ==========================================
+// --- TESTIMONIALS SECTION (INFINITE SCROLLING COLUMNS) ---
+// ==========================================
+
+const MEDVEDA_TESTIMONIALS = [
+  {
+    text: "MedVeda's Smart Care Navigator revolutionized our facility intake. Rural patients get accurately triaged within seconds before arriving at the OPD.",
+    image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Dr. Briana Patton",
+    role: "Chief Medical Officer",
+  },
+  {
+    text: "The telemedicine feature connected our community health workers with senior specialists effortlessly. Notes and prescriptions sync straight to records.",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Bilal Ahmed",
+    role: "Digital Health Systems Lead",
+  },
+  {
+    text: "The support team and platform stability are exceptional. Emergency referral routing reduced critical transfer delays from 45 to under 8 minutes.",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Saman Malik",
+    role: "Emergency Care Coordinator",
+  },
+  {
+    text: "MedVeda's seamless multi-agent orchestration enhanced our entire district hospital network. Highly recommended for its clinical accuracy and clean UI.",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Dr. Omar Raza",
+    role: "District Health Director",
+  },
+  {
+    text: "Having real-time medicine availability across local pharmacies prevented medication delays for over 3,000 chronic care patients in our block.",
+    image: "https://images.unsplash.com/photo-1594824813586-78e87e14523a?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Zainab Hussain",
+    role: "Public Health Program Manager",
+  },
+  {
+    text: "The Unified Health Records system eliminated paperwork bottlenecks across all district primary health centers. Transition was smooth and fast.",
+    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Aliza Khan",
+    role: "Clinical Data Analyst",
+  },
+  {
+    text: "District command analytics gave our health officers immediate epidemiological alerts, improving our seasonal outbreak response time by 60%.",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Farhan Siddiqui",
+    role: "Healthcare Operations Director",
+  },
+  {
+    text: "Patients love the bilingual voice assistant. Even first-time smartphone users and rural elders can navigate their care journey without confusion.",
+    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Sana Sheikh",
+    role: "Frontline Community Lead",
+  },
+  {
+    text: "The teleconsultation video clarity and digital prescription dispatch have significantly improved patient compliance and follow-up rates.",
+    image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=256&h=256",
+    name: "Hassan Ali",
+    role: "Telemedicine Operations Manager",
+  },
+];
+
+function HomeTestimonialsColumn({ testimonials = [], duration = 15, className = '' }) {
+  return (
+    <div className={`overflow-hidden ${className}`}>
+      <div
+        className="flex flex-col gap-6 pb-6 animate-marquee-vertical"
+        style={{ '--marquee-duration': `${duration}s` }}
+      >
+        {[0, 1].map((copyIndex) => (
+          <React.Fragment key={copyIndex}>
+            {testimonials.map((item, i) => (
+              <div
+                key={`${copyIndex}-${i}`}
+                className="p-8 sm:p-10 rounded-3xl border border-slate-200/90 bg-white shadow-lg shadow-slate-900/5 hover:shadow-xl hover:border-blue-300 transition-all duration-300 max-w-xs w-full select-none"
+              >
+                <div className="text-slate-700 text-sm leading-relaxed font-normal">
+                  &ldquo;{item.text}&rdquo;
+                </div>
+                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
+                  <img
+                    width={40}
+                    height={40}
+                    src={item.image}
+                    alt={item.name}
+                    className="h-10 w-10 rounded-full object-cover border border-slate-200 shadow-2xs"
+                    loading="lazy"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <div className="font-semibold tracking-tight text-slate-900 text-sm truncate">
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium tracking-tight truncate">
+                      {item.role}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HomeTestimonialsSection() {
+  const col1 = MEDVEDA_TESTIMONIALS.slice(0, 3);
+  const col2 = MEDVEDA_TESTIMONIALS.slice(3, 6);
+  const col3 = MEDVEDA_TESTIMONIALS.slice(6, 9);
+
+  return (
+    <section className="bg-slate-50/70 py-16 sm:py-24 relative overflow-hidden border-t border-slate-200" aria-label="Customer Testimonials">
+      <div className="max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 relative z-10">
+        <div className="flex flex-col items-center justify-center max-w-[640px] mx-auto text-center mb-12 sm:mb-14">
+          <div className="inline-flex items-center gap-1.5 border border-blue-200/90 bg-blue-50/80 py-1 px-4 rounded-full text-xs font-semibold text-[#1565C0] shadow-2xs mb-4">
+            <svg className="w-3.5 h-3.5 text-[#1565C0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Verified Feedback</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[42px] font-bold tracking-tight text-slate-900 leading-tight">
+            What clinicians and patients say
+          </h2>
+
+          <p className="mt-3 text-sm sm:text-base text-slate-600 font-normal leading-relaxed">
+            See how MedVeda is transforming rural triage, emergency referrals, and everyday patient care across healthcare networks.
+          </p>
+
+          <div className="flex items-center gap-4 mt-5 text-xs font-medium text-slate-500 flex-wrap justify-center">
+            <span className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              <span>100% ABDM &amp; HIPAA Compliant</span>
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+              <span>20,000+ Consultations Delivered</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-6 testimonials-mask max-h-[740px] overflow-hidden">
+          <HomeTestimonialsColumn testimonials={col1} duration={15} />
+          <HomeTestimonialsColumn testimonials={col2} className="hidden md:block" duration={19} />
+          <HomeTestimonialsColumn testimonials={col3} className="hidden lg:block" duration={17} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==========================================
 // --- 3D MEDIA CARD CAROUSEL FOR FEATURES ---
 // ==========================================
 
 const CAROUSEL_3D_CONFIG = {
-  cardWidth: 330,
-  cardHeight: 460,
-  cardSpacingX: 180,
+  cardWidth: 350,
+  cardHeight: 485,
+  cardSpacingX: 195,
   depthStepZ: -140,
-  scaleStep: 0.15,
-  rotateY: -10,
-  rotateX: 2,
-  fadeSteps: [1.0, 0.95, 0.80, 0.62, 0.44, 0.28, 0.14, 0.00],
+  scaleStep: 0.16,
+  rotateY: -8,       // Active card tilted upfront
+  rotateX: 4,        // Upfront vertical tilt
+  fadeSteps: [1.0, 0.95, 0.80, 0.60, 0.40, 0.24, 0.12, 0.00],
   perspective: 1400,
-  transitionDuration: 750,
+  transitionDuration: 520,
   transitionEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-  autoplayDelay: 2500,
+  autoplayDelay: 3000,
   visibleCardsCount: 7
 };
 
@@ -2628,8 +2784,10 @@ function Home3DFeatureCard({
       onMouseLeave={() => setIsCardHovered(false)}
       style={style}
       data-slot={slotIndex}
-      className={`relative w-full h-full select-none overflow-hidden rounded-[16px] bg-slate-900 border border-black/10 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.08)] flex flex-col justify-between group cursor-pointer ${
-        isActive ? 'ring-2 ring-black/10' : ''
+      className={`relative w-full h-full select-none overflow-hidden rounded-[18px] bg-slate-900 border border-black/10 flex flex-col justify-between group cursor-pointer ${
+        isActive
+          ? 'ring-2 ring-black/20 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.35),0_12px_24px_-8px_rgba(0,0,0,0.18)]'
+          : 'shadow-[0_20px_40px_-12px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.08)]'
       } ${className}`}
     >
       {/* Full-bleed background media / artwork matching reference recording */}
@@ -2730,9 +2888,12 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
   const [hoveredSlot, setHoveredSlot] = useState(null);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  const sectionRef = useRef(null);
   const containerRef = useRef(null);
   const prevSlotsRef = useRef({});
-  const wheelLockRef = useRef(false);
+  const isTransitioningRef = useRef(false);
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
   const total = modules.length;
 
@@ -2748,28 +2909,88 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
   const updateIndex = (nextIndex) => {
     if (total === 0) return;
     const wrapped = ((nextIndex % total) + total) % total;
-    if (wrapped === activeIndex) return;
+    if (wrapped === activeIndexRef.current) return;
     setActiveIndex(wrapped);
   };
 
   const handleNext = () => {
     if (total <= 1) return;
-    updateIndex(activeIndex + 1);
+    updateIndex(activeIndexRef.current + 1);
   };
 
   const handlePrev = () => {
     if (total <= 1) return;
-    updateIndex(activeIndex - 1);
+    updateIndex(activeIndexRef.current - 1);
   };
 
-  // Autoplay (~2.5s when idle, pause on hover or drag)
+  // Wheel scroll navigation: scrolling down walks through each card so user views every card
   useEffect(() => {
-    if (reducedMotion || isHovered || isDragging || total <= 1) return;
-    const timer = setInterval(() => {
-      handleNext();
-    }, CAROUSEL_3D_CONFIG.autoplayDelay);
-    return () => clearInterval(timer);
-  }, [reducedMotion, isHovered, isDragging, total, activeIndex]);
+    const el = sectionRef.current;
+    if (!el || total <= 1) return;
+
+    let wheelDeltaAccumulator = 0;
+    let wheelTimer = null;
+
+    const onWheel = (e) => {
+      const rect = el.getBoundingClientRect();
+      // Allow natural page scroll if the carousel is still scrolling into view from top or bottom
+      const inView = rect.top <= 120 && rect.bottom >= 350;
+      if (!inView) return;
+
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (Math.abs(delta) < 2) return;
+
+      const isDown = delta > 0;
+      const current = activeIndexRef.current;
+
+      // When at boundary (last card and scrolling down, or first card and scrolling up),
+      // allow natural document scroll to pass through seamlessly!
+      if ((isDown && current >= total - 1) || (!isDown && current <= 0)) {
+        return;
+      }
+
+      // Intercept wheel gesture over the carousel while cards remain to be viewed
+      e.preventDefault();
+
+      // If a 3D transition is already in flight, absorb incoming momentum delta
+      if (isTransitioningRef.current) {
+        return;
+      }
+
+      wheelDeltaAccumulator += delta;
+
+      if (wheelTimer) clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        wheelDeltaAccumulator = 0;
+      }, 150);
+
+      const threshold = 25;
+      if (Math.abs(wheelDeltaAccumulator) >= threshold) {
+        const direction = wheelDeltaAccumulator > 0 ? 1 : -1;
+        wheelDeltaAccumulator = 0;
+
+        if (direction === 1 && current < total - 1) {
+          isTransitioningRef.current = true;
+          setActiveIndex(current + 1);
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 480);
+        } else if (direction === -1 && current > 0) {
+          isTransitioningRef.current = true;
+          setActiveIndex(current - 1);
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 480);
+        }
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (wheelTimer) clearTimeout(wheelTimer);
+    };
+  }, [total]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -2781,19 +3002,7 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeIndex]);
 
-  // Wheel swipe
-  const handleWheel = (e) => {
-    if (wheelLockRef.current) return;
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    if (Math.abs(delta) > 28) {
-      wheelLockRef.current = true;
-      if (delta > 0) handleNext();
-      else handlePrev();
-      setTimeout(() => { wheelLockRef.current = false; }, 400);
-    }
-  };
-
-  // Drag handlers
+  // Pointer drag events for grab / grabbing
   const handlePointerDown = (e) => {
     setIsDragging(true);
     setDragStartX(e.clientX);
@@ -2826,13 +3035,13 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
     const diff = (index - activeIndex + total) % total;
     if (diff === 0) return 0;
     if (total === 2) return 1;
-    if (diff === total - 1) return -1; // just exited to left
+    if (diff === total - 1) return -1; // outgoing to left
     if (diff < Math.min(total - 1, 7)) return diff;
     if (diff === 7) return 7;
     return 8; // hidden reservoir
   };
 
-  // Compute 3D Transform with smooth natural curves calibrated from reference recording
+  // Compute 3D Transform: front card is tilted upfront and bigger than the rest
   const getCardTransform = (slot, isHoveredNonActive, isInstantReset) => {
     if (reducedMotion) {
       return {
@@ -2848,40 +3057,45 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
     let z = 0;
     let scale = 1.0;
     let rotY = CAROUSEL_3D_CONFIG.rotateY;
+    let rotX = CAROUSEL_3D_CONFIG.rotateX;
     let opacity = 1.0;
     let zIndex = 50;
     let pointerEvents = 'auto';
 
     if (slot === -1) {
       // Outgoing card smoothly sliding out to the left & tilting away
-      x = -420;
-      z = -80;
-      scale = 0.92;
-      rotY = CAROUSEL_3D_CONFIG.rotateY - 16;
+      x = -450;
+      z = -70;
+      scale = 0.96;
+      rotY = -26;
+      rotX = 4;
       opacity = 0;
       zIndex = 55;
       pointerEvents = 'none';
     } else if (slot === 0) {
-      // Front active card
+      // FRONT ACTIVE CARD: Tilted upfront, bigger scale, pushed forward along Z
       x = 0;
-      z = 0;
-      scale = 1.0;
-      rotY = CAROUSEL_3D_CONFIG.rotateY;
+      z = 40;            // Elevated forward in 3D space
+      scale = 1.08;      // Visibly BIGGER than cards behind
+      rotY = -8;         // Tilted upfront towards viewer
+      rotX = 4;          // Upfront perspective tilt
       opacity = 1.0;
-      zIndex = 50;
+      zIndex = 60;
       pointerEvents = 'auto';
     } else {
-      // Calibrated depth steps directly from reference recording
-      const depthX = [0, 180, 335, 470, 590, 695, 785, 865, 940];
+      // Receding depth slots with calibrated non-linear steps
+      const depthX = [0, 195, 355, 495, 615, 720, 810, 890, 960];
       const depthZ = [0, -140, -270, -390, -500, -600, -690, -780, -870];
-      const depthScale = [1.0, 0.85, 0.72, 0.61, 0.52, 0.44, 0.37, 0.31, 0.26];
-      const depthOpacity = [1.0, 0.95, 0.80, 0.62, 0.44, 0.28, 0.14, 0.00, 0.00];
+      const depthScale = [1.08, 0.80, 0.67, 0.56, 0.47, 0.39, 0.32, 0.26, 0.22];
+      const depthOpacity = [1.0, 0.95, 0.80, 0.60, 0.40, 0.24, 0.12, 0.00, 0.00];
 
       const sIdx = Math.min(Math.max(slot, 0), 8);
       x = depthX[sIdx];
       z = depthZ[sIdx];
       scale = depthScale[sIdx];
       opacity = depthOpacity[sIdx];
+      rotY = -10;
+      rotX = 2;
       zIndex = 50 - slot;
       pointerEvents = slot <= 5 ? 'auto' : 'none';
     }
@@ -2889,7 +3103,7 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
     const liftY = isHoveredNonActive ? -8 : 0;
 
     return {
-      transform: `translate3d(${x}px, ${liftY}px, ${z}px) rotateY(${rotY}deg) rotateX(${CAROUSEL_3D_CONFIG.rotateX}deg) scale(${scale})`,
+      transform: `translate3d(${x}px, ${liftY}px, ${z}px) rotateY(${rotY}deg) rotateX(${rotX}deg) scale(${scale})`,
       opacity,
       zIndex,
       pointerEvents,
@@ -2914,8 +3128,9 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
 
   return (
     <section
+      ref={sectionRef}
       aria-label="MedVeda Features 3D Carousel"
-      className="relative w-full bg-[#FCFCFB] border-b border-slate-200/80 py-12 sm:py-16 overflow-hidden select-none"
+      className="relative w-full bg-[#FCFCFB] border-b border-slate-200/80 py-12 sm:py-16 md:py-20 select-none overflow-hidden"
     >
       {/* Studio Floor Background Aura */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -2946,7 +3161,7 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
 
           {/* Active Card Quick Highlight Pill */}
           {currentModule && (
-            <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#1565C0] bg-blue-50/70 border border-blue-200/60 px-3 py-1.5 rounded-lg max-w-fit">
+            <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#1565C0] bg-blue-50/70 border border-blue-200/60 px-3 py-1.5 rounded-lg max-w-fit shadow-xs">
               <span className="w-2 h-2 rounded-full bg-[#1565C0] animate-pulse" />
               <span>{currentModule.code}: {currentModule.title}</span>
             </div>
@@ -2996,14 +3211,14 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
               </button>
 
               <span className="text-[11px] text-slate-400 font-normal pl-2 hidden sm:inline">
-                Click card, drag, or use arrows
+                Scroll down to explore all modules, or click cards &amp; arrows
               </span>
             </div>
           </div>
         </div>
 
         {/* Right Side (about 65-70% width): 3D Carousel Stage */}
-        <div className="w-full lg:w-[66%] xl:w-[68%] relative flex justify-start pl-0 lg:pl-4 overflow-visible min-h-[500px] sm:min-h-[540px]">
+        <div className="w-full lg:w-[66%] xl:w-[68%] relative flex justify-start pl-0 lg:pl-4 overflow-visible min-h-[520px] sm:min-h-[560px]">
           <div
             ref={containerRef}
             onMouseEnter={() => setIsHovered(true)}
@@ -3011,12 +3226,11 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
               setIsHovered(false);
               setHoveredSlot(null);
             }}
-            onWheel={handleWheel}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
-            className={`relative w-full h-[500px] sm:h-[540px] flex items-end select-none overflow-visible ${
+            className={`relative w-full h-[520px] sm:h-[560px] flex items-end select-none overflow-visible ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             }`}
             style={{
@@ -3028,10 +3242,10 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
           >
             {/* Studio Floor Soft Shadow Underneath */}
             <div
-              className="absolute bottom-[-14px] left-[0%] w-[95%] h-[65px] pointer-events-none rounded-[100%]"
+              className="absolute bottom-[-16px] left-[0%] w-[98%] h-[75px] pointer-events-none rounded-[100%]"
               style={{
-                background: 'radial-gradient(ellipse 70% 32% at 35% 82%, rgba(15,23,42,0.11) 0%, rgba(15,23,42,0.03) 55%, transparent 75%)',
-                filter: 'blur(10px)',
+                background: 'radial-gradient(ellipse 70% 32% at 35% 82%, rgba(15,23,42,0.14) 0%, rgba(15,23,42,0.04) 55%, transparent 75%)',
+                filter: 'blur(12px)',
                 transform: 'translateZ(-200px)',
               }}
             />
@@ -3047,9 +3261,8 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
                 const slot = getSlotForModule(idx);
                 const prevSlot = prevSlotsRef.current[module.id];
                 const isInstantReset =
-                  (prevSlot === -1 && slot >= 7) ||
-                  (prevSlot >= 7 && slot === -1) ||
-                  (prevSlot === 8 && slot === -1);
+                  (slot >= 7 && prevSlot !== 6 && prevSlot !== 7) ||
+                  (slot === -1 && prevSlot !== 0 && prevSlot !== -1);
 
                 const isActive = slot === 0;
                 const isSlotHovered = hoveredSlot === slot;
@@ -3082,7 +3295,7 @@ function HomeFeaturesCarousel3D({ modules = [] }) {
                         if (isActive) {
                           if (module.action) module.action();
                         } else if (slot > 0) {
-                          // Clicking any visible card directly brings it to front!
+                          // Clicking any visible card directly brings it to front smoothly!
                           updateIndex(activeIndex + slot);
                         }
                       }}
@@ -3673,6 +3886,9 @@ function ScreenHomepage({
         onLaunchFeature4={onLaunchFeature4}
         onLaunchFeature7={onLaunchFeature7}
       />
+
+      {/* Verified User Testimonials Section */}
+      <HomeTestimonialsSection />
 
       {/* Floating Cookie Consent Banner */}
       <HomeCookieBanner />

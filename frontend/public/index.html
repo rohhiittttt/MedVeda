@@ -144,6 +144,24 @@
       opacity: 1;
       transform: translateY(0);
     }
+    @keyframes marqueeVertical {
+      0% {
+        transform: translateY(0);
+      }
+      100% {
+        transform: translateY(-50%);
+      }
+    }
+    .animate-marquee-vertical {
+      animation: marqueeVertical var(--marquee-duration, 15s) linear infinite;
+    }
+    .animate-marquee-vertical:hover {
+      animation-play-state: paused;
+    }
+    .testimonials-mask {
+      mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+      -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
