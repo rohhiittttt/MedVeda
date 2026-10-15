@@ -2141,11 +2141,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between flex-wrap gap-4">
         {/* Logo & Brand */}
         <div
-          className={`items-center gap-3 cursor-pointer select-none transition-all duration-300 ${
-            showHeadBar
-              ? 'flex opacity-100 translate-y-0 pointer-events-auto'
-              : 'hidden sm:flex sm:opacity-0 sm:-translate-y-4 pointer-events-none'
-          }`}
+          className="flex items-center gap-3 cursor-pointer select-none transition-all duration-300 opacity-100 translate-y-0 pointer-events-auto"
           onClick={() => {
             setView('home');
             if (typeof window !== 'undefined') {
