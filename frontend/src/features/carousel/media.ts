@@ -28,7 +28,7 @@ export const MEDVEDA_FEATURE_CARDS: CardItem[] = [
     badge: 'Prioritized Telehealth',
     description: 'Secure video visits with licensed clinicians, with notes and prescriptions synced straight to your record.',
     actionLabel: 'Start Teleconsult',
-    image: './card-appointment.png',
+    image: './card-teleconsultation.jpg',
     theme: {
       iconBg: 'bg-sky-50 text-[#1565C0] border-sky-200',
       hoverText: 'group-hover:text-[#1565C0]',
@@ -103,7 +103,7 @@ export const MEDVEDA_FEATURE_CARDS: CardItem[] = [
     badge: 'Operations Control',
     description: 'Multi-source operations overview: Care Continuity Index, live prioritized queue, bed/ICU resource status meters, and alerts.',
     actionLabel: 'Open Dashboard',
-    image: './impact-card-2.png',
+    image: './facility-dashboard-art.png',
     theme: {
       iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-200',
       hoverText: 'group-hover:text-indigo-600',
@@ -148,7 +148,7 @@ export const MEDVEDA_FEATURE_CARDS: CardItem[] = [
     badge: 'Bilingual & Actions',
     description: 'Autonomous voice & action agent: book doctor appointments, find emergency beds, set medicine dosage reminders, and navigate MedVeda.',
     actionLabel: 'Launch AI Agent',
-    image: './hero-doctors.png',
+    image: './card-medibot.png',
     theme: {
       iconBg: 'bg-violet-50 text-violet-600 border-violet-200',
       hoverText: 'group-hover:text-violet-600',
