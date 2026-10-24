@@ -1,4 +1,3 @@
-import { SqliteNavigationStore } from './sqlite-navigation.store.ts';
 import { SqliteTeleconsultStore } from './sqlite-teleconsult.store.ts';
 import { SqliteReferralStore } from './sqlite-referral.store.ts';
 import { SqliteFollowUpStore } from './sqlite-followup.store.ts';
@@ -113,7 +112,6 @@ export async function runMigrations(): Promise<void> {
   await runPostgresMigrationIfConfigured();
 
   // Initialize and verify all in-memory SQLite databases
-  new SqliteNavigationStore(':memory:');
   new SqliteTeleconsultStore(':memory:');
   new SqliteReferralStore(':memory:');
   new SqliteFollowUpStore(':memory:');

@@ -1,73 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SqliteNavigationStore } from '../../src/infrastructure/db/sqlite-navigation.store.ts';
-import { RedisOrSqliteHospitalCacheAdapter } from '../../src/infrastructure/cache/redis-hospital.cache.ts';
 import { SqliteTeleconsultStore } from '../../src/infrastructure/db/sqlite-teleconsult.store.ts';
 import { SqliteRecordsStore } from '../../src/infrastructure/db/sqlite-records.store.ts';
 import { SqliteFacilityDashboardStore } from '../../src/infrastructure/db/sqlite-facility-dashboard.store.ts';
 import { SqliteSchemeStore } from '../../src/infrastructure/db/sqlite-scheme.store.ts';
 import { SqliteCommandCenterStore } from '../../src/infrastructure/db/sqlite-command-center.store.ts';
-import { AssessTriageUseCase } from '../../src/application/use-cases/assess-triage.use-case.ts';
-import { ResearchHospitalsUseCase } from '../../src/application/use-cases/research-hospitals.use-case.ts';
-import { RankFacilitiesUseCase } from '../../src/application/use-cases/rank-facilities.use-case.ts';
-import { CareNavigationPipelineUseCase } from '../../src/application/use-cases/pipeline.use-case.ts';
-import { GoogleSearchMcpAdapter } from '../../src/infrastructure/mcp/google-search-mcp.adapter.ts';
 
 describe('Phase 1: Persistent Database & Cache Layer across All Features', () => {
-  it('should persist triage_sessions, hospital_research_cache, and triage_recommendations in SqliteNavigationStore', async () => {
-    const navStore = new SqliteNavigationStore(':memory:');
-    const cacheAdapter = new RedisOrSqliteHospitalCacheAdapter(navStore);
-    const triageUseCase = new AssessTriageUseCase();
-    const searchAdapter = new GoogleSearchMcpAdapter();
-    const researchUseCase = new ResearchHospitalsUseCase(searchAdapter, cacheAdapter);
-    const rankUseCase = new RankFacilitiesUseCase();
-    const pipeline = new CareNavigationPipelineUseCase(
-      triageUseCase,
-      researchUseCase,
-      rankUseCase,
-      navStore
-    );
-
-    const result = await pipeline.execute({
-      age: 58,
-      sex: 'female',
-      location: 'Hazaribagh, Jharkhand',
-      latitude: 23.9929,
-      longitude: 85.3637,
-      primarySymptoms: 'Sudden facial droop and slurred speech',
-      duration: '30 minutes',
-      severity: 'severe',
-      redFlags: {
-        facialDroopOrSpeech: true,
-        chestPain: false,
-        breathingDistress: false,
-        unconsciousOrConfusion: false,
-        severeBleeding: false
-      }
-    });
-
-    assert.equal(result.meta.persisted, true);
-    assert.ok(result.sessionId.startsWith('sess_'));
-
-    const persistedSession = navStore.getTriageSession(result.sessionId);
-    assert.ok(persistedSession !== null);
-    assert.equal(persistedSession.urgency, 'CRITICAL');
-    assert.equal(persistedSession.requiredSpecialty, 'Neurology');
-    assert.ok((persistedSession.recommendations?.length ?? 0) >= 3);
-    assert.equal(persistedSession.recommendations?.[0]?.rank, 1);
-  });
-
-  it('should filter hospital_research_cache by location tokens and fallback gracefully', async () => {
-    const navStore = new SqliteNavigationStore(':memory:');
-
-    const ranchiMatches = await navStore.findNearby('Ranchi', 'Neurology', true);
-    assert.equal(ranchiMatches.length, 1);
-    assert.ok(ranchiMatches[0].name.includes('Ranchi'));
-
-    const fallbackMatches = await navStore.findNearby('UnknownVillageXYZ', 'General Medicine', false);
-    assert.ok(fallbackMatches.length >= 5);
-  });
 
   it('should persist teleconsultation bookings, queue updates, messages, and vitals in SqliteTeleconsultStore', async () => {
     const store = new SqliteTeleconsultStore(':memory:');

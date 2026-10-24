@@ -2865,24 +2865,6 @@ def chat_medical_assistant_agent(req: AgentChatRequest):
     }
 
 
-# ==========================================
-# --- FEATURE 01: SMART CARE NAVIGATOR CLINICAL SCREENING & DIAGNOSTIC ENGINE ---
-# ==========================================
-from clinical_screening import (
-    start_clinical_screening,
-    process_screening_answer,
-    ScreeningStartRequest,
-    ScreeningAnswerRequest,
-    ScreeningResponse
-)
-
-@app.post("/api/triage/screening/start", response_model=ScreeningResponse)
-async def api_triage_screening_start(payload: ScreeningStartRequest):
-    return start_clinical_screening(payload.patient, payload.symptoms)
-
-@app.post("/api/triage/screening/answer", response_model=ScreeningResponse)
-async def api_triage_screening_answer(payload: ScreeningAnswerRequest):
-    return process_screening_answer(payload.patient, payload.symptoms, payload.conversation_history)
 
 
 if __name__ == "__main__":
