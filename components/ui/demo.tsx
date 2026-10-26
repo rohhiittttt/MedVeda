@@ -1,7 +1,69 @@
+"use client";
+
 import React from "react";
+import LensZoomCarousel, { Slide } from "@/components/ui/lens-zoom-carousel";
 import { TestimonialsColumn, type TestimonialItem } from "./testimonials-columns-1";
 import { motion } from "motion/react";
 import { MessageSquareQuote, HeartHandshake, ShieldCheck } from "lucide-react";
+
+// Real clinical & landscape photography (Unsplash verified).
+const U = (id: string) => `https://images.unsplash.com/photo-${id}?q=80&w=1800&auto=format&fit=crop`;
+
+export const DEMO_SLIDES: Slide[] = [
+  {
+    image: U("1576091160399-112ba8d25d1d"),
+    title: "The right care, at the right time.",
+    caption: "Meet MedVeda’s Smart Care Navigator for autonomous symptom triage and intelligent facility routing.",
+    alt: "Clinical triage consultation with digital tablet"
+  },
+  {
+    image: U("1584515979956-d9f6e5d09982"),
+    title: "Right scheme, for a healthier tomorrow.",
+    caption: "Instant government health scheme discovery powered by RAG and verified eligibility matching.",
+    alt: "Healthcare worker assisting rural patient family"
+  },
+  {
+    image: U("1576765608535-5f04d1e3f289"),
+    title: "Quality healthcare, from wherever you are.",
+    caption: "Connect with experienced doctors through secure video consultations, even when distance or access is a challenge.",
+    alt: "Telemedicine video consultation in progress on laptop"
+  },
+  {
+    image: U("1516549655169-df83a0774514"),
+    title: "AI-Assisted Medical Record",
+    caption: "Transform complex patient history into clear, encrypted, ABDM-interoperable health records.",
+    alt: "Digital medical records and healthcare analytics dashboard"
+  },
+  {
+    image: U("1506905925346-21bda4d32df4"),
+    title: "Above the Clouds",
+    caption: "Valais, Switzerland — sunrise at 3,100 m.",
+    palette: "alpine",
+    seed: 3
+  },
+  {
+    image: U("1501785888041-af3ef285b470"),
+    title: "Glass Lake",
+    caption: "Lago di Braies, a rowboat at noon.",
+    palette: "dawn",
+    seed: 8
+  }
+];
+
+export default function DemoPhotos() {
+  return (
+    <div className="w-full h-full min-h-[460px]">
+      <LensZoomCarousel
+        slides={DEMO_SLIDES}
+        height="100%"
+        duration={950}
+        depth={1.35}
+        autoplay={5500}
+        ink="#ffffff"
+      />
+    </div>
+  );
+}
 
 export const testimonials: TestimonialItem[] = [
   {
@@ -109,5 +171,3 @@ export const Testimonials = () => {
     </section>
   );
 };
-
-export default { Testimonials };

@@ -125,7 +125,7 @@ export async function runMigrations(): Promise<void> {
   console.log('[MedVeda DB Migrate] All 10 database stores initialized and verified in-memory.');
 }
 
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('migrate.ts')) {
+if (process.argv[1] && (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` || process.argv[1].endsWith('migrate.ts'))) {
   runMigrations().catch((err) => {
     console.error('[MedVeda DB Migrate] Fatal error:', err);
     process.exit(1);

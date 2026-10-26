@@ -271,6 +271,28 @@ const opdBookingStore = getOpdBookingStore();
 const opdBookingCore = getOpdBookingCore(opdBookingStore);
 const opdSmsOrchestrator = getOpdSmsOrchestrator(opdBookingStore, opdBookingCore);
 
+// ==========================================
+// --- PRODUCTION SYSTEM ADMIN & OBSERVABILITY SUBSYSTEM ---
+// ==========================================
+import { AdminTelemetryStore } from '../backend/src/infrastructure/admin/admin-telemetry.store.ts';
+import { AdminDatabaseManager } from '../backend/src/infrastructure/admin/admin-database.manager.ts';
+import { AdminService } from '../backend/src/infrastructure/admin/admin.service.ts';
+
+const adminTelemetryStore = new AdminTelemetryStore();
+const adminDatabaseManager = new AdminDatabaseManager({
+  teleconsult: { name: 'Module 02: Teleconsultation & Doctors', store: teleconsultStore },
+  referral: { name: 'Module 03: Smart Closed-Loop Referrals', store: referralStore },
+  followup: { name: 'Module 04: High-Risk Patient Follow-Ups', store: followUpStore },
+  records: { name: 'Module 05: ABDM Health Records & Overrides', store: recordsStore },
+  medicine: { name: 'Module 06: Medicines, Pharmacies & Labs', store: medicineStore },
+  facility: { name: 'Module 07: Facility Dashboard & Readiness', store: dashboardStore },
+  scheme: { name: 'Module 08: Government Health Schemes', store: schemeStore },
+  command_center: { name: 'Module 09: District Command Center (MV-DAC)', store: commandCenterStore },
+  opd_booking: { name: 'OPD Appointments & SMS Gateway', store: opdBookingStore },
+  admin_telemetry: { name: 'System Operations & Admin Audits', store: adminTelemetryStore }
+});
+const adminService = new AdminService(adminTelemetryStore, adminDatabaseManager);
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -316,6 +338,44 @@ const server = http.createServer(async (req, res) => {
 
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const reqPath = urlObj.pathname;
+
+  // --- REAL-TIME PRODUCTION TELEMETRY & OPERATIONS RECORDER ---
+  const reqStartTime = performance.now();
+  res.on('finish', () => {
+    if (reqPath.startsWith('/api/') || reqPath.startsWith('/v1/') || reqPath.startsWith('/q/')) {
+      const durationMs = performance.now() - reqStartTime;
+      let module = 'system';
+      if (reqPath.startsWith('/api/admin/')) module = 'admin';
+      else if (reqPath.startsWith('/v1/') || reqPath.startsWith('/api/opd/') || reqPath.startsWith('/api/teleconsult/') || reqPath.startsWith('/api/doctors/')) module = 'feature2';
+      else if (reqPath.startsWith('/api/triage/') || reqPath.startsWith('/api/navigate/') || reqPath.startsWith('/api/hospitals/')) module = 'feature1';
+      else if (reqPath.startsWith('/api/referrals/')) module = 'feature3';
+      else if (reqPath.startsWith('/api/followups/')) module = 'feature4';
+      else if (reqPath.startsWith('/api/records/')) module = 'feature5';
+      else if (reqPath.startsWith('/api/medicine/') || reqPath.startsWith('/api/diagnostic/')) module = 'feature6';
+      else if (reqPath.startsWith('/api/facility/')) module = 'feature7';
+      else if (reqPath.startsWith('/api/schemes/')) module = 'feature8';
+      else if (reqPath.startsWith('/api/command-center/')) module = 'feature9';
+      else if (reqPath.startsWith('/api/agent/')) module = 'feature10';
+
+      const userHeader = req.headers['x-user-id'] || req.headers['x-actor-id'] || '';
+      const roleHeader = req.headers['x-user-role'] || req.headers['x-actor-role'] || '';
+      const nameHeader = req.headers['x-user-name'] || '';
+
+      adminTelemetryStore.recordOperation({
+        module,
+        action: `${req.method} ${reqPath}`,
+        path: reqPath,
+        method: req.method,
+        userId: userHeader ? String(userHeader) : undefined,
+        userRole: roleHeader ? String(roleHeader) : undefined,
+        userName: nameHeader ? String(nameHeader) : undefined,
+        statusCode: res.statusCode,
+        durationMs,
+        details: `${req.method} ${reqPath} responded with ${res.statusCode} (${Math.round(durationMs)}ms)`,
+        status: res.statusCode >= 400 ? 'error' : 'success'
+      });
+    }
+  });
 
   // --- QR WALK-IN DEEP LINK VERIFICATION & REDIRECT (/q/:signedPayload) ---
   if (reqPath.startsWith('/q/') && req.method === 'GET') {
@@ -562,10 +622,269 @@ const server = http.createServer(async (req, res) => {
       // normalize path without /v1/ if present
       const normPath = reqPath.replace(/^\/api\/v1\//, '/api/');
 
+      // === SMART CARE NAVIGATOR: SYMPTOM INTAKE ENGINE API (/api/v1/intake/*) ===
+      if (reqPath.startsWith('/api/v1/intake/') || normPath.startsWith('/api/intake/')) {
+        let body = undefined;
+        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+          body = await readJsonBody(req).catch(() => ({}));
+        }
+        try {
+          const subPath = reqPath.startsWith('/api/v1/intake') 
+            ? reqPath.replace(/^\/api\/v1\/intake/, '') 
+            : normPath.replace(/^\/api\/intake/, '');
+          const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/intake${subPath}${urlObj.search}`;
+          const pyRes = await fetch(targetUrl, {
+            method: req.method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(req.headers['authorization'] ? { 'authorization': req.headers['authorization'] } : {})
+            },
+            body: body ? JSON.stringify(body) : undefined
+          });
+          const pyText = await pyRes.text();
+          res.writeHead(pyRes.status, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(pyText);
+        } catch (pyErr) {
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Symptom Intake Python Service Offline: ' + pyErr.message }));
+        }
+        return;
+      }
+
+      // === SMART CARE NAVIGATOR: LIVE HOSPITAL SEARCH & VERIFICATION API (/api/v1/hospitals/*) ===
+      if (reqPath.startsWith('/api/v1/hospitals/') || normPath.startsWith('/api/hospitals/')) {
+        let body = undefined;
+        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+          body = await readJsonBody(req).catch(() => ({}));
+        }
+        try {
+          const subPath = reqPath.startsWith('/api/v1/hospitals') 
+            ? reqPath.replace(/^\/api\/v1\/hospitals/, '') 
+            : normPath.replace(/^\/api\/hospitals/, '');
+          const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/hospitals${subPath}${urlObj.search}`;
+          const pyRes = await fetch(targetUrl, {
+            method: req.method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(req.headers['authorization'] ? { 'authorization': req.headers['authorization'] } : {})
+            },
+            body: body ? JSON.stringify(body) : undefined
+          });
+          const pyText = await pyRes.text();
+          res.writeHead(pyRes.status, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(pyText);
+        } catch (pyErr) {
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Hospital Search Python Service Offline: ' + pyErr.message }));
+        }
+        return;
+      }
+
+      // === SYSTEM ADMINISTRATOR & PRODUCTION CONTROL CONSOLE API ===
+      if (normPath.startsWith('/api/admin/')) {
+        // 1. Admin Login: POST /api/admin/login
+        if (normPath === '/api/admin/login' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = adminService.login(body.identifier || body.email, body.password);
+          res.writeHead(result.success ? 200 : 401);
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // 2. Admin Logout: POST /api/admin/logout
+        if (normPath === '/api/admin/logout' && req.method === 'POST') {
+          const body = await readJsonBody(req).catch(() => ({}));
+          const authHeader = req.headers.authorization || '';
+          const token = body.token || (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '');
+          adminService.logout(token);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Logged out successfully' }));
+          return;
+        }
+
+        // 3. Admin Verification / Profile: GET /api/admin/me
+        if (normPath === '/api/admin/me' && req.method === 'GET') {
+          const authHeader = req.headers.authorization || '';
+          const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : urlObj.searchParams.get('token') || '';
+          const session = adminService.verifyToken(token);
+          if (!session) {
+            res.writeHead(401);
+            res.end(JSON.stringify({ success: false, error: 'Unauthorized: Invalid or expired admin session token.' }));
+            return;
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, admin: session }));
+          return;
+        }
+
+        // 4. Feature Performance Metrics: GET /api/admin/metrics
+        if (normPath === '/api/admin/metrics' && req.method === 'GET') {
+          const metrics = adminService.getFeatureMetrics();
+          const vitals = adminTelemetryStore.getSystemVitals();
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, metrics, vitals }));
+          return;
+        }
+
+        // 5. User Operations & Services Log: GET /api/admin/operations
+        if (normPath === '/api/admin/operations' && req.method === 'GET') {
+          const module = urlObj.searchParams.get('module') || undefined;
+          const role = urlObj.searchParams.get('role') || undefined;
+          const status = urlObj.searchParams.get('status') || undefined;
+          const search = urlObj.searchParams.get('search') || urlObj.searchParams.get('q') || undefined;
+          const limit = urlObj.searchParams.get('limit') ? Number(urlObj.searchParams.get('limit')) : 50;
+          const offset = urlObj.searchParams.get('offset') ? Number(urlObj.searchParams.get('offset')) : 0;
+          const result = adminService.getOperations({ module, role, status, search, limit, offset });
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, ...result }));
+          return;
+        }
+
+        // 6. Database Tables List: GET /api/admin/database/tables
+        if (normPath === '/api/admin/database/tables' && req.method === 'GET') {
+          const tables = adminService.listTables();
+          const stores = adminDatabaseManager.listStores();
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, tables, stores }));
+          return;
+        }
+
+        // 7. Query Database Table: POST /api/admin/database/query
+        if (normPath === '/api/admin/database/query' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const data = adminService.queryTable(body.storeKey, body.tableName, {
+            limit: body.limit,
+            offset: body.offset,
+            filterCol: body.filterCol,
+            filterVal: body.filterVal,
+            orderBy: body.orderBy,
+            orderDir: body.orderDir
+          });
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, ...data }));
+          return;
+        }
+
+        // 8. Update Record: POST /api/admin/database/update
+        if (normPath === '/api/admin/database/update' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = adminService.updateRecord(body.storeKey, body.tableName, body.pkCol, body.pkVal, body.updates);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, result }));
+          return;
+        }
+
+        // 9. Insert Record: POST /api/admin/database/insert
+        if (normPath === '/api/admin/database/insert' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = adminService.insertRecord(body.storeKey, body.tableName, body.data);
+          res.writeHead(201);
+          res.end(JSON.stringify({ success: true, result }));
+          return;
+        }
+
+        // 10. Delete Record: POST /api/admin/database/delete
+        if (normPath === '/api/admin/database/delete' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = adminService.deleteRecord(body.storeKey, body.tableName, body.pkCol, body.pkVal);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, result }));
+          return;
+        }
+
+        // 11. Execute Raw SQL: POST /api/admin/database/execute
+        if (normPath === '/api/admin/database/execute' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = adminService.executeRawSql(body.storeKey, body.sqlQuery);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, ...result }));
+          return;
+        }
+
+        // 12. Run Migrations: POST /api/admin/database/migrate
+        if (normPath === '/api/admin/database/migrate' && req.method === 'POST') {
+          const result = await adminService.triggerMigration();
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, result }));
+          return;
+        }
+
+        // 13. System Status: GET /api/admin/system/status
+        if (normPath === '/api/admin/system/status' && req.method === 'GET') {
+          const status = await adminService.getSystemStatus(PYTHON_SERVICE_BASE);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, status }));
+          return;
+        }
+
+        // 14. Update Config: POST /api/admin/system/config
+        if (normPath === '/api/admin/system/config' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          adminService.updateConfig(body.key, body.value);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, config: adminTelemetryStore.getAllConfig() }));
+          return;
+        }
+
+        // 15. Cache Flush: POST /api/admin/system/cache-clear
+        if (normPath === '/api/admin/system/cache-clear' && req.method === 'POST') {
+          globalThis.__medvedaCompiledCache = null;
+          adminTelemetryStore.recordOperation({
+            module: 'admin',
+            moduleName: 'Core System Engine',
+            action: 'CACHE_PURGED',
+            path: '/api/admin/system/cache-clear',
+            method: 'POST',
+            userRole: 'system_admin',
+            userName: 'Master Admin',
+            statusCode: 200,
+            durationMs: 5.0,
+            details: 'In-memory caches & compiled assets flushed by Administrator.',
+            status: 'success'
+          });
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'All in-memory caches flushed successfully' }));
+          return;
+        }
+
+        res.writeHead(404);
+        res.end(JSON.stringify({ success: false, error: 'Admin endpoint not found' }));
+        return;
+      }
+
       // === FEATURE 01: SMART CARE NAVIGATOR (UNDER REDEVELOPMENT) ===
       if (normPath.startsWith('/api/navigate/') || normPath.startsWith('/api/triage/') || normPath.startsWith('/api/hospitals/') || normPath === '/api/recommendations/rank' || normPath === '/api/geocode/reverse') {
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, message: 'Smart Care Navigator is currently disabled for redevelopment.' }));
+        return;
+      }
+
+      // === SMART CARE NAVIGATOR: RECOMMENDATION & RANKING API (/api/v1/recommendations/*) ===
+      if (reqPath.startsWith('/api/v1/recommendations/') || normPath.startsWith('/api/recommendations/')) {
+        let body = undefined;
+        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+          body = await readJsonBody(req).catch(() => ({}));
+        }
+        try {
+          const subPath = reqPath.startsWith('/api/v1/recommendations') 
+            ? reqPath.replace(/^\/api\/v1\/recommendations/, '') 
+            : normPath.replace(/^\/api\/recommendations/, '');
+          const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/recommendations${subPath}${urlObj.search}`;
+          const pyRes = await fetch(targetUrl, {
+            method: req.method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(req.headers['authorization'] ? { 'authorization': req.headers['authorization'] } : {})
+            },
+            body: body ? JSON.stringify(body) : undefined
+          });
+          const pyText = await pyRes.text();
+          res.writeHead(pyRes.status, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(pyText);
+        } catch (pyErr) {
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: 'Recommendation Python Service Offline: ' + pyErr.message }));
+        }
         return;
       }
 

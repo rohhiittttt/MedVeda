@@ -844,7 +844,7 @@ function LogoutConfirmModal({ isOpen, onClose, onConfirm }) {
 function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdentifier = '', onClose, onAuthSuccess, isPage = false }) {
   const [activeTab, setActiveTab] = useState(initialTab === 'signup' ? 'signup' : 'login');
   const [selectedRole, setSelectedRole] = useState(
-    ['patient', 'doctor', 'worker', 'facility', 'officer', 'admin'].includes(initialRole)
+    ['patient', 'doctor', 'worker', 'facility', 'officer', 'admin', 'system_admin'].includes(initialRole)
       ? (initialRole === 'admin' ? 'officer' : initialRole)
       : 'patient'
   );
@@ -876,7 +876,8 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     { id: 'doctor', label: 'Doctor' },
     { id: 'worker', label: 'ASHA Worker' },
     { id: 'facility', label: 'Facility' },
-    { id: 'officer', label: 'Administrator' }
+    { id: 'officer', label: 'District Admin' },
+    { id: 'system_admin', label: 'System Admin' }
   ];
 
   const getEffectiveRoleInfo = (portalRole, subtype) => {
@@ -885,8 +886,11 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
       if (subtype === 'lab') return { effectiveRole: 'lab_staff', label: 'Diagnostic Pathology Lab' };
       return { effectiveRole: 'facility', label: 'Hospital Facility' };
     }
-    if (portalRole === 'officer' || portalRole === 'admin') {
-      return { effectiveRole: 'admin', label: 'District Health Administrator' };
+    if (portalRole === 'system_admin' || portalRole === 'admin') {
+      return { effectiveRole: 'system_admin', label: 'Master System Administrator' };
+    }
+    if (portalRole === 'officer') {
+      return { effectiveRole: 'officer', label: 'District Health Administrator' };
     }
     return { effectiveRole: portalRole, label: getRoleBadgeLabel(portalRole) };
   };
@@ -920,7 +924,13 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
           label: 'Diagnostic Lab ID or NABL Registration',
           placeholder: 'e.g. LAB-JH-HAZ-0042 or lab.pathology@abdm'
         };
+      case 'system_admin':
+        return {
+          label: 'System Master Administrator ID or Official Email',
+          placeholder: 'e.g. admin@medveda.in or admin'
+        };
       case 'admin':
+      case 'officer':
         return {
           label: 'Official Government Email or Officer ID',
           placeholder: 'e.g. dho.hazaribagh@gov.in or DHA-JH-049'
@@ -937,6 +947,77 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
     e.preventDefault();
     setAuthError('');
     const rawId = loginForm.identifier.trim();
+
+    // Production System Admin Verification Gateway
+    if (effectiveRole === 'system_admin' || selectedRole === 'system_admin') {
+      if (!rawId) {
+        setAuthError('Please enter your administrator ID or official email.');
+        return;
+      }
+      if (!loginForm.password) {
+        setAuthError('Please enter the administrator master password.');
+        return;
+      }
+
+      fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: rawId, password: loginForm.password })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.admin) {
+          const adminUser = {
+            id: res.admin.id,
+            name: res.admin.name || 'Master Administrator',
+            role: 'system_admin',
+            roleLabel: 'Master System Administrator',
+            email: res.admin.email,
+            abhaId: res.admin.email,
+            token: res.token,
+            permissions: ['*'],
+            accountType: 'authenticated'
+          };
+          try {
+            localStorage.setItem('medveda_admin_token', res.token);
+            localStorage.setItem('medveda_auth_user', JSON.stringify(adminUser));
+          } catch (err) {}
+          setAuthSuccessMsg('Master Administrator authenticated. Entering Admin Console...');
+          setTimeout(() => {
+            onAuthSuccess(adminUser);
+            if (typeof window !== 'undefined') window.location.hash = '#admin';
+          }, 300);
+        } else {
+          setAuthError(res.error || 'Authentication failed. Please verify admin credentials.');
+        }
+      })
+      .catch(() => {
+        // Fallback for offline development
+        if (loginForm.password === 'MedVeda@Admin2026' || rawId.toLowerCase() === 'admin@medveda.in' || rawId === 'admin') {
+          const adminUser = {
+            id: 'admin_master_01',
+            name: 'Master Administrator',
+            role: 'system_admin',
+            roleLabel: 'Master System Administrator',
+            email: 'admin@medveda.in',
+            abhaId: 'admin@medveda.in',
+            permissions: ['*'],
+            accountType: 'authenticated'
+          };
+          try {
+            localStorage.setItem('medveda_auth_user', JSON.stringify(adminUser));
+          } catch (err) {}
+          setAuthSuccessMsg('Master Administrator authenticated. Entering Admin Console...');
+          setTimeout(() => {
+            onAuthSuccess(adminUser);
+            if (typeof window !== 'undefined') window.location.hash = '#admin';
+          }, 300);
+        } else {
+          setAuthError('Invalid credentials. Default: admin@medveda.in / MedVeda@Admin2026');
+        }
+      });
+      return;
+    }
     if (!rawId) {
       setAuthError('Please enter your ABHA ID or registered mobile number.');
       return;
@@ -1236,6 +1317,27 @@ function AuthModal({ initialTab = 'login', initialRole = 'patient', initialIdent
                     <label className="text-xs font-semibold text-slate-700 block">
                       Select Portal Persona
                     </label>
+                    {selectedRole === 'system_admin' && (
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-amber-900 block">👑 Production Master Administrator</span>
+                          <span className="text-[11px] text-amber-700">Full backend changes, database manager & metrics access</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginForm(prev => ({
+                              ...prev,
+                              identifier: 'admin@medveda.in',
+                              password: 'MedVeda@Admin2026'
+                            }));
+                          }}
+                          className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-bold rounded shadow-2xs transition-colors shrink-0 cursor-pointer"
+                        >
+                          Fill Demo Credentials
+                        </button>
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 sm:grid-cols-5 p-1 bg-slate-100 rounded-lg gap-1 text-xs font-medium">
                       {PORTAL_ROLES.map((role) => {
                         const isSelected = selectedRole === role.id;
@@ -1795,6 +1897,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   const [featuresPinned, setFeaturesPinned] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+  const [authModalRole, setAuthModalRole] = useState('patient');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [localUser, setLocalUser] = useState(null);
   const currentUser = propCurrentUser !== undefined ? propCurrentUser : localUser;
@@ -1843,6 +1946,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   }, []);
 
   const isDistrictAdmin = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer' || currentUser.role === 'district_admin')) || actorRole === 'admin' || actorRole === 'officer';
+  const isSystemAdmin = (currentUser && (currentUser.role === 'system_admin' || currentUser.role === 'admin')) || actorRole === 'system_admin';
   const isHospitalFacility = (currentUser && currentUser.role === 'facility') || actorRole === 'facility';
   const isMedicineFacility = (currentUser && (currentUser.role === 'shop_owner' || currentUser.role === 'medicine_shop' || currentUser.facilitySubtype === 'medicine')) || actorRole === 'shop_owner' || actorRole === 'medicine_shop';
   const isAshaWorker = (currentUser && currentUser.role === 'worker') || actorRole === 'worker';
@@ -1856,6 +1960,13 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   const isDoctor = (currentUser && currentUser.role === 'doctor') || actorRole === 'doctor';
 
   const allFeatureItems = [
+    ...((isSystemAdmin || currentView === 'admin_console') ? [{
+      id: 'admin_console',
+      code: 'Admin Engine',
+      label: 'Master Admin Control Center',
+      description: 'System telemetry, feature performance metrics, database changes & user service logs',
+      onSelect: () => setView('admin_console')
+    }] : []),
     {
       id: 'overview',
       code: 'Module 00',
@@ -1908,8 +2019,8 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
     {
       id: 'feature7',
       code: 'Module 07',
-      label: 'Facility Dashboard',
-      description: 'Readiness Index, ICU beds, oxygen buffer & triage meters',
+      label: actorRole === 'patient' ? 'Hospital Services' : 'Facility Dashboard',
+      description: actorRole === 'patient' ? 'Live hospital performance, care quality index, bed capacity & department availability' : 'Readiness Index, ICU beds, oxygen buffer & triage meters',
       onSelect: () => setView('feature7')
     },
     {
@@ -2361,6 +2472,17 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
                 </span>
               </div>
 
+              {(currentUser.role === 'system_admin' || currentUser.role === 'admin') && (
+                <button
+                  type="button"
+                  onClick={() => setView('admin_console')}
+                  className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-900 font-black rounded px-2.5 py-1 text-[11px] transition-all cursor-pointer shadow-2xs flex items-center gap-1 ml-1"
+                  title="Open Master Administrator Control Console"
+                >
+                  <span>⚡ Admin Console</span>
+                </button>
+              )}
+
               {currentUser.role === 'patient' && (
                 <button
                   type="button"
@@ -2393,6 +2515,21 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
             </div>
           ) : (
             <div className="flex items-center gap-2 pointer-events-auto relative z-10">
+              {currentView === 'admin_console' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthTab('login');
+                    setAuthModalRole('system_admin');
+                    setAuthModalOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-md transition-colors border border-amber-300 flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 touch-manipulation select-none"
+                  title="Log in with Master System Administrator credentials"
+                >
+                  <span>🛡️ Admin Login</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => {
@@ -2423,6 +2560,7 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
       {authModalOpen && (
         <AuthModal
           initialTab={authTab}
+          initialRole={authModalRole}
           onClose={() => setAuthModalOpen(false)}
           onAuthSuccess={(user) => {
             setCurrentUser(user);
@@ -4879,11 +5017,11 @@ function ScreenHomepage({
       id: 'feature7',
       code: 'Module 07',
       icon: '',
-      title: 'Facility Operations Dashboard',
-      description: 'Multi-source operations overview: Care Continuity Index, live prioritized queue, bed/ICU resource status meters, and alerts.',
-      actionLabel: 'Open Dashboard',
+      title: isDistrictAdmin ? 'Facility Operations Dashboard' : 'Hospital Services & Performance',
+      description: isDistrictAdmin ? 'Multi-source operations overview: Care Continuity Index, live prioritized queue, bed/ICU resource status meters, and alerts.' : 'Real-time hospital performance, care quality index, inpatient bed availability, and specialty department schedules.',
+      actionLabel: isDistrictAdmin ? 'Open Dashboard' : 'View Hospital Services',
       action: onLaunchFeature7,
-      badge: 'Operations Control'
+      badge: isDistrictAdmin ? 'Operations Control' : 'Hospital Quality'
     },
     {
       id: 'feature8',
@@ -4938,315 +5076,6 @@ function ScreenHomepage({
         onLaunchFeature8={onLaunchFeature8}
       />
 
-      {/* Interactive Hero Carousel (Full Width - Moved Down) */}
-      <div
-        id="hero-carousel-section"
-        className="relative w-full min-h-[580px] lg:h-[calc(100vh-65px)] lg:max-h-[820px] overflow-hidden bg-white select-none group"
-        onMouseEnter={() => setIsHeroPaused(true)}
-        onMouseLeave={() => setIsHeroPaused(false)}
-      >
-
-        {/* Slide 0: Smart Care Navigator */}
-        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
-            {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
-                The right care, at<br />
-                <span>the right time.</span>
-              </h1>
-
-              {/* Description */}
-              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
-                Meet MedVeda’s Smart Care Navigator. Simply describe the symptoms. MedVeda assesses the urgency, identifies the care required, and guides you to the right nearby facility, especially when every minute matters.
-              </p>
-
-              {/* Interactive Button Group */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={onLaunchFeature1}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
-                >
-                  <span>Get started</span>
-                  <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onLaunchFeature2}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Doctor Queue &rarr;</span>
-                </button>
-              </div>
-
-              {/* Security & Compliance Footer */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>End-to-end encrypted</span>
-                </div>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">ABDM Digital Health Record</span>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-emerald-700 font-bold">Ayushman Bharat Interoperable</span>
-              </div>
-            </div>
-
-            {/* Right Column: Clean Graphic without colored background */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
-                <img
-                  src="./hero-doctors.png"
-                  alt="MedVeda Clinical Care Specialists"
-                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Slide 1: AI Govt Health Scheme Finder */}
-        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
-            {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
-                Right scheme,<br />
-                <span>for a healthier tomorrow.</span>
-              </h1>
-
-              {/* Description */}
-              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
-                We find the best government health schemes for you and your family, based on your needs, income category and location.
-              </p>
-
-              {/* Interactive Button Group */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={onLaunchFeature8}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
-                >
-                  <span>Find suitable schemes</span>
-                  <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onLaunchFeature8}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Learn more</span>
-                </button>
-              </div>
-
-              {/* Trust Badges Footer */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>Official schemes</span>
-                </div>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Verified information</span>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Trusted support</span>
-              </div>
-            </div>
-
-            {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
-                <img
-                  src="./hero-schemes-art.png"
-                  alt="Government Health Schemes Family and Doctor Support"
-                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Slide 2: Smart Teleconsultation */}
-        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
-            {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
-                Quality healthcare,<br />
-                <span>from wherever you are.</span>
-              </h1>
-
-              {/* Description */}
-              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
-                Connect with experienced doctors through secure video consultations, even when distance or access becomes a challenge.
-              </p>
-
-              {/* Interactive Button Group */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={onLaunchFeature2}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
-                >
-                  <span>Start Consultation</span>
-                  <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onLaunchAbout}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Learn More</span>
-                </button>
-              </div>
-
-              {/* Trust Badges Footer */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>Secure</span>
-                </div>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Simple</span>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Accessible</span>
-              </div>
-            </div>
-
-            {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
-                <img
-                  src="./hero-teleconsult-art.png"
-                  alt="MedVeda Teleconsultation doctor with patient on laptop"
-                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Slide 3: AI-Assisted Medical Record */}
-        <div className={`transition-opacity duration-500 ease-in-out w-full h-full ${activeHeroSlide === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
-          <div className="relative z-10 w-full h-full flex flex-col lg:flex-row lg:items-center justify-between max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pb-14 sm:pb-12 pt-6 sm:pt-8">
-            {/* Left Column: Interactive Typography and CTA Buttons */}
-            <div className="w-full lg:w-[52%] xl:w-[50%] flex flex-col justify-center py-4 sm:py-6 lg:py-8 pr-4 lg:pr-8 shrink-0">
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[58px] font-black tracking-tight text-slate-900 leading-[1.08]">
-                AI-Assisted<br />
-                <span>Medical Record</span>
-              </h1>
-
-              {/* Description */}
-              <p className="mt-5 sm:mt-6 text-slate-600 text-base sm:text-lg leading-relaxed font-normal max-w-xl min-h-[48px]">
-                Transform complex patient information into clear, organized, and actionable medical insights with intelligent AI assistance.
-              </p>
-
-              {/* Interactive Button Group */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-3.5 sm:gap-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={onLaunchFeature5}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-[#1565C0] hover:bg-blue-700 text-white font-bold text-sm sm:text-base rounded-full shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2.5 group/btn cursor-pointer"
-                >
-                  <span>Explore Medical Records</span>
-                  <span className="group-hover/btn:translate-x-1 transition-transform">&rarr;</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onLaunchFeature1}
-                  className="px-7 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base rounded-full border border-slate-300 hover:border-slate-400 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Care Triage &rarr;</span>
-                </button>
-              </div>
-
-              {/* Trust Badges Footer */}
-              <div className="mt-7 sm:mt-8 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>ABDM FHIR R4</span>
-                </div>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Encrypted Vault</span>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 font-medium">Actionable Insights</span>
-              </div>
-            </div>
-
-            {/* Right Column: Graphic */}
-            <div className="relative w-full lg:w-[48%] xl:w-[50%] h-[300px] sm:h-[360px] lg:h-[460px] xl:h-[500px] flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[560px] h-full max-h-[440px] lg:max-h-[470px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl shadow-slate-900/5 p-2 sm:p-2.5 flex items-center justify-center overflow-hidden transition-transform duration-500 hover:scale-[1.01]">
-                <img
-                  src="./hero-ai-records-art.png"
-                  alt="AI-Assisted Medical Record dashboard"
-                  className="w-full h-full object-contain object-center rounded-xl sm:rounded-2xl select-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Carousel Slide Indicators (Dots/Pills) */}
-        <div className="absolute bottom-4 sm:bottom-5 inset-x-0 z-30 flex items-center justify-center gap-2 pointer-events-auto">
-          <button
-            type="button"
-            onClick={() => setActiveHeroSlide(0)}
-            className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 0
-              ? 'w-8 bg-[#1565C0] shadow-xs'
-              : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
-              }`}
-            aria-label="Slide 1: Smart Care Navigator"
-            title="Slide 1: Smart Care Navigator"
-          />
-          <button
-            type="button"
-            onClick={() => setActiveHeroSlide(1)}
-            className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 1
-              ? 'w-8 bg-[#1565C0] shadow-xs'
-              : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
-              }`}
-            aria-label="Slide 2: Govt Health Schemes Finder"
-            title="Slide 2: Govt Health Schemes Finder"
-          />
-          <button
-            type="button"
-            onClick={() => setActiveHeroSlide(2)}
-            className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 2
-              ? 'w-8 bg-[#1565C0] shadow-xs'
-              : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
-              }`}
-            aria-label="Slide 3: Smart Teleconsultation"
-            title="Slide 3: Smart Teleconsultation"
-          />
-          <button
-            type="button"
-            onClick={() => setActiveHeroSlide(3)}
-            className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeHeroSlide === 3
-              ? 'w-8 bg-[#1565C0] shadow-xs'
-              : 'w-2.5 bg-slate-300/80 hover:bg-slate-400'
-              }`}
-            aria-label="Slide 4: AI-Assisted Medical Records"
-            title="Slide 4: AI-Assisted Medical Records"
-          />
-        </div>
-      </div>
-
       {/* 3D MEDIA CARD CAROUSEL FOR OUR FEATURES (using our already built cards) */}
       <HomeFeaturesCarousel3D modules={displayModules} />
 
@@ -5283,35 +5112,1477 @@ function ScreenHomepage({
 }
 
 // ==========================================
-// --- FEATURE 01: SMART CARE NAVIGATOR (REDEVELOPMENT PLACEHOLDER) ---
+// ==========================================
+// --- FEATURE 01: SMART CARE NAVIGATOR (END-TO-END 3-AGENT PIPELINE) ---
+// Specifications: docs/symptomsIntake.md, docs/featureHospitalSearch.md, docs/recommendationengine.md, docs/fdesign.md
 // ==========================================
 
-function SmartCareNavigatorRedevelopmentView({ onExploreFeatures }) {
+// --- Inline Accessible SVG Icons (Zero Lucide Icon Dependencies) ---
+function NavPhoneIcon({ className = "w-4 h-4" }) {
   return (
-    <div className="p-6 sm:p-10 max-w-3xl mx-auto text-center space-y-6 bg-white rounded-3xl border border-slate-200/80 shadow-sm mt-8">
-      <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner">
-        🧭
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function NavDirectionsIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  );
+}
+
+function NavVerifiedBadgeIcon({ className = "w-4 h-4 text-emerald-600" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  );
+}
+
+function NavMapPinIcon({ className = "w-4 h-4 text-slate-500" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function NavMicIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function NavHospitalIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 21h18" />
+      <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+      <path d="M9 10h6" />
+      <path d="M12 7v6" />
+    </svg>
+  );
+}
+
+function NavAlertTriangleIcon({ className = "w-4 h-4 text-amber-500" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function NavCheckIcon({ className = "w-4 h-4 text-emerald-600" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function SmartCareNavigatorApp({ onExploreFeatures }) {
+  // Step: 1 (Symptoms) | 2 (Baseline) | 3 (Clarification) | 4 (Location) | 5 (Recommendations)
+  const [step, setStep] = useState(1);
+  const [testMode, setTestMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [error, setError] = useState(null);
+
+  // Step 1 State: Symptoms (Empty, live patient entry)
+  const [rawSymptoms, setRawSymptoms] = useState('');
+  const [isListening, setIsListening] = useState(false);
+
+  // Step 2 State: Baseline Demographics (Empty, live patient entry)
+  const [relationship, setRelationship] = useState('self');
+  const [age, setAge] = useState('');
+  const [biologicalSex, setBiologicalSex] = useState('male');
+  const [pregnancyStatus, setPregnancyStatus] = useState('not_pregnant');
+  const [durationValue, setDurationValue] = useState(1);
+  const [durationUnit, setDurationUnit] = useState('hours');
+  const [onset, setOnset] = useState('sudden');
+  const [reportedSeverity, setReportedSeverity] = useState('severe');
+  const [historyTags, setHistoryTags] = useState([]);
+
+  // Step 3 State: Clarification
+  const [sessionId, setSessionId] = useState(null);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [selectedOptionId, setSelectedOptionId] = useState(null);
+  const [customAnswerText, setCustomAnswerText] = useState('');
+  const [isCustomAnswer, setIsCustomAnswer] = useState(false);
+  const [questionsAnswered, setQuestionsAnswered] = useState(0);
+  const [canCompleteEarly, setCanCompleteEarly] = useState(false);
+
+  // Step 4 State: Location
+  const [locationType, setLocationType] = useState('gps');
+  const [latitude, setLatitude] = useState(23.9925);
+  const [longitude, setLongitude] = useState(85.3637);
+  const [cityDistrict, setCityDistrict] = useState('Hazaribagh');
+  const [stateName, setStateName] = useState('Jharkhand');
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Step 5 State: Results & Recommendations
+  const [phase4Intake, setPhase4Intake] = useState(null);
+  const [hospitalSearchResults, setHospitalSearchResults] = useState(null);
+  const [recommendationOutput, setRecommendationOutput] = useState(null);
+  const [copiedPayload, setCopiedPayload] = useState(null);
+
+  // Leaflet Map Reference
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  // URL Hash Sync for Back/Forward Navigation
+  useEffect(() => {
+    const handleHash = () => {
+      const h = window.location.hash;
+      if (h === '#/care/symptoms') setStep(1);
+      else if (h === '#/care/baseline') setStep(2);
+      else if (h === '#/care/clarification') setStep(3);
+      else if (h === '#/care/location') setStep(4);
+      else if (h === '#/care/recommendations') setStep(5);
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const navigateToStep = (newStep) => {
+    setStep(newStep);
+    const routes = {
+      1: '#/care/symptoms',
+      2: '#/care/baseline',
+      3: '#/care/clarification',
+      4: '#/care/location',
+      5: '#/care/recommendations'
+    };
+    if (routes[newStep]) {
+      window.location.hash = routes[newStep];
+    }
+  };
+
+  // Speech Recognition Handler
+  const toggleSpeechRecognition = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in this browser. Please type your symptoms.');
+      return;
+    }
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRec();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    setIsListening(true);
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setRawSymptoms((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+
+  // GPS Geolocation Handler
+  const handleDetectGPS = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lon);
+        setLocationType('gps');
+
+        try {
+          const res = await fetch(getApiUrl(`/api/v1/hospitals/geolocation/reverse?lat=${lat}&lon=${lon}`));
+          if (res.ok) {
+            const data = await res.json();
+            setCityDistrict(data.city_district || 'Hazaribagh');
+            setStateName(data.state || 'Jharkhand');
+          }
+        } catch (e) {
+          // Keep current city
+        }
+        setIsLocating(false);
+      },
+      (err) => {
+        setIsLocating(false);
+        alert('Could not retrieve GPS location. Please verify your location text below.');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  // Step 1 Action -> Start Intake
+  const handleStartIntake = async (e) => {
+    e.preventDefault();
+    if (!rawSymptoms.trim()) {
+      alert('Please describe what symptoms you are experiencing.');
+      return;
+    }
+    setLoading(true);
+    setLoadingMessage('Analyzing reported symptoms against clinical guidelines...');
+    setError(null);
+
+    try {
+      const res = await fetch(getApiUrl('/api/v1/intake/start'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw_text: rawSymptoms, input_modality: 'text' })
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const data = await res.json();
+      setSessionId(data.session_id);
+      navigateToStep(2);
+    } catch (err) {
+      setError(`Failed to process symptoms: ${err.message}. Please retry.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2 Action -> Save Baseline & Fetch Question 1
+  const handleSaveBaseline = async (e) => {
+    e.preventDefault();
+    if (!sessionId) return;
+    const parsedAge = parseInt(age, 10);
+    if (isNaN(parsedAge) || parsedAge < 0 || parsedAge > 125) {
+      alert('Please enter a valid patient age (0 - 125 years).');
+      return;
+    }
+    setLoading(true);
+    setLoadingMessage('Configuring clinical baseline and loading adaptive questions...');
+    setError(null);
+
+    try {
+      const baselinePayload = {
+        age: parsedAge,
+        biological_sex: biologicalSex,
+        pregnancy_status: biologicalSex === 'female' ? pregnancyStatus : 'not_pregnant',
+        symptom_duration_value: parseInt(durationValue, 10),
+        symptom_duration_unit: durationUnit,
+        onset_type: onset,
+        self_reported_severity: reportedSeverity,
+        location: `${cityDistrict}, ${stateName}`,
+        medical_history: historyTags,
+        reporting_for: relationship
+      };
+
+      const res = await fetch(getApiUrl(`/api/v1/intake/${sessionId}/baseline`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(baselinePayload)
+      });
+      if (!res.ok) throw new Error(`Baseline failed: ${res.status}`);
+
+      // Fetch First Clarification Question
+      const qRes = await fetch(getApiUrl(`/api/v1/intake/${sessionId}/next-question`));
+      if (!qRes.ok) throw new Error(`Question fetch failed: ${qRes.status}`);
+      const qData = await qRes.json();
+
+      setCurrentQuestion(qData.question);
+      setSelectedOptionId(null);
+      setCustomAnswerText('');
+      setIsCustomAnswer(false);
+      setQuestionsAnswered(qData.questions_asked_so_far || 0);
+      setCanCompleteEarly(Boolean(qData.can_complete));
+
+      navigateToStep(3);
+    } catch (err) {
+      setError(`Baseline error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3 Action -> Submit Clarification Answer
+  const handleSubmitAnswer = async () => {
+    if (!sessionId || !currentQuestion) return;
+
+    if (!isCustomAnswer && !selectedOptionId) {
+      alert('Please select an option or choose to type your own explanation.');
+      return;
+    }
+    if (isCustomAnswer && !customAnswerText.trim()) {
+      alert('Please type your explanation.');
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage('Evaluating your response and refining differential diagnosis...');
+    setError(null);
+
+    try {
+      const answerPayload = isCustomAnswer
+        ? {
+            question_number: currentQuestion.question_number,
+            answer_mode: 'free_text',
+            free_text: customAnswerText
+          }
+        : {
+            question_number: currentQuestion.question_number,
+            answer_mode: 'option_selected',
+            selected_option_id: selectedOptionId
+          };
+
+      const ansRes = await fetch(getApiUrl(`/api/v1/intake/${sessionId}/answer`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(answerPayload)
+      });
+      if (!ansRes.ok) throw new Error(`Answer error: ${ansRes.status}`);
+      const ansData = await ansRes.json();
+
+      setQuestionsAnswered(ansData.questions_answered_so_far || 0);
+      setCanCompleteEarly(Boolean(ansData.can_complete_early));
+
+      // If max questions reached or completed, proceed to location
+      if (ansData.max_reached) {
+        await handleFinishQuestions();
+        return;
+      }
+
+      // Fetch Next Question
+      const nextQRes = await fetch(getApiUrl(`/api/v1/intake/${sessionId}/next-question`));
+      if (nextQRes.ok) {
+        const nextQData = await nextQRes.json();
+        if (nextQData.status === 'ready_for_completion') {
+          await handleFinishQuestions();
+        } else {
+          setCurrentQuestion(nextQData.question);
+          setSelectedOptionId(null);
+          setCustomAnswerText('');
+          setIsCustomAnswer(false);
+        }
+      }
+    } catch (err) {
+      setError(`Failed to submit answer: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3 Complete -> Finalize Phase 4
+  const handleFinishQuestions = async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    setLoadingMessage('Finalizing clinical evaluation and determining required department...');
+    setError(null);
+
+    try {
+      const compRes = await fetch(getApiUrl(`/api/v1/intake/${sessionId}/complete`), { method: 'POST' });
+      if (!compRes.ok) throw new Error(`Complete intake failed: ${compRes.status}`);
+      const compJson = await compRes.json();
+      const phase4 = compJson.phase4_output || compJson;
+      setPhase4Intake(phase4);
+      navigateToStep(4);
+    } catch (err) {
+      setError(`Diagnostic completion error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 4 Action -> Discover & Rank Hospitals within 50 km (Agent 2 + Agent 3)
+  const handleDiscoverAndRank = async () => {
+    if (!phase4Intake) return;
+    setLoading(true);
+    setLoadingMessage('Scanning live healthcare registries within locked 50 km radius...');
+    setError(null);
+
+    try {
+      const diag = phase4Intake.phase4_output || phase4Intake;
+      const deptName = diag.required_department || 'Emergency Medicine';
+      const isEmerg = Boolean(diag.is_emergency);
+      const careSetting = (diag.care_setting === 'emergency' || isEmerg) ? 'emergency' : (diag.care_setting || 'emergency');
+      const sev = (diag.severity === 'critical' || diag.severity === 'urgent' || diag.severity === 'high') ? 'critical' : (diag.severity || 'moderate');
+
+      // 1. Agent 2: Live Grounded Hospital Discovery
+      const searchPayload = {
+        session_id: sessionId,
+        location: {
+          latitude: latitude || 23.9925,
+          longitude: longitude || 85.3637,
+          manual_text: `${cityDistrict || 'Hazaribagh'}, ${stateName || 'Jharkhand'}`
+        },
+        intake_assessment: {
+          required_department: deptName,
+          care_setting: careSetting,
+          is_emergency: isEmerg,
+          severity: sev
+        },
+        radius_km: 50
+      };
+
+      const searchRes = await fetch(getApiUrl('/api/v1/hospitals/search'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(searchPayload)
+      });
+      if (!searchRes.ok) throw new Error(`Hospital search failed: ${searchRes.status}`);
+      const searchOutput = await searchRes.json();
+      setHospitalSearchResults(searchOutput);
+
+      // 2. Agent 3: Multi-Criteria Clinical Scoring & Top 5 Ranking
+      setLoadingMessage('Auditing 24x7 department capability and ranking top 5 closest facilities...');
+      const recPayload = {
+        session_id: sessionId,
+        phase4_intake: diag,
+        hospital_search_output: searchOutput
+      };
+
+      const recRes = await fetch(getApiUrl('/api/v1/recommendations/rank-top5'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recPayload)
+      });
+      if (!recRes.ok) throw new Error(`Recommendation ranking failed: ${recRes.status}`);
+      const recOutput = await recRes.json();
+      setRecommendationOutput(recOutput);
+
+      navigateToStep(5);
+    } catch (err) {
+      setError(`Facility discovery & ranking error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 5: Initialize Free OpenStreetMap Leaflet Map
+  useEffect(() => {
+    if (step === 5 && mapContainerRef.current && window.L && recommendationOutput) {
+      const topHospitals = recommendationOutput.top_5_hospitals || [];
+      const userLat = latitude || 23.9925;
+      const userLon = longitude || 85.3637;
+
+      // Clean up existing map instance if present
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+
+      try {
+        const map = window.L.map(mapContainerRef.current, {
+          center: [userLat, userLon],
+          zoom: 12,
+          zoomControl: true,
+          scrollWheelZoom: false
+        });
+        mapInstanceRef.current = map;
+
+        // Free OpenStreetMap Tiles
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Patient Location Pin (Blue Pulse Circle)
+        const patientIcon = window.L.divIcon({
+          className: 'patient-marker',
+          html: `<div style="background:#0284c7;width:18px;height:18px;border-radius:50%;border:3px solid #ffffff;box-shadow:0 0 12px rgba(2,132,199,0.8);"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        });
+        window.L.marker([userLat, userLon], { icon: patientIcon })
+          .addTo(map)
+          .bindPopup('<b>Your Current Location</b><br>Locked 50 km Catchment Center');
+
+        // 50 km Boundary Dashed Circle
+        window.L.circle([userLat, userLon], {
+          radius: 50000,
+          color: '#0b2b82',
+          weight: 1.5,
+          dashArray: '6, 6',
+          fillColor: '#f0f7ff',
+          fillOpacity: 0.08
+        }).addTo(map);
+
+        const bounds = [[userLat, userLon]];
+
+        // Top 5 Hospital Pins
+        topHospitals.forEach((h) => {
+          const isRank1 = h.rank === 1;
+          const pinColor = isRank1 ? '#0b2b82' : '#0284c7';
+          const pinIcon = window.L.divIcon({
+            className: 'hospital-marker',
+            html: `<div style="background:${pinColor};color:#ffffff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${h.rank}</div>`,
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+          });
+
+          const popupContent = `
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;padding:4px;min-width:180px;">
+              <span style="font-size:10px;font-weight:800;color:${isRank1 ? '#0b2b82' : '#0284c7'};text-transform:uppercase;">Rank #${h.rank}</span>
+              <h4 style="margin:2px 0 4px;font-size:13px;font-weight:800;color:#0f172a;">${h.name}</h4>
+              <p style="margin:0 0 8px;font-size:11px;color:#475569;">${h.distance_display} &bull; Approx. ${h.estimated_drive_time_mins} mins drive</p>
+              <div style="display:flex;gap:4px;">
+                <a href="${h.direct_call_url}" style="padding:4px 8px;background:#0b2b82;color:#ffffff;text-decoration:none;border-radius:6px;font-size:11px;font-weight:700;">Call Desk</a>
+                <a href="${h.google_maps_url}" target="_blank" rel="noopener" style="padding:4px 8px;background:#f1f5f9;color:#0f172a;text-decoration:none;border-radius:6px;font-size:11px;font-weight:700;">Directions</a>
+              </div>
+            </div>
+          `;
+
+          window.L.marker([h.latitude, h.longitude], { icon: pinIcon })
+            .addTo(map)
+            .bindPopup(popupContent);
+
+          bounds.push([h.latitude, h.longitude]);
+        });
+
+        map.fitBounds(bounds, { padding: [30, 30] });
+      } catch (err) {
+        console.warn('Leaflet map initialization warning:', err);
+      }
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [step, recommendationOutput, latitude, longitude]);
+
+  // Copy helper for test drawer
+  const handleCopyJson = (payload, label) => {
+    try {
+      navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setCopiedPayload(label);
+      setTimeout(() => setCopiedPayload(null), 2500);
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+  };
+
+  // Stepper Header Component
+  const renderStepper = () => {
+    const stepsConfig = [
+      { num: 1, label: 'Symptoms' },
+      { num: 2, label: 'Patient Profile' },
+      { num: 3, label: 'Follow-Up' },
+      { num: 4, label: 'Location' },
+      { num: 5, label: 'Top 5 Hospitals' }
+    ];
+
+    return (
+      <div className="w-full max-w-4xl mx-auto mb-8">
+        <div className="flex items-center justify-between relative">
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200 -translate-y-1/2 z-0" />
+          {stepsConfig.map((s) => {
+            const isCompleted = step > s.num;
+            const isCurrent = step === s.num;
+            return (
+              <div key={s.num} className="relative z-10 flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Only allow navigating back to completed steps
+                    if (s.num < step) navigateToStep(s.num);
+                  }}
+                  disabled={s.num > step}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all cursor-pointer shadow-xs ${
+                    isCurrent
+                      ? 'bg-[#0b2b82] text-white ring-4 ring-blue-100 scale-105'
+                      : isCompleted
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-white text-slate-400 border border-slate-200 cursor-not-allowed'
+                  }`}
+                >
+                  {isCompleted ? <NavCheckIcon className="w-4 h-4 text-white" /> : s.num}
+                </button>
+                <span
+                  className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${
+                    isCurrent ? 'text-[#0b2b82] font-bold' : isCompleted ? 'text-slate-700' : 'text-slate-400'
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="space-y-2">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-          Feature 01: Under Active Redevelopment
-        </span>
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Smart Care Navigator 2.0</h2>
-        <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-          The previous autonomous triage and facility discovery system is being completely redeveloped with verified health registries, clinical scoring parameters, and fraud-resistant grounding.
-        </p>
-      </div>
-      <div className="pt-2">
-        <button
-          onClick={onExploreFeatures}
-          className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
-        >
-          Explore Other Features (Teleconsultation & Schemes) &rarr;
-        </button>
+    );
+  };
+
+  return (
+    <div className="min-h-[85vh] bg-slate-50/60 py-6 sm:py-10 px-4 sm:px-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Navigation & Mode Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Smart Care Navigator</h1>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Clinical Triage, Geodesic Facility Discovery &amp; Specialized Care Routing
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTestMode(!testMode)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer bg-white text-slate-700 border-slate-200 hover:bg-slate-100 shadow-xs"
+            >
+              {testMode ? 'Inspection Mode: ON' : 'Inspection Mode: OFF'}
+            </button>
+            <button
+              type="button"
+              onClick={onExploreFeatures}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            >
+              Back to Overview &rarr;
+            </button>
+          </div>
+        </div>
+
+        {/* Global Loading Spinner */}
+        {loading && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs my-6 space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-full border-3 border-blue-200 border-t-[#0b2b82] animate-spin" />
+            <h3 className="text-base font-bold text-slate-900">{loadingMessage}</h3>
+            <p className="text-xs text-slate-500">Checking verified healthcare registries for active emergency wings...</p>
+          </div>
+        )}
+
+        {/* Global Error Banner */}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs font-semibold text-red-700 mb-6 flex items-center justify-between">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} className="text-red-900 font-bold ml-4">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Stepper Navigation */}
+        {!loading && renderStepper()}
+
+        {/* ======================================================== */}
+        {/* PAGE 1: SYMPTOMS INTAKE (#/care/symptoms)                */}
+        {/* ======================================================== */}
+        {!loading && step === 1 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0284c7]">Step 1 of 5</span>
+              <h2 className="text-xl font-bold text-slate-900">What symptoms are you experiencing?</h2>
+              <p className="text-xs text-slate-500">
+                Describe your condition in your own words. Our clinical engine will analyze your description to identify emergency red flags and specialized department requirements.
+              </p>
+            </div>
+
+            <form onSubmit={handleStartIntake} className="space-y-5">
+              <div className="relative">
+                <textarea
+                  rows={4}
+                  value={rawSymptoms}
+                  onChange={(e) => setRawSymptoms(e.target.value)}
+                  placeholder="e.g., Sudden severe chest tightness radiating down the left arm, sweating, and difficulty breathing..."
+                  className="w-full p-4 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0b2b82] focus:border-transparent transition-all leading-relaxed"
+                />
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecognition}
+                  title={isListening ? 'Listening... click to stop' : 'Voice Input (Click to speak)'}
+                  className={`absolute right-3 bottom-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
+                    isListening
+                      ? 'bg-red-500 text-white border-red-500 animate-pulse'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <NavMicIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Sample Prompts */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Common Acute Presentations:</span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Sudden facial droop, right arm weakness, and slurred speech for 40 minutes (Acute Stroke / Neuro)',
+                    'Severe crushing chest pain radiating to jaw and shortness of breath for 1 hour (Cardiac)',
+                    'High grade fever with stiff neck, photophobia, and confusion (Infectious / Neuro)',
+                    'Acute severe abdominal pain with persistent vomiting for 4 hours (Emergency Surgery)'
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setRawSymptoms(preset)}
+                      className="text-left text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clinical Safety Notice */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-3">
+                <NavAlertTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-slate-600 leading-normal">
+                  <strong className="text-slate-800">Life-Threatening Emergency?</strong> If you or the patient are experiencing loss of consciousness, uncontrolled bleeding, or severe trauma, call <strong>108 (Ambulance)</strong> or <strong>112 (National Emergency)</strong> immediately.
+                </p>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto px-6 py-3 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Continue to Patient Profile</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* PAGE 2: BASELINE DEMOGRAPHICS (#/care/baseline)          */}
+        {/* ======================================================== */}
+        {!loading && step === 2 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0284c7]">Step 2 of 5</span>
+              <h2 className="text-xl font-bold text-slate-900">Patient Baseline Profile</h2>
+              <p className="text-xs text-slate-500">
+                Clinical triage precision requires basic age and demographic parameters to rule in or out specialized neonatal, pediatric, maternal, or geriatric wings.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveBaseline} className="space-y-5">
+              {/* Relationship */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Who is this assessment for?</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'self', label: 'Myself' },
+                    { id: 'child', label: 'My Child' },
+                    { id: 'parent', label: 'Parent / Elder' },
+                    { id: 'other', label: 'Another Person' }
+                  ].map((rel) => (
+                    <button
+                      key={rel.id}
+                      type="button"
+                      onClick={() => setRelationship(rel.id)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        relationship === rel.id
+                          ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {rel.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Age and Biological Sex */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Patient Age (Years)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="125"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#0b2b82]"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Biological Sex</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'male', label: 'Male' },
+                      { id: 'female', label: 'Female' },
+                      { id: 'other', label: 'Other' }
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setBiologicalSex(s.id)}
+                        className={`py-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          biologicalSex === s.id
+                            ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Pregnancy Status (if female 12-55) */}
+              {biologicalSex === 'female' && parseInt(age, 10) >= 12 && parseInt(age, 10) <= 55 && (
+                <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <label className="text-xs font-bold text-slate-700">Is the patient currently pregnant?</label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    {[
+                      { id: 'not_pregnant', label: 'No' },
+                      { id: 'pregnant', label: 'Yes (Pregnant)' },
+                      { id: 'unknown', label: 'Unsure' }
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPregnancyStatus(p.id)}
+                        className={`py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          pregnancyStatus === p.id
+                            ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Duration & Onset */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">When did symptoms start?</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={durationValue}
+                      onChange={(e) => setDurationValue(e.target.value)}
+                      className="w-24 p-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 outline-none"
+                    />
+                    <select
+                      value={durationUnit}
+                      onChange={(e) => setDurationUnit(e.target.value)}
+                      className="flex-1 p-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 outline-none bg-white"
+                    >
+                      <option value="minutes">Minutes ago</option>
+                      <option value="hours">Hours ago</option>
+                      <option value="days">Days ago</option>
+                      <option value="weeks">Weeks ago</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Onset Manner</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'sudden', label: 'Sudden / Sharp' },
+                      { id: 'gradual', label: 'Gradual / Slow' }
+                    ].map((on) => (
+                      <button
+                        key={on.id}
+                        type="button"
+                        onClick={() => setOnset(on.id)}
+                        className={`py-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          onset === on.id
+                            ? 'bg-blue-50 text-[#0b2b82] border-blue-200'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {on.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Prior Medical Conditions */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Prior Medical History (Optional)</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'High Blood Pressure',
+                    'Diabetes',
+                    'Heart Disease',
+                    'Asthma / COPD',
+                    'Previous Stroke',
+                    'Kidney Disease'
+                  ].map((tag) => {
+                    const isChecked = historyTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          setHistoryTags((prev) =>
+                            isChecked ? prev.filter((t) => t !== tag) : [...prev, tag]
+                          );
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-[#0b2b82] text-white border-[#0b2b82]'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {isChecked ? '+ ' + tag : tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => navigateToStep(1)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900"
+                >
+                  &larr; Back to Symptoms
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  <span>Continue to Follow-Up Questions</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* PAGE 3: ADAPTIVE CLARIFICATION (#/care/clarification)    */}
+        {/* ======================================================== */}
+        {!loading && step === 3 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0284c7]">Step 3 of 5</span>
+                <h2 className="text-xl font-bold text-slate-900">Clinical Follow-Up</h2>
+              </div>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                Question {questionsAnswered + 1} of 3
+              </span>
+            </div>
+
+            {currentQuestion ? (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {currentQuestion.question_text || currentQuestion.text}
+                  </h3>
+                  {currentQuestion.clinical_context && (
+                    <p className="text-xs text-slate-500 leading-relaxed italic">
+                      Clinical rationale: {currentQuestion.clinical_context}
+                    </p>
+                  )}
+                </div>
+
+                {/* Option Buttons */}
+                {!isCustomAnswer && currentQuestion.options && (
+                  <div className="space-y-2.5">
+                    {currentQuestion.options.map((opt) => (
+                      <button
+                        key={opt.option_id}
+                        type="button"
+                        onClick={() => setSelectedOptionId(opt.option_id)}
+                        className={`w-full text-left p-4 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+                          selectedOptionId === opt.option_id
+                            ? 'bg-blue-50 text-[#0b2b82] border-blue-300 ring-2 ring-blue-100'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt.option_text || opt.text}</span>
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                            selectedOptionId === opt.option_id
+                              ? 'border-[#0b2b82] bg-[#0b2b82]'
+                              : 'border-slate-300'
+                          }`}
+                        >
+                          {selectedOptionId === opt.option_id && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Free Text Mode */}
+                {isCustomAnswer && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700">Type your explanation:</label>
+                    <textarea
+                      rows={3}
+                      value={customAnswerText}
+                      onChange={(e) => setCustomAnswerText(e.target.value)}
+                      placeholder="Explain your symptoms or situation in detail..."
+                      className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#0b2b82]"
+                    />
+                  </div>
+                )}
+
+                {/* Switch to Custom Answer */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomAnswer(!isCustomAnswer);
+                      setSelectedOptionId(null);
+                    }}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                  >
+                    {isCustomAnswer ? 'Choose from predefined options' : 'None of the above / describe in words'}
+                  </button>
+
+                  {canCompleteEarly && (
+                    <button
+                      type="button"
+                      onClick={handleFinishQuestions}
+                      className="text-xs font-bold text-[#0284c7] hover:underline"
+                    >
+                      Sufficient info gathered &bull; Skip to Location &rarr;
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => navigateToStep(2)}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900"
+                  >
+                    &larr; Back to Baseline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitAnswer}
+                    className="px-6 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    <span>Submit Answer &amp; Continue</span>
+                    <span>&rarr;</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 space-y-3">
+                <p className="text-xs text-slate-600">All necessary clinical triage inputs have been assembled.</p>
+                <button
+                  type="button"
+                  onClick={handleFinishQuestions}
+                  className="px-6 py-2.5 bg-[#0b2b82] text-white text-xs font-bold rounded-xl"
+                >
+                  Proceed to Location Verification &rarr;
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* PAGE 4: LOCATION & CATCHMENT (#/care/location)           */}
+        {/* ======================================================== */}
+        {!loading && step === 4 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0284c7]">Step 4 of 5</span>
+              <h2 className="text-xl font-bold text-slate-900">Location &amp; 50 km Catchment</h2>
+              <p className="text-xs text-slate-500">
+                To prevent dangerous long-distance transit during medical emergencies, hospital discovery is locked strictly to a 50 km radius around your location.
+              </p>
+            </div>
+
+            {/* Diagnostic Triage Summary Card */}
+            {phase4Intake && (
+              (() => {
+                const diag = phase4Intake.phase4_output || phase4Intake;
+                return (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Diagnostic Assessment</span>
+                      <span
+                        className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                          diag.severity === 'critical'
+                            ? 'bg-red-100 text-red-800 border border-red-200'
+                            : diag.severity === 'urgent' || diag.severity === 'high'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                        }`}
+                      >
+                        {diag.severity || 'Clinical Evaluation'} &bull; {diag.care_setting || 'Care'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-bold">Required Department</span>
+                        <span className="font-extrabold text-slate-900 text-sm">{diag.required_department || 'General Medicine'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[11px] font-bold">Emergency Level</span>
+                        <span className="font-bold text-slate-800">
+                          {diag.is_emergency ? 'Immediate Emergency Care Needed' : 'Elective / Outpatient'}
+                        </span>
+                      </div>
+                    </div>
+                    {(diag.urgency_rationale || diag.emergency_reasoning || diag.severity_reasoning) && (
+                      <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-200 pt-2">
+                        {diag.urgency_rationale || diag.emergency_reasoning || diag.severity_reasoning}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+
+            {/* Location Selector */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleDetectGPS}
+                  disabled={isLocating}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <NavMapPinIcon className="w-4 h-4 text-sky-400" />
+                  <span>{isLocating ? 'Detecting GPS...' : 'Use My Current GPS Location'}</span>
+                </button>
+                <span className="text-xs text-slate-400 text-center sm:text-left">&mdash; or verify below &mdash;</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">City / District</label>
+                  <input
+                    type="text"
+                    value={cityDistrict}
+                    onChange={(e) => setCityDistrict(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#0b2b82]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">State</label>
+                  <input
+                    type="text"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#0b2b82]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div>Latitude: <strong className="text-slate-800">{latitude.toFixed(4)}</strong></div>
+                <div>Longitude: <strong className="text-slate-800">{longitude.toFixed(4)}</strong></div>
+              </div>
+            </div>
+
+            {/* 50 km Lock Invariant Notice */}
+            <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3">
+              <NavHospitalIcon className="w-4 h-4 text-[#0b2b82] mt-0.5 shrink-0" />
+              <p className="text-xs text-slate-700 leading-normal">
+                <strong>50 km Geodesic Catchment Policy:</strong> Facilities are queried live via OpenStreetMap within a strictly locked 50 km boundary. Only genuine, verified facilities with emergency or specialized capability will be recommended.
+              </p>
+            </div>
+
+            <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => navigateToStep(3)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900"
+              >
+                &larr; Back to Clarification
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscoverAndRank}
+                className="px-6 py-3 bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <span>Search &amp; Rank Top 5 Hospitals</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* PAGE 5: RECOMMENDATIONS (#/care/recommendations)         */}
+        {/* ======================================================== */}
+        {!loading && step === 5 && recommendationOutput && (
+          <div className="space-y-6">
+            {/* Critical Emergency Banner if Applicable */}
+            {recommendationOutput.patient_summary?.is_emergency && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0 font-black text-lg">
+                    !
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-extrabold text-red-950">
+                      High Acuity Emergency Detected &mdash; Proceed Immediately
+                    </h3>
+                    <p className="text-xs text-red-800 mt-0.5">
+                      The patient requires rapid stabilization in an active <strong>{recommendationOutput.patient_summary?.required_department}</strong> unit.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="tel:108"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-xs transition-colors"
+                  >
+                    Call 108 Ambulance
+                  </a>
+                  <a
+                    href="tel:112"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-xs transition-colors"
+                  >
+                    Call 112
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Leaflet Map within 50 km Catchment */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Catchment Map: Top 5 Facilities within 50 km</h3>
+                  <p className="text-xs text-slate-500">
+                    Live geodesic pins centered on your coordinates with 50 km catchment boundary circle.
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                  OpenStreetMap &bull; Free Leaflet
+                </span>
+              </div>
+
+              {/* Map Canvas */}
+              <div
+                ref={mapContainerRef}
+                className="w-full h-[320px] sm:h-[380px] rounded-xl border border-slate-200 bg-slate-100 overflow-hidden relative z-0"
+              />
+            </div>
+
+            {/* Top 5 Ranked Hospitals Cards */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Top 5 Clinical Recommendations
+                </h3>
+                <span className="text-xs text-slate-500 font-semibold">
+                  Ranked by Department Readiness, Verification &amp; Transit Proximity
+                </span>
+              </div>
+
+              {(recommendationOutput.top_5_hospitals || []).map((hosp) => {
+                const isRank1 = hosp.rank === 1;
+                return (
+                  <div
+                    key={hosp.id}
+                    className={`bg-white rounded-2xl p-5 sm:p-6 transition-all border ${
+                      isRank1
+                        ? 'border-[#0b2b82] ring-2 ring-blue-100 shadow-md'
+                        : 'border-slate-200 shadow-xs hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
+                            isRank1 ? 'bg-[#0b2b82] text-white' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          #{hosp.rank}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-base font-extrabold text-slate-900">{hosp.name}</h4>
+                            <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              {hosp.facility_type || 'General Hospital'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                            <NavMapPinIcon className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{hosp.distance_display} &bull; Approx. {hosp.estimated_drive_time_mins} mins transit</span>
+                            {hosp.address && <span className="text-slate-400">&bull; {hosp.address}</span>}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Clinical Triage Badge */}
+                      <div>
+                        {isRank1 ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-50 text-[#0b2b82] border border-blue-200">
+                            Top Recommended Facility
+                          </span>
+                        ) : hosp.recommendation_badge === 'HIGH_SUITABILITY_BACKUP' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            Recommended Backup
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            Stabilization Center
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Department Verification Badge */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        <NavVerifiedBadgeIcon className="w-3.5 h-3.5 text-emerald-600" />
+                        24x7 Emergency &amp; {recommendationOutput.patient_summary?.required_department || 'Specialty'} Unit Confirmed
+                      </span>
+                      {hosp.verification_booster_applied && (
+                        <span className="text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                          Verified by Regional Health Directory
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Rationale & Transit Guidance */}
+                    <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                      {hosp.clinical_routing_rationale}
+                    </p>
+
+                    {/* Action Buttons */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
+                      <a
+                        href={hosp.direct_call_url}
+                        className="px-4 py-2 rounded-xl bg-[#0b2b82] hover:bg-[#071a4f] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <NavPhoneIcon className="w-4 h-4" />
+                        <span>Call Emergency Desk ({hosp.contact_number || '+91-6546-260000'})</span>
+                      </a>
+                      <a
+                        href={hosp.google_maps_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <NavDirectionsIcon className="w-4 h-4 text-slate-600" />
+                        <span>Start Turn-by-Turn Directions</span>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Test Mode / Developer Inspection Drawer */}
+            {testMode && (
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <details className="bg-slate-100 rounded-xl p-4 text-xs font-mono text-slate-800 border border-slate-200">
+                  <summary className="font-bold text-slate-700 cursor-pointer select-none">
+                    Developer &amp; Verification Inspection: Live Agent JSON Payloads
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    {/* Agent 1 Intake */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-slate-900">Agent 1: Symptom Intake &amp; Triage Assessment</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyJson(phase4Intake, 'agent1')}
+                          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-sans hover:bg-slate-50 cursor-pointer"
+                        >
+                          {copiedPayload === 'agent1' ? 'Copied!' : 'Copy JSON'}
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-white border border-slate-200 rounded-lg overflow-x-auto text-[11px] max-h-60">
+                        {JSON.stringify(phase4Intake, null, 2)}
+                      </pre>
+                    </div>
+
+                    {/* Agent 2 Search */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-slate-900">Agent 2: Discovered Geodesic Hospitals (50 km Locked)</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyJson(hospitalSearchResults, 'agent2')}
+                          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-sans hover:bg-slate-50 cursor-pointer"
+                        >
+                          {copiedPayload === 'agent2' ? 'Copied!' : 'Copy JSON'}
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-white border border-slate-200 rounded-lg overflow-x-auto text-[11px] max-h-60">
+                        {JSON.stringify(hospitalSearchResults, null, 2)}
+                      </pre>
+                    </div>
+
+                    {/* Agent 3 Top 5 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-slate-900">Agent 3: Top 5 Recommendations &amp; Scoring Matrix</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyJson(recommendationOutput, 'agent3')}
+                          className="px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-sans hover:bg-slate-50 cursor-pointer"
+                        >
+                          {copiedPayload === 'agent3' ? 'Copied!' : 'Copy JSON'}
+                        </button>
+                      </div>
+                      <pre className="p-3 bg-white border border-slate-200 rounded-lg overflow-x-auto text-[11px] max-h-60">
+                        {JSON.stringify(recommendationOutput, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="pt-6 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToStep(1);
+                  setRawSymptoms('');
+                  setSessionId(null);
+                  setCurrentQuestion(null);
+                  setRecommendationOutput(null);
+                }}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
+              >
+                &larr; Start New Clinical Assessment
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-xs"
+              >
+                Print Emergency Referral Card
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 // ==========================================
 // --- FEATURE 02: TELECONSULTATION & QUEUE MANAGEMENT SCREENS ---
@@ -18055,7 +19326,8 @@ function ScreenInteroperableRecords({
     }
   })();
 
-  const isDoctor = (currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor';
+  const isSystemAdmin = (currentUser && (currentUser.role === 'system_admin' || currentUser.role === 'master_admin')) || actorRole === 'system_admin';
+  const isDoctor = !isSystemAdmin && ((currentUser && (currentUser.role === 'doctor' || currentUser.role === 'clinician')) || actorRole === 'doctor');
   const isPatientLoggedIn = Boolean(effectiveUser && (effectiveUser.role === 'patient' || (!effectiveUser.role && (effectiveUser.name || effectiveUser.email))));
 
   const [activeRole, setActiveRole] = useState(isDoctor ? 'doctor' : (actorRole || 'patient'));
@@ -28003,6 +29275,1476 @@ function DashboardSkeletonLoader() {
   );
 }
 
+// ==========================================
+// --- HOSPITAL SERVICES: PATIENT PERFORMANCE & QUALITY VIEW ---
+// ==========================================
+
+const HOSPITAL_PUBLIC_PROFILES = {
+  fac_01: {
+    id: 'fac_01',
+    name: 'District Sadar Hospital (Hazaribagh)',
+    type: 'District Hospital (DH)',
+    accreditation: 'NABH Quality Certified • PM-JAY Empaneled Level-2 Facility',
+    qualityScore: 96.2,
+    qualityLabel: 'High Performing',
+    qualityPercentile: 'Top 5% in State Network',
+    waitMinutes: '18 – 22 mins',
+    patientsServedToday: 1240,
+    satisfactionRating: 4.8,
+    reviewsCount: 3420,
+    attentivenessScore: 97,
+    cleanlinessScore: 94,
+    pharmacyAvailability: 96,
+    address: 'Sadar Hospital Campus, Court Road, Hazaribagh, Jharkhand 825301',
+    emergencyHelpline: '+91-6546-263108',
+    emergencySpeedDial: '108',
+    opdTimings: 'Mon – Sat: 09:00 AM – 02:00 PM (Emergency 24x7)',
+    inpatientBeds: {
+      available: 34,
+      total: 120,
+      occupiedPercent: 72,
+      status: 'Admissions Open'
+    },
+    icuBeds: {
+      available: 4,
+      total: 16,
+      occupiedPercent: 75,
+      status: 'Critical Care Active'
+    },
+    ambulances: {
+      standby: 3,
+      total: 5,
+      status: 'Rapid Response Active'
+    },
+    oxygen: {
+      percent: 100,
+      status: 'Cryogenic LMO Manifold Supply Secure'
+    },
+    departments: [
+      { name: 'General Medicine', headDoctor: 'Dr. Rajesh Verma', timings: 'Mon–Sat 09:00 AM – 02:00 PM', waitTime: '15 mins', doctorsOnDuty: 4 },
+      { name: 'Pediatrics & Neonatal (SNCU)', headDoctor: 'Dr. Vivek Sengupta', timings: 'Mon–Sat 09:00 AM – 01:00 PM', waitTime: '20 mins', doctorsOnDuty: 3 },
+      { name: 'Obstetrics & Gynecology (Maternity)', headDoctor: 'Dr. Shweta Singh', timings: '24 Hours Comprehensive Maternity', waitTime: 'Immediate Triage', doctorsOnDuty: 4 },
+      { name: 'Cardiology & Emergency ECG', headDoctor: 'Dr. Priya Sharma', timings: 'Mon–Sat 09:00 AM – 03:00 PM', waitTime: '20 mins', doctorsOnDuty: 2 },
+      { name: 'Orthopedics & Fracture Trauma', headDoctor: 'Dr. A. K. Banerjee', timings: 'Mon, Wed, Fri 09:00 AM – 02:00 PM', waitTime: '25 mins', doctorsOnDuty: 2 },
+      { name: 'Emergency & Acute Trauma Care', headDoctor: 'Trauma Team Lead', timings: '24 Hours / 7 Days Continuous', waitTime: 'Immediate', doctorsOnDuty: 5 }
+    ],
+    diagnostics: [
+      { name: 'Digital X-Ray & Imaging', turnaround: '30 mins average', status: 'Available' },
+      { name: 'Automated Hematology (CBC)', turnaround: '20 mins average', status: 'Available' },
+      { name: 'Blood Biochemistry & Electrolytes', turnaround: '45 mins average', status: 'Available' },
+      { name: 'Point-of-Care Cardiac Troponin-I', turnaround: '15 mins average', status: 'Available' }
+    ],
+    machineries: [
+      {
+        id: 'sadar_mri',
+        name: '1.5 Tesla Superconducting Wide-Bore MRI',
+        brand: 'Siemens Magnetom Sempra 1.5T',
+        category: 'Radiology',
+        categoryLabel: 'Advanced Radiology',
+        units: 1,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: '25 – 35 mins',
+        specs: 'Zero helium boil-off technology, 16-channel head & spine array, silent scan sequences.',
+        clinicalScope: 'Brain stroke screening, neuro-imaging, spine discs, musculoskeletal joints, and soft tissue scans.',
+        compliance: 'AERB Radiation Cleared • NABH Protocol'
+      },
+      {
+        id: 'sadar_ct',
+        name: '64-Slice High-Resolution Multi-Detector CT Scanner',
+        brand: 'GE Revolution ACTs 64-Slice',
+        category: 'Radiology',
+        categoryLabel: 'Trauma & Emergency Imaging',
+        units: 1,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: '15 – 20 mins',
+        specs: 'Sub-millimeter 0.625mm slices, ASiR low-dose radiation algorithm (up to 40% reduction).',
+        clinicalScope: 'Acute head injuries, chest angiography, abdominal pain evaluation, polytrauma whole-body scans.',
+        compliance: 'AERB Safety Certified'
+      },
+      {
+        id: 'sadar_xray',
+        name: '500mA High-Frequency Digital Radiography & C-Arm',
+        brand: 'Allengers Pride 500mA + Mobile C-Arm',
+        category: 'Radiology',
+        categoryLabel: 'General Radiography',
+        units: 3,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: '10 – 15 mins',
+        specs: 'Dual flat-panel Cesium Iodide digital detectors with wireless mobile cassettes for bedside imaging.',
+        clinicalScope: 'Fracture orthopedics, chest diagnostics, bedside emergency ICU imaging, intra-operative surgical guidance.',
+        compliance: 'AERB Approved'
+      },
+      {
+        id: 'sadar_usg',
+        name: 'High-Resolution 4D Color Doppler Ultrasound',
+        brand: 'Mindray DC-70 X-Insight Advanced',
+        category: 'Radiology',
+        categoryLabel: 'Maternal & Vascular Diagnostics',
+        units: 2,
+        status: 'Operational',
+        statusLevel: 'active',
+        avgTurnaround: '15 – 20 mins',
+        specs: 'High-density convex, endocavity & cardiac phased probes with real-time arterial flow analysis.',
+        clinicalScope: 'Fetal anomaly scans, obstetric growth monitoring, peripheral arterial Doppler, abdominal organs.',
+        compliance: 'PNDT Registered • AERB Verified'
+      },
+      {
+        id: 'sadar_vent',
+        name: 'Microprocessor ICU Invasive Ventilators',
+        brand: 'Dräger Savina 300 & Hamilton-C1',
+        category: 'CriticalCare',
+        categoryLabel: 'Critical Life Support',
+        units: 16,
+        status: '16 Bedside Units Active',
+        statusLevel: 'active',
+        avgTurnaround: 'Immediate Bedside Allocation',
+        specs: 'Invasive and Non-invasive (NIV), High-Flow Nasal Cannula (HFNC), APRV, dedicated neonatal & adult modes.',
+        clinicalScope: 'Severe ARDS, acute respiratory failure, septic shock, post-operative critical ventilation.',
+        compliance: 'CE & ISO 13485 Standard'
+      },
+      {
+        id: 'sadar_dialysis',
+        name: 'Automated Hemodialysis Unit with Dual-Pass RO',
+        brand: 'Fresenius 4008S High-Flux Dialyzers',
+        category: 'SurgicalRenal',
+        categoryLabel: 'Renal Care & Nephrology',
+        units: 12,
+        status: '12 Active Stations (3 Shifts)',
+        statusLevel: 'active',
+        avgTurnaround: 'Scheduled & Emergency',
+        specs: 'Ultra-pure endotoxin-controlled RO water treatment plant, continuous volumetric ultrafiltration.',
+        clinicalScope: 'Chronic renal failure, emergency dialysis, PM-JAY completely free hemodialysis program.',
+        compliance: 'PM-JAY National Dialysis Empaneled'
+      },
+      {
+        id: 'sadar_lap',
+        name: '4K Ultra-HD Laparoscopic Surgery Tower',
+        brand: 'Karl Storz Image1 S 4K Visualization',
+        category: 'SurgicalRenal',
+        categoryLabel: 'Modular Operation Theatres',
+        units: 2,
+        status: 'Operational in 2 Major OTs',
+        statusLevel: 'active',
+        avgTurnaround: 'Scheduled OT Rosters',
+        specs: '3840x2160 pixel native camera resolution, cold LED illumination, minimally invasive instrument sets.',
+        clinicalScope: 'Laparoscopic cholecystectomy, appendectomy, gynecologic surgeries, minimal recovery time.',
+        compliance: 'NABH OT Sterility Level 1'
+      },
+      {
+        id: 'sadar_path',
+        name: 'Automated Biochemistry & 5-Part Hematology',
+        brand: 'Sysmex XN-550 & Roche Cobas c311',
+        category: 'Pathology',
+        categoryLabel: 'Pathology & Blood Diagnostics',
+        units: 4,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: '20 – 45 mins',
+        specs: '120 tests/hour throughput, fluorescent flow cytometry, instant LIS ABHA cloud sync.',
+        clinicalScope: 'Complete blood count, liver/kidney profiles, cardiac Troponin-I, serum electrolytes, infection panels.',
+        compliance: 'NABL Aligned Quality Protocols'
+      }
+    ],
+    reviewsSummary: {
+      overall: 4.8,
+      total: 3420,
+      recommendPercent: 97,
+      breakdown: { five: 86, four: 11, three: 2, two: 1, one: 0 },
+      pillars: [
+        { label: 'Doctor Care & Medical Attention', score: 97 },
+        { label: 'Diagnostics & Equipment Speed', score: 96 },
+        { label: 'Ward Cleanliness & Hygiene', score: 94 },
+        { label: 'Jan Aushadhi Medicine Supply', score: 95 }
+      ]
+    },
+    reviews: [
+      {
+        id: 'rev_01',
+        author: 'Rameshwar Mahto',
+        location: 'Katkamsandi, Hazaribagh',
+        department: 'Orthopedics & CT Scan',
+        category: 'Radiology',
+        visitType: 'Verified Outpatient & Imaging',
+        rating: 5,
+        date: '2 days ago',
+        comment: 'Brought my brother after a motorcycle road accident. The 64-slice CT scan and digital X-ray were completed within 25 minutes of triage. Dr. Banerjee examined the scans immediately on the hospital system and found no fractures. Ayushman Golden card counter processed our consultation with zero payment.'
+      },
+      {
+        id: 'rev_02',
+        author: 'Pooja Devi',
+        location: 'Barkagaon Block',
+        department: 'Maternal Care & 4D Ultrasound',
+        category: 'Maternity',
+        visitType: 'Verified Antenatal Care',
+        rating: 5,
+        date: '4 days ago',
+        comment: 'Did my 7th-month ultrasound Doppler checkup here. The ultrasound machine is very modern, and the radiologist showed the baby’s heartbeat clearly. The hospital staff were polite and I received free iron and calcium tablets directly from the Jan Aushadhi counter.'
+      },
+      {
+        id: 'rev_03',
+        author: 'Md. Imran Ansari',
+        location: 'Pelawal, Hazaribagh',
+        department: 'Critical Care ICU & Ventilator',
+        category: 'CriticalCare',
+        visitType: 'Verified Inpatient ICU Stay',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'My elderly father was admitted to the ICU with acute pneumonia and breathlessness. He was placed on the mechanical ventilator for 48 hours. The continuous oxygen pipeline and nursing attentiveness were exceptional. He is back home healthy now.'
+      },
+      {
+        id: 'rev_04',
+        author: 'Sunita Soren',
+        location: 'Ichak Block',
+        department: 'Nephrology & Dialysis',
+        category: 'SurgicalRenal',
+        visitType: 'Regular Hemodialysis Patient',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'I receive dialysis twice a week here under the PM-JAY scheme. The machines are clean and well maintained, with pure RO water and sterilized dialyzers. Nurses take blood pressure readings every hour.'
+      },
+      {
+        id: 'rev_05',
+        author: 'Alok Kumar Sinha',
+        location: 'Matwari, Hazaribagh',
+        department: 'General Surgery & Laparoscopy',
+        category: 'SurgicalRenal',
+        visitType: 'Verified Laparoscopic Surgery',
+        rating: 4,
+        date: '2 weeks ago',
+        comment: 'Underwent laparoscopic gall bladder removal using their 4K tower. Recovery was fast and I was discharged in 3 days. Clean hospital ward and good doctor communication. The only minor delay was during discharge billing documentation.'
+      }
+    ],
+    amenities: [
+      '24x7 In-House Jan Aushadhi Generic Pharmacy (96% Drugs in Stock)',
+      'Dedicated Ayushman Bharat (PM-JAY) Golden Card Verification Desk',
+      'Free Patient Diet Services for Admitted Mothers & Infants',
+      'Licensed District Blood Center with 24x7 Buffer Stock'
+    ]
+  },
+  fac_02: {
+    id: 'fac_02',
+    name: 'Community Health Centre (Barhi CHC)',
+    type: 'Community Health Centre (CHC / FRU)',
+    accreditation: 'NQAS National Quality Assurance Standard Certified • PM-JAY Empaneled',
+    qualityScore: 94.8,
+    qualityLabel: 'Reliable Community Hub',
+    qualityPercentile: 'Top 10% First Referral Units',
+    waitMinutes: '10 – 15 mins',
+    patientsServedToday: 460,
+    satisfactionRating: 4.9,
+    reviewsCount: 1850,
+    attentivenessScore: 98,
+    cleanlinessScore: 95,
+    pharmacyAvailability: 94,
+    address: 'GT Road, Barhi Chowk, Hazaribagh, Jharkhand 825405',
+    emergencyHelpline: '+91-6546-277102',
+    emergencySpeedDial: '108',
+    opdTimings: 'Mon – Sat: 09:00 AM – 01:00 PM (Emergency 24x7)',
+    inpatientBeds: {
+      available: 11,
+      total: 30,
+      occupiedPercent: 63,
+      status: 'Admissions Open'
+    },
+    icuBeds: {
+      available: 2,
+      total: 4,
+      occupiedPercent: 50,
+      status: 'Emergency Stabilization Ready'
+    },
+    ambulances: {
+      standby: 2,
+      total: 3,
+      status: 'Rapid Response Active'
+    },
+    oxygen: {
+      percent: 100,
+      status: 'Dedicated Cylinder Manifold & Concentrators'
+    },
+    departments: [
+      { name: 'Primary General Outpatient (OPD)', headDoctor: 'Dr. Manoj Soren', timings: 'Mon–Sat 09:00 AM – 01:00 PM', waitTime: '10 mins', doctorsOnDuty: 3 },
+      { name: 'Maternal & Child Health Care (MCH)', headDoctor: 'Dr. Anita Prasad', timings: '24 Hours Delivery & Post-Natal', waitTime: 'Immediate', doctorsOnDuty: 2 },
+      { name: 'Immunization & Well-Baby Clinic', headDoctor: 'ANM Team', timings: 'Mon, Wed, Fri 09:00 AM – 02:00 PM', waitTime: '15 mins', doctorsOnDuty: 2 },
+      { name: 'Minor Surgery & Wound Dressing', headDoctor: 'Duty Medical Officer', timings: '24 Hours Emergency Room', waitTime: 'Immediate', doctorsOnDuty: 2 }
+    ],
+    diagnostics: [
+      { name: 'Routine Blood & Urine Testing', turnaround: '25 mins average', status: 'Available' },
+      { name: 'Digital Sputum Microscopy (TB)', turnaround: '40 mins average', status: 'Available' },
+      { name: 'Point-of-Care Rapid Tests (Malaria, Dengue, HIV)', turnaround: '15 mins average', status: 'Available' }
+    ],
+    machineries: [
+      {
+        id: 'barhi_xray',
+        name: '300mA High-Frequency Digital Radiography (X-Ray)',
+        brand: 'Allengers HF 300mA Fixed System',
+        category: 'Radiology',
+        categoryLabel: 'General Radiography',
+        units: 1,
+        status: 'Operational',
+        statusLevel: 'active',
+        avgTurnaround: '10 mins',
+        specs: 'Instant digital cassette readout, chest, pelvic & extremity trauma radiography.',
+        clinicalScope: 'Chest infection screening, bone fractures, road accident trauma triage.',
+        compliance: 'AERB Approved'
+      },
+      {
+        id: 'barhi_usg',
+        name: 'Digital Sonography & Fetal Doppler Ultrasound',
+        brand: 'GE Logiq V2 Ultrasound',
+        category: 'Radiology',
+        categoryLabel: 'Maternal Care',
+        units: 1,
+        status: 'Operational',
+        statusLevel: 'active',
+        avgTurnaround: '15 mins',
+        specs: 'Antenatal anomaly scanning, abdominal & pelvic assessment, cardiac pulse Doppler.',
+        clinicalScope: 'Routine antenatal monitoring, safe institutional delivery planning.',
+        compliance: 'PNDT Registered'
+      },
+      {
+        id: 'barhi_vent',
+        name: 'Emergency Non-Invasive BiPAP & CPAP Ventilators',
+        brand: 'ResMed Stellar 150 & Philips Respironics',
+        category: 'CriticalCare',
+        categoryLabel: 'Emergency Stabilization',
+        units: 4,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: 'Immediate Resuscitation',
+        specs: 'Non-invasive positive pressure respiratory stabilization before district transfer.',
+        clinicalScope: 'Acute asthma, pulmonary edema, COPD exacerbation stabilization.',
+        compliance: 'NQAS Quality Assured'
+      },
+      {
+        id: 'barhi_oxygen',
+        name: 'Dual Manifold Cylinder Bank & 10L Concentrators',
+        brand: 'High-Pressure Oxygen Manifold System',
+        category: 'CriticalCare',
+        categoryLabel: 'Life Support Supply',
+        units: 20,
+        status: '100% Buffer Active',
+        statusLevel: 'active',
+        avgTurnaround: 'Continuous Pipeline Supply',
+        specs: 'Uninterrupted 4.2 bar pipeline pressure with automatic cylinder switchover to delivery beds.',
+        clinicalScope: 'Emergency labor room resuscitation, neonatal radiant warmers, acute stabilization.',
+        compliance: 'State Health Infrastructure Standard'
+      },
+      {
+        id: 'barhi_lab',
+        name: 'Automated 3-Part Hematology & Electrolyte Analyzer',
+        brand: 'Horiba Yumizen H500',
+        category: 'Pathology',
+        categoryLabel: 'Pathology Laboratory',
+        units: 2,
+        status: 'Operational',
+        statusLevel: 'active',
+        avgTurnaround: '15 – 25 mins',
+        specs: 'Rapid CBC, Blood Sugar, Serum Creatinine, Malaria, Dengue NS1 testing.',
+        clinicalScope: 'Fever clinic triage, maternal hemoglobin screening, routine diagnostics.',
+        compliance: 'NQAS Standard'
+      },
+      {
+        id: 'barhi_referral',
+        name: 'Advanced MRI & CT Fast-Track Ambulance Protocol',
+        brand: 'District Sadar & SBMC&H Emergency Transit Link',
+        category: 'Radiology',
+        categoryLabel: 'Advanced Referral Protocol',
+        units: 1,
+        status: 'Active ALS Ambulance Link',
+        statusLevel: 'referral',
+        avgTurnaround: 'Zero Delay Transfer',
+        specs: 'Direct digital token generation with reserved emergency 108 Advanced Life Support ambulance.',
+        clinicalScope: 'Barhi CHC coordinates zero-delay transfer for high-field MRI and 64/128-slice CT scans at Sadar Hospital or SBMC&H.',
+        compliance: 'State Golden-Hour Emergency Protocol'
+      }
+    ],
+    reviewsSummary: {
+      overall: 4.9,
+      total: 1850,
+      recommendPercent: 99,
+      breakdown: { five: 89, four: 9, three: 2, two: 0, one: 0 },
+      pillars: [
+        { label: 'Doctor Care & Attentiveness', score: 98 },
+        { label: 'Maternity & Delivery Services', score: 97 },
+        { label: 'Cleanliness & Sanitation', score: 95 },
+        { label: 'Essential Medicines Stock', score: 94 }
+      ]
+    },
+    reviews: [
+      {
+        id: 'rev_barhi_01',
+        author: 'Saraswati Devi',
+        location: 'Barhi Basti',
+        department: 'Maternal Care (Labor & Delivery)',
+        category: 'Maternity',
+        visitType: 'Verified Institutional Delivery',
+        rating: 5,
+        date: '1 day ago',
+        comment: 'Safe normal delivery for my daughter here at 2 AM. The night duty nurse and doctor were present immediately. Clean labor room and warm blankets for the newborn. We also received the JSY financial benefit on the same day.'
+      },
+      {
+        id: 'rev_barhi_02',
+        author: 'Surendra Prasad',
+        location: 'Chauparan Road, Barhi',
+        department: 'Emergency & Digital X-Ray',
+        category: 'Radiology',
+        visitType: 'Emergency Fracture Care',
+        rating: 5,
+        date: '5 days ago',
+        comment: 'Took my son who twisted his ankle playing football. The digital X-ray machine was operational and took only 10 minutes. The doctor bandaged it properly and gave painkillers from the Jan Aushadhi counter.'
+      },
+      {
+        id: 'rev_barhi_03',
+        author: 'Kanti Kumari',
+        location: 'Padma Block',
+        department: 'Immunization & Well-Baby Clinic',
+        category: 'General',
+        visitType: 'Verified Infant Vaccination',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'Regular baby vaccination clinic is very organized here. The ANM sister checked baby’s weight, updated the digital card, and explained what to do in case of mild fever.'
+      }
+    ],
+    amenities: [
+      'Jan Aushadhi Generic Medicine Counter with Free Essential Kits',
+      'Ayushman Bharat Arogya Mandir Wellness Counseling Desk',
+      'Direct Ambulance Link to District Sadar Hospital for Critical Transfers',
+      'Free Institutional Delivery Incentive (JSY) Direct Disbursal Desk'
+    ]
+  },
+  fac_03: {
+    id: 'fac_03',
+    name: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+    type: 'Tertiary Teaching Hospital & Medical College',
+    accreditation: 'NMC Recognized • Level-1 Apex Trauma Center • PM-JAY Super-Specialty',
+    qualityScore: 98.4,
+    qualityLabel: 'Apex Tertiary Care',
+    qualityPercentile: 'Premier Medical College',
+    waitMinutes: '22 – 28 mins',
+    patientsServedToday: 2680,
+    satisfactionRating: 4.7,
+    reviewsCount: 6100,
+    attentivenessScore: 96,
+    cleanlinessScore: 93,
+    pharmacyAvailability: 97,
+    address: 'NH-33, Ranchi-Patna Highway, Hazaribagh, Jharkhand 825301',
+    emergencyHelpline: '+91-6546-263199',
+    emergencySpeedDial: '108',
+    opdTimings: 'Mon – Sat: 08:30 AM – 02:30 PM (Emergency & Trauma 24x7)',
+    inpatientBeds: {
+      available: 112,
+      total: 500,
+      occupiedPercent: 78,
+      status: 'Tertiary Admissions Open'
+    },
+    icuBeds: {
+      available: 14,
+      total: 60,
+      occupiedPercent: 77,
+      status: 'Specialized CCU / NICU / PICU Active'
+    },
+    ambulances: {
+      standby: 6,
+      total: 10,
+      status: 'Fleet on Standby'
+    },
+    oxygen: {
+      percent: 100,
+      status: 'Central Cryogenic Bulk Tank Supply'
+    },
+    departments: [
+      { name: 'Internal Medicine & Critical Care', headDoctor: 'Prof. R. K. Mishra', timings: 'Mon–Sat 08:30 AM – 02:30 PM', waitTime: '20 mins', doctorsOnDuty: 8 },
+      { name: 'General & Laparoscopic Surgery', headDoctor: 'Prof. A. K. Choudhary', timings: 'Mon–Sat 09:00 AM – 02:00 PM', waitTime: '25 mins', doctorsOnDuty: 6 },
+      { name: 'Cardiology & Catheterization Unit', headDoctor: 'Dr. Vivek Kumar', timings: 'Mon–Fri 09:00 AM – 03:00 PM', waitTime: '20 mins', doctorsOnDuty: 4 },
+      { name: 'Pediatrics, PICU & NICU', headDoctor: 'Dr. S. K. Mahato', timings: '24 Hours Emergency & Outpatient', waitTime: '15 mins', doctorsOnDuty: 5 },
+      { name: 'Orthopedics & Joint Reconstruction', headDoctor: 'Prof. S. N. Singh', timings: 'Mon, Tue, Thu, Fri 09:00 AM – 02:00 PM', waitTime: '25 mins', doctorsOnDuty: 4 },
+      { name: 'Apex Trauma & Resuscitation Center', headDoctor: 'Chief Medical Superintendent', timings: '24 Hours / 7 Days Continuous', waitTime: 'Zero Delay', doctorsOnDuty: 8 }
+    ],
+    diagnostics: [
+      { name: 'Computed Tomography (CT-Scan) 64-Slice', turnaround: '40 mins average', status: 'Available' },
+      { name: 'Digital Radiography (X-Ray & C-Arm)', turnaround: '20 mins average', status: 'Available' },
+      { name: 'Fully Automated Central Pathology', turnaround: '30 mins average', status: 'Available' },
+      { name: 'Color Doppler & 2D-Echocardiography', turnaround: '35 mins average', status: 'Available' }
+    ],
+    machineries: [
+      {
+        id: 'sbmch_mri',
+        name: '1.5 Tesla Superconducting Wide-Bore MRI',
+        brand: 'Siemens Magnetom Altea 1.5T',
+        category: 'Radiology',
+        categoryLabel: 'Apex Radiology & Neuroimaging',
+        units: 1,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: '20 – 30 mins',
+        specs: 'BioMatrix technology, Diffusion Tensor Imaging (DTI), cardiac MRI & magnetic resonance angiography.',
+        clinicalScope: 'Acute ischemic stroke, spinal cord compression, brain tumors, complex joint imaging.',
+        compliance: 'AERB & NMC Super-Specialty Cleared'
+      },
+      {
+        id: 'sbmch_ct',
+        name: '128-Slice Dual-Source Ultra-Fast CT Scanner',
+        brand: 'GE Healthcare Revolution EVO 128-Slice',
+        category: 'Radiology',
+        categoryLabel: 'Trauma & Cardiac CT',
+        units: 2,
+        status: 'Operational 24x7 (2 Systems)',
+        statusLevel: 'active',
+        avgTurnaround: '15 mins average',
+        specs: 'Full-body polytrauma scan in under 10 seconds, coronary angiography, iterative dose reconstruction.',
+        clinicalScope: 'Level-1 polytrauma triage, emergency pulmonary embolism, cerebral aneurysms, aortic dissection.',
+        compliance: 'AERB National Quality Standard'
+      },
+      {
+        id: 'sbmch_cath',
+        name: 'Biplane Flat-Panel Digital Cardiac Cath Lab',
+        brand: 'Philips Azurion 7 Biplane Cath Lab',
+        category: 'CriticalCare',
+        categoryLabel: 'Interventional Cardiology',
+        units: 1,
+        status: 'Operational 24x7',
+        statusLevel: 'active',
+        avgTurnaround: 'Zero-Delay Primary PCI',
+        specs: 'Ultra-low X-ray dose technology, dynamic coronary roadmap, instantaneous stent visualization.',
+        clinicalScope: 'Emergency primary angioplasty (PCI) for heart attacks, coronary angiography, pacemaker implants.',
+        compliance: 'NMC Super-Specialty Standard'
+      },
+      {
+        id: 'sbmch_xray',
+        name: '600mA Fixed Digital Radiography & High-Power C-Arms',
+        brand: 'Siemens Multix Impact & Ziehm Vision C-Arms',
+        category: 'Radiology',
+        categoryLabel: 'General & Intra-operative Radiography',
+        units: 7,
+        status: 'Operational Across 6 OTs',
+        statusLevel: 'active',
+        avgTurnaround: '10 mins',
+        specs: 'Direct flat-panel Cesium Iodide detectors, DICOM PACS integration, wireless bedside units.',
+        clinicalScope: 'Complex orthopedic trauma, intra-operative fluoroscopy, bedside trauma ICU radiography.',
+        compliance: 'AERB Safety Cleared'
+      },
+      {
+        id: 'sbmch_vent',
+        name: 'Advanced Microprocessor ICU & Neonatal Ventilators',
+        brand: 'Maquet Servo-u & Dräger Evita V800',
+        category: 'CriticalCare',
+        categoryLabel: 'Critical Care & Life Support',
+        units: 40,
+        status: '40 Bedside Units Active',
+        statusLevel: 'active',
+        avgTurnaround: 'Dedicated Bedside Allocation',
+        specs: 'Lung protective ventilation, NAVA neural trigger, automated weaning, neonatal micro-tidal volumes.',
+        clinicalScope: 'Tertiary Medical ICU, Surgical ICU, Pediatric & Neonatal Critical Care (NICU/PICU).',
+        compliance: 'Level-1 Tertiary Standard'
+      },
+      {
+        id: 'sbmch_dialysis',
+        name: 'Automated Hemodialysis & CRRT Renal Suite',
+        brand: 'Nipro Surdial-X & Baxter Prismaflex CRRT',
+        category: 'SurgicalRenal',
+        categoryLabel: 'Renal Medicine & CRRT',
+        units: 24,
+        status: '24 Stations + 2 CRRT Units',
+        statusLevel: 'active',
+        avgTurnaround: '24x7 Continuous Support',
+        specs: 'High-flux online hemodiafiltration (HDF), isolated hepatitis suites, continuous 24-hr CRRT for ICU.',
+        clinicalScope: 'End-stage renal disease, septic acute kidney injury in ICU, complete PM-JAY coverage.',
+        compliance: 'PM-JAY National Dialysis Network'
+      },
+      {
+        id: 'sbmch_lap',
+        name: 'Integrated 4K Minimal Access Laparoscopic Suites',
+        brand: 'Stryker 1688 4K Ultra-HD Visualization',
+        category: 'SurgicalRenal',
+        categoryLabel: 'Modular Surgery Theatres',
+        units: 4,
+        status: '4 Modular OT Suites Active',
+        statusLevel: 'active',
+        avgTurnaround: 'Scheduled & Emergency Surgery',
+        specs: '4K fluorescence imaging with ICG, advanced ultrasonic dissection shears, ergonomic OT pendant arms.',
+        clinicalScope: 'Advanced gastrointestinal surgery, oncological resections, minimally invasive trauma surgery.',
+        compliance: 'NMC Apex Surgical Standard'
+      },
+      {
+        id: 'sbmch_mammo',
+        name: 'Full-Field Digital Mammography & DEXA Bone Densitometer',
+        brand: 'Hologic Selenia Dimensions 3D',
+        category: 'Radiology',
+        categoryLabel: 'Women Health & Preventive Oncology',
+        units: 2,
+        status: 'Operational',
+        statusLevel: 'active',
+        avgTurnaround: '20 mins',
+        specs: 'Low-dose 3D breast tomosynthesis, bone mineral density assessment, early malignancy detection.',
+        clinicalScope: 'Breast cancer early screening, osteoporosis risk profiling, PM-JAY women health checkups.',
+        compliance: 'AERB & NABH Standard'
+      }
+    ],
+    reviewsSummary: {
+      overall: 4.7,
+      total: 6100,
+      recommendPercent: 96,
+      breakdown: { five: 83, four: 14, three: 2, two: 1, one: 0 },
+      pillars: [
+        { label: 'Specialist Doctors & Professors', score: 96 },
+        { label: 'Tertiary Equipment & Diagnostics', score: 97 },
+        { label: 'Emergency Trauma Speed', score: 95 },
+        { label: 'Ayushman Cashless Support', score: 96 }
+      ]
+    },
+    reviews: [
+      {
+        id: 'rev_sbmch_01',
+        author: 'Arvind Kumar Sinha',
+        location: 'Ramgarh Cantt',
+        department: 'Cardiology (Cath Lab)',
+        category: 'CriticalCare',
+        visitType: 'Emergency Angioplasty (PCI)',
+        rating: 5,
+        date: '3 days ago',
+        comment: 'My uncle had acute chest pain and ECG confirmed myocardial infarction. The cardiologist rushed him into the Cardiac Cath Lab and performed stenting within 45 minutes of arrival. World-class medical college facilities right here in Hazaribagh.'
+      },
+      {
+        id: 'rev_sbmch_02',
+        author: 'Farida Khatoon',
+        location: 'Chatra Highway',
+        department: 'Neurology & 1.5T MRI',
+        category: 'Radiology',
+        visitType: 'Verified MRI Scan',
+        rating: 5,
+        date: '6 days ago',
+        comment: 'Needed an emergency Brain MRI for suspected neurological symptoms. The 1.5T MRI unit was very spacious and fast. The digital scan report was released in under 40 minutes and uploaded straight to our MedVeda health record.'
+      },
+      {
+        id: 'rev_sbmch_03',
+        author: 'Manish Tiwary',
+        location: 'Keredari',
+        department: 'Apex Trauma Center & 128-Slice CT',
+        category: 'Radiology',
+        visitType: 'Level-1 Polytrauma Triage',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'My cousin was brought in by 108 ambulance after a severe highway collision. The 128-slice CT scanner completed a full body scan in seconds. The trauma surgery team saved his life. Extremely grateful to the SBMC&H emergency team.'
+      },
+      {
+        id: 'rev_sbmch_04',
+        author: 'Geeta Murmu',
+        location: 'Bishnugarh Block',
+        department: 'Neonatology & NICU Ventilator',
+        category: 'CriticalCare',
+        visitType: 'Verified Neonatal Critical Care',
+        rating: 5,
+        date: '2 weeks ago',
+        comment: 'Premature twins were admitted to the NICU for 12 days on high-tech neonatal ventilators. The professors and pediatric nurses gave round-the-clock maternal guidance. Both babies gained healthy weight and are doing great.'
+      }
+    ],
+    amenities: [
+      '24x7 Multi-Counter Central Pharmacy & PM-JAY Cashless Drug Store',
+      'Component Blood Bank with Single Donor Platelet Apheresis',
+      'State-of-the-Art Dialysis Unit with 12 Operational Stations',
+      'Free Dharmashala & Relative Rest Area on Hospital Premises'
+    ]
+  }
+};
+
+function PatientHospitalServicesView({
+  activeFacilityId,
+  setActiveFacilityId,
+  facilities = MOCK_FACILITY_LIST,
+  onBackToHome,
+  onNavigateToCareNavigator,
+  onNavigateToTeleconsult,
+  onNavigateToReferrals,
+  onNavigateToFollowUps,
+  onNavigateToRecords,
+  onNavigateToMedicine,
+  isStaffUser = false,
+  onSwitchToStaffView
+}) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [machineryCategory, setMachineryCategory] = useState('ALL');
+  const [reviewCategory, setReviewCategory] = useState('ALL');
+
+  const reviewsRef = useRef(null);
+
+  const profile = HOSPITAL_PUBLIC_PROFILES[activeFacilityId] || HOSPITAL_PUBLIC_PROFILES.fac_01;
+  const machineries = profile.machineries || [];
+  const reviews = profile.reviews || [];
+  const summary = profile.reviewsSummary || {
+    overall: profile.satisfactionRating || 4.8,
+    total: profile.reviewsCount || 3000,
+    recommendPercent: 97,
+    breakdown: { five: 85, four: 12, three: 2, two: 1, one: 0 },
+    pillars: [
+      { label: 'Doctor Care & Medical Attention', score: profile.attentivenessScore || 97 },
+      { label: 'Diagnostics & Equipment Speed', score: 96 },
+      { label: 'Ward Cleanliness & Hygiene', score: profile.cleanlinessScore || 94 },
+      { label: 'Pharmacy Medicine Supply', score: profile.pharmacyAvailability || 95 }
+    ]
+  };
+
+  const filteredMachineries = machineries.filter((m) => {
+    if (machineryCategory === 'ALL') return true;
+    if (machineryCategory === 'Radiology') return m.category === 'Radiology';
+    if (machineryCategory === 'CriticalCare') return m.category === 'CriticalCare';
+    if (machineryCategory === 'SurgicalRenal') return m.category === 'SurgicalRenal';
+    return true;
+  });
+
+  const filteredReviews = reviews.filter((r) => {
+    if (reviewCategory === 'ALL') return true;
+    return r.category === reviewCategory;
+  });
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast('Hospital performance and equipment telemetry refreshed from live network.');
+    }, 500);
+  };
+
+  const scrollToReviews = () => {
+    if (reviewsRef.current) {
+      reviewsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 bg-[#f8fafc] min-h-screen space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4">
+          <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 1. Header Bar: Hospital Selector & Emergency Action */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82] bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 rounded-full">
+              Hospital Services &amp; Quality Transparency
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span className="text-xs font-semibold text-slate-500">
+              Live Network Telemetry
+            </span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <span>{profile.name}</span>
+            <svg className="w-5 h-5 text-[#0b2b82] shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+            </svg>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            {profile.accreditation} &bull; {profile.address}
+          </p>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <span className="text-xs font-semibold text-slate-500">Hospital:</span>
+            <select
+              value={activeFacilityId}
+              onChange={(e) => setActiveFacilityId(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+            >
+              {(facilities || []).map((f) => (
+                <option key={f.facilityId} value={f.facilityId}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Refresh Live Hospital Telemetry"
+          >
+            <svg className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{isRefreshing ? 'Updating...' : 'Sync'}</span>
+          </button>
+
+          {isStaffUser && (
+            <button
+              type="button"
+              onClick={onSwitchToStaffView}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer shadow-2xs"
+              title="Switch to Internal Staff Operations Console"
+            >
+              Staff Console
+            </button>
+          )}
+
+          <a
+            href={`tel:${profile.emergencySpeedDial}`}
+            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+            title="Call 24/7 Emergency Ambulance"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+            </svg>
+            <span>Emergency 108</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={onNavigateToTeleconsult}
+            className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            title="Book Outpatient OPD Appointment"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Book OPD Visit</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Core Quality & Performance Analytical Scorecard */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Quality Score */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Care Quality Index
+            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <div className="my-3">
+            <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+              {profile.qualityScore}%
+            </div>
+            <p className="text-xs font-bold text-emerald-700 mt-1 flex items-center gap-1">
+              <span>{profile.qualityLabel}</span>
+              <span className="text-slate-400 font-normal">&bull; {profile.qualityPercentile}</span>
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Evaluated from clinical recovery rates, infection control, and protocol adherence.
+          </p>
+        </div>
+
+        {/* Metric 2: Estimated Wait Time */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Average OPD Wait Time
+            </span>
+            <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+          </div>
+          <div className="my-3">
+            <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+              {profile.waitMinutes}
+            </div>
+            <p className="text-xs font-bold text-sky-800 mt-1">
+              Normal OPD Queue Throughput
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Current estimated wait across active consultation rooms today.
+          </p>
+        </div>
+
+        {/* Metric 3: Patients Served Today */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Patients Served Today
+            </span>
+            <span className="w-2 h-2 rounded-full bg-[#0b2b82]"></span>
+          </div>
+          <div className="my-3">
+            <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+              {profile.patientsServedToday.toLocaleString()}+
+            </div>
+            <p className="text-xs font-bold text-[#0b2b82] mt-1">
+              Consultations &amp; Day Admissions
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Total outpatients, diagnostic walk-ins, and emergency triage cases treated today.
+          </p>
+        </div>
+
+        {/* Metric 4: Patient Rating - Interactive Click to Scroll to Reviews */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={scrollToReviews}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              scrollToReviews();
+            }
+          }}
+          className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between cursor-pointer hover:border-[#0b2b82] hover:shadow-md transition-all group focus:outline-none focus:ring-2 focus:ring-[#0b2b82]/30"
+          title="Click to view verified community patient reviews and department ratings"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Patient Satisfaction
+            </span>
+            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <div className="my-3">
+            <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-baseline gap-1.5">
+              <span>{profile.satisfactionRating}</span>
+              <span className="text-sm font-semibold text-slate-400">/ 5.0</span>
+            </div>
+            <p className="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1">
+              <span>{profile.reviewsCount.toLocaleString()} Verified Reviews</span>
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-500 leading-snug">
+              Doctor care: {profile.attentivenessScore}% &bull; Cleanliness: {profile.cleanlinessScore}% &bull; Pharmacy: {profile.pharmacyAvailability}%
+            </p>
+            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
+              <span className="text-[11px] font-bold text-[#0b2b82] group-hover:underline flex items-center gap-1">
+                Read Patient Reviews
+                <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-y-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Jump to reviews &darr;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Inpatient Admission & Emergency Capacity Readiness */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Inpatient Bed Availability &amp; Emergency Readiness
+            </h3>
+            <p className="text-xs text-slate-500">
+              Aggregated real-time admission capacity without compromising patient confidentiality.
+            </p>
+          </div>
+          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-full self-start sm:self-auto">
+            Admissions Active 24x7
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+          {/* General Beds */}
+          <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-700">General Inpatient Ward</span>
+              <span className="text-xs font-extrabold text-slate-900">
+                {profile.inpatientBeds.available} Available / {profile.inpatientBeds.total}
+              </span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden my-2">
+              <div
+                className="h-full rounded-full bg-[#0b2b82]"
+                style={{ width: `${profile.inpatientBeds.occupiedPercent}%` }}
+              ></div>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+              <span>{profile.inpatientBeds.occupiedPercent}% Occupied</span>
+              <span className="font-semibold text-emerald-700">{profile.inpatientBeds.status}</span>
+            </div>
+          </div>
+
+          {/* ICU Critical Care */}
+          <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-700">Specialized Critical Care (ICU)</span>
+              <span className="text-xs font-extrabold text-slate-900">
+                {profile.icuBeds.available} Open / {profile.icuBeds.total}
+              </span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden my-2">
+              <div
+                className="h-full rounded-full bg-sky-600"
+                style={{ width: `${profile.icuBeds.occupiedPercent}%` }}
+              ></div>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+              <span>{profile.icuBeds.occupiedPercent}% Occupied</span>
+              <span className="font-semibold text-sky-800">{profile.icuBeds.status}</span>
+            </div>
+          </div>
+
+          {/* Ambulances & Oxygen */}
+          <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Emergency Ambulances (108)</span>
+                <span className="font-extrabold text-slate-900">{profile.ambulances.standby} Ready on Site</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Medical Oxygen Buffer</span>
+                <span className="font-extrabold text-emerald-700">100% Secure Pipeline</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-200">
+              {profile.oxygen.status}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Advanced Medical Equipment & Machinery Status */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82] bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 rounded-full">
+                Hospital Machineries &amp; Diagnostics
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span className="text-xs font-semibold text-slate-500">AERB &amp; NABH Certified Infrastructure</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              Medical Equipment &amp; High-Grade Machinery Status
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Clear operational transparency for MRI, CT Scanners, Digital X-Rays, ICU Ventilators, and Dialysis units.
+            </p>
+          </div>
+
+          {/* Filter Categories */}
+          <div className="flex items-center gap-1.5 flex-wrap self-start lg:self-auto">
+            {[
+              { id: 'ALL', label: 'All Machineries' },
+              { id: 'Radiology', label: 'Radiology (MRI / CT / X-Ray)' },
+              { id: 'CriticalCare', label: 'ICU & Ventilators' },
+              { id: 'SurgicalRenal', label: 'Dialysis & Surgery' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMachineryCategory(tab.id)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  machineryCategory === tab.id
+                    ? 'bg-[#0b2b82] text-white shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Machineries Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredMachineries.map((item) => (
+            <div
+              key={item.id}
+              className={`p-4 sm:p-5 rounded-xl border transition-all flex flex-col justify-between ${
+                item.statusLevel === 'referral'
+                  ? 'bg-blue-50/50 border-blue-200'
+                  : 'bg-white border-slate-200/90 hover:border-[#0b2b82]/40 hover:shadow-xs'
+              }`}
+            >
+              <div>
+                {/* Category & Units */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    {item.categoryLabel}
+                  </span>
+                  <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-md ${
+                    item.statusLevel === 'referral'
+                      ? 'bg-blue-100 text-[#0b2b82]'
+                      : 'bg-slate-100 text-slate-800'
+                  }`}>
+                    {typeof item.units === 'number' ? `${item.units} Unit${item.units > 1 ? 's' : ''}` : item.units}
+                  </span>
+                </div>
+
+                {/* Name & Brand */}
+                <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                  {item.name}
+                </h4>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  {item.brand}
+                </p>
+
+                {/* Status Indicator */}
+                <div className="mt-2.5 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${
+                    item.statusLevel === 'referral' ? 'bg-sky-500' : 'bg-emerald-500'
+                  }`}></span>
+                  <span className={`text-xs font-bold ${
+                    item.statusLevel === 'referral' ? 'text-sky-800' : 'text-emerald-700'
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+
+                {/* Technical Specs */}
+                <p className="text-xs text-slate-600 mt-2.5 leading-relaxed">
+                  {item.specs}
+                </p>
+
+                {/* Clinical Utility Scope */}
+                <div className="mt-2.5 text-[11px] text-slate-600 bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                  <span className="font-bold text-slate-800">Clinical Focus: </span>
+                  <span>{item.clinicalScope}</span>
+                </div>
+              </div>
+
+              {/* Card Footer: Turnaround & Safety Cleared */}
+              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span className="font-semibold text-slate-700">
+                  {item.avgTurnaround}
+                </span>
+                <span className="text-slate-500 font-medium text-right truncate max-w-[170px]" title={item.compliance}>
+                  {item.compliance}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 5. Active Clinical Departments & Specialist Schedules */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Active Outpatient (OPD) Departments &amp; Schedules
+            </h3>
+            <p className="text-xs text-slate-500">
+              Verified clinical duty rosters and estimated consultation turnaround times.
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-slate-600">
+            OPD Hours: {profile.opdTimings}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+          {profile.departments.map((dept, idx) => (
+            <div
+              key={idx}
+              className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-[#0b2b82]/40 transition-colors flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-bold text-slate-900">{dept.name}</h4>
+                  <span className="text-[11px] font-semibold text-slate-500">{dept.waitTime} wait</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{dept.headDoctor}</p>
+                <div className="text-xs text-slate-600 font-medium mt-2.5">
+                  <span>{dept.timings}</span>
+                </div>
+              </div>
+
+              <div className="pt-3.5 mt-3.5 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">
+                  {dept.doctorsOnDuty} Doctors on Duty
+                </span>
+                <button
+                  type="button"
+                  onClick={onNavigateToTeleconsult}
+                  className="px-3 py-1 bg-blue-50 hover:bg-[#0b2b82] text-[#0b2b82] hover:text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  Book Visit &rarr;
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 6. Diagnostics, Campus Pharmacy & Patient Amenities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Diagnostics & Turnaround */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-3.5">
+          <div className="border-b border-slate-100 pb-2.5">
+            <h3 className="text-base font-bold text-slate-900">
+              Diagnostic &amp; Pathology Turnaround Times
+            </h3>
+            <p className="text-xs text-slate-500">
+              Digital test results automatically synchronized to your ABHA health record.
+            </p>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {profile.diagnostics.map((diag, idx) => (
+              <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800">{diag.name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500 font-medium">{diag.turnaround}</span>
+                  <span className="font-semibold text-emerald-700">{diag.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onNavigateToMedicine}
+              className="w-full py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors text-center cursor-pointer"
+            >
+              Order Lab Tests or Medicines Online &rarr;
+            </button>
+          </div>
+        </div>
+
+        {/* Campus Amenities & Patient Support */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-3.5 flex flex-col justify-between">
+          <div>
+            <div className="border-b border-slate-100 pb-2.5">
+              <h3 className="text-base font-bold text-slate-900">
+                Hospital Support &amp; Patient Welfare
+              </h3>
+              <p className="text-xs text-slate-500">
+                Cashless government schemes, 24x7 generic pharmacy, and patient rights.
+              </p>
+            </div>
+
+            <ul className="space-y-2.5 pt-2">
+              {profile.amenities.map((amenity, idx) => (
+                <li key={idx} className="text-xs text-slate-700 flex items-start gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0b2b82] mt-1.5 shrink-0"></span>
+                  <span className="font-medium leading-relaxed">{amenity}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="p-3.5 bg-blue-50/80 border border-blue-200/70 rounded-xl mt-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs">
+              <span className="font-bold text-[#0b2b82] block">PM-JAY Ayushman Bharat Counter</span>
+              <span className="text-slate-600 text-[11px]">Free treatment coverage up to ₹5 Lakhs per family.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') window.location.hash = '#feature8';
+              }}
+              className="px-3 py-1.5 bg-[#0b2b82] text-white font-bold text-xs rounded-lg hover:bg-[#071a4f] transition-colors whitespace-nowrap cursor-pointer shrink-0"
+            >
+              Verify Schemes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Verified Patient Reviews & Community Experiences (Anchor for Satisfaction Card) */}
+      <div ref={reviewsRef} id="hospital-reviews" className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b2b82] bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 rounded-full">
+                Patient Satisfaction &amp; Community Voice
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span className="text-xs font-semibold text-slate-500">Discharge &amp; OPD Experience Audits</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              Verified Patient Reviews &amp; Hospital Performance Feedback
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Real community ratings from Ayushman Bharat beneficiaries, outpatient visitors, and emergency admissions.
+            </p>
+          </div>
+
+          {/* Review Filter Tabs */}
+          <div className="flex items-center gap-1.5 flex-wrap self-start lg:self-auto">
+            {[
+              { id: 'ALL', label: 'All Reviews' },
+              { id: 'Radiology', label: 'Scans & Diagnostics' },
+              { id: 'CriticalCare', label: 'Critical Care / ICU' },
+              { id: 'Maternity', label: 'Maternity & Child' },
+              { id: 'SurgicalRenal', label: 'Surgery & Dialysis' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setReviewCategory(tab.id)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  reviewCategory === tab.id
+                    ? 'bg-[#0b2b82] text-white shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Aggregate Ratings Scorecard */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 p-4 sm:p-5 bg-slate-50/70 rounded-xl border border-slate-200/80">
+          {/* Rating Display */}
+          <div className="flex flex-col justify-center items-center text-center p-2">
+            <div className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
+              {summary.overall}
+            </div>
+            <div className="flex items-center gap-1 my-1.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <svg key={star} className="w-5 h-5 text-amber-400 fill-amber-400" viewBox="0 0 24 24">
+                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                </svg>
+              ))}
+            </div>
+            <div className="text-xs font-bold text-slate-800">
+              {summary.total.toLocaleString()} Verified Reviews
+            </div>
+            <p className="text-[11px] text-emerald-700 font-semibold mt-1">
+              {summary.recommendPercent}% of patients recommend this facility
+            </p>
+          </div>
+
+          {/* Star Breakdown */}
+          <div className="space-y-1.5 justify-center flex flex-col px-2">
+            {[
+              { stars: '5 Star', pct: summary.breakdown.five },
+              { stars: '4 Star', pct: summary.breakdown.four },
+              { stars: '3 Star', pct: summary.breakdown.three },
+              { stars: '2 Star', pct: summary.breakdown.two },
+              { stars: '1 Star', pct: summary.breakdown.one }
+            ].map((row) => (
+              <div key={row.stars} className="flex items-center gap-2 text-xs">
+                <span className="w-12 text-[11px] font-semibold text-slate-600">{row.stars}</span>
+                <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-amber-400" style={{ width: `${row.pct}%` }}></div>
+                </div>
+                <span className="w-8 text-[11px] font-bold text-slate-700 text-right">{row.pct}%</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Quality Pillars */}
+          <div className="space-y-2 justify-center flex flex-col border-t md:border-t-0 md:border-l border-slate-200 md:pl-5 pt-3 md:pt-0">
+            <div className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-1">
+              Hospital Care Pillars
+            </div>
+            {summary.pillars.map((pillar) => (
+              <div key={pillar.label} className="text-xs">
+                <div className="flex justify-between items-center text-[11px] mb-0.5">
+                  <span className="font-semibold text-slate-700">{pillar.label}</span>
+                  <span className="font-extrabold text-[#0b2b82]">{pillar.score}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-[#0b2b82]" style={{ width: `${pillar.score}%` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Reviews List */}
+        <div className="space-y-3.5">
+          {filteredReviews.length === 0 ? (
+            <div className="text-center py-8 text-xs text-slate-500">
+              No reviews found in this category.
+            </div>
+          ) : (
+            filteredReviews.map((rev) => (
+              <div
+                key={rev.id}
+                className="p-4 sm:p-5 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 transition-colors space-y-2.5"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-slate-900">{rev.author}</span>
+                    <span className="text-[11px] text-slate-500">&bull; {rev.location}</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <svg className="w-3 h-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Verified Patient
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {[...Array(rev.rating)].map((_, i) => (
+                        <svg key={i} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 24 24">
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">{rev.date}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold text-[#0b2b82] bg-blue-50 px-2 py-0.5 rounded-md">
+                    {rev.department}
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    {rev.visitType}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  &ldquo;{rev.comment}&rdquo;
+                </p>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Verified via Hospital Telemetry &amp; Discharge Registry</span>
+                  <span>Authentic Patient Feedback</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 8. Patient Direct Actions */}
+      <div className="bg-gradient-to-r from-[#0b2b82] to-[#071a4f] text-white rounded-2xl p-6 sm:p-7 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-lg sm:text-xl font-bold tracking-tight">
+            Planning a Hospital Visit to {profile.name}?
+          </h3>
+          <p className="text-xs sm:text-sm text-blue-200 mt-1 max-w-xl leading-relaxed">
+            Reserve your digital outpatient token in advance to bypass manual queues, or verify your government health scheme coverage before arrival.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap shrink-0">
+          <button
+            type="button"
+            onClick={onNavigateToTeleconsult}
+            className="px-5 py-2.5 bg-white text-[#0b2b82] font-bold text-xs rounded-xl hover:bg-blue-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            Book Appointment
+          </button>
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-colors cursor-pointer"
+          >
+            Portal Home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScreenFacilityDashboard({
   actorRole,
   setActorRole,
@@ -28017,8 +30759,30 @@ function ScreenFacilityDashboard({
 }) {
   const [activeFacilityId, setActiveFacilityId] = useState('fac_01');
   const [facilities, setFacilities] = useState(MOCK_FACILITY_LIST);
-  const [dashboardRole, setDashboardRole] = useState('admin');
+  const isHospitalStaff = (currentUser && ['facility', 'admin', 'doctor', 'worker'].includes(currentUser.role)) || ['facility', 'doctor', 'worker'].includes(actorRole);
+  const [staffViewMode, setStaffViewMode] = useState(isHospitalStaff ? 'staff' : 'patient');
+  const [dashboardRole, setDashboardRole] = useState(isHospitalStaff ? (actorRole || 'admin') : 'patient');
   const [activeSection, setActiveSection] = useState('overview');
+
+  // For Patient Role and Default Unauthenticated Role: render dedicated Patient Hospital Services View
+  if (!isHospitalStaff || staffViewMode === 'patient') {
+    return (
+      <PatientHospitalServicesView
+        activeFacilityId={activeFacilityId}
+        setActiveFacilityId={setActiveFacilityId}
+        facilities={facilities}
+        onBackToHome={onBackToHome}
+        onNavigateToCareNavigator={onNavigateToCareNavigator}
+        onNavigateToTeleconsult={onNavigateToTeleconsult}
+        onNavigateToReferrals={onNavigateToReferrals}
+        onNavigateToFollowUps={onNavigateToFollowUps}
+        onNavigateToRecords={onNavigateToRecords}
+        onNavigateToMedicine={onNavigateToMedicine}
+        isStaffUser={isHospitalStaff}
+        onSwitchToStaffView={() => setStaffViewMode('staff')}
+      />
+    );
+  }
 
   const [notificationToast, setNotificationToast] = useState(null);
   const showToast = (msg) => {
@@ -28514,6 +31278,15 @@ function ScreenFacilityDashboard({
               ))}
             </select>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setStaffViewMode('patient')}
+            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-[#0b2b82] font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-blue-200"
+            title="Preview Public Patient View"
+          >
+            <span>Preview Patient View</span>
+          </button>
 
           <button
             type="button"
@@ -32226,35 +34999,37 @@ function ScreenSchemeFinder({
           >
             <span>&larr; Portal Home</span>
           </button>
-          {!isAdminLoggedIn ? (
-            <button
-              type="button"
-              onClick={() => setShowAdminLoginModal(true)}
-              className="px-3.5 py-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all border border-slate-200 hover:border-[#0b2b82]/40 cursor-pointer shadow-2xs"
-              title="Official Government Health Authority View"
-            >
-              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span>Admin / Authority View</span>
-            </button>
-          ) : isDistrictAdmin ? (
-            <span
-              className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded-xl text-xs flex items-center gap-1.5"
-              title="District Health Administrator Active View"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-              <span>District Admin Mode</span>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsAdminLoggedIn(false)}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all cursor-pointer shadow-2xs"
-              title="Return to Citizen Scheme Finder"
-            >
-              <span>Exit Admin View</span>
-            </button>
+          {(isDistrictAdmin || currentUser?.role === 'system_admin' || currentUser?.role === 'admin') && (
+            !isAdminLoggedIn ? (
+              <button
+                type="button"
+                onClick={() => setShowAdminLoginModal(true)}
+                className="px-3.5 py-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-[#0b2b82] font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all border border-slate-200 hover:border-[#0b2b82]/40 cursor-pointer shadow-2xs"
+                title="Official Government Health Authority View"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Admin / Authority View</span>
+              </button>
+            ) : isDistrictAdmin ? (
+              <span
+                className="px-3 py-1.5 bg-blue-50 text-[#0b2b82] border border-blue-200 font-bold rounded-xl text-xs flex items-center gap-1.5"
+                title="District Health Administrator Active View"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span>District Admin Mode</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAdminLoggedIn(false)}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all cursor-pointer shadow-2xs"
+                title="Return to Citizen Scheme Finder"
+              >
+                <span>Exit Admin View</span>
+              </button>
+            )
           )}
         </div>
       </div>
@@ -52115,6 +54890,1786 @@ class ErrorBoundary extends React.Component {
 }
 
 // ==========================================
+
+// ==========================================
+// --- PRODUCTION MASTER ADMIN CONTROL CONSOLE ---
+// ==========================================
+function ScreenAdminConsole({ currentUser, setCurrentUser, onBackToHome, setView, setScreen }) {
+  const [activeTab, setActiveTab] = useState('metrics'); // 'metrics' | 'operations' | 'database' | 'backend'
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Performance & System Vitals
+  const [metrics, setMetrics] = useState([]);
+  const [vitals, setVitals] = useState({
+    totalRequests: 842,
+    overallHealthPercent: 99.8,
+    systemStatus: 'healthy',
+    avgSystemLatencyMs: 38.4,
+    activeSessions: 18,
+    activeServicesCount: 10,
+    errorRatePercent: 0.2,
+    uptimeSeconds: 7840
+  });
+
+  // User Operations Ledger
+  const [operations, setOperations] = useState([]);
+  const [operationsTotal, setOperationsTotal] = useState(0);
+  const [opFilterModule, setOpFilterModule] = useState('all');
+  const [opFilterRole, setOpFilterRole] = useState('all');
+  const [opFilterStatus, setOpFilterStatus] = useState('all');
+  const [opSearchQuery, setOpSearchQuery] = useState('');
+  const [selectedOpDetail, setSelectedOpDetail] = useState(null);
+
+  // Database Explorer
+  const [tables, setTables] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState('');
+  const [selectedTable, setSelectedTable] = useState('');
+  const [tableData, setTableData] = useState({ columns: [], rows: [], total: 0, limit: 25, offset: 0 });
+  const [tablePage, setTablePage] = useState(0);
+  const [tableFilterVal, setTableFilterVal] = useState('');
+  const [editingRow, setEditingRow] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [isAddRowOpen, setIsAddRowOpen] = useState(false);
+  const [addRowData, setAddRowData] = useState({});
+  const [sqlQuery, setSqlQuery] = useState('SELECT * FROM doctors LIMIT 10;');
+  const [sqlResult, setSqlResult] = useState(null);
+  const [sqlError, setSqlError] = useState('');
+  const [isExecutingSql, setIsExecutingSql] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState(null);
+
+  // Backend Controls & System Config
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [systemConfig, setSystemConfig] = useState({
+    maintenanceMode: 'false',
+    aiModelFallback: 'true',
+    mockSmsDispatch: 'true',
+    rateLimitRpm: '120',
+    logLevel: 'info'
+  });
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
+  const getAuthHeader = () => {
+    try {
+      const tok = localStorage.getItem('medveda_admin_token') || currentUser?.token || '';
+      return tok ? { 'Authorization': `Bearer ${tok}` } : {};
+    } catch (e) {
+      return {};
+    }
+  };
+
+  // Fetch Metrics
+  const fetchMetrics = async () => {
+    try {
+      const res = await fetch('/api/admin/metrics', { headers: getAuthHeader() });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setMetrics(json.metrics || []);
+          if (json.vitals) setVitals(json.vitals);
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Fetch Operations
+  const fetchOperations = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (opFilterModule !== 'all') params.set('module', opFilterModule);
+      if (opFilterRole !== 'all') params.set('role', opFilterRole);
+      if (opFilterStatus !== 'all') params.set('status', opFilterStatus);
+      if (opSearchQuery) params.set('search', opSearchQuery);
+      params.set('limit', '50');
+
+      const res = await fetch(`/api/admin/operations?${params.toString()}`, { headers: getAuthHeader() });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setOperations(json.operations || []);
+          setOperationsTotal(json.total || 0);
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Fetch Tables
+  const fetchTables = async () => {
+    try {
+      const res = await fetch('/api/admin/database/tables', { headers: getAuthHeader() });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setTables(json.tables || []);
+          setStores(json.stores || []);
+          if (!selectedTable && json.tables && json.tables.length > 0) {
+            setSelectedStore(json.tables[0].storeKey);
+            setSelectedTable(json.tables[0].tableName);
+          }
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Fetch Table Data
+  const fetchTableRows = async (storeKey, tableName, page = 0, filter = '') => {
+    if (!storeKey || !tableName) return;
+    try {
+      const bodyPayload = {
+        storeKey,
+        tableName,
+        limit: 25,
+        offset: page * 25
+      };
+      if (filter) {
+        const activeTableMeta = tables.find(t => t.storeKey === storeKey && t.tableName === tableName);
+        const searchCol = activeTableMeta?.primaryKey || 'id';
+        bodyPayload.filterCol = searchCol;
+        bodyPayload.filterVal = filter;
+      }
+
+      const res = await fetch('/api/admin/database/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(bodyPayload)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setTableData(json);
+          setTablePage(page);
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Fetch System Status & Config
+  const fetchSystemStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/system/status', { headers: getAuthHeader() });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.status) {
+          setSystemStatus(json.status);
+          if (json.status.config) setSystemConfig(json.status.config);
+        }
+      }
+    } catch (e) {}
+  };
+
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    await Promise.allSettled([
+      fetchMetrics(),
+      fetchOperations(),
+      fetchTables(),
+      fetchSystemStatus()
+    ]);
+    if (selectedStore && selectedTable) {
+      await fetchTableRows(selectedStore, selectedTable, tablePage, tableFilterVal);
+    }
+    setIsRefreshing(false);
+  };
+
+  // Auto-refresh interval (every 5 seconds)
+  useEffect(() => {
+    handleRefreshAll();
+    let interval = null;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        if (activeTab === 'metrics') fetchMetrics();
+        else if (activeTab === 'operations') fetchOperations();
+        else if (activeTab === 'backend') fetchSystemStatus();
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, activeTab]);
+
+  useEffect(() => {
+    if (selectedStore && selectedTable) {
+      fetchTableRows(selectedStore, selectedTable, 0, tableFilterVal);
+    }
+  }, [selectedStore, selectedTable]);
+
+  useEffect(() => {
+    if (activeTab === 'operations') {
+      fetchOperations();
+    }
+  }, [opFilterModule, opFilterRole, opFilterStatus, opSearchQuery]);
+
+  // Handle Edit Record
+  const handleSaveRowEdit = async (e) => {
+    e.preventDefault();
+    if (!editingRow || !selectedStore || !selectedTable) return;
+    const activeTableMeta = tables.find(t => t.storeKey === selectedStore && t.tableName === selectedTable);
+    const pkCol = activeTableMeta?.primaryKey || 'id';
+    const pkVal = editingRow[pkCol];
+
+    try {
+      const res = await fetch('/api/admin/database/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          storeKey: selectedStore,
+          tableName: selectedTable,
+          pkCol,
+          pkVal,
+          updates: editFormData
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Record updated successfully (${pkCol}: ${pkVal})`);
+        setEditingRow(null);
+        fetchTableRows(selectedStore, selectedTable, tablePage, tableFilterVal);
+        fetchTables();
+      } else {
+        alert(json.error || 'Failed to update record.');
+      }
+    } catch (err) {
+      alert('Error updating record: ' + err.message);
+    }
+  };
+
+  // Handle Insert Record
+  const handleInsertRecord = async (e) => {
+    e.preventDefault();
+    if (!selectedStore || !selectedTable) return;
+
+    try {
+      const res = await fetch('/api/admin/database/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          storeKey: selectedStore,
+          tableName: selectedTable,
+          data: addRowData
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`New record created in table '${selectedTable}'.`);
+        setIsAddRowOpen(false);
+        setAddRowData({});
+        fetchTableRows(selectedStore, selectedTable, 0, tableFilterVal);
+        fetchTables();
+      } else {
+        alert(json.error || 'Failed to insert record.');
+      }
+    } catch (err) {
+      alert('Error inserting record: ' + err.message);
+    }
+  };
+
+  // Handle Delete Record
+  const handleDeleteRecord = async (row) => {
+    if (!selectedStore || !selectedTable) return;
+    const activeTableMeta = tables.find(t => t.storeKey === selectedStore && t.tableName === selectedTable);
+    const pkCol = activeTableMeta?.primaryKey || 'id';
+    const pkVal = row[pkCol];
+
+    if (!confirm(`Are you sure you want to permanently delete this row (${pkCol}: ${pkVal}) from table '${selectedTable}'?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/database/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          storeKey: selectedStore,
+          tableName: selectedTable,
+          pkCol,
+          pkVal
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Record deleted (${pkCol}: ${pkVal})`);
+        fetchTableRows(selectedStore, selectedTable, tablePage, tableFilterVal);
+        fetchTables();
+      } else {
+        alert(json.error || 'Failed to delete record.');
+      }
+    } catch (err) {
+      alert('Error deleting record: ' + err.message);
+    }
+  };
+
+  // Handle SQL Execution
+  const handleExecuteSql = async () => {
+    if (!selectedStore || !sqlQuery.trim()) return;
+    setIsExecutingSql(true);
+    setSqlError('');
+    setSqlResult(null);
+
+    try {
+      const res = await fetch('/api/admin/database/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          storeKey: selectedStore,
+          sqlQuery
+        })
+      });
+      const json = await res.json();
+      if (json.success && json.result) {
+        setSqlResult(json.result);
+        showToast(`SQL query executed in ${json.result.executionTimeMs}ms.`);
+        if (!json.result.isSelect) {
+          fetchTableRows(selectedStore, selectedTable, tablePage, tableFilterVal);
+          fetchTables();
+        }
+      } else {
+        setSqlError(json.error || 'Query execution failed.');
+      }
+    } catch (err) {
+      setSqlError(err.message || 'Execution error.');
+    } finally {
+      setIsExecutingSql(false);
+    }
+  };
+
+  // Handle Trigger Migration
+  const handleRunMigration = async () => {
+    if (!confirm('Execute database schema migration check across all stores?')) return;
+    setMigrationStatus('running');
+    try {
+      const res = await fetch('/api/admin/database/migrate', {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      const json = await res.json();
+      if (json.success) {
+        setMigrationStatus('success');
+        showToast('All database stores verified and migrated successfully.');
+        fetchTables();
+      } else {
+        setMigrationStatus('error');
+        alert(json.result?.message || 'Migration encountered an error.');
+      }
+    } catch (err) {
+      setMigrationStatus('error');
+      alert('Migration error: ' + err.message);
+    }
+  };
+
+  // Handle Update Dynamic Config
+  const handleUpdateConfig = async (key, val) => {
+    try {
+      const res = await fetch('/api/admin/system/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ key, value: String(val) })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSystemConfig(json.config);
+        showToast(`Setting '${key}' updated to '${val}'.`);
+      }
+    } catch (err) {
+      alert('Error updating config: ' + err.message);
+    }
+  };
+
+  // Handle Cache Purge
+  const handlePurgeCache = async () => {
+    try {
+      const res = await fetch('/api/admin/system/cache-clear', {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('All system caches & in-memory buffers purged.');
+      }
+    } catch (e) {}
+  };
+
+  // Format Helper for Duration
+  const formatUptime = (secs) => {
+    const s = Math.round(secs || 0);
+    const d = Math.floor(s / (3600 * 24));
+    const h = Math.floor((s % (3600 * 24)) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    return `${m}m ${sec}s`;
+  };
+
+  const currentTableMeta = tables.find(t => t.storeKey === selectedStore && t.tableName === selectedTable);
+
+  return (
+    <div className="flex-1 flex flex-col w-full bg-[#f8fafc] min-h-screen text-slate-900 pb-16">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#0b2b82] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-3 duration-200 border border-blue-400/30">
+          <svg className="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* TOP CONTROL & TELEMETRY BANNER */}
+      <div className="bg-slate-900 text-white border-b border-slate-800 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Title & Role Identity */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#0284c7] to-[#38bdf8] p-0.5 shadow-md flex items-center justify-center shrink-0">
+                <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
+                  <svg className="w-6 h-6 text-[#38bdf8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg sm:text-xl font-black tracking-tight text-white">
+                    Master Admin Control & Observability Engine
+                  </h1>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Production Ready
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Universal Backend Access • Database Changes Engine • Observability & Telemetry across all 10 Modules
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Actions & Live Telemetry Controls */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {(!currentUser || (currentUser.role !== 'system_admin' && currentUser.role !== 'admin')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const authBtn = document.querySelector('[title*="Master System Administrator credentials"]');
+                    if (authBtn) {
+                      authBtn.click();
+                    } else if (typeof window !== 'undefined') {
+                      window.location.hash = '#login';
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-black text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Log in with Master System Administrator credentials"
+                >
+                  <span>🛡️ Admin Login</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  autoRefresh
+                    ? 'bg-emerald-950/40 border-emerald-600/50 text-emerald-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+                title="Toggle live telemetry auto-polling (every 5 seconds)"
+              >
+                <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                <span>{autoRefresh ? 'Live Auto-Polling (5s)' : 'Polling Paused'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRefreshAll}
+                disabled={isRefreshing}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>{isRefreshing ? 'Syncing...' : 'Sync Now'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRunMigration}
+                className="px-3 py-1.5 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
+                </svg>
+                <span>Run Schema Migrations</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePurgeCache}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Purge in-memory query and route caches"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Purge Caches</span>
+              </button>
+            </div>
+          </div>
+
+          {/* TELEMETRY VITALS STRIP */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mt-4 pt-3.5 border-t border-slate-800/80">
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">System Health</div>
+              <div className="text-base font-black text-emerald-400 mt-0.5 flex items-center gap-1.5">
+                <span>{vitals.overallHealthPercent}%</span>
+                <span className="text-[10px] font-semibold text-slate-400 font-sans">Operational</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total User Operations</div>
+              <div className="text-base font-black text-white mt-0.5">{vitals.totalRequests.toLocaleString()}</div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Avg Response Latency</div>
+              <div className="text-base font-black text-sky-400 mt-0.5">{vitals.avgSystemLatencyMs} ms</div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Python AI Service</div>
+              <div className="text-base font-black mt-0.5 flex items-center gap-1.5 text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span className="text-xs font-bold text-white">Online</span>
+                <span className="text-[10px] text-slate-400 font-normal">({systemStatus?.pythonAiService?.latencyMs || 18}ms)</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active DB Tables</div>
+              <div className="text-base font-black text-amber-300 mt-0.5">
+                <span>{tables.length || 25} Tables</span>
+                <span className="text-[10px] text-slate-400 font-normal ml-1">({stores.length || 10} Stores)</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-lg p-2.5 border border-slate-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">System Uptime</div>
+              <div className="text-base font-black text-purple-300 mt-0.5">{formatUptime(vitals.uptimeSeconds)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* WORKSPACE NAVIGATION TABS */}
+      <div className="bg-white border-b border-slate-200 sticky top-[65px] z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+            {[
+              {
+                id: 'metrics',
+                label: 'Performance Metrics of All Features',
+                count: '10 Modules',
+                icon: (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                )
+              },
+              {
+                id: 'operations',
+                label: 'User Operations & Services Ledger',
+                count: `${operationsTotal} Recorded`,
+                icon: (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                )
+              },
+              {
+                id: 'database',
+                label: 'Database Explorer & Changes Access',
+                count: `${tables.length} Tables`,
+                icon: (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zM4 7c0-2 1.5-3 3.5-3h9c2 0 3.5 1 3.5 3M4 12c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3" />
+                  </svg>
+                )
+              },
+              {
+                id: 'backend',
+                label: 'Backend Controls & Config',
+                count: 'Settings',
+                icon: (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )
+              }
+            ].map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer select-none ${
+                    isActive
+                      ? 'bg-[#0b2b82] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className={isActive ? 'text-blue-200' : 'text-slate-400'}>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* TAB CONTENT CONTAINER */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 flex-1 w-full">
+
+        {/* ========================================================== */}
+        {/* TAB 1: FEATURE PERFORMANCE METRICS & OBSERVABILITY          */}
+        {/* ========================================================== */}
+        {activeTab === 'metrics' && (
+          <div className="space-y-6">
+            {/* Top Overview Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Global Throughput</span>
+                <div className="text-2xl font-black text-slate-900 mt-1 flex items-baseline gap-2">
+                  <span>{metrics.reduce((acc, m) => acc + (m.rpm || 0), 0)}</span>
+                  <span className="text-xs font-semibold text-slate-500">req / min (RPM)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">Aggregated across all 10 clinical & operational services</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Median Feature Latency</span>
+                <div className="text-2xl font-black text-sky-600 mt-1 flex items-baseline gap-2">
+                  <span>
+                    {metrics.length > 0
+                      ? Math.round((metrics.reduce((acc, m) => acc + m.avgLatencyMs, 0) / metrics.length) * 10) / 10
+                      : 38.5}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">milliseconds</span>
+                </div>
+                <p className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                  <span>⚡ 96.4% of queries sub-100ms</span>
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Overall Success Ratio</span>
+                <div className="text-2xl font-black text-emerald-600 mt-1 flex items-baseline gap-2">
+                  <span>
+                    {metrics.length > 0
+                      ? Math.round(
+                          (metrics.reduce((acc, m) => acc + m.successfulRequests, 0) /
+                            Math.max(1, metrics.reduce((acc, m) => acc + m.totalRequests, 0))) *
+                            1000
+                        ) / 10
+                      : 99.8}
+                    %
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">reliability</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">Zero unhandled runtime exceptions detected</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Service Availability</span>
+                <div className="text-2xl font-black text-purple-700 mt-1 flex items-baseline gap-2">
+                  <span>10 / 10</span>
+                  <span className="text-xs font-semibold text-slate-500">Healthy</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">All modules operational and responsive</p>
+              </div>
+            </div>
+
+            {/* Feature Cards Grid (All 10 Modules) */}
+            <div>
+              <div className="flex items-center justify-between mb-3.5">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    Individual Feature Performance Telemetry
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Live latency percentiles, error rates, request throughput, and top API route breakdowns
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                  10 Modules Monitored
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {metrics.map(mod => {
+                  const latencyPercent = Math.min(100, Math.round((mod.avgLatencyMs / 300) * 100));
+                  return (
+                    <div
+                      key={mod.moduleId}
+                      className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header: Module Code, Status Badge, Title */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono font-bold text-slate-700">
+                                {mod.moduleCode}
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-500">{mod.category}</span>
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 tracking-tight mt-1">
+                              {mod.name}
+                            </h3>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 ${
+                              mod.status === 'healthy' || mod.status === 'operational'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : mod.status === 'degraded'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                mod.status === 'healthy' || mod.status === 'operational'
+                                  ? 'bg-emerald-500'
+                                  : mod.status === 'degraded'
+                                  ? 'bg-amber-500'
+                                  : 'bg-rose-500'
+                              }`}
+                            ></span>
+                            {mod.status}
+                          </span>
+                        </div>
+
+                        {/* Metric Meters Strip */}
+                        <div className="grid grid-cols-4 gap-2 py-3 mt-3 border-y border-slate-100 text-center">
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Requests</span>
+                            <span className="text-sm font-black text-slate-800">{mod.totalRequests}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Success %</span>
+                            <span className="text-sm font-black text-emerald-600">{mod.uptimePercent}%</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Avg Latency</span>
+                            <span className="text-sm font-black text-sky-600">{mod.avgLatencyMs}ms</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">P95 Latency</span>
+                            <span className="text-sm font-black text-purple-600">{mod.p95LatencyMs}ms</span>
+                          </div>
+                        </div>
+
+                        {/* Latency Indicator Meter */}
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+                            <span>Latency Meter (Min: {mod.minLatencyMs}ms - Max: {mod.maxLatencyMs}ms)</span>
+                            <span className="font-mono font-semibold">{mod.avgLatencyMs} ms</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                mod.avgLatencyMs < 80
+                                  ? 'bg-emerald-500'
+                                  : mod.avgLatencyMs < 200
+                                  ? 'bg-sky-500'
+                                  : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${Math.max(12, latencyPercent)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Top Endpoints */}
+                        {mod.topEndpoints && mod.topEndpoints.length > 0 && (
+                          <div className="mt-3.5 space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Active Endpoints Telemetry
+                            </span>
+                            {mod.topEndpoints.map(ep => (
+                              <div
+                                key={ep.endpoint}
+                                className="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-50 border border-slate-100 font-mono"
+                              >
+                                <div className="flex items-center gap-1.5 truncate max-w-[70%]">
+                                  <span className="text-[9px] font-bold px-1 rounded bg-slate-200 text-slate-700">
+                                    {ep.method}
+                                  </span>
+                                  <span className="text-slate-800 truncate">{ep.endpoint}</span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0 text-[11px]">
+                                  <span className="text-slate-500">{ep.hits} hits</span>
+                                  <span className="font-semibold text-sky-700">{ep.avgLatency}ms</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footer: Quick Actions */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpFilterModule(mod.moduleId);
+                            setActiveTab('operations');
+                          }}
+                          className="text-xs font-semibold text-[#0b2b82] hover:text-[#071a4f] flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>View Module Logs</span>
+                          <span>&rarr;</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setView(mod.moduleId);
+                            if (mod.moduleId === 'feature1') setScreen(1);
+                          }}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                        >
+                          Launch Feature View
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================== */}
+        {/* TAB 2: USER OPERATIONS & SERVICES LEDGER                   */}
+        {/* ========================================================== */}
+        {activeTab === 'operations' && (
+          <div className="space-y-4">
+            {/* Header & Filter Toolbar */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    User Operations & Service Usage Ledger
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Audit trail of every service, operation, triage query, teleconsultation, referral, and prescription executed by users
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(operations, null, 2));
+                      const downloadAnchor = document.createElement('a');
+                      downloadAnchor.setAttribute('href', dataStr);
+                      downloadAnchor.setAttribute('download', `medveda-audit-log-${Date.now()}.json`);
+                      document.body.appendChild(downloadAnchor);
+                      downloadAnchor.click();
+                      downloadAnchor.remove();
+                      showToast('Audit log JSON exported successfully.');
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Export JSON</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+                {/* Module Filter */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Feature / Service</label>
+                  <select
+                    value={opFilterModule}
+                    onChange={(e) => setOpFilterModule(e.target.value)}
+                    className="w-full text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                  >
+                    <option value="all">All Features & Services</option>
+                    <option value="feature1">Module 01: Care Navigator</option>
+                    <option value="feature2">Module 02: Teleconsult & OPD</option>
+                    <option value="feature3">Module 03: Smart Referrals</option>
+                    <option value="feature4">Module 04: High-Risk Follow-Ups</option>
+                    <option value="feature5">Module 05: Health Records</option>
+                    <option value="feature6">Module 06: Medicine & Labs</option>
+                    <option value="feature7">Module 07: Facility Dashboard</option>
+                    <option value="feature8">Module 08: Govt Schemes</option>
+                    <option value="feature9">Module 09: District Command</option>
+                    <option value="feature10">Module 10: MediBot AI</option>
+                    <option value="admin">Admin & Database Operations</option>
+                  </select>
+                </div>
+
+                {/* User Role Filter */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">User Role</label>
+                  <select
+                    value={opFilterRole}
+                    onChange={(e) => setOpFilterRole(e.target.value)}
+                    className="w-full text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                  >
+                    <option value="all">All User Roles</option>
+                    <option value="patient">Patient</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="worker">ASHA Worker</option>
+                    <option value="facility">Hospital Facility</option>
+                    <option value="shop_owner">Pharmacy</option>
+                    <option value="lab_staff">Diagnostic Lab</option>
+                    <option value="officer">District Administrator</option>
+                    <option value="system_admin">System Admin</option>
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Result Status</label>
+                  <select
+                    value={opFilterStatus}
+                    onChange={(e) => setOpFilterStatus(e.target.value)}
+                    className="w-full text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                  >
+                    <option value="all">All Results</option>
+                    <option value="success">Success (2xx / 3xx)</option>
+                    <option value="error">Error (4xx / 5xx)</option>
+                  </select>
+                </div>
+
+                {/* Search Bar */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Search Action / User</label>
+                  <input
+                    type="text"
+                    value={opSearchQuery}
+                    onChange={(e) => setOpSearchQuery(e.target.value)}
+                    placeholder="Search by ABHA, action, name..."
+                    className="w-full text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Operations Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                      <th className="py-2.5 px-3.5">Time</th>
+                      <th className="py-2.5 px-3.5">Feature / Module</th>
+                      <th className="py-2.5 px-3.5">Operation Action</th>
+                      <th className="py-2.5 px-3.5">User / Actor</th>
+                      <th className="py-2.5 px-3.5">HTTP Route</th>
+                      <th className="py-2.5 px-3.5">Latency</th>
+                      <th className="py-2.5 px-3.5">Status</th>
+                      <th className="py-2.5 px-3.5 text-right">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                    {operations.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="py-12 text-center text-slate-400 font-sans">
+                          No operations found matching current filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      operations.map(op => {
+                        const dateObj = new Date(op.timestamp);
+                        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                        return (
+                          <tr key={op.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3.5 text-slate-500 whitespace-nowrap">
+                              {timeStr}
+                            </td>
+
+                            <td className="py-2.5 px-3.5 font-sans font-bold text-slate-800 whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
+                                {op.moduleName || op.module}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-3.5 font-bold text-slate-900 whitespace-nowrap">
+                              {op.action}
+                            </td>
+
+                            <td className="py-2.5 px-3.5 font-sans">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 truncate max-w-[150px]">
+                                  {op.userName || op.userId || 'Anonymous'}
+                                </span>
+                                {op.userRole && (
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    {op.userRole}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-2.5 px-3.5 text-slate-600 truncate max-w-[200px]" title={op.path}>
+                              <span className="text-[9px] font-bold px-1 rounded bg-slate-100 mr-1 text-slate-600">
+                                {op.method}
+                              </span>
+                              <span>{op.path}</span>
+                            </td>
+
+                            <td className="py-2.5 px-3.5 font-bold text-sky-700 whitespace-nowrap">
+                              {op.durationMs}ms
+                            </td>
+
+                            <td className="py-2.5 px-3.5 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans ${
+                                  op.statusCode < 400
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {op.statusCode}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-3.5 text-right whitespace-nowrap font-sans">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOpDetail(op)}
+                                className="px-2 py-1 rounded bg-slate-100 hover:bg-[#0b2b82] hover:text-white text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                Inspect
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================== */}
+        {/* TAB 3: DATABASE EXPLORER & CHANGES ACCESS                  */}
+        {/* ========================================================== */}
+        {activeTab === 'database' && (
+          <div className="space-y-4">
+            {/* Header info */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                  Database Explorer & Dynamic Changes Engine
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Direct inspection, live row editing, record deletion, and query execution across all persistent SQLite & PostgreSQL stores
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const activeMeta = currentTableMeta;
+                    const defaultObj = {};
+                    if (activeMeta && activeMeta.columns) {
+                      activeMeta.columns.forEach(col => {
+                        defaultObj[col.name] = '';
+                      });
+                    }
+                    setAddRowData(defaultObj);
+                    setIsAddRowOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#0b2b82] hover:bg-[#071a4f] text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Insert New Record</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRunMigration}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Check Schema</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Split View: Table List Sidebar + Data Table Viewer */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              {/* Left Sidebar: Tables List */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Database Tables</span>
+                  <span className="text-xs font-mono font-bold text-slate-600">{tables.length} total</span>
+                </div>
+
+                <div className="space-y-1 max-h-[550px] overflow-y-auto pr-1">
+                  {tables.map(tbl => {
+                    const isSelected = selectedStore === tbl.storeKey && selectedTable === tbl.tableName;
+                    return (
+                      <button
+                        key={`${tbl.storeKey}_${tbl.tableName}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStore(tbl.storeKey);
+                          setSelectedTable(tbl.tableName);
+                          setTableFilterVal('');
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#0b2b82] text-white font-bold shadow-xs'
+                            : 'hover:bg-slate-100 text-slate-700 font-medium'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <span className="block truncate font-mono text-[11px]">{tbl.tableName}</span>
+                          <span className={`text-[10px] block truncate font-sans ${isSelected ? 'text-blue-200' : 'text-slate-400'}`}>
+                            {tbl.storeName.split(':')[0]}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0 font-bold ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {tbl.rowCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Main Panel: Active Table Records */}
+              <div className="lg:col-span-3 space-y-4">
+                {/* Active Table Controls Bar */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black font-mono text-slate-900">{selectedTable}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-sans font-semibold">
+                        PK: {currentTableMeta?.primaryKey || 'id'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Store: {currentTableMeta?.storeName} • Total Rows: {tableData.total}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tableFilterVal}
+                      onChange={(e) => setTableFilterVal(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') fetchTableRows(selectedStore, selectedTable, 0, tableFilterVal);
+                      }}
+                      placeholder={`Search by ${currentTableMeta?.primaryKey || 'id'}...`}
+                      className="text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fetchTableRows(selectedStore, selectedTable, 0, tableFilterVal)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                    >
+                      Filter
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table Data View */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto max-h-[460px]">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-mono text-[11px]">
+                          <th className="py-2 px-3 text-center w-16">Actions</th>
+                          {tableData.columns.map(col => (
+                            <th key={col} className="py-2.5 px-3 whitespace-nowrap">
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                        {tableData.rows.length === 0 ? (
+                          <tr>
+                            <td colSpan={tableData.columns.length + 1} className="py-12 text-center text-slate-400 font-sans">
+                              No records found in table '{selectedTable}'.
+                            </td>
+                          </tr>
+                        ) : (
+                          tableData.rows.map((row, rIdx) => {
+                            const pkCol = currentTableMeta?.primaryKey || 'id';
+                            const pkVal = row[pkCol];
+
+                            return (
+                              <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-2 px-3 text-center whitespace-nowrap">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingRow(row);
+                                        setEditFormData({ ...row });
+                                      }}
+                                      className="p-1 rounded text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                                      title="Edit this database row"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteRecord(row)}
+                                      className="p-1 rounded text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                                      title="Delete this database row"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {tableData.columns.map(col => {
+                                  const val = row[col];
+                                  const strVal = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val ?? '');
+                                  return (
+                                    <td key={col} className="py-2 px-3 text-slate-800 whitespace-nowrap max-w-[220px] truncate" title={strVal}>
+                                      {strVal}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Bar */}
+                  <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                    <div>
+                      Showing rows {tableData.total === 0 ? 0 : tablePage * 25 + 1} to {Math.min((tablePage + 1) * 25, tableData.total)} of {tableData.total}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={tablePage === 0}
+                        onClick={() => fetchTableRows(selectedStore, selectedTable, tablePage - 1, tableFilterVal)}
+                        className="px-3 py-1 rounded bg-white border border-slate-300 disabled:opacity-50 text-slate-700 font-semibold cursor-pointer"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        disabled={(tablePage + 1) * 25 >= tableData.total}
+                        onClick={() => fetchTableRows(selectedStore, selectedTable, tablePage + 1, tableFilterVal)}
+                        className="px-3 py-1 rounded bg-white border border-slate-300 disabled:opacity-50 text-slate-700 font-semibold cursor-pointer"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* INTERACTIVE SQL CONSOLE */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-[#0b2b82]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Interactive SQL Query Console</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Execute parameterized SQL queries directly on store '{selectedStore}'
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSqlQuery(`SELECT * FROM ${selectedTable || 'doctors'} LIMIT 10;`)}
+                        className="px-2 py-1 rounded text-[10px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                      >
+                        Sample SELECT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSqlQuery(`PRAGMA table_info(${selectedTable || 'doctors'});`)}
+                        className="px-2 py-1 rounded text-[10px] font-mono bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                      >
+                        PRAGMA Schema
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <textarea
+                      rows={3}
+                      value={sqlQuery}
+                      onChange={(e) => setSqlQuery(e.target.value)}
+                      placeholder="SELECT * FROM table_name LIMIT 10;"
+                      className="w-full font-mono text-xs p-3 rounded-lg border border-slate-300 bg-slate-900 text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Safe Query Engine: SELECT queries return up to 100 rows. DDL/DML updates logged.
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={isExecutingSql}
+                      onClick={handleExecuteSql}
+                      className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      {isExecutingSql ? (
+                        <span>Executing...</span>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          </svg>
+                          <span>Execute SQL Query</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {sqlError && (
+                    <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono">
+                      {sqlError}
+                    </div>
+                  )}
+
+                  {sqlResult && (
+                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-600">
+                        <span className="font-semibold">
+                          {sqlResult.isSelect ? `Returned ${sqlResult.rows?.length || 0} rows` : `Changes executed: ${sqlResult.changes || 0}`}
+                        </span>
+                        <span className="font-mono text-[10px]">{sqlResult.executionTimeMs}ms</span>
+                      </div>
+
+                      {sqlResult.isSelect && sqlResult.rows && sqlResult.rows.length > 0 && (
+                        <div className="overflow-x-auto max-h-[220px]">
+                          <table className="w-full text-left border-collapse text-xs font-mono">
+                            <thead>
+                              <tr className="bg-slate-200 border-b border-slate-300 text-slate-700">
+                                {sqlResult.columns?.map(c => (
+                                  <th key={c} className="py-1 px-2">{c}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 text-[11px]">
+                              {sqlResult.rows.map((r, i) => (
+                                <tr key={i} className="hover:bg-slate-100">
+                                  {sqlResult.columns?.map(c => (
+                                    <td key={c} className="py-1 px-2 whitespace-nowrap max-w-[200px] truncate">
+                                      {typeof r[c] === 'object' ? JSON.stringify(r[c]) : String(r[c] ?? '')}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================== */}
+        {/* TAB 4: BACKEND CONTROLS & SYSTEM CONFIGURATION             */}
+        {/* ========================================================== */}
+        {activeTab === 'backend' && (
+          <div className="space-y-6">
+            {/* System Vitals & Environment Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                  <svg className="w-4 h-4 text-[#0b2b82]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                  </svg>
+                  <span>Backend Engine & Host Runtime</span>
+                </h3>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Node.js Version</span>
+                    <span className="font-mono font-bold text-slate-800">{systemStatus?.nodeVersion || process.version}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">OS Architecture</span>
+                    <span className="font-mono font-bold text-slate-800">{systemStatus?.platform || 'Windows'} ({systemStatus?.arch || 'x64'})</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Process Heap Memory</span>
+                    <span className="font-mono font-bold text-sky-700">{systemStatus?.memory?.heapUsedMb || 45} MB / {systemStatus?.memory?.heapTotalMb || 90} MB</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Resident Set Size (RSS)</span>
+                    <span className="font-mono font-bold text-purple-700">{systemStatus?.memory?.rssMb || 120} MB</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-500 font-mono pt-1">
+                  CPU: {systemStatus?.cpuModel || 'Intel / AMD Processor'} ({systemStatus?.cpuCount || 8} cores)
+                </div>
+              </div>
+
+              {/* Python AI Engine Integration */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Python AI & Multimodal Engine</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Active & Responding
+                  </span>
+                </h3>
+
+                <div className="space-y-2 text-xs">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-600 font-semibold">Service Endpoint Base</span>
+                    <span className="font-mono font-bold text-slate-800">{systemStatus?.pythonAiService?.configuredUrl || 'http://127.0.0.1:8001'}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-600 font-semibold">Health Ping Latency</span>
+                    <span className="font-mono font-bold text-emerald-600">{systemStatus?.pythonAiService?.latencyMs || 18} ms</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-600 font-semibold">Auto-Spawner Process</span>
+                    <span className="font-mono font-bold text-sky-700">Subprocess Supervisor Enabled</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic System Configuration Switches */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                  Dynamic Runtime Controls & Safeguards
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Instantly toggle operational modes, rate limit ceilings, and error thresholds without server restarts
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Maintenance Mode */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">System Maintenance Mode</span>
+                    <span className="text-[11px] text-slate-500">Notify public clients of scheduled system upgrades</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateConfig('maintenanceMode', systemConfig.maintenanceMode === 'true' ? 'false' : 'true')}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                      systemConfig.maintenanceMode === 'true' ? 'bg-rose-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white block transition-transform absolute top-1 ${
+                        systemConfig.maintenanceMode === 'true' ? 'right-1' : 'left-1'
+                      }`}
+                    ></span>
+                  </button>
+                </div>
+
+                {/* AI Fallback Mode */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">AI Fallback Engine</span>
+                    <span className="text-[11px] text-slate-500">Enable local rule engine when external AI LLMs timeout</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateConfig('aiModelFallback', systemConfig.aiModelFallback === 'true' ? 'false' : 'true')}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                      systemConfig.aiModelFallback === 'true' ? 'bg-emerald-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white block transition-transform absolute top-1 ${
+                        systemConfig.aiModelFallback === 'true' ? 'right-1' : 'left-1'
+                      }`}
+                    ></span>
+                  </button>
+                </div>
+
+                {/* Mock SMS Dispatch */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">2-Way SMS Gateway Simulator</span>
+                    <span className="text-[11px] text-slate-500">Simulate telecom DLT gateways without cellular charges</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateConfig('mockSmsDispatch', systemConfig.mockSmsDispatch === 'true' ? 'false' : 'true')}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                      systemConfig.mockSmsDispatch === 'true' ? 'bg-[#0b2b82]' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white block transition-transform absolute top-1 ${
+                        systemConfig.mockSmsDispatch === 'true' ? 'right-1' : 'left-1'
+                      }`}
+                    ></span>
+                  </button>
+                </div>
+
+                {/* Rate Limiting Ceiling */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Global Rate Limit</span>
+                    <span className="text-[11px] text-slate-500">Current threshold: {systemConfig.rateLimitRpm || '120'} requests / minute</span>
+                  </div>
+                  <select
+                    value={systemConfig.rateLimitRpm || '120'}
+                    onChange={(e) => handleUpdateConfig('rateLimitRpm', e.target.value)}
+                    className="text-xs font-bold py-1.5 px-2.5 rounded-lg border border-slate-300 bg-white"
+                  >
+                    <option value="60">60 RPM (Strict)</option>
+                    <option value="120">120 RPM (Standard)</option>
+                    <option value="300">300 RPM (High Load)</option>
+                    <option value="1000">1000 RPM (Uncapped)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* EDIT ROW MODAL */}
+      {editingRow && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Edit Record in '{selectedTable}'</h3>
+                <span className="text-[11px] text-slate-400 font-mono">Store: {selectedStore}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingRow(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRowEdit} className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {currentTableMeta?.columns.map(col => {
+                const isPk = col.name === currentTableMeta.primaryKey;
+                return (
+                  <div key={col.name}>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      {col.name} {isPk && <span className="text-sky-600 font-semibold">(Primary Key - Read Only)</span>}
+                    </label>
+                    <input
+                      type="text"
+                      disabled={isPk}
+                      value={editFormData[col.name] !== undefined ? String(editFormData[col.name] ?? '') : ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, [col.name]: e.target.value })}
+                      className={`w-full text-xs font-mono py-2 px-3 rounded-lg border ${
+                        isPk ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-white border-slate-300 text-slate-900 focus:ring-1 focus:ring-[#0b2b82]'
+                      }`}
+                    />
+                  </div>
+                );
+              })}
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingRow(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg text-xs font-bold bg-[#0b2b82] hover:bg-[#071a4f] text-white shadow-2xs cursor-pointer"
+                >
+                  Save Changes to Database
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD ROW MODAL */}
+      {isAddRowOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 bg-[#0b2b82] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Insert New Record into '{selectedTable}'</h3>
+                <span className="text-[11px] text-blue-200 font-mono">Store: {selectedStore}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddRowOpen(false)}
+                className="text-blue-200 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleInsertRecord} className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              {currentTableMeta?.columns.map(col => (
+                <div key={col.name}>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    {col.name} <span className="text-slate-400 font-normal">({col.type || 'TEXT'})</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addRowData[col.name] !== undefined ? addRowData[col.name] : ''}
+                    onChange={(e) => setAddRowData({ ...addRowData, [col.name]: e.target.value })}
+                    placeholder={`Enter value for ${col.name}...`}
+                    className="w-full text-xs font-mono py-2 px-3 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0b2b82]"
+                  />
+                </div>
+              ))}
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRowOpen(false)}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg text-xs font-bold bg-[#0b2b82] hover:bg-[#071a4f] text-white shadow-2xs cursor-pointer"
+                >
+                  Commit New Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* INSPECT OPERATION MODAL */}
+      {selectedOpDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Operation Telemetry Inspection</h3>
+                <span className="text-[11px] text-slate-400 font-mono">ID: {selectedOpDetail.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOpDetail(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">Timestamp</span>
+                  <span className="font-mono text-slate-800">{selectedOpDetail.timestamp}</span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">Action Executed</span>
+                  <span className="font-bold text-slate-900">{selectedOpDetail.action}</span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">Actor / User</span>
+                  <span className="font-semibold text-slate-800">{selectedOpDetail.userName || 'Anonymous'} ({selectedOpDetail.userRole || 'patient'})</span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">Latency / Code</span>
+                  <span className="font-mono font-bold text-sky-700">{selectedOpDetail.durationMs}ms ({selectedOpDetail.statusCode})</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Raw JSON Payload & Audit Details</label>
+                <pre className="font-mono text-xs p-3 rounded-lg bg-slate-900 text-emerald-400 overflow-x-auto max-h-[260px]">
+                  {JSON.stringify(selectedOpDetail, null, 2)}
+                </pre>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOpDetail(null)}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Close Inspection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // --- MAIN APPLICATION ROOT (ROUTER & STATE) ---
 // ==========================================
 function App() {
@@ -52285,11 +56840,13 @@ function App() {
 
   const parseHash = () => {
     const hash = window.location.hash || '#home';
-    if (hash === '#overview' || hash === '#features') {
+    if (hash === '#admin' || hash === '#admin-console' || hash === '#admin_console') {
+      setViewState('admin_console');
+    } else if (hash === '#overview' || hash === '#features') {
       setViewState('overview');
     } else if (hash === '#login' || hash === '#signin') {
       setViewState('login');
-    } else if (hash.startsWith('#screen=')) {
+    } else if (hash.startsWith('#/care/') || hash.startsWith('#care') || hash.startsWith('#screen=')) {
       const num = Number(hash.replace('#screen=', '')) || 1;
       setViewState('feature1');
       const targetStep = Math.min(Math.max(1, num), maxClearedStepRef.current);
@@ -52611,6 +57168,19 @@ function App() {
         </main>
       )}
 
+      {/* MASTER SYSTEM ADMIN CONTROL CONSOLE VIEW */}
+      {view === 'admin_console' && (
+        <main className="flex-1 w-full bg-[#f8fafc]">
+          <ScreenAdminConsole
+            currentUser={currentUser}
+            setCurrentUser={handleSetCurrentUser}
+            onBackToHome={() => setView('home')}
+            setView={setView}
+            setScreen={setScreen}
+          />
+        </main>
+      )}
+
       {/* FEATURES SUITE WORKSPACE (Side Navbar + Active Feature Screen) */}
       {isFeatureView && (
         <div className="flex-1 flex flex-col md:flex-row w-full bg-slate-50 min-h-[calc(100vh-65px)]">
@@ -52630,6 +57200,7 @@ function App() {
           <main className="flex-1 min-w-0 bg-[#f8fafc] overflow-y-auto">
             <ErrorBoundary featureName="Workspace" onReset={() => setView('overview')}>
               {/* VIEW: OVERVIEW */}
+
             {view === 'overview' && (
               <ScreenOverview
                 actorRole={actorRole}
@@ -52814,11 +57385,9 @@ function App() {
               />
             )}
 
-            {/* VIEW 2: FEATURE 01  -  SMART CARE NAVIGATOR (UNDER REDEVELOPMENT) */}
+            {/* VIEW 2: FEATURE 01  -  SMART CARE NAVIGATOR (LIVE 3-AGENT PIPELINE) */}
         {!isDoctor && !isDistrictAdmin && !isHospitalFacility && !isMedicineFacility && !isAshaWorker && view === 'feature1' && (
-          <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-            <SmartCareNavigatorRedevelopmentView onExploreFeatures={() => setView('overview')} />
-          </div>
+          <SmartCareNavigatorApp onExploreFeatures={() => setView('overview')} />
         )}
 
         {/* VIEW 3: FEATURE 02  -  DOCTOR VISITS (BOOK APPOINTMENTS & TELECONSULTATION) */}

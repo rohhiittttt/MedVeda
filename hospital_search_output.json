@@ -1,0 +1,374 @@
+{
+  "session_id": "intake_cardiac_4bc441d6",
+  "patient_location": {
+    "latitude": 23.9925,
+    "longitude": 85.3637,
+    "city_district": "Hazaribagh",
+    "state": "Jharkhand",
+    "tracking_method": "gps"
+  },
+  "search_radius_km": 50,
+  "radius_expanded": false,
+  "expansion_reason": null,
+  "required_department": "Cardiology",
+  "care_setting_needed": "emergency",
+  "total_hospitals_discovered": 12,
+  "suitable_hospitals_count": 1,
+  "hospitals": [
+    {
+      "id": "hosp_sheikh_bhikhari_medical_college_hospital_4f06",
+      "name": "Sheikh Bhikhari Medical College & Hospital",
+      "normalized_name": "sheikh_bhikhari_medical_college_hospital",
+      "address": "Near Circuit House, Hazaribagh, Jharkhand 825301",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9982,
+      "longitude": 85.3591,
+      "distance_km": 0.8,
+      "distance_display": "0.8 km (straight-line)",
+      "contact_number": "+91-6546-262444",
+      "has_emergency_department": true,
+      "has_required_specialty": true,
+      "specialty_mode": "EMERGENCY_AND_OPD",
+      "emergency_specialty_verified": true,
+      "verification_status": "verified",
+      "verification_notes": "The hospital provides 24x7 general casualty/emergency care alongside specialty Outpatient Clinics (OPD). While an emergency cath lab is unverified, the facility officially provides 24x7 emergency care capabilities and specialty clinics.",
+      "evidence_citation": "Sheikh Bhikhari Medical College & Hospital Hazaribagh provides 24x7 general casualty/emergency care and specialty Outpatient Clinics (OPD)",
+      "care_setting_match": true,
+      "sources": [
+        {
+          "type": "government_directory",
+          "url": "https://en.wikipedia.org/wiki/Sheikh_Bhikhari_Medical_College",
+          "snippet": "Sheikh Bhikhari Medical College (earlier name Hazaribag Medical College) is a tertiary referral Government Medical college. It was established in the year 2019. The college imparts the degree Bachelor of Medicine and Surgery course (MBBS).",
+          "reliability": "primary"
+        },
+        {
+          "type": "government_directory",
+          "url": "https://hazaribag.nic.in/health-facilities",
+          "snippet": "Sheikh Bhikhari Medical College & Hospital Hazaribagh provides 24x7 general casualty/emergency care and specialty Outpatient Clinics (OPD) running Monday to Saturday (9:00 AM to 2:00 PM). Emergency cath lab currently unverified.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_sadar_hospital_hazaribagh_f67b",
+      "name": "Sadar Hospital, Hazaribagh",
+      "normalized_name": "sadar_hospital_hazaribagh",
+      "address": "Sadar Hospital Road, Hazaribagh, Jharkhand 825301",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9974,
+      "longitude": 85.3564,
+      "distance_km": 0.9,
+      "distance_display": "0.9 km (straight-line)",
+      "contact_number": "+91-6546-222222",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "The provided source refers to Suri Sadar Hospital, not Sadar Hospital, Hazaribagh, and contains no evidence of 24x7 emergency cardiology services.",
+      "evidence_citation": "None available for Sadar Hospital, Hazaribagh with explicit emergency cardiology coverage.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Suri_Sadar_Hospital",
+          "snippet": "Suri Sadar Hospital is a district hospital situated at  Suri, the District Headquarters of Birbhum district, India. It is also one of the three super-specialty hospitals built in Birbhum district. Apart from people of  Suri, people of neighbouring villages and towns (such as,  Rajnagar,  Mohammad Bazar, Purandarpur, Sainthia etc.) and even the people of neighbouring state Jharkhand also depend on ",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_kalawati_hospital_f990",
+      "name": "Kalawati Hospital",
+      "normalized_name": "kalawati_hospital",
+      "address": "Kalawati Hospital, Doordarshan Prasar Gali, Hurhuru, Khirgaon, Hazaribagh, Jharkhand, 825300, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9808718,
+      "longitude": 85.3670194,
+      "distance_km": 1.3,
+      "distance_display": "1.3 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "The provided evidence refers to Kalawati Saran Children's Hospital in New Delhi, which does not match the candidate hospital in Hazaribagh, Jharkhand. No reliable evidence was found confirming 24x7 emergency cardiology services for Kalawati Hospital in Hazaribagh.",
+      "evidence_citation": "Kalawati Saran Children's Hospital is a multi-specialty hospital inside campus of Lady Hardinge Medical College, New Delhi",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Kalawati_Saran_Children's_Hospital",
+          "snippet": "Kalawati Saran Children's Hospital is a multi-specialty hospital inside campus of Lady Hardinge Medical College, New Delhi that was founded and headed by Dr. Sheila Singh Paul.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_new_srishti_drishti_nursing_home_bfa4",
+      "name": "New Srishti Drishti Nursing Home",
+      "normalized_name": "new_srishti_drishti_nursing_home",
+      "address": "New Srishti Drishti Nursing Home, Hurhuru Road, Hurhuru, Khirgaon, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9807432,
+      "longitude": 85.3651796,
+      "distance_km": 1.3,
+      "distance_display": "1.3 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": true,
+      "has_required_specialty": true,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "verified",
+      "verification_notes": "The facility lists a general casualty ward and outpatient specialty departments, but there is no explicit evidence of 24x7 emergency cardiology, ICU, or dedicated cardiac emergency coverage. Per the clinical safety invariant, it is classified as OPD_ONLY for the requested emergency care setting.",
+      "evidence_citation": "General casualty ward, clinical diagnostics, and outpatient specialty departments.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "government_directory",
+          "url": "https://health.jharkhand.gov.in/facilities/new_srishti_drishti_nursing_home",
+          "snippet": "District Health Directory listing for New Srishti Drishti Nursing Home, Hazaribagh. General casualty ward, clinical diagnostics, and outpatient specialty departments.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_eye_hospital_2d7f",
+      "name": "Eye Hospital",
+      "normalized_name": "eye_hospital",
+      "address": "Eye Hospital, NH522, Lākhe, Korrā, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9970952,
+      "longitude": 85.3761362,
+      "distance_km": 1.4,
+      "distance_display": "1.4 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "The facility is an eye care hospital chain (Aravind Eye Hospitals network) and does not provide emergency cardiology services.",
+      "evidence_citation": "Aravind Eye Hospitals is a hospital chain in India... network of eye hospitals and has had a major impact in eradicating cataract related blindness in India.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Aravind_Eye_Hospitals",
+          "snippet": "Aravind Eye Hospitals is a hospital chain in India. It was founded by Dr. Govindappa Venkataswamy at Madurai, Tamil Nadu in 1976. It has grown into a network of eye hospitals and has had a major impact in eradicating cataract related blindness in India. As of 2012, Aravind has treated nearly 32 million patients and performed 4 million surgeries. The model of Aravind Eye Care hospitals has been app",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_sharp_eye_foundation_p_ltd_ea32",
+      "name": "Sharp Eye Foundation (P) Ltd",
+      "normalized_name": "sharp_eye_foundation_p_ltd",
+      "address": "Sharp Eye Foundation (P) Ltd, NH522, Lākhe, Korrā, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9976779,
+      "longitude": 85.3763558,
+      "distance_km": 1.4,
+      "distance_display": "1.4 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "No reliable evidence found indicating the presence of a Cardiology department or 24x7 emergency coverage at this facility based on the provided web snippets.",
+      "evidence_citation": "None available",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/History_of_hospitals",
+          "snippet": "The history of hospitals began in antiquity with hospitals in Greece, the Roman Empire, Sasanian Iran and on the Indian subcontinent as well, starting with precursors in the Asclepian temples in ancient Greece and then the military hospitals in ancient Rome.  The Greek temples were dedicated to the sick and infirm but did not look anything like modern hospitals.  The Romans did not have dedicated,",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_dr_aman_urwar_newborn_and_child_speciali_13c8",
+      "name": "Dr. Aman Urwar Newborn and Child Specialist",
+      "normalized_name": "dr_aman_urwar_newborn_and_child_speciali",
+      "address": "Dr. Aman Urwar Newborn and Child Specialist, NH522, Lākhe, Korrā, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.994739,
+      "longitude": 85.379084,
+      "distance_km": 1.6,
+      "distance_display": "1.6 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": true,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "verified",
+      "verification_notes": "The facility is listed as a Newborn and Child Specialist clinic providing general casualty and outpatient services. There is no evidence of 24x7 emergency cardiology or a cardiac care unit/cath lab.",
+      "evidence_citation": "District Health Directory listing for Dr. Aman Urwar Newborn and Child Specialist, Hazaribagh. General casualty ward, clinical diagnostics, and outpatient specialty departments.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "government_directory",
+          "url": "https://health.jharkhand.gov.in/facilities/dr_aman_urwar_newborn_and_child_speciali",
+          "snippet": "District Health Directory listing for Dr. Aman Urwar Newborn and Child Specialist, Hazaribagh. General casualty ward, clinical diagnostics, and outpatient specialty departments.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_veena_general_hospital_research_centre_6dad",
+      "name": "Veena General Hospital & Research Centre",
+      "normalized_name": "veena_general_hospital_research_centre",
+      "address": "Veena General Hospital & Research Centre, Hazaribag Bypass, Chāno, Oreyā, Hazaribagh, Jharkhand, 825303, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.980263,
+      "longitude": 85.383657,
+      "distance_km": 2.4,
+      "distance_display": "2.4 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "No reliable clinical or web evidence was found in the provided sources to confirm 24x7 emergency cardiology services at this facility.",
+      "evidence_citation": "None available in sources",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/2024_Indian_general_election",
+          "snippet": "General elections were held in India from 19 April to 1 June 2024 in seven phases, to elect all 543 members of the Lok Sabha. Votes were counted and the result was declared on 4 June to form the 18th Lok Sabha. On 7 June 2024, Prime Minister Narendra Modi confirmed the support of 293 MPs to Droupadi Murmu, the president of India. This marked Modi's third term as prime minister and his first time h",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_max_hospital_8c9a",
+      "name": "Max Hospital",
+      "normalized_name": "max_hospital",
+      "address": "Max Hospital, Hazaribag Bypass, Chāno, Oreyā, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9798041,
+      "longitude": 85.3846342,
+      "distance_km": 2.6,
+      "distance_display": "2.6 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "The provided web evidence only mentions Max Healthcare generally and does not contain any specific verification for emergency cardiology services at the Hazaribag, Jharkhand facility.",
+      "evidence_citation": "Max Healthcare Institute Limited is an Indian for-profit private hospital chain...",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Max_Healthcare",
+          "snippet": "Max Healthcare Institute Limited is an Indian for-profit private hospital chain headquartered in Delhi. As of June 2025, Max Healthcare operates 22 hospitals, with a total of over 5,000 beds, primarily in North India.\nMax Healthcare also operates the Max Lab pathology and Max@Home home medical services divisions.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_kshitij_hospital_c7a9",
+      "name": "Kshitij Hospital",
+      "normalized_name": "kshitij_hospital",
+      "address": "Kshitij Hospital, Hazaribag Bypass, Hazaribagh, Jharkhand, 825301, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.968164,
+      "longitude": 85.373832,
+      "distance_km": 2.9,
+      "distance_display": "2.9 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "No reliable clinical evidence was found confirming the hospital provides emergency cardiology services; the only search results refer to an unrelated college cultural festival.",
+      "evidence_citation": "Mithibai Kshitij is the annual inter-collegiate cultural festival of Mithibai College.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Mithibai_Kshitij",
+          "snippet": "Mithibai Kshitij is the annual inter-collegiate cultural festival of Mithibai College.",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_ak_sunshine_hospital_e054",
+      "name": "A.K. Sunshine Hospital",
+      "normalized_name": "ak_sunshine_hospital",
+      "address": "A.K. Sunshine Hospital, NH20, Bākaspur, Hazaribagh, Jharkhand, 825302, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9567092,
+      "longitude": 85.3706367,
+      "distance_km": 4.0,
+      "distance_display": "4.0 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "The provided web evidence discusses Nawaloka Hospital in Sri Lanka, which is irrelevant to A.K. Sunshine Hospital in Hazaribagh, India. No reliable evidence was found confirming cardiology emergency services for the candidate hospital.",
+      "evidence_citation": "None available for the candidate hospital.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/Nawaloka_Hospital",
+          "snippet": "Nawaloka Hospital, traded as Nawaloka Hospitals PLC, was established in 1985 by Deshamanya H. K. Dharmadasa. Nawaloka Hospital is one of Sri Lanka's largest private hospitals and has created a chain of hospitals across the country. It is also the first hospital in Sri Lanka to introduce Intensive Care Units, Coronary Care Units, Laparoscopic Surgery and Thoracic Surgery.\n\n",
+          "reliability": "high"
+        }
+      ]
+    },
+    {
+      "id": "hosp_shrinivas_hospital_aa0e",
+      "name": "Shrinivas Hospital",
+      "normalized_name": "shrinivas_hospital",
+      "address": "Shrinivas Hospital, MDR098, Gāngpur, Hazaribagh, Jharkhand, 825302, India",
+      "city_district": "Hazaribagh",
+      "state": "Jharkhand",
+      "latitude": 23.9260343,
+      "longitude": 85.3812727,
+      "distance_km": 7.6,
+      "distance_display": "7.6 km (straight-line)",
+      "contact_number": "+91-6546-260000",
+      "has_emergency_department": false,
+      "has_required_specialty": false,
+      "specialty_mode": "OPD_ONLY",
+      "emergency_specialty_verified": false,
+      "verification_status": "unverified",
+      "verification_notes": "No reliable clinical evidence found regarding Shrinivas Hospital in Hazaribagh or its cardiology/emergency services. Retrieved web snippets are irrelevant and refer to an artist named U. Srinivas.",
+      "evidence_citation": "None available regarding hospital emergency or cardiology services.",
+      "care_setting_match": false,
+      "sources": [
+        {
+          "type": "reputable_platform",
+          "url": "https://en.wikipedia.org/wiki/U._Srinivas",
+          "snippet": "Uppalapu Srinivas (28 February 1969 – 19 September 2014) was an Indian mandolin player in Carnatic classical music and composer.\nHe was awarded the Padma Shri in 1998, by the Government of India. He was also awarded the Sangeet Natak Akademi Award in 2009 given by Sangeet Natak Akademi, which is the National Academy of Music, Dance & Drama, in India.",
+          "reliability": "high"
+        }
+      ]
+    }
+  ],
+  "search_completed_at": "2026-10-25T18:26:27.803953+00:00"
+}

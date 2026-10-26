@@ -57,6 +57,37 @@ app.add_middleware(
 )
 
 # -------------------------------------------------------------
+# Smart Care Navigator — Symptom Intake Engine Router
+# -------------------------------------------------------------
+try:
+    from symptom_intake_engine import router as symptom_intake_router
+    app.include_router(symptom_intake_router)
+    print("[Unified Service] Mounted Smart Care Navigator Symptom Intake Router under /api/v1/intake")
+except Exception as e:
+    print(f"[Warning] Failed to mount symptom_intake_router: {e}")
+
+# -------------------------------------------------------------
+# Smart Care Navigator — Hospital Search & Verification Router
+# -------------------------------------------------------------
+try:
+    from hospital_search_engine import router as hospital_search_router
+    app.include_router(hospital_search_router)
+    print("[Unified Service] Mounted Smart Care Navigator Hospital Search Router under /api/v1/hospitals")
+except Exception as e:
+    print(f"[Warning] Failed to mount hospital_search_router: {e}")
+
+# -------------------------------------------------------------
+# Smart Care Navigator — Facility Recommendation & Ranking Router
+# -------------------------------------------------------------
+try:
+    from recommendation_engine import router as recommendation_router
+    app.include_router(recommendation_router)
+    print("[Unified Service] Mounted Smart Care Navigator Recommendation Router under /api/v1/recommendations")
+except Exception as e:
+    print(f"[Warning] Failed to mount recommendation_router: {e}")
+
+
+# -------------------------------------------------------------
 # In-Memory Seed Records (Longitudinal Patient EHR Data)
 # -------------------------------------------------------------
 MOCK_PATIENTS_EHR = {
