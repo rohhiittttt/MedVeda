@@ -1892,7 +1892,336 @@ function ModuleIcon({ id, className = "w-4 h-4", strokeWidth = 2 }) {
   }
 }
 
-function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser, onRequestLogout }) {
+
+// ============================================================================
+// MEDVEDA STRICT MULTILINGUAL SUPPORT (HINDI & ENGLISH) ENGINE
+// ============================================================================
+const MEDVEDA_TRANSLATIONS = {
+  // Navigation & Core Actions
+  'Home': 'होम',
+  'Features': 'सुविधाएं',
+  'About Us': 'हमारे बारे में',
+  'Log In': 'लॉग इन',
+  'Sign Up': 'साइन अप',
+  'Log Out': 'लॉग आउट',
+  'Admin Login': 'एडमिन लॉगिन',
+  'Admin Console': 'एडमिन कंसोल',
+  '⚡ Admin Console': '⚡ एडमिन कंसोल',
+  'Doctor View': 'डॉक्टर दृश्य',
+  'Patient View': 'मरीज़ दृश्य',
+  'Switch to Doctor View': 'डॉक्टर दृश्य पर जाएं',
+  'Switch to Patient View': 'मरीज़ दृश्य पर जाएं',
+  'Platform Features & Workspaces': 'प्लेटफ़ॉर्म सुविधाएं और कार्यक्षेत्र',
+  'Available': 'उपलब्ध',
+  'Making quality healthcare accessible': 'गुणवत्तापूर्ण स्वास्थ्य सेवा को सुलभ बनाना',
+  'Making Quality Healthcare Accessible': 'गुणवत्तापूर्ण स्वास्थ्य सेवा को सुलभ बनाना',
+
+  // Modules & Features
+  'Module 00': 'मॉड्यूल 00',
+  'Module 01': 'मॉड्यूल 01',
+  'Module 02': 'मॉड्यूल 02',
+  'Module 03': 'मॉड्यूल 03',
+  'Module 04': 'मॉड्यूल 04',
+  'Module 05': 'मॉड्यूल 05',
+  'Module 06': 'मॉड्यूल 06',
+  'Module 07': 'मॉड्यूल 07',
+  'Module 08': 'मॉड्यूल 08',
+  'Module 09': 'मॉड्यूल 09',
+  'Module 10': 'मॉड्यूल 10',
+  'Admin Engine': 'एडमिन इंजन',
+  'Master Admin Control Center': 'मास्टर एडमिन नियंत्रण केंद्र',
+
+  'Care Navigator': 'केयर नेविगेटर',
+  'Smart Care Navigator': 'स्मार्ट केयर नेविगेटर',
+  'Autonomous symptom triage & emergency facility matching': 'स्वायत्त लक्षण ट्राइएज और आपातकालीन सुविधा मिलान',
+  'Answer a few questions and get routed to the right level of care: self-care, teleconsult, or in-person in seconds.': 'कुछ सवालों के जवाब दें और कुछ ही सेकंड में सही स्तर की देखभाल प्राप्त करें: स्व-देखभाल, टेलीकंसल्ट या व्यक्तिगत परामर्श।',
+  'Launch Triage': 'ट्राइएज शुरू करें',
+  'Autonomous Triage': 'स्वायत्त ट्राइएज',
+
+  'Teleconsult & Queue': 'टेलीकंसल्ट और कतार',
+  'Teleconsultation Desk': 'टेलीकंसल्टेशन डेस्क',
+  'Teleconsultation': 'टेलीकंसल्टेशन',
+  'Assisted Teleconsultation': 'सहायता प्राप्त टेलीकंसल्टेशन',
+  'Multi-specialty doctor roster & priority booking': 'बहु-विशेषज्ञ डॉक्टर रोस्टर और प्राथमिकता बुकिंग',
+  'Book Appointments (OPD Ops)': 'अपॉइंटमेंट बुकिंग (ओपीडी)',
+
+  'Smart Referrals': 'स्मार्ट रेफरल',
+  'Closed-loop digital referral passes & facility network': 'क्लोज्ड-लूप डिजिटल रेफरल पास और सुविधा नेटवर्क',
+  'Referral Management (Doctor View)': 'रेफरल प्रबंधन (डॉक्टर दृश्य)',
+
+  'High-Risk Follow-Ups': 'उच्च जोखिम फॉलो-अप',
+  'Longitudinal ASHA field tracking & escalation': 'दीर्घकालिक आशा फील्ड ट्रैकिंग और एस्केलेशन',
+  'High-Risk Follow-Ups (Doctor View)': 'उच्च जोखिम फॉलो-अप (डॉक्टर दृश्य)',
+
+  'Health Records (ABDM)': 'स्वास्थ्य रिकॉर्ड (ABDM)',
+  'Health Records (Doctor View Only)': 'स्वास्थ्य रिकॉर्ड (केवल डॉक्टर दृश्य)',
+  'Interoperable FHIR health records & emergency override': 'इंटरऑपरेबल FHIR स्वास्थ्य रिकॉर्ड और आपातकालीन ओवरराइड',
+  'Health Records': 'स्वास्थ्य रिकॉर्ड',
+
+  'Medicine & Diagnostic Lab': 'दवा और निदान प्रयोगशाला',
+  'Medicine Search & Shop': 'दवा खोज और दुकान',
+  'Diagnostic Lab & Orders': 'निदान प्रयोगशाला और ऑर्डर',
+  'Pharmacy inventory reservations & diagnostic tracking': 'फार्मेसी इन्वेंटरी आरक्षण और नैदानिक ट्रैकिंग',
+
+  'Hospital Services': 'अस्पताल सेवाएं',
+  'Facility Dashboard': 'सुविधा डैशबोर्ड',
+  'Live hospital performance, care quality index, bed capacity & department availability': 'लाइव अस्पताल प्रदर्शन, देखभाल गुणवत्ता सूचकांक, बिस्तर क्षमता और विभाग उपलब्धता',
+
+  'Govt Health Schemes': 'सरकारी स्वास्थ्य योजनाएं',
+  'Govt Health Schemes (Admin View)': 'सरकारी स्वास्थ्य योजनाएं (एडमिन दृश्य)',
+  'RAG scheme discovery, deterministic rules engine & gap-filling': 'RAG योजना खोज, नियतात्मक नियम इंजन और अंतर-पूर्ति',
+
+  'District Command Center': 'जिला कमांड सेंटर',
+  'Pan-India surveillance, shortage forecasts & outbreak warnings': 'अखिल भारतीय निगरानी, कमी का पूर्वानुमान और प्रकोप की चेतावनी',
+
+  'MediBot': 'मेडीबॉट',
+  'Autonomous action agent: booking, facility search, dosage reminders & voice': 'स्वायत्त एक्शन एजेंट: बुकिंग, सुविधा खोज, खुराक अनुस्मारक और आवाज',
+
+  // Overview Labels
+  'Platform Overview': 'प्लेटफ़ॉर्म अवलोकन',
+  'Patient Overview': 'रोगी अवलोकन',
+  'Doctor Clinical Overview': 'डॉक्टर क्लिनिकल अवलोकन',
+  'Hospital Overview': 'अस्पताल अवलोकन',
+  'Pharmacy Overview': 'फार्मेसी अवलोकन',
+  'Diagnostic Lab Overview': 'निदान प्रयोगशाला अवलोकन',
+  'ASHA Worker Overview': 'आशा कार्यकर्ता अवलोकन',
+  'District Health Administrator Overview': 'जिला स्वास्थ्य प्रशासक अवलोकन',
+
+  // Roles & Modes
+  'Frontline ASHA/ANM Mode': 'आशा/एएनएम कार्यकर्ता मोड',
+  'Self-Service Patient Mode': 'मरीज़ मोड',
+  'Clinical Specialist Mode': 'क्लिनिकल विशेषज्ञ मोड',
+  'Medical Shop Mode': 'दवा दुकान मोड',
+  'Diagnostic Laboratory Mode': 'निदान प्रयोगशाला मोड',
+  'Facility Administrator Mode': 'सुविधा प्रशासक मोड',
+  'District Health Administrator Mode': 'जिला स्वास्थ्य प्रशासक मोड',
+  'Patient': 'मरीज़',
+  'Doctor': 'डॉक्टर',
+  'Clinician': 'चिकित्सक',
+  'ASHA Worker': 'आशा कार्यकर्ता',
+  'District Administrator': 'जिला प्रशासक',
+  'Facility': 'सुविधा',
+  'Pharmacy': 'फार्मेसी',
+  'Diagnostic Center': 'निदान केंद्र',
+  'System Administrator': 'सिस्टम प्रशासक',
+
+  // Homepage Sections & Buttons
+  'Autonomous Cognitive Health Network': 'स्वायत्त संज्ञानात्मक स्वास्थ्य नेटवर्क',
+  'Bridging the Gap in Rural Healthcare': 'ग्रामीण स्वास्थ्य सेवा में अंतर को पाटना',
+  'Instant AI Triage, Verified Teleconsultations & Smart Referrals': 'त्वरित एआई ट्राइएज, सत्यापित टेलीकंसल्टेशन और स्मार्ट रेफरल',
+  'Our Platform': 'हमारा प्लेटफ़ॉर्म',
+  'Transforming Indian Healthcare': 'भारतीय स्वास्थ्य सेवा का कायाकल्प',
+  'Healthcare Impact': 'स्वास्थ्य सेवा प्रभाव',
+  'Real Lives Touched Across Jharkhand & Beyond': 'झारखंड और उसके बाहर जीवन पर सकारात्मक प्रभाव',
+  'Patients Served': 'मरीजों को सेवा दी गई',
+  'Doctors Connected': 'डॉक्टर जुड़े',
+  'Facilities Connected': 'सुविधाएं जुड़ीं',
+  'Average Rating': 'औसत रेटिंग',
+  'What Our Users Say': 'हमारे उपयोगकर्ताओं की राय',
+  'Testimonials': 'प्रशंसापत्र',
+  'Emergency Care Available 24x7': '24x7 आपातकालीन देखभाल उपलब्ध',
+  'Call 108 Emergency Ambulance': '108 आपातकालीन एम्बुलेंस को कॉल करें',
+  'Call 104 Health Helpline': '104 स्वास्थ्य हेल्पलाइन पर कॉल करें',
+  'Book Teleconsultation': 'टेलीकंसल्टेशन बुक करें',
+  'Explore Care Navigator': 'केयर नेविगेटर देखें',
+  'Find Nearest Hospital': 'निकटतम अस्पताल खोजें',
+  'Symptom Checker': 'लक्षण जांचकर्ता',
+  'Book OPD Token': 'ओपीडी टोकन बुक करें',
+  'Download Prescription': 'प्रिस्क्रिप्शन डाउनलोड करें',
+  'View Health Records': 'स्वास्थ्य रिकॉर्ड देखें',
+  'Start Health Check': 'स्वास्थ्य जांच शुरू करें',
+  'Book Appointment': 'अपॉइंटमेंट बुक करें',
+  'Explore Features': 'सुविधाओं का अन्वेषण करें',
+  'Learn More': 'और जानें',
+  'Quick Actions': 'त्वरित क्रियाएं',
+
+  // Common UI Actions & Labels
+  'Search': 'खोजें',
+  'Search for medicines, doctors, facilities...': 'दवाएं, डॉक्टर, सुविधाएं खोजें...',
+  'Filter': 'फ़िल्टर',
+  'Submit': 'जमा करें',
+  'Cancel': 'रद्द करें',
+  'Close': 'बंद करें',
+  'Confirm': 'पुष्टि करें',
+  'Save': 'सहेजें',
+  'Next': 'आगे बढ़ें',
+  'Previous': 'पिछला',
+  'Back': 'पीछे',
+  'Return to Home': 'होम पर वापस जाएं',
+  'Back to Home': 'होम पर वापस जाएं',
+  'Return to Platform Overview': 'प्लेटफ़ॉर्म अवलोकन पर वापस जाएं',
+  'Continue': 'जारी रखें',
+  'Loading...': 'लोड हो रहा है...',
+  'Please wait...': 'कृपया प्रतीक्षा करें...',
+  'Success': 'सफलता',
+  'Error': 'त्रुटि',
+  'Warning': 'चेतावनी',
+  'Status': 'स्थिति',
+  'Active': 'सक्रिय',
+  'Inactive': 'निष्क्रिय',
+  'Verified': 'सत्यापित',
+  'Pending': 'लंबित',
+  'Completed': 'पूर्ण',
+  'In Review': 'समीक्षाधीन',
+  'Critical': 'गंभीर',
+  'Normal': 'सामान्य',
+  'High': 'उच्च',
+  'Low': 'निम्न',
+  'Distance': 'दूरी',
+  'Contact': 'संपर्क',
+  'Address': 'पता',
+  'Hours': 'कार्य समय',
+  'Date': 'दिनांक',
+  'Time': 'समय',
+  'Age': 'आयु',
+  'Gender': 'लिंग',
+  'Male': 'पुरुष',
+  'Female': 'महिला',
+  'Other': 'अन्य',
+  'Phone Number': 'फ़ोन नंबर',
+  'Location': 'स्थान',
+  'Blood Group': 'रक्त समूह',
+  'Hospital Name': 'अस्पताल का नाम',
+  'Doctor Name': 'डॉक्टर का नाम',
+  'Patient Name': 'मरीज़ का नाम',
+  'Emergency': 'आपातकालीन',
+  'Prescription': 'प्रिस्क्रिप्शन',
+  'Symptoms': 'लक्षण',
+  'Diagnosis': 'निदान',
+  'Medicines': 'दवाएं',
+  'Settings': 'सेटिंग्स',
+  'Profile': 'प्रोफ़ाइल',
+  'Notifications': 'सूचनाएं',
+  'Help': 'सहायता',
+  'Feedback': 'प्रतिक्रिया',
+  'Privacy Policy': 'गोपनीयता नीति',
+  'Terms of Service': 'सेवा की शर्तें',
+  'All rights reserved.': 'सर्वाधिकार सुरक्षित।',
+  'Contact Support': 'सहायता से संपर्क करें',
+  'Help Center': 'सहायता केंद्र'
+};
+
+// Sort entries longest first to ensure phrase matching precedence
+const SORTED_MEDVEDA_TRANSLATIONS = Object.entries(MEDVEDA_TRANSLATIONS).sort(
+  (a, b) => b[0].length - a[0].length
+);
+
+function translateMedvedaText(text) {
+  if (!text || typeof text !== 'string') return text;
+  const match = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+  if (!match) return text;
+  const leading = match[1];
+  const core = match[2];
+  const trailing = match[3];
+  if (!core) return text;
+
+  // Direct exact dictionary match
+  if (MEDVEDA_TRANSLATIONS[core]) {
+    return leading + MEDVEDA_TRANSLATIONS[core] + trailing;
+  }
+
+  // Phrase replacement
+  let res = core;
+  for (let i = 0; i < SORTED_MEDVEDA_TRANSLATIONS.length; i++) {
+    const enPhrase = SORTED_MEDVEDA_TRANSLATIONS[i][0];
+    const hiPhrase = SORTED_MEDVEDA_TRANSLATIONS[i][1];
+    if (res.includes(enPhrase)) {
+      res = res.split(enPhrase).join(hiPhrase);
+    }
+  }
+  return leading + res + trailing;
+}
+
+// Global live DOM bilingual translator engine
+if (typeof window !== 'undefined') {
+  window.__medvedaCurrentLang = localStorage.getItem('medveda_site_lang') || 'en';
+
+  window.__walkAndTranslateNodes = function (rootNode, targetLang) {
+    if (!rootNode) return;
+    const walker = document.createTreeWalker(
+      rootNode,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function (node) {
+          if (!node || !node.nodeValue) return NodeFilter.FILTER_REJECT;
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName;
+          if (
+            ['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'PRE', 'CODE', 'NOSCRIPT'].includes(tag) ||
+            parent.closest('.notranslate') ||
+            parent.closest('svg')
+          ) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      },
+      false
+    );
+
+    let currentNode;
+    while ((currentNode = walker.nextNode())) {
+      if (currentNode._medvedaOrigText === undefined) {
+        currentNode._medvedaOrigText = currentNode.nodeValue;
+      }
+      if (targetLang === 'hi') {
+        const translated = translateMedvedaText(currentNode._medvedaOrigText);
+        if (currentNode.nodeValue !== translated) {
+          currentNode.nodeValue = translated;
+        }
+      } else {
+        if (currentNode._medvedaOrigText && currentNode.nodeValue !== currentNode._medvedaOrigText) {
+          currentNode.nodeValue = currentNode._medvedaOrigText;
+        }
+      }
+    }
+  };
+
+  window.__setMedvedaSiteLanguage = function (newLang) {
+    const lang = newLang === 'hi' ? 'hi' : 'en';
+    window.__medvedaCurrentLang = lang;
+    try {
+      localStorage.setItem('medveda_site_lang', lang);
+    } catch (e) {}
+    if (document.documentElement) {
+      document.documentElement.lang = lang;
+    }
+    if (document.body) {
+      window.__walkAndTranslateNodes(document.body, lang);
+    }
+    window.dispatchEvent(new CustomEvent('medvedaLanguageChanged', { detail: { lang } }));
+  };
+
+  // Observe dynamically mounted elements and screens
+  let domObserverTimeout = null;
+  const medvedaObserver = new MutationObserver(function (mutations) {
+    if (window.__medvedaCurrentLang !== 'hi') return;
+    if (domObserverTimeout) clearTimeout(domObserverTimeout);
+    domObserverTimeout = setTimeout(function () {
+      if (window.__medvedaCurrentLang === 'hi' && document.body) {
+        window.__walkAndTranslateNodes(document.body, 'hi');
+      }
+    }, 40);
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      medvedaObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+      if (window.__medvedaCurrentLang === 'hi') {
+        window.__setMedvedaSiteLanguage('hi');
+      }
+    });
+  } else if (document.body) {
+    medvedaObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    if (window.__medvedaCurrentLang === 'hi') {
+      window.__setMedvedaSiteLanguage('hi');
+    }
+  }
+}
+
+function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep = 1, actorRole, setActorRole, currentUser: propCurrentUser, setCurrentUser: propSetCurrentUser, onRequestLogout, siteLanguage, onLanguageChange }) {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [featuresPinned, setFeaturesPinned] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -1903,6 +2232,9 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
   const currentUser = propCurrentUser !== undefined ? propCurrentUser : localUser;
   const setCurrentUser = propSetCurrentUser || setLocalUser;
   const featuresRef = useRef(null);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef(null);
+  const currentSiteLang = siteLanguage || (typeof window !== 'undefined' ? (window.__medvedaCurrentLang || localStorage.getItem('medveda_site_lang') || 'en') : 'en');
 
   const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
 
@@ -1930,11 +2262,15 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
         setFeaturesOpen(false);
         setFeaturesPinned(false);
       }
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setLangDropdownOpen(false);
+      }
     }
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setFeaturesOpen(false);
         setFeaturesPinned(false);
+        setLangDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -2458,6 +2794,73 @@ function Header({ currentView, setView, currentScreen, setScreen, maxClearedStep
 
         {/* Right Controls: Unified Administrative Authentication & Profile Bar */}
         <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
+          {/* Strictly Hindi and English Language Selector Dropdown */}
+          <div className="relative" ref={langDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-md transition-colors border border-slate-300 cursor-pointer shadow-2xs select-none active:scale-95 touch-manipulation"
+              title="Change Site Language / भाषा चुनें"
+              aria-label="Language Selector"
+              aria-expanded={langDropdownOpen}
+            >
+              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span>{currentSiteLang === 'hi' ? 'हिन्दी' : 'English'}</span>
+              <svg className={`w-3 h-3 text-slate-400 transition-transform ${langDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {langDropdownOpen && (
+              <div className="absolute right-0 mt-1.5 w-36 bg-white rounded-lg border border-slate-200 shadow-lg py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onLanguageChange) onLanguageChange('en');
+                    else if (typeof window !== 'undefined' && window.__setMedvedaSiteLanguage) window.__setMedvedaSiteLanguage('en');
+                    setLangDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    currentSiteLang === 'en'
+                      ? 'bg-blue-50 text-[#0b2b82] font-bold'
+                      : 'text-slate-700 hover:bg-slate-50 font-medium'
+                  }`}
+                >
+                  <span>English</span>
+                  {currentSiteLang === 'en' && (
+                    <svg className="w-3.5 h-3.5 text-[#0b2b82]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onLanguageChange) onLanguageChange('hi');
+                    else if (typeof window !== 'undefined' && window.__setMedvedaSiteLanguage) window.__setMedvedaSiteLanguage('hi');
+                    setLangDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    currentSiteLang === 'hi'
+                      ? 'bg-blue-50 text-[#0b2b82] font-bold'
+                      : 'text-slate-700 hover:bg-slate-50 font-medium'
+                  }`}
+                >
+                  <span>हिन्दी (Hindi)</span>
+                  {currentSiteLang === 'hi' && (
+                    <svg className="w-3.5 h-3.5 text-[#0b2b82]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
           {currentUser ? (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1">
               <div className="w-6 h-6 rounded bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
@@ -56673,6 +57076,31 @@ function ScreenAdminConsole({ currentUser, setCurrentUser, onBackToHome, setView
 // --- MAIN APPLICATION ROOT (ROUTER & STATE) ---
 // ==========================================
 function App() {
+  const [siteLanguage, setSiteLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('medveda_site_lang') || 'en';
+    } catch (e) {
+      return 'en';
+    }
+  });
+
+  const handleLanguageChange = (newLang) => {
+    const lang = (newLang === 'hi' ? 'hi' : 'en');
+    setSiteLanguage(lang);
+    try {
+      localStorage.setItem('medveda_site_lang', lang);
+    } catch (e) {}
+    if (typeof window !== 'undefined' && window.__setMedvedaSiteLanguage) {
+      window.__setMedvedaSiteLanguage(lang);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.__setMedvedaSiteLanguage) {
+      window.__setMedvedaSiteLanguage(siteLanguage);
+    }
+  }, [siteLanguage]);
+
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('medveda_auth_user');
@@ -57058,6 +57486,8 @@ function App() {
         currentUser={currentUser}
         setCurrentUser={handleSetCurrentUser}
         onRequestLogout={() => setShowLogoutConfirm(true)}
+        siteLanguage={siteLanguage}
+        onLanguageChange={handleLanguageChange}
       />
 
       {/* HOMEPAGE VIEW */}
