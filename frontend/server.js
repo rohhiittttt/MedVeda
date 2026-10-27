@@ -325,6 +325,126 @@ async function readJsonBody(req) {
   });
 }
 
+// ==========================================
+// --- MULTILINGUAL TRANSLATION SERVICE ---
+// ==========================================
+const translationCache = new Map();
+
+function initTranslationCache() {
+  const hiCachePath = path.resolve(__dirname, 'translations_hi.json');
+  if (fs.existsSync(hiCachePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(hiCachePath, 'utf8'));
+      for (const [k, v] of Object.entries(data)) {
+        translationCache.set(`hi::${k}`, v);
+      }
+      console.log(`[Translation Service] Preloaded ${Object.keys(data).length} Hindi translations.`);
+    } catch (e) {}
+  }
+  const regCachePath = path.resolve(__dirname, 'translations_regional.json');
+  if (fs.existsSync(regCachePath)) {
+    try {
+      const regData = JSON.parse(fs.readFileSync(regCachePath, 'utf8'));
+      for (const [lang, map] of Object.entries(regData)) {
+        for (const [k, v] of Object.entries(map)) {
+          translationCache.set(`${lang}::${k}`, v);
+        }
+      }
+    } catch (e) {}
+  }
+}
+initTranslationCache();
+
+async function translateTextsBatch(items, targetLang, sourceLang = 'en') {
+  if (!items || !items.length) return {};
+  if (targetLang === 'en' || targetLang === sourceLang) {
+    const identical = {};
+    for (const t of items) identical[t] = t;
+    return identical;
+  }
+
+  const results = {};
+  const toFetch = [];
+
+  for (const item of items) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed || !/[a-zA-Z]/.test(trimmed)) {
+      results[item] = item;
+      continue;
+    }
+
+    const cacheKey = `${targetLang}::${trimmed}`;
+    if (translationCache.has(cacheKey)) {
+      results[item] = translationCache.get(cacheKey);
+    } else {
+      toFetch.push(trimmed);
+    }
+  }
+
+  if (toFetch.length === 0) {
+    return results;
+  }
+
+  const uniqueToFetch = Array.from(new Set(toFetch));
+  const BATCH_SIZE = 30;
+
+  for (let i = 0; i < uniqueToFetch.length; i += BATCH_SIZE) {
+    const chunk = uniqueToFetch.slice(i, i + BATCH_SIZE);
+    const sep = '\n<<<>>>\n';
+    const joined = chunk.join(sep);
+
+    let batchSucceeded = false;
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(joined)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        const fullText = (data && data[0]) ? data[0].map(s => s[0]).join('') : '';
+        const parts = fullText.split(/<<<\s*>>>/);
+        if (parts.length === chunk.length) {
+          chunk.forEach((t, idx) => {
+            const translated = parts[idx].trim();
+            translationCache.set(`${targetLang}::${t}`, translated);
+            results[t] = translated;
+          });
+          batchSucceeded = true;
+        }
+      }
+    } catch (err) {
+      // fallback to individual
+    }
+
+    if (!batchSucceeded) {
+      await Promise.allSettled(chunk.map(async (t) => {
+        try {
+          const u = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(t)}`;
+          const r = await fetch(u, { signal: AbortSignal.timeout(3500) });
+          if (r.ok) {
+            const d = await r.json();
+            const v = (d && d[0]) ? d[0].map(s => s[0]).join('').trim() : t;
+            translationCache.set(`${targetLang}::${t}`, v);
+            results[t] = v;
+          } else {
+            results[t] = t;
+          }
+        } catch (e) {
+          results[t] = t;
+        }
+      }));
+    }
+  }
+
+  for (const item of items) {
+    const trimmed = item.trim();
+    if (results[item] === undefined && results[trimmed] !== undefined) {
+      results[item] = results[trimmed];
+    }
+  }
+
+  return results;
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
@@ -376,6 +496,40 @@ const server = http.createServer(async (req, res) => {
       });
     }
   });
+
+  // --- MULTILINGUAL TRANSLATION API ROUTE (/api/translate) ---
+  if (reqPath === '/api/translate' && (req.method === 'POST' || req.method === 'GET')) {
+    try {
+      let texts = [];
+      let targetLang = 'hi';
+      let sourceLang = 'en';
+
+      if (req.method === 'GET') {
+        const textParam = urlObj.searchParams.get('text');
+        targetLang = urlObj.searchParams.get('to') || urlObj.searchParams.get('targetLang') || 'hi';
+        sourceLang = urlObj.searchParams.get('from') || urlObj.searchParams.get('sourceLang') || 'en';
+        if (textParam) texts = [textParam];
+      } else {
+        const body = await readJsonBody(req);
+        texts = Array.isArray(body.texts) ? body.texts : (body.text ? [body.text] : []);
+        targetLang = body.targetLang || body.to || 'hi';
+        sourceLang = body.sourceLang || body.from || 'en';
+      }
+
+      const translations = await translateTextsBatch(texts, targetLang, sourceLang);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400'
+      });
+      res.end(JSON.stringify({ success: true, targetLang, translations }));
+      return;
+    } catch (err) {
+      console.error('[Translation API Error]:', err);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, translations: {} }));
+      return;
+    }
+  }
 
   // --- QR WALK-IN DEEP LINK VERIFICATION & REDIRECT (/q/:signedPayload) ---
   if (reqPath.startsWith('/q/') && req.method === 'GET') {
