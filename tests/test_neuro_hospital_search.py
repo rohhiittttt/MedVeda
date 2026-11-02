@@ -18,8 +18,9 @@ if sys.stdout.encoding.lower() != "utf-8":
     except Exception:
         pass
 
-# Add python_service to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent / "python_service"))
+# Add python_service to sys.path (supports running from repo root or tests/ directory)
+_repo_root = Path(__file__).resolve().parent.parent if Path(__file__).resolve().parent.name == "tests" else Path(__file__).resolve().parent
+sys.path.insert(0, str(_repo_root / "python_service"))
 
 from hospital_search_engine import (
     hospital_engine,

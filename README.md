@@ -371,7 +371,7 @@ npx tsx frontend/server.js
 | :--- | :--- | :--- |
 | **`Execution of scripts is disabled on this system` (PowerShell)** | Windows PowerShell script execution policy | Run via Command Prompt: `cmd /c "npm start"`, or run PowerShell as Administrator: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`. |
 | **`EADDRINUSE: address already in use :::3000` or `:::8001`** | A previous server instance is still occupying the port | Change `PORT` / `PYTHON_PORT` in `.env`, or terminate the orphaned process: `netstat -ano \| findstr :3000` followed by `taskkill /PID <PID> /F`. |
-| **`422 Unprocessable Entity` on Hospital Search** | Intake assessment JSON missing required fields | The backend includes an automated normalization validator. Ensure you click through all intake steps before searching, or re-run `python test_full_e2e_pipeline.py`. |
+| **`422 Unprocessable Entity` on Hospital Search** | Intake assessment JSON missing required fields | The backend includes an automated normalization validator. Ensure you click through all intake steps before searching, or re-run `python tests/test_full_e2e_pipeline.py`. |
 | **`Missing GEMINI_API_KEY` warning** | `.env` file missing or key has leading/trailing quotes | Verify that `.env` is in the project root and formatted as `GEMINI_API_KEY=AIzaSy...` without quotation marks. |
 | **Frontend changes not reflecting in browser** | JSX bundle not rebuilt after editing `app.js` | Run `npm run build` (`node frontend/build.js`) to recompile `frontend/public/app.compiled.js`, then perform a hard refresh in your browser (`Ctrl + Shift + R`). |
 
@@ -407,14 +407,14 @@ All endpoints are accessible directly on port `8001` or through the Node.js reve
 
 ## 🧪 End-to-End Verification & Testing
 
-MedVeda includes an automated test harness (`test_full_e2e_pipeline.py`) that executes the complete 3-Agent clinical journey against a live acute neurological emergency scenario.
+MedVeda includes an automated test harness (`tests/test_full_e2e_pipeline.py`) that executes the complete 3-Agent clinical journey against a live acute neurological emergency scenario.
 
 ### Running the Automated Test
 
 Ensure the server is running on port 3000 (or run via terminal), then execute:
 
 ```bash
-python test_full_e2e_pipeline.py
+python tests/test_full_e2e_pipeline.py
 ```
 
 ### Verified Test Run Output
