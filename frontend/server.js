@@ -1622,7 +1622,15 @@ const server = http.createServer(async (req, res) => {
       if (normPath === '/api/records/chat' && req.method === 'POST') {
         try {
           const body = await readJsonBody(req);
-          const pyRes = await proxyToPython('/api/records/chat', body);
+          const patientId = body.internalMedicalId || 'MV-MED-2026-1024';
+          const liveRecords = recordsStore.getRecordsByMedicalId(patientId);
+          const livePatient = recordsStore.getPatientById(patientId);
+          const enrichedPayload = {
+            ...body,
+            records: liveRecords,
+            patient: livePatient
+          };
+          const pyRes = await proxyToPython('/api/records/chat', enrichedPayload);
           if (pyRes && pyRes.success) {
             res.writeHead(200);
             res.end(JSON.stringify(pyRes));

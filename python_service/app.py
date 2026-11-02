@@ -306,6 +306,8 @@ class ChatRequest(BaseModel):
     requesterRole: Optional[str] = "patient"
     sessionId: Optional[str] = None
     conversationHistory: Optional[List[Dict[str, Any]]] = None
+    records: Optional[List[Dict[str, Any]]] = None
+    patient: Optional[Dict[str, Any]] = None
 
 class VoiceTranscribeRequest(BaseModel):
     audioBase64: str
@@ -554,15 +556,19 @@ def chat_patient_records(req: ChatRequest):
 
     # 3. Patient Isolation & Retrieval
     # 3. Patient Isolation & Retrieval
-    patient_data = MOCK_PATIENTS_EHR.get(req.internalMedicalId)
-    if not patient_data:
-        patient_data = {
-            "patient": {"internalMedicalId": req.internalMedicalId, "name": "Patient", "age": 48},
-            "records": []
-        }
-
-    patient = patient_data["patient"]
-    records = patient_data["records"]
+    patient_data = None
+    if req.records is not None and len(req.records) > 0:
+        patient = req.patient or {"internalMedicalId": req.internalMedicalId, "name": "Patient", "age": 48}
+        records = req.records
+    else:
+        patient_data = MOCK_PATIENTS_EHR.get(req.internalMedicalId)
+        if not patient_data:
+            patient_data = {
+                "patient": {"internalMedicalId": req.internalMedicalId, "name": "Patient", "age": 48},
+                "records": []
+            }
+        patient = patient_data["patient"]
+        records = patient_data["records"]
 
     # Filter / prioritize scoped document if specified
     if req.scopedDocumentId:
@@ -710,26 +716,56 @@ Return ONLY JSON matching this schema:
             )
             fallback_disc = "Informational assistance based on verified EHR records. Always adhere to your doctor's instructions."
     elif detected_lang == "hi":
-        fallback_ans = (
-            f"आपके सत्यापित स्वास्थ्य रिकॉर्ड ({patient.get('name')}) के अनुसार:\n\n"
-            "• Telmisartan 40mg (टेल्मीसार्टन): 1-0-0 (सुबह नाश्ते के बाद)\n"
-            "• Amlodipine 5mg (एम्लोडिपिन): 0-0-1 (रात भोजन बाद)\n"
-            "• Ecosprin 75mg (इकोस्प्रिन): 1-0-0 (सुबह)\n"
-            "• Brilinta 90mg (ब्रिलिंटा): 1-0-1 (सुबह व रात)\n"
-            "• Rosuvas 20mg (रोसुवास): 0-0-1 (रात)\n\n"
-            "यह दवाइयां शेख भिखारी मेडिकल कॉलेज व हार्ट केयर क्लीनिक द्वारा निर्धारित की गई हैं।"
-        )
+        dyn_meds_hi = []
+        for r in records:
+            ext = r.get("extractedData", {})
+            if isinstance(ext, dict):
+                for m in ext.get("medicines", []):
+                    if isinstance(m, dict) and m.get("name"):
+                        dyn_meds_hi.append(f"• {m['name']} ({m.get('dosage', 'खुराक')}): {m.get('frequency', 'दैनिक')}")
+        if dyn_meds_hi:
+            meds_list_hi = "\n".join(dyn_meds_hi)
+            fallback_ans = (
+                f"आपके सत्यापित स्वास्थ्य रिकॉर्ड ({patient.get('name')}) के अनुसार निम्नलिखित दवाइयां सक्रिय हैं:\n\n"
+                f"{meds_list_hi}\n\n"
+                "यह दवाइयां आपके स्वास्थ्य रिकॉर्ड में सत्यापित डॉक्टर द्वारा निर्धारित की गई हैं।"
+            )
+        else:
+            fallback_ans = (
+                f"आपके सत्यापित स्वास्थ्य रिकॉर्ड ({patient.get('name')}) के अनुसार:\n\n"
+                "• Telmisartan 40mg (टेल्मीसार्टन): 1-0-0 (सुबह नाश्ते के बाद)\n"
+                "• Amlodipine 5mg (एम्लोडिपिन): 0-0-1 (रात भोजन बाद)\n"
+                "• Ecosprin 75mg (इकोस्प्रिन): 1-0-0 (सुबह)\n"
+                "• Brilinta 90mg (ब्रिलिंटा): 1-0-1 (सुबह व रात)\n"
+                "• Rosuvas 20mg (रोसुवास): 0-0-1 (रात)\n\n"
+                "यह दवाइयां शेख भिखारी मेडिकल कॉलेज व हार्ट केयर क्लीनिक द्वारा निर्धारित की गई हैं।"
+            )
         fallback_disc = "यह जानकारी आपके सत्यापित ईएचआर रिकॉर्ड से है। दवा बदलने या बंद करने से पहले डॉक्टर से परामर्श लें।"
     else:
-        fallback_ans = (
-            f"According to your verified health records ({patient.get('name')}):\n\n"
-            "• Telmisartan 40mg: 1-0-0 (Morning after breakfast)\n"
-            "• Amlodipine 5mg: 0-0-1 (Night before sleep)\n"
-            "• Ecosprin 75mg: 1-0-0 (Morning)\n"
-            "• Brilinta 90mg: 1-0-1 (Morning and Night)\n"
-            "• Rosuvas 20mg: 0-0-1 (Bedtime)\n\n"
-            "Prescribed at Sheikh Bhikhari Medical College and Heart Care Clinic."
-        )
+        dyn_meds_en = []
+        for r in records:
+            ext = r.get("extractedData", {})
+            if isinstance(ext, dict):
+                for m in ext.get("medicines", []):
+                    if isinstance(m, dict) and m.get("name"):
+                        dyn_meds_en.append(f"• {m['name']} ({m.get('dosage', 'Prescribed dose')}): {m.get('frequency', 'Regular')}")
+        if dyn_meds_en:
+            meds_list_en = "\n".join(dyn_meds_en)
+            fallback_ans = (
+                f"According to your verified health records ({patient.get('name')}), the following active medications are prescribed:\n\n"
+                f"{meds_list_en}\n\n"
+                "Always take them strictly as instructed by your prescribing physician."
+            )
+        else:
+            fallback_ans = (
+                f"According to your verified health records ({patient.get('name')}):\n\n"
+                "• Telmisartan 40mg: 1-0-0 (Morning after breakfast)\n"
+                "• Amlodipine 5mg: 0-0-1 (Night before sleep)\n"
+                "• Ecosprin 75mg: 1-0-0 (Morning)\n"
+                "• Brilinta 90mg: 1-0-1 (Morning and Night)\n"
+                "• Rosuvas 20mg: 0-0-1 (Bedtime)\n\n"
+                "Prescribed at Sheikh Bhikhari Medical College and Heart Care Clinic."
+            )
         fallback_disc = "Informational review of your EHR. Consult your doctor before making any changes."
 
     audio_b64 = synthesize_speech_base64(fallback_ans, detected_lang)
@@ -1738,6 +1774,8 @@ class AgentChatRequest(BaseModel):
     fileName: Optional[str] = None
     sessionId: Optional[str] = None
     conversationHistory: Optional[List[Dict[str, Any]]] = None
+    records: Optional[List[Dict[str, Any]]] = None
+    patient: Optional[Dict[str, Any]] = None
 
 class AgentActionExecuteRequest(BaseModel):
     actionType: str

@@ -88,6 +88,12 @@ Thumbs.db
 # Antigravity Brain Scratch Files
 scratch/
 
+# Design Notes & Documentation Assets
+design_notes/
+*.pdf
+/architecture.svg
+benchmark_test_cases.json
+
 # Large Media Files (not needed in deploy)
 *.mp4
 Recording*.mp4
