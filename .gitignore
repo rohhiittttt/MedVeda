@@ -6,6 +6,7 @@ node_modules/
 # Testing & Coverage
 coverage/
 .nyc_output/
+*_output.json
 
 # Production Builds & Compiled Assets
 dist/
@@ -15,6 +16,7 @@ out/
 *.compiled.js
 app.compiled.js
 frontend/public/app.compiled.js
+*.tsbuildinfo
 
 # SQLite Databases, Redis Dumps & Runtime Cache Files
 *.db
@@ -48,6 +50,12 @@ screen_test.png
 image.png
 patient_portal_verified.png
 verify_doc_entry.png
+capture.cjs
+/card*.png
+/card*.jpg
+/carousel*.png
+/facility-dashboard-art.png
+/snap.png
 
 # Environment Variables & Secrets (CRITICAL: NEVER COMMIT)
 .env

@@ -4,7 +4,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -161,7 +160,7 @@ const proxyToPython = async (subPath, body) => {
   } catch (e) {
     // If Python service crashed or not running locally, auto-revive it!
     if (!process.env.PYTHON_SERVICE_URL || process.env.PYTHON_SERVICE_URL.includes('127.0.0.1')) {
-      ensurePythonServiceRunning().catch(() => {});
+      ensurePythonServiceRunning().catch(() => { });
     }
   }
   return null;
@@ -339,7 +338,7 @@ function initTranslationCache() {
         translationCache.set(`hi::${k}`, v);
       }
       console.log(`[Translation Service] Preloaded ${Object.keys(data).length} Hindi translations.`);
-    } catch (e) {}
+    } catch (e) { }
   }
   const regCachePath = path.resolve(__dirname, 'translations_regional.json');
   if (fs.existsSync(regCachePath)) {
@@ -350,7 +349,7 @@ function initTranslationCache() {
           translationCache.set(`${lang}::${k}`, v);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 initTranslationCache();
@@ -783,8 +782,8 @@ const server = http.createServer(async (req, res) => {
           body = await readJsonBody(req).catch(() => ({}));
         }
         try {
-          const subPath = reqPath.startsWith('/api/v1/intake') 
-            ? reqPath.replace(/^\/api\/v1\/intake/, '') 
+          const subPath = reqPath.startsWith('/api/v1/intake')
+            ? reqPath.replace(/^\/api\/v1\/intake/, '')
             : normPath.replace(/^\/api\/intake/, '');
           const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/intake${subPath}${urlObj.search}`;
           const pyRes = await fetch(targetUrl, {
@@ -812,8 +811,8 @@ const server = http.createServer(async (req, res) => {
           body = await readJsonBody(req).catch(() => ({}));
         }
         try {
-          const subPath = reqPath.startsWith('/api/v1/hospitals') 
-            ? reqPath.replace(/^\/api\/v1\/hospitals/, '') 
+          const subPath = reqPath.startsWith('/api/v1/hospitals')
+            ? reqPath.replace(/^\/api\/v1\/hospitals/, '')
             : normPath.replace(/^\/api\/hospitals/, '');
           const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/hospitals${subPath}${urlObj.search}`;
           const pyRes = await fetch(targetUrl, {
@@ -1020,8 +1019,8 @@ const server = http.createServer(async (req, res) => {
           body = await readJsonBody(req).catch(() => ({}));
         }
         try {
-          const subPath = reqPath.startsWith('/api/v1/recommendations') 
-            ? reqPath.replace(/^\/api\/v1\/recommendations/, '') 
+          const subPath = reqPath.startsWith('/api/v1/recommendations')
+            ? reqPath.replace(/^\/api\/v1\/recommendations/, '')
             : normPath.replace(/^\/api\/recommendations/, '');
           const targetUrl = `${PYTHON_SERVICE_BASE}/api/v1/recommendations${subPath}${urlObj.search}`;
           const pyRes = await fetch(targetUrl, {
